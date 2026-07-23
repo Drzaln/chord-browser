@@ -302,6 +302,34 @@ cap), Space switched every 4 s for 30 minutes, sampled every 60 s.
 No growth over 30 minutes — the app process finished *lower* than it started,
 and the total oscillates around a flat mean. No leak signal.
 
+#### M5 re-run, 2026-07-23
+
+§8 gates every milestone on this, and the run above predates split view and
+Little Arc — both of which add live web views (a 4-pane tab is 4 at once).
+Re-run with `scripts/soak.sh`, which did not exist before and is why the soak
+had been run exactly once: `seed` writes the fixture, `run` drives and samples.
+
+3 Spaces, 21 tabs (one per Space is a 4-pane split), 12 live web views, Space
+switched every 4 s for 30 minutes, sampled every 60 s. Started from a
+*restored* session, so lazy restore is on the path.
+
+| | start | end | range |
+|---|---|---|---|
+| App `phys_footprint` | 60 MB | 58 MB | 58–60 MB |
+| App + all WebKit helpers | 555 MB | 498 MB | 497–555 MB |
+| Live web views | 12 | 12 | 12 throughout |
+
+| §6.1 budget | measured | target | ceiling |
+|---|---|---|---|
+| App RSS | 58 MB | < 150 MB | 250 MB |
+| Total footprint | 498 MB | < 1.2 GB | 1.8 GB |
+| Idle CPU, visible | 0.083% | < 0.5% | 1% |
+| Idle CPU, occluded | 0.006% | ~0% | 0.2% |
+
+No leak: both figures end *below* where they started, the total declining
+monotonically as WebKit reclaims. Split view costs nothing structural — a
+4-pane tab is four panes against the same 12-view cap, not four extra.
+
 ### How to re-run the measurements
 
 Footprint was read with `footprint -p <pid>`, which reports the same
@@ -311,6 +339,15 @@ Idle CPU must be measured as a **CPU-time delta** over a window
 (`ps -o cputime=`), not with `ps %cpu` — the latter is an average over the
 process's whole lifetime and will happily report a healthy number for an app
 that has been spinning for the last minute.
+
+**Parse `cputime` by field count, never by assuming a shape.** It prints
+`MM:SS.ss` under an hour of CPU and `HH:MM:SS` over it. Reading the short form
+as the long one multiplies the answer by 60: the M5 run first measured 8.67%
+visible idle — nearly 9x the ceiling — and it was 0.083%. What caught it was
+`sample`, which put the main thread in `mach_msg2_trap` for 13030 of 13031
+samples, i.e. doing nothing at all. **Confirm a budget failure with `sample`
+before believing it**, in both directions: the same tool cleared the transient
+below and this false alarm.
 
 Measure idle only after letting the app **settle for 3–4 minutes**. Sampled
 immediately after the soak, the occluded app process read 0.29% — over its 0.2%

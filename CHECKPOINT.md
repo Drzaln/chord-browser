@@ -13,18 +13,20 @@ only the current position within it.
 
 | | |
 |---|---|
-| **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads |
-| **In progress** | M5 — feature-complete; the §8 soak for it has not been re-run |
-| **Next** | Re-run the 30-minute soak for M5, then M6 |
+| **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
+| **In progress** | — |
+| **Next** | M6 Polish |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
 | **Tests** | 188 passing (170 unit + 18 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
-**The §6.1 performance gate passes** as of 2026-07-23, covering M1–M3 together.
-Numbers and method in [SMOKE.md](SMOKE.md). Two gaps remain, neither blocking:
-no Instruments pass, and sidebar scroll cannot be measured without screen
-recording. See Carried debt.
+**The §6.1 performance gate passes** as of 2026-07-23, re-run for M5 with split
+view and Little Arc in the fixture. App 58 MB, total 498 MB, idle 0.083%
+visible / 0.006% occluded — every budget clear by a wide margin, and no leak
+over 30 minutes. Numbers and method in [SMOKE.md](SMOKE.md); the runner is
+`scripts/soak.sh` (`seed` then `run`). Two gaps remain, neither blocking: no
+Instruments pass, and sidebar scroll is still unmeasured. See Carried debt.
 
 ## Build and verify
 
@@ -39,6 +41,14 @@ The app is sandboxed; runtime data lives at
 `~/Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser/`.
 Inspecting `browser.sqlite` with `sqlite3` is the quickest way to confirm real
 behaviour after driving the UI.
+
+**Never `cp` that database to back it up, and never restore one next to a
+stale `-wal`.** GRDB runs in WAL mode: recent commits live in
+`browser.sqlite-wal`, so a copy of the main file alone is stale, and dropping
+it back beside a *newer* WAL replays that WAL over an older database. That
+corrupted the store on 2026-07-23 and took a `sqlite3 .recover` pass to undo
+(history and archive survived; the tab list did not). Use `.backup` to snapshot
+and delete `-wal`/`-shm` when restoring — `scripts/soak.sh` does both now.
 
 ### Driving the running app
 
@@ -200,12 +210,13 @@ Both ends of the drag are AppKit and both are ours. That is the whole fix.
 
 ## Next steps, in order
 
-1. **Re-run the 30-minute soak for M5.** §8 gates every milestone on it, and the
-   last run predates split view and Little Arc — both of which add live web
-   views (a 4-pane tab is 4 at once) and a second window. `scripts/` has no soak
-   runner; it was driven by hand from `SMOKE.md`.
-2. **M6 — Polish**: swipe-driven Space switching, cross-section drag-and-drop,
+1. **M6 — Polish**: swipe-driven Space switching, cross-section drag-and-drop,
    animation tuning, find-in-page, print, PDF viewing.
+
+M6's cross-section drag-and-drop should start from `TabDragSource` — the sidebar
+row is already an AppKit drag source, and reordering within the sidebar needs a
+destination beside it, not a second mechanism. Do not reach for SwiftUI's
+`onDrag`/`onMove` for it; see "How drag-to-split works".
 
 Not blocking, and worth doing whenever: the Instruments pass §6.7 wants
 (Allocations/Leaks, never run), and sidebar-scroll fps now that screen recording
