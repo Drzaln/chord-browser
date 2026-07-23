@@ -15,6 +15,16 @@ struct SidebarView: View {
     var isFloating: Bool = false
     var openCommandBar: (CommandBarMode) -> Void = { _ in }
 
+    /// While a tab is being dragged, the row slot the ephemeral list would drop
+    /// it into (4.1). Nil at rest and whenever the pointer is not over the list.
+    @State private var ephemeralDropIndex: Int?
+
+    /// One row plus the `LazyVStack`'s inter-row spacing — the height of a slot
+    /// the drop maps a cursor Y onto.
+    private var rowSlot: CGFloat { Metrics.sidebarRowHeight + 2 }
+
+    private var isDragging: Bool { store.draggingTabID != nil }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -25,31 +35,19 @@ struct SidebarView: View {
 
             // §4.1's sections, in order. The pinned grid is skipped entirely
             // when empty rather than left as a gap — an empty grid in a fresh
-            // Space reads as something failing to load.
+            // Space reads as something failing to load. During a drag an empty
+            // section still shows a drop zone, so the first favourite can be
+            // made by dragging.
             if !store.pinnedTabs.isEmpty {
                 PinnedGrid(store: store)
+                    .overlay { if isDragging { pinnedDropOverlay } }
+            } else if isDragging {
+                firstPinDropZone
             }
 
             newTabButton
 
-            // Lazy so a large tab list does not build every row up front (6.4).
-            ScrollView {
-                LazyVStack(spacing: 2) {
-                    ForEach(store.unpinnedTabs) { tab in
-                        TabRowView(
-                            tab: tab,
-                            isSelected: tab.id == store.selectedTabID,
-                            select: { store.select(tab.id) },
-                            close: { store.closeTab(tab.id) },
-                            beginDrag: { store.beginTabDrag(tab.id) },
-                            endDrag: { store.endTabDrag() }
-                        )
-                        .id(tab.id)  // stable identity, so rows are not rebuilt
-                        .contextMenu { rowMenu(for: tab) }
-                    }
-                }
-                .padding(.horizontal, 8)
-            }
+            ephemeralList
 
             Spacer(minLength: 0)
 
@@ -85,6 +83,98 @@ struct SidebarView: View {
             x: 2
         )
         .padding(isFloating ? Metrics.contentInset : 0)
+    }
+
+    // MARK: - Ephemeral list and drops
+
+    /// The ephemeral tabs, with a drag *destination* laid over them during a
+    /// drag (4.1). The destination reorders within the section, and accepts a
+    /// pinned tab dropped in — which unpins it.
+    private var ephemeralList: some View {
+        // Lazy so a large tab list does not build every row up front (6.4).
+        ScrollView {
+            LazyVStack(spacing: 2) {
+                ForEach(store.unpinnedTabs) { tab in
+                    TabRowView(
+                        tab: tab,
+                        isSelected: tab.id == store.selectedTabID,
+                        select: { store.select(tab.id) },
+                        close: { store.closeTab(tab.id) },
+                        beginDrag: { store.beginTabDrag(tab.id) },
+                        endDrag: { store.endTabDrag() }
+                    )
+                    .id(tab.id)  // stable identity, so rows are not rebuilt
+                    .contextMenu { rowMenu(for: tab) }
+                }
+            }
+            .padding(.horizontal, 8)
+        }
+        .overlay(alignment: .top) {
+            if isDragging {
+                ZStack(alignment: .top) {
+                    insertionIndicator
+                    SidebarDropTarget(
+                        onExit: { ephemeralDropIndex = nil },
+                        onUpdate: { point in
+                            ephemeralDropIndex = insertionIndex(forY: point.y)
+                        },
+                        onDrop: { tabID, point in
+                            store.reorderTab(
+                                tabID, toPinned: false, at: insertionIndex(forY: point.y)
+                            )
+                            ephemeralDropIndex = nil
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    /// A line between rows marking where a drop would land.
+    @ViewBuilder
+    private var insertionIndicator: some View {
+        if let index = ephemeralDropIndex {
+            Capsule()
+                .fill(SpaceTheme.accent(for: store.activeSpace ?? Space.makeDefault()))
+                .frame(height: 2)
+                .padding(.horizontal, 10)
+                .offset(y: CGFloat(index) * rowSlot)
+                .allowsHitTesting(false)
+        }
+    }
+
+    /// Maps a cursor Y (top-left) onto the slot it is nearest the gap of, so a
+    /// drop lands between rows rather than on one.
+    private func insertionIndex(forY y: CGFloat) -> Int {
+        let raw = Int(((y + rowSlot / 2) / rowSlot).rounded(.down))
+        return max(0, min(raw, store.unpinnedTabs.count))
+    }
+
+    /// Dropping onto the favourites grid pins the tab (4.1). Appends rather than
+    /// placing at a grid cell — the grid has no obvious linear slot to aim for,
+    /// and the last position is the predictable one.
+    private var pinnedDropOverlay: some View {
+        SidebarDropTarget(
+            onDrop: { tabID, _ in
+                store.reorderTab(tabID, toPinned: true, at: store.pinnedTabs.count)
+            }
+        )
+    }
+
+    /// Shown in place of the (absent) grid while dragging, so the first
+    /// favourite in a Space can be made by dragging a tab up.
+    private var firstPinDropZone: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .strokeBorder(.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4]))
+            .frame(height: Metrics.pinnedTileHeight)
+            .overlay {
+                Label("Pin to Favourites", systemImage: "pin")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .overlay { pinnedDropOverlay }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
     }
 
     private func gradient(for space: BrowserCore.Space) -> LinearGradient {

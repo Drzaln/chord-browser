@@ -14,10 +14,10 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
-| **In progress** | M6 Polish — sidebar hide/reveal, favourites, find-in-page, command-bar entry points, swipe Space switching done |
-| **Next** | M6's remainder: cross-section drag, animation tuning, print, PDF |
+| **In progress** | M6 Polish — sidebar hide/reveal, favourites, find, command-bar entry points, swipe switching, cross-section drag done |
+| **Next** | M6's remainder: animation tuning, print, PDF |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 212 passing (193 unit + 19 end-to-end) |
+| **Tests** | 217 passing (198 unit + 19 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -341,6 +341,34 @@ the window's left edge brings it back over the page.
   screenshot-verified (blue Space → red Space). The continuous gesture itself
   still wants a hands-on trackpad check.
 
+### Cross-section drag-and-drop (4.1)
+
+- **Destinations beside the source, one mechanism.** The row is already a
+  `TabDragSource` (AppKit, real `NSPasteboardItem` bytes). The sidebar now has
+  `SidebarDropTarget` — a generic AppKit drop view reading the same `.browserTab`
+  payload — laid over three regions, so nothing here reaches for SwiftUI
+  `onDrop`/`onMove` (see "How drag-to-split works").
+- **`reorderTab(_:toPinned:at:)` in Core-adjacent Store logic** does both jobs at
+  once: `pinned == the tab's current section` is a reorder, a change of section
+  pins/unpins it as it moves. It renumbers only the *destination* section densely
+  and leaves the source's orders monotonic-with-a-gap, which `visibleTabs` sorts
+  fine. Unit-tested (`ReorderTests`), including per-Space isolation.
+- **Three drop regions**, all mounted only while `draggingTabID != nil` so they
+  never eat an ordinary click: the ephemeral list (reorder / accept an unpin,
+  with a cursor-Y insertion indicator), the favourites grid (pins, appends), and
+  each Space button (moves Spaces via the existing `moveTab(_:toSpace:)`). When a
+  Space has no favourites yet, a dashed "Pin to Favourites" zone appears during a
+  drag so the first one can be made by dragging.
+- **Pinned tiles are drag sources too** now, so a favourite can be dragged out to
+  unpin, onto a Space, or reordered.
+- **Verified live with `cliclick`** (`dd`/`dm`/`du`, as the divider drag was):
+  drag-to-pin moved a tab from the list into the grid (list 4→3), and
+  drag-onto-Space-2 moved a tab out of the active Space (list 3→2). Reorder
+  *within* a section was not eyeballed — the fixture tabs share a title, so it is
+  invisible on screen — but it is the same drop path and is unit-tested.
+- **Simplification:** a drop onto the grid appends rather than landing on the
+  aimed-at cell; the grid has no obvious linear slot and the end is predictable.
+
 ### The User-Agent
 
 `WKWebView`'s default UA stops at `(KHTML, like Gecko)` — no `Version/` and no
@@ -362,14 +390,7 @@ Two things worth knowing:
 
 ## Next steps, in order
 
-1. **Cross-section drag-and-drop** (4.1) — reorder within a section, drag
-   across sections to change placement, drag onto a Space to move between
-   Spaces. Start from `TabDragSource`: the row is already an AppKit drag
-   source, so this needs a *destination* beside it, not a second mechanism.
-   Do not reach for SwiftUI `onDrag`/`onMove`; see "How drag-to-split works".
-   Dragging a row into the favourites grid should pin it — `setPinned` already
-   exists and the grid already renders from `pinnedTabs`.
-2. **Animation tuning pass** (5). Everything is already named in
+1. **Animation tuning pass** (5). Everything is already named in
    `Motion.swift`; this is a sit-and-look job, and Reduce Motion needs checking
    at the same time — it is currently unverified for the sidebar reveal and the
    swipe release.

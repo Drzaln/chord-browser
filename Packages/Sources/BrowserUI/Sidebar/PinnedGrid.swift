@@ -45,6 +45,18 @@ struct PinnedGrid: View {
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
+        // A drag source, like the ephemeral rows (4.1), so a favourite can be
+        // dragged out to unpin it, onto a Space to move it, or reordered. An
+        // AppKit source rather than `onDrag` — see `TabDragSource`.
+        .overlay {
+            TabDragSource(
+                tabID: tab.id,
+                title: tab.displayTitle,
+                onDragBegan: { store.beginTabDrag(tab.id) },
+                onDragEnded: { store.endTabDrag() },
+                onClick: { store.select(tab.id) }
+            )
+        }
         .overlay(alignment: .bottomTrailing) {
             // Arc marks a favourite whose page has changed since you last
             // looked. Audio is the one "something is happening here" signal

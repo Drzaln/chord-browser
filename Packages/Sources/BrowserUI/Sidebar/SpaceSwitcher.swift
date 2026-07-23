@@ -53,6 +53,7 @@ struct SpaceSwitcher: View {
 
     private func spaceButton(_ space: Space) -> some View {
         let isActive = space.id == store.activeSpace?.id
+        let isDragging = store.draggingTabID != nil
 
         return Button {
             withAnimation(Motion.respectingReduceMotion(
@@ -73,6 +74,16 @@ struct SpaceSwitcher: View {
                 .foregroundStyle(isActive ? .white : .secondary)
         }
         .buttonStyle(.plain)
+        // Dropping a dragged tab onto a Space moves it there (4.1). Mounted only
+        // while a drag is in flight so it never eats an ordinary click on the
+        // Space button.
+        .overlay {
+            if isDragging {
+                SidebarDropTarget(
+                    onDrop: { tabID, _ in store.moveTab(tabID, toSpace: space.id) }
+                )
+            }
+        }
         .help(space.name)
         .accessibilityLabel(space.name)
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
