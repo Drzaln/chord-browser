@@ -1,3 +1,4 @@
+import AppKit
 import BrowserCore
 import BrowserStore
 import SwiftUI
@@ -13,6 +14,7 @@ struct SplitContentView: View {
     /// Widths as they were when the current divider drag began. Applying a
     /// drag's translation to a live baseline compounds it.
     @State private var dragBase: [Double]?
+    @State private var dragEndMonitor: Any?
 
     var body: some View {
         GeometryReader { geometry in
@@ -40,6 +42,26 @@ struct SplitContentView: View {
                 }
             }
         }
+        // A cancelled drag never reaches a drop handler, and a stale flag would
+        // leave the drop layer above the page eating clicks. Mouse-up ends the
+        // drag session whatever the outcome.
+        .onChange(of: store.draggingTabID != nil) { _, isDragging in
+            if isDragging { watchForDragEnd() } else { stopWatchingForDragEnd() }
+        }
+        .onDisappear(perform: stopWatchingForDragEnd)
+    }
+
+    private func watchForDragEnd() {
+        guard dragEndMonitor == nil else { return }
+        dragEndMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { event in
+            store.endTabDrag()
+            return event
+        }
+    }
+
+    private func stopWatchingForDragEnd() {
+        if let dragEndMonitor { NSEvent.removeMonitor(dragEndMonitor) }
+        dragEndMonitor = nil
     }
 
     private func width(of pane: Pane, in total: CGFloat) -> CGFloat {
@@ -50,12 +72,15 @@ struct SplitContentView: View {
     }
 
     private func paneView(_ pane: Pane, width: CGFloat) -> some View {
-        PaneCard(
+        let position = tab.panes.firstIndex { $0.id == pane.id } ?? 0
+        return PaneCard(
             store: store,
             tab: tab,
             pane: pane,
             isFocused: pane.id == tab.focusedPaneID,
-            showsFocusRing: tab.panes.count > 1
+            showsFocusRing: tab.panes.count > 1,
+            isFirst: position == 0,
+            isLast: position == tab.panes.count - 1
         )
         .frame(width: width)
     }
@@ -68,6 +93,8 @@ private struct PaneCard: View {
     let pane: Pane
     let isFocused: Bool
     let showsFocusRing: Bool
+    let isFirst: Bool
+    let isLast: Bool
 
     @State private var isDropTarget = false
 
@@ -108,12 +135,33 @@ private struct PaneCard: View {
                     )
             }
         }
-        .dropDestination(for: DraggedTab.self) { dropped, _ in
-            guard let source = dropped.first else { return false }
-            store.split(tab.id, byMoving: source.tabID)
-            return true
-        } isTargeted: { isDropTarget = $0 }
-        .padding(Metrics.contentInset)
+        .overlay {
+            // Only while a tab is actually in flight. A permanent layer here
+            // would sit above the web view and swallow every click; without a
+            // layer at all, the web view swallows the *drop*, because it
+            // registers for dragged types itself and is above our destination.
+            if store.draggingTabID != nil {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onDrop(of: [.browserTab], isTargeted: $isDropTarget) { providers in
+                        guard let provider = providers.first else { return false }
+                        // Read the payload synchronously on this callback rather
+                        // than sending the provider across an isolation boundary.
+                        DraggedTab.loadTabID(from: provider) { sourceID in
+                            store.endTabDrag()
+                            guard let sourceID else { return }
+                            store.split(tab.id, byMoving: sourceID)
+                        }
+                        return true
+                    }
+            }
+        }
+        // Only the outer edges carry the inset. Insetting the inner edges too
+        // put 8 + divider + 8 points of dead space between panes, which reads
+        // as a very thick divider rather than as breathing room.
+        .padding(.vertical, Metrics.contentInset)
+        .padding(.leading, isFirst ? Metrics.contentInset : 0)
+        .padding(.trailing, isLast ? Metrics.contentInset : 0)
         // Clicking a pane focuses it. `simultaneousGesture` rather than
         // `onTapGesture`, so the click still reaches the web view — otherwise
         // the first click into an unfocused pane would only focus it and the

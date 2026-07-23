@@ -20,6 +20,10 @@ public final class TabStore {
     public internal(set) var activeSpaceID: UUID?
     public var selectedTabID: UUID?
 
+    /// The sidebar tab currently being dragged, if any. Observed: it is what
+    /// puts the content area's drop layer on screen (4.5).
+    public internal(set) var draggingTabID: UUID?
+
     /// Which panes are still waiting on their stored `interactionState`.
     /// Deliberately observed: flipping a pane to `.resolved` is what re-renders
     /// the content view and lets its surface be built.

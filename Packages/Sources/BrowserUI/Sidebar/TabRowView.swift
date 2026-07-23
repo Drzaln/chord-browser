@@ -9,6 +9,7 @@ struct TabRowView: View {
     let isSelected: Bool
     let select: () -> Void
     let close: () -> Void
+    let beginDrag: () -> Void
 
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -40,8 +41,14 @@ struct TabRowView: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: select)
         // Drag a row into the content area to split the tab it lands on (4.5).
-        .draggable(DraggedTab(tabID: tab.id)) {
-            // Drag preview: the row's own title, so it is obvious what is moving.
+        //
+        // `onDrag` rather than `draggable`: its closure runs at drag *start*,
+        // which is the only hook that lets the content area raise a drop layer
+        // above the web view for the duration of the drag.
+        .onDrag {
+            beginDrag()
+            return DraggedTab(tabID: tab.id).itemProvider
+        } preview: {
             Text(tab.displayTitle)
                 .font(.system(size: 12))
                 .padding(6)

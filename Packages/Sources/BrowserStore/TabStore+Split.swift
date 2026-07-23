@@ -40,6 +40,24 @@ extension TabStore {
         scheduleSave()
     }
 
+    // MARK: - Drag session
+
+    /// Called when a sidebar row starts being dragged.
+    ///
+    /// The content area needs to know a tab is in flight: `WKWebView` registers
+    /// for dragged types itself and sits above our drop target, so it swallows
+    /// the drop. The fix is a drop layer that only exists — and only takes hit
+    /// tests — while a drag is actually happening, which is what this flag
+    /// drives. It must be cleared even when the drag is cancelled, or that
+    /// layer would go on eating clicks meant for the page.
+    public func beginTabDrag(_ tabID: UUID) {
+        draggingTabID = tabID
+    }
+
+    public func endTabDrag() {
+        draggingTabID = nil
+    }
+
     /// Drags a sidebar tab into another tab, making a split of it (4.5).
     ///
     /// The dragged tab is *moved*, not copied: it stops being its own row and
