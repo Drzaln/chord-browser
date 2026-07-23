@@ -15,7 +15,7 @@ only the current position within it.
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads |
 | **Next** | M5 — Split view + Little Arc |
-| **Branch** | `m4-restore-downloads` |
+| **Branch** | `main` — single branch, linear history, one commit per milestone |
 | **Tests** | 150 passing (136 unit + 14 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |

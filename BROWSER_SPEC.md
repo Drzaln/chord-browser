@@ -595,7 +595,11 @@ Flag these early rather than discovering them late:
   produce plausible-looking WebKit code that does not compile. This is the single
   most important rule in this document.
 - Keep the project compiling at every commit.
-- One milestone per branch. Small, reviewable commits with real messages.
+- ~~One milestone per branch.~~ Superseded after M4: a single `main` with linear
+  history, one commit per milestone. The per-milestone branches were never
+  reviewed separately or merged — they were just older pointers on one line, and
+  keeping them implied a review flow that does not exist for a solo project.
+  Small, reviewable commits with real messages still stand.
 - No TODO stubs that silently return empty values. If something is unimplemented,
   `fatalError("unimplemented: <what>")` so it is loud.
 - Do not add features, settings, or abstractions that are not in the current
