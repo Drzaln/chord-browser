@@ -155,21 +155,34 @@ Caveats worth keeping honest:
       delta
 - [ ] The resize cursor appears over a divider
 
-### Drag a tab into a split (§4.5) — **not working yet**
+### Drag a tab into a split (§4.5)
+
+Verified 2026-07-23 by driving the real app with `cliclick` and reading the
+result from screenshots and `browser.sqlite` — not from the test suite, which
+cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
+
 - [x] Dragging a sidebar row over the content area highlights the pane it would
       land in
-- [ ] Dropping adds it as a pane, and the dragged row disappears from the
-      sidebar (it is moved, not copied) — **broken: the drag payload arrives as
-      zero bytes.** Diagnosis and next step in CHECKPOINT
-- [ ] Dropping onto a tab that already has 4 panes is refused, and the dragged
-      tab is still in the sidebar afterwards
-- [ ] Dragging a row onto itself does nothing
-- [ ] Clicking an unfocused pane focuses it *and* the click still reaches the
+- [x] Dropping adds it as a pane, and the dragged row disappears from the
+      sidebar (it is moved, not copied)
+- [x] Dropping onto a tab that already has 4 panes is refused, and the dragged
+      tab is still in the sidebar afterwards — confirmed against the database
+      (`4` panes before and after, source tab row still present)
+- [x] Dragging a row onto itself does nothing
+- [x] **A cancelled drag** (released away from a pane) leaves the page
+      clickable — the drop layer is torn down, so a link under the cursor still
+      follows. This is the one that regresses silently: a stale flag leaves an
+      invisible layer over the web view eating every click
+- [x] **Ending a drag does not select the row that was dragged.** Found here,
+      not in tests: the drag source cleared its own flag when the session ended,
+      so the mouse-up that sometimes arrives afterwards read as a plain click
+- [x] Clicking an unfocused pane focuses it *and* the click still reaches the
       page (a link under the cursor should follow)
-- [ ] Splitting four times stops at four panes
-- [ ] `Cmd+Shift+Opt+D` closes the focused pane; down to one converts the tab
+- [x] Splitting four times stops at four panes
+- [x] `Cmd+Shift+Opt+D` closes the focused pane; down to one converts the tab
       back to a normal tab with no divider
-- [ ] Pane widths survive quit and relaunch
+- [x] Pane widths survive quit and relaunch (a 4-pane tab restored equal-width,
+      and lazily — no web view until it was shown)
 
 ### Little Arc (§4.6)
 - [x] A web link from another app opens the floating panel, not a tab

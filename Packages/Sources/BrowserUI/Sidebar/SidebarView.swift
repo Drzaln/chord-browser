@@ -27,7 +27,8 @@ struct SidebarView: View {
                             isSelected: tab.id == store.selectedTabID,
                             select: { store.select(tab.id) },
                             close: { store.closeTab(tab.id) },
-                            beginDrag: { store.beginTabDrag(tab.id) }
+                            beginDrag: { store.beginTabDrag(tab.id) },
+                            endDrag: { store.endTabDrag() }
                         )
                         .id(tab.id)  // stable identity, so rows are not rebuilt
                         .contextMenu { moveMenu(for: tab) }

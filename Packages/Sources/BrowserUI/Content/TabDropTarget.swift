@@ -46,11 +46,10 @@ struct TabDropTarget: NSViewRepresentable {
             operation(for: sender)
         }
 
-        /// Must be an operation the *source* actually offers.
-        ///
-        /// We move the tab, but SwiftUI's `onDrag` advertises the drag as a copy.
-        /// Returning `.move` regardless makes AppKit refuse the drop outright:
-        /// the highlight appears on hover and then nothing happens on release.
+        /// Must be an operation the *source* actually offers. Returning one it
+        /// does not makes AppKit refuse the drop outright: the highlight
+        /// appears on hover and then nothing happens on release. `TabDragSource`
+        /// offers `.move`; the rest is defensive.
         private func operation(for sender: NSDraggingInfo) -> NSDragOperation {
             let offered = sender.draggingSourceOperationMask
             if offered.contains(.move) { return .move }
@@ -73,12 +72,7 @@ struct TabDropTarget: NSViewRepresentable {
             let payload = board.data(forType: .browserTab)
                 ?? board.pasteboardItems?.compactMap { $0.data(forType: .browserTab) }.first
 
-            guard let payload,
-                  let text = String(data: payload, encoding: .utf8),
-                  let tabID = UUID(uuidString: text)
-            else {
-                // Known broken: the payload arrives as *zero bytes*. See
-                // CHECKPOINT, "drag a tab into a split".
+            guard let payload, let tabID = TabDragPayload.tabID(from: payload) else {
                 Self.log.error(
                     "drop payload empty (\(payload?.count ?? -1, privacy: .public) bytes)"
                 )
@@ -89,8 +83,4 @@ struct TabDropTarget: NSViewRepresentable {
             return true
         }
     }
-}
-
-extension NSPasteboard.PasteboardType {
-    static let browserTab = NSPasteboard.PasteboardType(UTType.browserTab.identifier)
 }

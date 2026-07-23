@@ -14,10 +14,10 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads |
-| **In progress** | M5 — Little Arc done; split view done *except* drag-to-split |
-| **Next** | Finish M5's drag-to-split, then M6 |
+| **In progress** | M5 — feature-complete; the §8 soak for it has not been re-run |
+| **Next** | Re-run the 30-minute soak for M5, then M6 |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 185 passing (167 unit + 18 end-to-end) |
+| **Tests** | 188 passing (170 unit + 18 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -157,6 +157,42 @@ and the bar would otherwise crawl upward as you type.
   store, so a link arrives already logged in. Promotion reads the *current* URL,
   not the one it opened with, then tears the panel's view down: nothing else
   refers to that pane, so it would otherwise outlive the app.
+### How drag-to-split works
+
+Both ends of the drag are AppKit and both are ours. That is the whole fix.
+
+- **The source is `TabDragSource`**, an `NSView` overlaid on the sidebar row
+  that starts a `beginDraggingSession` with an `NSPasteboardItem`. SwiftUI's
+  `onDrag` is what held this up for a milestone: its `NSItemProvider` reaches
+  the destination with `com.rizal.browser.tab` advertised on the pasteboard and
+  **zero bytes** behind it — `data(forType:)` returns empty `Data`, not nil, via
+  both the pasteboard and `pasteboardItems`. A lazy `registerDataRepresentation`
+  and an eager `NSItemProvider(item:typeIdentifier:)` both do it. Do not go back
+  to `onDrag` here.
+- **The destination is `TabDropTarget`**, mounted over a pane only while a drag
+  is in flight. `WKWebView` registers for dragged types itself and AppKit picks
+  the *deepest* registered view under the cursor, so a SwiftUI `onDrop` on the
+  hosting view always loses to the page. A permanent AppKit layer would win the
+  drop but eat every ordinary click.
+- **The destination must return an operation the source offers.** `onDrag`
+  advertised `.copy` while 4.5 wants a move, and returning `.move` against it
+  made AppKit refuse the drop outright — the pane highlighted on hover and
+  release did nothing. Our source offers `.move` within the app and nothing
+  outside it.
+- **`TabDragPayload` is the one place the byte format lives**, because the
+  destination cannot tell "the source wrote something else" from "the source
+  wrote nothing" — both look like a drop that did nothing.
+- The source view takes the row's click too (it sits above the row), and stops
+  short of the close button so that stays clickable. Its "was this a drag?" flag
+  is cleared by the next `mouseDown` and never when the session ends: clearing
+  it in `draggingSession(_:endedAt:operation:)` let a mouse-up arriving
+  afterwards read as a plain click, so ending *any* drag also selected the row
+  that had just been dragged.
+- Tests cover the payload only (`BrowserUITests`). **No test covers the drag**,
+  and the one that would have mattered cannot be written: the empty-payload bug
+  only happens inside a live drag session. It was found, and the fix verified,
+  by driving the real app — see SMOKE.md.
+
 - The app is a `Window`, **not a `WindowGroup`** (1). A group spawns a second
   window when a URL is handed to the app, whose `RootView` then calls
   `store.restore()` again on the same store — which failed its load and replaced
@@ -164,42 +200,23 @@ and the bar would otherwise crawl upward as you type.
 
 ## Next steps, in order
 
-1. **Finish drag-to-split** — the one thing left in M5. Diagnosis is under
-   Carried debt; it is a payload problem, not a wiring problem.
-2. **Re-run the 30-minute soak for M5.** §8 gates every milestone on it, and the
+1. **Re-run the 30-minute soak for M5.** §8 gates every milestone on it, and the
    last run predates split view and Little Arc — both of which add live web
    views (a 4-pane tab is 4 at once) and a second window. `scripts/` has no soak
    runner; it was driven by hand from `SMOKE.md`.
-3. **M6 — Polish**: swipe-driven Space switching, cross-section drag-and-drop,
+2. **M6 — Polish**: swipe-driven Space switching, cross-section drag-and-drop,
    animation tuning, find-in-page, print, PDF viewing.
 
 Not blocking, and worth doing whenever: the Instruments pass §6.7 wants
-(Allocations/Leaks, never run), sidebar-scroll fps now that screen recording is
-available, and a `BrowserUI` test target — there is none, which is why panel
-sizing has broken twice with a green suite.
+(Allocations/Leaks, never run), and sidebar-scroll fps now that screen recording
+is available. `BrowserUITests` now exists (it did not, which is why panel sizing
+broke twice with a green suite), but it holds only the drag payload — panel
+sizing is still uncovered.
 
 ## Carried debt
 
-- **Drag a tab into a split does not work yet** (§4.5). Everything up to the
-  payload is correct and verified with `cliclick`: the drag starts, the pane
-  highlights, `prepareForDragOperation` and `performDragOperation` both fire,
-  and the pasteboard advertises `com.rizal.browser.tab`. The payload arrives as
-  **zero bytes** — `data(forType:)` returns empty `Data`, not nil, via both the
-  pasteboard and `pasteboardItems`. Tried and rejected: SwiftUI `onDrop` (the
-  `WKWebView` wins the destination search), a lazy
-  `registerDataRepresentation`, and an eager
-  `NSItemProvider(item:typeIdentifier:)`. Next thing to try is dropping
-  `NSItemProvider` entirely and making the sidebar row an AppKit drag *source*
-  (`beginDraggingSession` with an `NSPasteboardItem` carrying the string), which
-  puts both ends under our control.
-  Two findings from this worth keeping regardless:
-  - The destination must return an operation the **source** offers. SwiftUI's
-    `onDrag` advertises `.copy` (mask 1); returning `.move` makes AppKit refuse
-    the drop, so the pane highlights on hover and release does nothing.
-  - `WKWebView` registers for dragged types, and AppKit picks the *deepest*
-    registered view under the cursor, so any SwiftUI-level drop target over web
-    content loses. An AppKit destination mounted above it works — but only
-    while a drag is in flight, or it eats ordinary clicks.
+- ~~Drag a tab into a split does not work yet.~~ **Done 2026-07-23**, described
+  under "How drag-to-split works" below.
 - **`cliclick` is installed** and is how the divider drag was finally verified.
   Use `dm:` (not `m:`) between `dd:` and `du:` — `m:` sends *mouseMoved*, which
   a SwiftUI `DragGesture` tolerates but an AppKit drag session ignores.

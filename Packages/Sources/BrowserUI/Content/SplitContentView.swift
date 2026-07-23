@@ -14,7 +14,6 @@ struct SplitContentView: View {
     /// Widths as they were when the current divider drag began. Applying a
     /// drag's translation to a live baseline compounds it.
     @State private var dragBase: [Double]?
-    @State private var dragEndMonitor: Any?
 
     var body: some View {
         GeometryReader { geometry in
@@ -42,26 +41,11 @@ struct SplitContentView: View {
                 }
             }
         }
-        // A cancelled drag never reaches a drop handler, and a stale flag would
-        // leave the drop layer above the page eating clicks. Mouse-up ends the
-        // drag session whatever the outcome.
-        .onChange(of: store.draggingTabID != nil) { _, isDragging in
-            if isDragging { watchForDragEnd() } else { stopWatchingForDragEnd() }
-        }
-        .onDisappear(perform: stopWatchingForDragEnd)
-    }
-
-    private func watchForDragEnd() {
-        guard dragEndMonitor == nil else { return }
-        dragEndMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { event in
-            store.endTabDrag()
-            return event
-        }
-    }
-
-    private func stopWatchingForDragEnd() {
-        if let dragEndMonitor { NSEvent.removeMonitor(dragEndMonitor) }
-        dragEndMonitor = nil
+        // A cancelled drag ends the flag too: `TabDragSource` clears it from
+        // `draggingSession(_:endedAt:operation:)`, which fires whatever the
+        // outcome. A leftMouseUp monitor used to do this, from before the drag
+        // source was ours — it never fired, because a drag session runs its own
+        // event loop and swallows the mouse-up that ends it.
     }
 
     private func width(of pane: Pane, in total: CGFloat) -> CGFloat {

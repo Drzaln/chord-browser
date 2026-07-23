@@ -10,6 +10,7 @@ struct TabRowView: View {
     let select: () -> Void
     let close: () -> Void
     let beginDrag: () -> Void
+    let endDrag: () -> Void
 
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -39,19 +40,23 @@ struct TabRowView: View {
         .frame(height: Metrics.sidebarRowHeight)
         .background(background)
         .contentShape(Rectangle())
+        // Handles the click in the region it covers; this catches the rest.
         .onTapGesture(perform: select)
         // Drag a row into the content area to split the tab it lands on (4.5).
         //
-        // `onDrag` rather than `draggable`: its closure runs at drag *start*,
-        // which is the only hook that lets the content area raise a drop layer
-        // above the web view for the duration of the drag.
-        .onDrag {
-            beginDrag()
-            return DraggedTab(tabID: tab.id).itemProvider
-        } preview: {
-            Text(tab.displayTitle)
-                .font(.system(size: 12))
-                .padding(6)
+        // An AppKit drag source rather than `onDrag`, because `onDrag`'s
+        // payload arrives at the destination empty — see `TabDragSource`. It
+        // sits *above* the row, so it takes the click too, and stops short of
+        // the close button so that stays clickable.
+        .overlay {
+            TabDragSource(
+                tabID: tab.id,
+                title: tab.displayTitle,
+                onDragBegan: beginDrag,
+                onDragEnded: endDrag,
+                onClick: select
+            )
+            .padding(.trailing, Metrics.sidebarRowHeight)
         }
         .onHover { hovering in
             withAnimation(Motion.respectingReduceMotion(

@@ -75,6 +75,11 @@ let package = Package(
             swiftSettings: strict
         ),
         .testTarget(
+            name: "BrowserUITests",
+            dependencies: ["BrowserUI", "BrowserTestSupport"],
+            swiftSettings: strict
+        ),
+        .testTarget(
             name: "BrowserStoreTests",
             dependencies: ["BrowserStore", "BrowserTestSupport"],
             swiftSettings: strict
