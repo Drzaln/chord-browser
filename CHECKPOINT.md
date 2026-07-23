@@ -14,9 +14,10 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads |
-| **Next** | M5 — Split view + Little Arc |
+| **In progress** | M5 — split view done (bar drag-to-split); Little Arc done |
+| **Next** | Finish M5's drag-to-split, then M6 |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 150 passing (136 unit + 14 end-to-end) |
+| **Tests** | 185 passing (167 unit + 18 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -70,8 +71,8 @@ Packages/Sources/
   BrowserCore/           value types + pure logic (ranking, sweep policy). Foundation only.
   BrowserPersistence/    GRDB, migrations, row types, mappers
   BrowserEngine/         the ONLY package importing WebKit
-  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar), PaneRuntime, AppEnvironment
-  BrowserUI/             SwiftUI + command bar panel. Imports Engine but never WebKit.
+  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleArc/+Restore)
+  BrowserUI/             SwiftUI + command bar and Little Arc panels. Never WebKit.
   BrowserTestSupport/    fakes, TabBuilder, TestHTTPServer
 Packages/Tests/
   Browser*Tests/         unit tests per package
@@ -127,6 +128,12 @@ All three of these cost real debugging time. They are not obvious from the code.
 Window tabbing is disabled in `AppDelegate.disableWindowTabbing()` — we have our
 own vertical tabs and do not want the system tab bar or its shortcut claims.
 
+**Any panel must size itself from its content, and say so twice.** This has now
+bitten in two milestones. Assigning `contentViewController` makes the window
+adopt that controller's *fitting* size, and a web surface has no intrinsic
+height — Little Arc's panel opened at 105x37 until `setContentSize` was called
+*after* the assignment.
+
 **The panel must size itself from its content.** It shipped in M3 with a fixed
 `640x60` frame and an `autoresizingMask` on the hosting *view* — which makes the
 view follow the window, never the reverse. The result list rendered correctly
@@ -135,6 +142,25 @@ still activated the right row. It is an `NSHostingController` with
 `sizingOptions = [.preferredContentSize]` now, and `setFrame` is overridden to
 anchor the top edge, because AppKit preserves the bottom-left corner on resize
 and the bar would otherwise crawl upward as you type.
+
+## How M5 works
+
+- **Split view is a tab with more panes** (3.2), so no new type and no
+  migration: `PaneRow` already carried `position` and `widthFraction` from M1.
+- `SplitLayout` in Core owns the width maths, so the invariant that fractions
+  sum to 1.0 is provable without a gesture.
+- A divider drag must be measured in **`.global`** space and applied to the
+  widths snapshotted at drag *start*. The divider moves as it resizes; local
+  coordinates and accumulated deltas both make it run away from the cursor.
+- **Little Arc's page is an ordinary `Pane` that is in no `Tab`** — invisible to
+  the sidebar, the sweep, and persistence. It uses the active Space's data
+  store, so a link arrives already logged in. Promotion reads the *current* URL,
+  not the one it opened with, then tears the panel's view down: nothing else
+  refers to that pane, so it would otherwise outlive the app.
+- The app is a `Window`, **not a `WindowGroup`** (1). A group spawns a second
+  window when a URL is handed to the app, whose `RootView` then calls
+  `store.restore()` again on the same store — which failed its load and replaced
+  a working session with an empty one. `restore()` is now guarded to run once.
 
 ## Carried debt
 

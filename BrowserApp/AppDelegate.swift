@@ -20,6 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return CommandBarController(store: store)
     }()
 
+    /// Little Arc (4.6). Built lazily for the same reason as the command bar.
+    private(set) lazy var littleArc: LittleArcController? = {
+        guard let store = launch.store else { return nil }
+        return LittleArcController(store: store)
+    }()
+
     override init() {
         let state = Self.signposter.beginInterval("launch")
         do {
@@ -82,8 +88,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// A web link from another app opens in the Little Arc panel (4.6).
+    ///
+    /// The panel is deliberately *not* a tab: most links from other apps are a
+    /// glance, and promoting is one keystroke away.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        let webLinks = urls.filter { $0.scheme == "http" || $0.scheme == "https" }
+        guard let url = webLinks.first else { return }
+
+        if webLinks.count > 1 {
+            // Several at once is a "open all of these" gesture, not a peek.
+            for extra in webLinks.dropFirst() { launch.store?.newTab(url: extra) }
+        }
+        littleArc?.present(url: url)
+    }
+
+    /// The Little Arc panel can be the only window there is (4.6), so the app
+    /// must not quit when the main window closes while a panel is up.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        littleArc?.isVisible != true
     }
 
     /// Defers termination until session state is on disk.

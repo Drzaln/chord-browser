@@ -10,6 +10,12 @@ public enum Motion {
     /// switching is M6; this is the discrete case.
     public static let spaceSwitch = Animation.spring(response: 0.32, dampingFraction: 0.9)
 
+    /// Little Arc's scale-and-fade in from the cursor (4.6). Driven by
+    /// `NSAnimationContext` rather than SwiftUI, because it animates a window
+    /// frame, so these are plain numbers rather than an `Animation`.
+    public static let littleArcEntryDuration: TimeInterval = 0.22
+    public static let littleArcEntryScale: CGFloat = 0.86
+
     /// Honour Reduce Motion by collapsing to a cross-fade rather than dropping
     /// feedback entirely.
     public static func respectingReduceMotion(
@@ -34,6 +40,8 @@ public enum Metrics {
     public static let splitDividerWidth: CGFloat = 6
     public static let splitFocusRingWidth: CGFloat = 2
     public static let splitDropRingWidth: CGFloat = 3
+    /// Little Arc (4.6).
+    public static let littleArcCornerRadius: CGFloat = 12
     public static let shadowRadius: CGFloat = 12
     public static let shadowOpacity: Double = 0.18
 }

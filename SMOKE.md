@@ -171,6 +171,19 @@ Caveats worth keeping honest:
       back to a normal tab with no divider
 - [ ] Pane widths survive quit and relaunch
 
+### Little Arc (§4.6)
+- [x] A web link from another app opens the floating panel, not a tab
+- [x] The panel appears at the cursor, borderless, over the main window
+- [x] `Cmd+O` promotes it into a real tab in the active Space, and the panel
+      closes
+- [x] Esc dismisses without creating a tab, and tears the web view down
+- [ ] The panel appears even when the main window is closed, and the app does
+      not quit while it is up
+- [ ] A link arrives already logged in to the active Space's session
+- [ ] Opening a second link replaces the first panel rather than stacking
+- [ ] The scale-and-fade entry reads well, and Reduce Motion skips it
+- [ ] Browsing inside the panel and *then* promoting keeps where you got to
+
 ### Window chrome
 - [x] No dead band above the web content — the card starts at the top inset,
       not below a reserved titlebar strip

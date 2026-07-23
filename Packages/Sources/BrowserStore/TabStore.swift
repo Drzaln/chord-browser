@@ -40,6 +40,7 @@ public final class TabStore {
     /// allowed and disables the sweep (4.3).
     public var idleWindow: IdleWindow = .default
 
+    @ObservationIgnored private var hasRestored = false
     @ObservationIgnored var sweepTask: Task<Void, Never>?
     @ObservationIgnored var isOccluded = false
 
@@ -77,6 +78,15 @@ public final class TabStore {
     // MARK: - Lifecycle
 
     public func restore() async {
+        // Exactly once per store. A second view calling this would reload the
+        // tab list over live state — and if that load failed it would replace
+        // a working session with an empty one, then persist the emptiness.
+        guard !hasRestored else {
+            Log.store.notice("restore already ran; ignoring")
+            return
+        }
+        hasRestored = true
+
         let state = Log.signposts.beginInterval("restore")
         defer { Log.signposts.endInterval("restore", state) }
 

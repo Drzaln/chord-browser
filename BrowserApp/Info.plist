@@ -20,6 +20,25 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.4</string>
+	<!--
+		Registers the app as a *candidate* handler for web links (4.6), which is
+		what lets Little Arc open links from other apps. It does not make this
+		the default browser — that stays a deliberate choice in System Settings.
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Web site URL</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>http</string>
+				<string>https</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSSupportsAutomaticTermination</key>
