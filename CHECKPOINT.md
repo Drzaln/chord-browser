@@ -14,7 +14,7 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads |
-| **In progress** | M5 — split view done (bar drag-to-split); Little Arc done |
+| **In progress** | M5 — Little Arc done; split view done *except* drag-to-split |
 | **Next** | Finish M5's drag-to-split, then M6 |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
 | **Tests** | 185 passing (167 unit + 18 end-to-end) |
@@ -162,6 +162,22 @@ and the bar would otherwise crawl upward as you type.
   `store.restore()` again on the same store — which failed its load and replaced
   a working session with an empty one. `restore()` is now guarded to run once.
 
+## Next steps, in order
+
+1. **Finish drag-to-split** — the one thing left in M5. Diagnosis is under
+   Carried debt; it is a payload problem, not a wiring problem.
+2. **Re-run the 30-minute soak for M5.** §8 gates every milestone on it, and the
+   last run predates split view and Little Arc — both of which add live web
+   views (a 4-pane tab is 4 at once) and a second window. `scripts/` has no soak
+   runner; it was driven by hand from `SMOKE.md`.
+3. **M6 — Polish**: swipe-driven Space switching, cross-section drag-and-drop,
+   animation tuning, find-in-page, print, PDF viewing.
+
+Not blocking, and worth doing whenever: the Instruments pass §6.7 wants
+(Allocations/Leaks, never run), sidebar-scroll fps now that screen recording is
+available, and a `BrowserUI` test target — there is none, which is why panel
+sizing has broken twice with a green suite.
+
 ## Carried debt
 
 - **Drag a tab into a split does not work yet** (§4.5). Everything up to the
@@ -255,14 +271,15 @@ archive keeps the last 100, no time limit.
   it away.
 - **Pruning** happens after every save, because `paneInteractionState` has no
   foreign key to `pane` and nothing else would reclaim a closed tab's blob.
-- **Known latent bug, will bite in M5.** Capture and resolution iterate *every*
-  pane of a tab, but `surface(for:)` gates only `tab.focusedPaneID`. With one
-  pane per tab those are the same thing, which is why M4 could not tell them
-  apart. M5 renders every pane, so a non-focused pane can have its web view
-  built before its blob resolves — it will load the bare URL and throw the
-  restored state away. Fix the gate per pane, and cover it with an e2e test that
-  restores a two-pane tab and asserts the *non-focused* pane kept its
-  back/forward history.
+- ~~Known latent bug, will bite in M5.~~ **Fixed in M5.** `surface(for:)` gated
+  on `tab.focusedPaneID` while capture and resolution iterated every pane —
+  identical with one pane per tab, wrong the moment split view renders a second.
+  Now `surface(for:in:)` per pane. Worth knowing how it was caught: the *e2e*
+  regression test for it **passed against the buggy code**, because it polled
+  until resolution finished and both panes always resolved together. Only a
+  unit test that forces the two panes to disagree
+  (`pendingPaneWithholdsItsOwnSurface`) actually fails against the old gate.
+  Verify a regression test fails before trusting it.
 - Brand-new tabs are marked resolved at creation — nothing is stored for them, so
   a disk read would only cost a frame of withheld surface.
 ### Downloads — verified against the SDK headers, then against the real app
@@ -291,6 +308,6 @@ archive keeps the last 100, no time limit.
   Re-verify by hand after touching entitlements; no automated test covers it.
 - The archive deliberately drops `interactionState` (§4.3, ADR 007); restoring an
   archived tab reloads. Intended, not an oversight to "fix".
-- Add e2e coverage alongside: the harness (`E2EHarness`) makes a second store
-  over the same directory to simulate relaunch, which is exactly the shape M4's
-  acceptance test needs.
+- `E2EHarness.relaunch()` makes a second store over the same directory, which is
+  how "quit and relaunch" is tested. Use `flushSaveAndWait()` before relaunching
+  — plain `flushSave()` is fire-and-forget and the write will not have landed.
