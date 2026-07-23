@@ -89,6 +89,28 @@ Caveats worth keeping honest:
 - The first command bar open is 27 ms because the panel is built lazily; every
   open after is 6–10 ms.
 
+### 30-minute soak — M6, measured 2026-07-24
+
+Re-run for M6 (`scripts/soak.sh seed` then `run`), the fixture restored to
+3 Spaces / 21 tabs / 36 panes (one 4-pane split per Space), driven with
+Cmd+1…3 Space switches every 4 s for 30 minutes. M6 adds a permanent scroll
+event monitor (swipe switching), a live-only sidebar drop layer, and a find
+bar holding a cancellable task — none had been measured over a soak.
+
+| | Start (settled, min 5) | End (min 30) | |
+|---|---|---|---|
+| App process footprint | 50 MB | **43 MB** | no growth — fell |
+| Total (app + WebKit helpers) | 426 MB | **410 MB** | flat-to-declining |
+
+No leak: the app process is flat at 40–50 MB across the run and 43 MB at the
+end, and the total settles to ~410–418 MB from minute 5 and stays there. Both
+clear the §6.1 budgets by a wide margin (app ≪ 150 MB, total ≪ 1.2 GB). The
+early total spike to ~483 MB is web views coming alive on the first Space
+switches; WebKit's own eviction then brings it down and holds it. Samples in
+`/tmp/soak-060923.tsv` at the time of the run. Idle CPU and the Instruments
+pass were not re-run for M6 — the M1 numbers above stand and the app layer did
+not change shape.
+
 ## M2 — Spaces
 
 ### Switching

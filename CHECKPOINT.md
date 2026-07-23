@@ -13,20 +13,22 @@ only the current position within it.
 
 | | |
 |---|---|
-| **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
-| **In progress** | M6 Polish — everything but the final soak done; animation/Reduce-Motion pass done |
-| **Next** | Re-run the soak (in progress), then stop for review |
+| **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, **M6 Polish** |
+| **In progress** | — M6 is complete and its soak passed; stopped for review |
+| **Next** | M7 Extensions (deliberately last) — start only after review |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
 | **Tests** | 219 passing (200 unit + 19 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
-**The §6.1 performance gate passes** as of 2026-07-23, re-run for M5 with split
-view and Little Arc in the fixture. App 58 MB, total 498 MB, idle 0.083%
-visible / 0.006% occluded — every budget clear by a wide margin, and no leak
-over 30 minutes. Numbers and method in [SMOKE.md](SMOKE.md); the runner is
-`scripts/soak.sh` (`seed` then `run`). Two gaps remain, neither blocking: no
-Instruments pass, and sidebar scroll is still unmeasured. See Carried debt.
+**The §6.1 performance gate passes** — re-run for M6 on 2026-07-24 with the
+swipe scroll monitor, the sidebar drop layer, and the find bar's cancellable
+task all in play. App process flat at 40–50 MB (43 MB at end), total settled at
+~410 MB, no leak over 30 minutes. Every budget clear by a wide margin. Numbers
+and method in [SMOKE.md](SMOKE.md); the runner is `scripts/soak.sh` (`seed` then
+`run`, `restore` to put the real session back). Two gaps remain, neither
+blocking: no Instruments pass, and sidebar scroll is still unmeasured. See
+Carried debt.
 
 ## Kickoff prompt for the next session
 
@@ -433,11 +435,21 @@ Two things worth knowing:
 
 ## Next steps, in order
 
-1. **Re-run the soak** (`scripts/soak.sh seed` then `run`). §8 gates every
-   milestone on it, and M6 adds a permanent tracking area plus a find bar that
-   holds a cancellable task — both cheap, neither yet measured over 30 minutes.
+**M6 is complete.** Every §8 item landed and the 30-minute soak passed
+(2026-07-24) — stopped here for review, as the milestone process requires.
 
-Then stop for review. M7 (Extensions) is deliberately last.
+When review clears, **M7 (Extensions)** is next and deliberately last: a
+`WKWebExtensionController` + `WKWebExtensionContext` host, a `.crx` unpack
+helper into `~/Library/Application Support/<App>/Extensions/`, and popover
+surfacing in the sidebar header (4.7). Critical rule from the spec: **do not
+reimplement the WebExtensions API** — use Apple's framework and accept its
+coverage gaps. Verify every symbol against the SDK headers first, as always.
+Before starting, resolve the one open decision below (contexts per-Space vs
+global). Content blocking (4.8) is independent of extensions and can go with it.
+
+Two hands-on checks are still owed on M6 work, neither blocking: the swipe
+gesture on a real trackpad (only its logic and shared render path are covered),
+and Reduce Motion toggled in System Settings.
 
 Not blocking, and worth doing whenever: the Instruments pass §6.7 wants
 (Allocations/Leaks, never run), and sidebar-scroll fps now that screen recording
