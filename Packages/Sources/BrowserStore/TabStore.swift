@@ -24,6 +24,16 @@ public final class TabStore {
     /// puts the content area's drop layer on screen (4.5).
     public internal(set) var draggingTabID: UUID?
 
+    /// Whether the sidebar is collapsed to icons (4.1).
+    ///
+    /// In the store rather than in a view because the menu command drives it
+    /// too, and a `@State` in `RootView` is not reachable from `Commands`.
+    /// Persisted to `UserDefaults`, not to SQLite: it is a window preference,
+    /// not user data, and it has no place in a schema that carries migrations.
+    public var isSidebarCollapsed: Bool = UserDefaults.standard.bool(forKey: "sidebar.collapsed") {
+        didSet { UserDefaults.standard.set(isSidebarCollapsed, forKey: "sidebar.collapsed") }
+    }
+
     /// Which panes are still waiting on their stored `interactionState`.
     /// Deliberately observed: flipping a pane to `.resolved` is what re-renders
     /// the content view and lets its surface be built.

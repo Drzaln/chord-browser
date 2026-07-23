@@ -14,8 +14,8 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
-| **In progress** | — |
-| **Next** | M6 Polish |
+| **In progress** | M6 Polish — collapsible sidebar done |
+| **Next** | M6's remainder: swipe Space switching, cross-section drag, find-in-page, print, PDF |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
 | **Tests** | 188 passing (170 unit + 18 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
@@ -208,10 +208,32 @@ Both ends of the drag are AppKit and both are ours. That is the whole fix.
   `store.restore()` again on the same store — which failed its load and replaced
   a working session with an empty one. `restore()` is now guarded to run once.
 
+## How the collapsible sidebar works
+
+- **The lane and the sidebar are different widths.** `RootView` reserves
+  `laneWidth` in the layout and draws the sidebar over it in a `ZStack`. A
+  hover-expanded sidebar therefore overhangs the page instead of pushing it —
+  4.1 requires that hovering not shift web content, and shifting it would
+  relayout every web view for the length of a hover.
+- **`showsRail` is not `store.isSidebarCollapsed`.** A collapsed sidebar under
+  the pointer is expanded; only the two together make the icons-only rail.
+- **The traffic lights are hidden while the rail shows** (`TrafficLights`).
+  AppKit puts them at a fixed offset from the window's top-left regardless of
+  what is underneath, so in a 48-point rail the zoom button lands on the web
+  content. They return on any expand, including a hover.
+- **Collapse-on-exit is delayed and cancellable** (`Motion.sidebarCollapseDelay`).
+  Zero delay makes the sidebar snap shut while the pointer travels from a row
+  to the page.
+- The state is a window preference in `UserDefaults`, not a schema column: it
+  is not user data and has no business carrying a migration.
+- `SpaceSwitcher` swaps `HStackLayout` for `VStackLayout` through `AnyLayout`
+  rather than branching to two copies of the content, so the icons keep their
+  identity and animate into place instead of being torn down.
+
 ## Next steps, in order
 
-1. **M6 — Polish**: swipe-driven Space switching, cross-section drag-and-drop,
-   animation tuning, find-in-page, print, PDF viewing.
+1. **M6's remainder**: swipe-driven Space switching, cross-section
+   drag-and-drop, animation tuning, find-in-page, print, PDF viewing.
 
 M6's cross-section drag-and-drop should start from `TabDragSource` — the sidebar
 row is already an AppKit drag source, and reordering within the sidebar needs a

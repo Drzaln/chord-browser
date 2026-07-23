@@ -283,6 +283,30 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 - [ ] Clearing a finished row leaves the file on disk
 - [ ] The downloads button is hidden until there is something to show
 
+## M6 — Polish
+
+### Collapsible sidebar (§4.1)
+
+Verified 2026-07-23 by driving the app. The state is readable without a
+screenshot: sample a pixel that is sidebar when expanded and page when
+collapsed (`screencapture -x -R750,350,4,4`), which is how the launch
+determinism below was checked cheaply.
+
+- [x] `Cmd+S` and the sidebar button both collapse and expand it
+- [x] Collapsed shows favicons only, Space icons stacked, no address field
+- [x] **Hovering the rail expands it over the page without shifting web
+      content** — the page's logo and search box stay at identical screen
+      coordinates
+- [x] Leaving re-collapses it, after a delay, and re-entering cancels that
+- [x] **The traffic lights are hidden in the rail** and return on expand. They
+      do not fit 48 points: before this the zoom button sat on the web content
+- [x] The collapsed state survives relaunch — 5 of 5 launches, checked because
+      one earlier launch came up expanded and a race here would be a real bug.
+      Not reproduced since; if it returns, suspect `WindowAccessor` reporting a
+      window before the scene has one
+- [x] Drag-to-split still works from the hover-expanded sidebar
+- [ ] Reduce Motion collapses the animation to a cross-fade
+
 ### 30-minute soak
 - [x] 20 tabs open, cycle through them repeatedly for 30 minutes
 - [x] Record footprint at start and end (debug overlay, `Cmd+Ctrl+P`)

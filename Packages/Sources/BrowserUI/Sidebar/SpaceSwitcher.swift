@@ -5,17 +5,21 @@ import SwiftUI
 /// The Space strip at the top of the sidebar.
 struct SpaceSwitcher: View {
     @Bindable var store: TabStore
+    var isCollapsed: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pendingDeletion: Space?
 
     var body: some View {
-        HStack(spacing: 6) {
+        // The rail stacks what the full sidebar lays out in a row. A horizontal
+        // strip of Spaces does not survive being 48 points wide — with three
+        // Spaces and the add button it is already over budget.
+        layout {
             ForEach(store.spaces.sorted { $0.sortIndex < $1.sortIndex }) { space in
                 spaceButton(space)
             }
 
-            Spacer(minLength: 0)
+            if !isCollapsed { Spacer(minLength: 0) }
 
             Button {
                 store.addSpace()
@@ -27,8 +31,9 @@ struct SpaceSwitcher: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .accessibilityLabel("New Space")
+            .help(isCollapsed ? "New Space" : "")
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, isCollapsed ? 0 : 10)
         .padding(.vertical, 8)
         .confirmationDialog(
             "Delete “\(pendingDeletion?.name ?? "")”?",
@@ -48,6 +53,15 @@ struct SpaceSwitcher: View {
             // 3.3: reclaiming the data store is irreversible, so say so plainly.
             Text("Its tabs, cookies, and cached data are removed permanently.")
         }
+    }
+
+    /// `AnyLayout` rather than an `if` around two copies of the content: the
+    /// buttons keep their identity across the switch, so collapsing animates
+    /// the icons into place instead of tearing them down and rebuilding them.
+    private var layout: AnyLayout {
+        isCollapsed
+            ? AnyLayout(VStackLayout(spacing: 6))
+            : AnyLayout(HStackLayout(spacing: 6))
     }
 
     private func spaceButton(_ space: Space) -> some View {

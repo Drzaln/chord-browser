@@ -129,6 +129,15 @@ struct BrowserCommands: Commands {
                 .keyboardShortcut("r", modifiers: .command)
         }
 
+        CommandGroup(after: .toolbar) {
+            // Cmd+S. Arc's binding, and nothing here saves a document.
+            Button("Toggle Sidebar") {
+                guard let store = launch.store else { return }
+                store.isSidebarCollapsed.toggle()
+            }
+            .keyboardShortcut("s", modifiers: .command)
+        }
+
         CommandMenu("Spaces") {
             Button("New Space") { launch.store?.addSpace() }
 

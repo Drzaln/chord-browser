@@ -10,6 +10,15 @@ public enum Motion {
     /// switching is M6; this is the discrete case.
     public static let spaceSwitch = Animation.spring(response: 0.32, dampingFraction: 0.9)
 
+    /// Sidebar collapse and hover-expand (4.1). One spring for both, so the
+    /// rail leaving and the overlay arriving read as the same movement.
+    public static let sidebarCollapse = Animation.spring(response: 0.30, dampingFraction: 0.86)
+
+    /// How long the pointer must be off the expanded overlay before it
+    /// re-collapses. Zero makes the sidebar flicker shut while you travel from
+    /// a row to the page; too long and it feels stuck open.
+    public static let sidebarCollapseDelay: Duration = .milliseconds(220)
+
     /// Little Arc's scale-and-fade in from the cursor (4.6). Driven by
     /// `NSAnimationContext` rather than SwiftUI, because it animates a window
     /// frame, so these are plain numbers rather than an `Animation`.
@@ -27,6 +36,10 @@ public enum Motion {
 
 public enum Metrics {
     public static let sidebarWidth: CGFloat = 240
+    /// The collapsed rail: one favicon plus breathing room (4.1). Wide enough
+    /// to stay a hover target — a hairline strip is hard to hit on purpose and
+    /// easy to hit by accident.
+    public static let sidebarCollapsedWidth: CGFloat = 48
     public static let sidebarRowHeight: CGFloat = 30
     public static let contentCornerRadius: CGFloat = 10
     public static let contentInset: CGFloat = 8

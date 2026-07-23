@@ -7,6 +7,8 @@ struct TabRowView: View {
     // Fully qualified: SwiftUI ships its own `Tab` type on macOS 15.
     let tab: BrowserCore.Tab
     let isSelected: Bool
+    /// Favicon only, centred in the rail (4.1).
+    var isCollapsed: Bool = false
     let select: () -> Void
     let close: () -> Void
     let beginDrag: () -> Void
@@ -19,24 +21,30 @@ struct TabRowView: View {
         HStack(spacing: 8) {
             favicon
                 .frame(width: Metrics.faviconSize, height: Metrics.faviconSize)
+                // Centres the icon in the rail. The title and close button are
+                // not merely hidden — building them would cost layout for
+                // something 48 points cannot show.
+                .frame(maxWidth: isCollapsed ? .infinity : nil)
 
-            Text(tab.displayTitle)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .font(.system(size: 12))
+            if !isCollapsed {
+                Text(tab.displayTitle)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .font(.system(size: 12))
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
 
-            if isHovering {
-                Button(action: close) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
+                if isHovering {
+                    Button(action: close) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close tab")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close tab")
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, isCollapsed ? 0 : 8)
         .frame(height: Metrics.sidebarRowHeight)
         .background(background)
         .contentShape(Rectangle())
@@ -56,8 +64,11 @@ struct TabRowView: View {
                 onDragEnded: endDrag,
                 onClick: select
             )
-            .padding(.trailing, Metrics.sidebarRowHeight)
+            // The gap is for the close button, which the rail has no room for.
+            .padding(.trailing, isCollapsed ? 0 : Metrics.sidebarRowHeight)
         }
+        // The rail shows no title, so the tooltip is the only way to read one.
+        .help(isCollapsed ? tab.displayTitle : "")
         .onHover { hovering in
             withAnimation(Motion.respectingReduceMotion(
                 Motion.sidebarHover, reduceMotion: reduceMotion
