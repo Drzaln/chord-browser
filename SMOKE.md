@@ -19,8 +19,8 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 - [ ] Typing a bare host (`example.com`) navigates over https
 - [ ] Typing multiple words runs a search
 - [ ] Back / forward enable and disable correctly, and work
-- [ ] Reload works; the button becomes Stop mid-load and cancels
-- [ ] Progress bar appears during load and disappears on completion
+- [x] Reload works; the button becomes Stop mid-load (cancel still unchecked)
+- [x] Progress bar appears during load (disappearance on completion unchecked)
 
 ### Tabs
 - [ ] `Cmd+T` opens a new tab and selects it
@@ -28,7 +28,7 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 - [ ] Closing the last tab opens a fresh one rather than an empty window
 - [ ] Clicking a sidebar row switches tabs; the web view does not reload
 - [ ] Title updates in the sidebar as pages load
-- [ ] Favicon appears in the sidebar, falling back to a globe when absent
+- [x] Favicon appears in the sidebar, falling back to a globe when absent
 - [ ] `target="_blank"` links open a new tab rather than being swallowed
 
 ### Persistence
@@ -49,9 +49,9 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 - [x] Idle CPU with the window visible and nothing loading < 0.5%
 - [x] Idle CPU with the window minimised ~0%
 - [x] App RSS with 20 tabs / 5 live < 150 MB
-- [ ] Sidebar scroll stays at display refresh with 20 tabs — **not measurable
-      here**: needs frame capture, and screen recording is not granted on this
-      machine. Still needs a human eye or an Instruments run.
+- [ ] Sidebar scroll stays at display refresh with 20 tabs — still unmeasured,
+      but screen recording **is** granted now, so frame capture is worth trying
+      before calling it impossible.
 
 Full §6.1 results are in the table below; they cover M1–M3 together, since the
 gate had never been run for any of them.
@@ -98,7 +98,8 @@ Caveats worth keeping honest:
 - [ ] A shortcut for a Space that does not exist does nothing
 - [ ] Switching back to a Space returns to the tab you were last on
 - [ ] Switching to an empty Space opens a new tab in it
-- [ ] The sidebar gradient changes with the active Space, and animates
+- [x] The sidebar gradient changes with the active Space (the *animation*
+      itself still needs an eye — stills cannot show it)
 - [ ] Reduce Motion collapses the animation without breaking the switch
 
 ### Isolation — the M2 done-when
@@ -137,21 +138,43 @@ Caveats worth keeping honest:
 - [x] The bar is visually centred and legible over the window
 - [x] The result list is actually visible — the panel grows to fit its rows
       (it did not, for all of M3: the panel was a fixed 60 pt tall)
-- [ ] The app behind it does not visibly activate or lose its selection
+- [x] The app behind it does not visibly activate or lose its selection
 - [ ] Typing filters with no perceptible lag
-- [ ] Up/down arrows move the highlight and wrap at the ends
-- [ ] An open tab in *another* Space is findable, and selecting it switches Space
-- [ ] Commands ("new space", "close tab") are reachable by name
+- [x] Up/down arrows move the highlight and wrap at the ends
+- [x] An open tab in *another* Space is findable, and its row names the Space
+- [x] Commands ("new space", "close tab") are reachable by name
+
+### Visual sweep — 2026-07-23
+
+Screen recording is granted, so these were checked by screenshot rather than
+left to a human eye. It is how the clipped result list was found; everything
+below had passed its *behavioural* check for two milestones while never once
+being looked at.
+
+Two things the sweep turned up, neither fixed:
+
+- **The fuzzy matcher is very loose.** Typing `goo` matched "WKDownloadDelegate
+  | Apple Developer Documentation", because `FuzzyMatch` accepts any
+  subsequence and those letters appear scattered across it. It ranks last, so
+  it is noise rather than a wrong answer, but it fills the list with results a
+  user would not call matches. Wants a minimum-quality floor, not just a score.
+- **History records interstitials.** A Cloudflare "Just a moment…" page is in
+  history with its challenge URL. `recordVisit` skips blank and error pages but
+  has no notion of a challenge page.
+
+Still not covered, and still needing a human: the gradient *animation* and
+sidebar scroll smoothness (stills cannot show motion), Reduce Motion (a system
+setting this sweep did not change), and whether typing "feels" lag-free.
 
 ### Cmd+T vs Cmd+L (§4.4, changed after M4 review)
-- [ ] `Cmd+T` + Enter opens the result in a **new** tab, leaving the current one
-- [ ] `Cmd+L` + Enter navigates the **current** tab, opening nothing new
+- [x] `Cmd+T` + Enter opens the result in a **new** tab, leaving the current one
+- [x] `Cmd+L` + Enter navigates the **current** tab, opening nothing new
 - [ ] `Cmd+Enter` forces a new tab from either mode
-- [ ] Typing a complete address (`github.com`) highlights that address, **not**
+- [x] Typing a complete address (`github.com`) highlights that address, **not**
       an open tab that happens to fuzzy-match it
-- [ ] Typing a word (`github`) still highlights the open tab, with the search
+- [x] Typing a word (`github`) still highlights the open tab, with the search
       fallback last
-- [ ] Every row shows what Return will do — a cross-Space result reads
+- [x] Every row shows what Return will do — a cross-Space result reads
       "Switch to Tab" *before* you press it
 
 ### Ephemeral sweep

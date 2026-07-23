@@ -153,7 +153,15 @@ and the bar would otherwise crawl upward as you type.
 - ~~Nobody has logged into two real Google accounts by hand.~~ **Done
   2026-07-23** — verified by hand against real Google auth, M2's done-when.
 - ~~The command bar's *appearance* is unverified.~~ **Verified 2026-07-23** by
-  screenshot, which is how the clipped result list below was found.
+  screenshot, which is how the clipped result list below was found. A full
+  visual sweep followed (sidebar, favicon fallback, progress bar, Space
+  gradients, command bar navigation) — results in [SMOKE.md](SMOKE.md).
+- **`FuzzyMatch` accepts any subsequence**, so `goo` matches "WKDownloadDelegate
+  | Apple Developer Documentation". Weak matches rank last and are noise rather
+  than wrong answers, but the bar fills with rows a user would not call
+  matches. Wants a quality floor, not just a score. Found in the visual sweep.
+- **History records challenge pages** — a Cloudflare "Just a moment…" entry is
+  in there. `recordVisit` skips blank and error pages, but not interstitials.
 
 ## Deviations from the spec
 
