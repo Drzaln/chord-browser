@@ -16,12 +16,23 @@ final class E2EHarness {
     let server: TestHTTPServer
     let directory: URL
     private(set) var clock: MutableClock
+    /// Downloads land here rather than in the real ~/Downloads.
+    private(set) var downloads: DownloadsStore
 
-    private init(store: TabStore, server: TestHTTPServer, directory: URL, clock: MutableClock) {
+    var downloadsDirectory: URL { directory.appending(path: "Downloads") }
+
+    private init(
+        store: TabStore,
+        server: TestHTTPServer,
+        directory: URL,
+        clock: MutableClock,
+        downloads: DownloadsStore
+    ) {
         self.store = store
         self.server = server
         self.directory = directory
         self.clock = clock
+        self.downloads = downloads
     }
 
     static func make(
@@ -35,17 +46,25 @@ final class E2EHarness {
         let directory = directory ?? URL.temporaryDirectory
             .appending(path: "browser-e2e-\(UUID().uuidString)")
 
-        let store = try makeStore(directory: directory, clock: clock)
-        return E2EHarness(store: store, server: server, directory: directory, clock: clock)
+        let built = try makeStore(directory: directory, clock: clock)
+        return E2EHarness(
+            store: built.store,
+            server: server,
+            directory: directory,
+            clock: clock,
+            downloads: built.downloads
+        )
     }
 
     /// Builds a second store over the *same* directory — this is what "quit and
     /// relaunch" means for these tests.
     func relaunch() throws -> TabStore {
-        try Self.makeStore(directory: directory, clock: clock)
+        try Self.makeStore(directory: directory, clock: clock).store
     }
 
-    private static func makeStore(directory: URL, clock: MutableClock) throws -> TabStore {
+    private static func makeStore(
+        directory: URL, clock: MutableClock
+    ) throws -> (store: TabStore, downloads: DownloadsStore) {
         let database = try BrowserDatabase.open(
             at: directory.appending(path: "browser.sqlite")
         )
@@ -55,10 +74,13 @@ final class E2EHarness {
         let engine = WebKitEngine(
             configuration: EngineConfiguration(
                 faviconCacheDirectory: directory.appending(path: "Favicons")
+            ),
+            downloads: DownloadCoordinator(
+                directory: directory.appending(path: "Downloads")
             )
         )
 
-        return TabStore(
+        let store = TabStore(
             engine: engine,
             repository: repository,
             spaceRepository: repository,
@@ -66,6 +88,7 @@ final class E2EHarness {
             archiveRepository: history,
             clock: clock
         )
+        return (store, DownloadsStore(coordinator: engine.downloads))
     }
 
     func tearDown() async {

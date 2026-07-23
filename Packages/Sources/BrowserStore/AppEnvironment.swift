@@ -8,9 +8,11 @@ import Foundation
 @MainActor
 public struct AppEnvironment {
     public let store: TabStore
+    public let downloads: DownloadsStore
 
-    public init(store: TabStore) {
+    public init(store: TabStore, downloads: DownloadsStore) {
         self.store = store
+        self.downloads = downloads
     }
 
     /// The real, on-disk configuration.
@@ -42,7 +44,8 @@ public struct AppEnvironment {
                 historyRepository: history,
                 archiveRepository: history,
                 clock: SystemClock()
-            )
+            ),
+            downloads: DownloadsStore(coordinator: engine.downloads)
         )
     }
 }

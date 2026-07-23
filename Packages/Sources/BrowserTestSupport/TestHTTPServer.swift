@@ -11,15 +11,38 @@ public actor TestHTTPServer {
     public struct Route: Sendable {
         public let path: String
         public let html: String
+        /// Anything WebKit cannot render turns the navigation into a download,
+        /// which is the only way to exercise `WKDownloadDelegate` end to end.
+        public let contentType: String
+        public let extraHeaders: [String: String]
 
-        public init(path: String, html: String) {
+        public init(
+            path: String,
+            html: String,
+            contentType: String = "text/html; charset=utf-8",
+            extraHeaders: [String: String] = [:]
+        ) {
             self.path = path
             self.html = html
+            self.contentType = contentType
+            self.extraHeaders = extraHeaders
         }
     }
 
+    /// A route that downloads rather than renders.
+    public static func attachment(
+        path: String, filename: String, body: String
+    ) -> Route {
+        Route(
+            path: path,
+            html: body,
+            contentType: "application/octet-stream",
+            extraHeaders: ["Content-Disposition": "attachment; filename=\"\(filename)\""]
+        )
+    }
+
     private let listener: NWListener
-    private var routes: [String: String] = [:]
+    private var routes: [String: Route] = [:]
     private var connections: [NWConnection] = []
 
     public private(set) var port: UInt16 = 0
@@ -30,7 +53,7 @@ public actor TestHTTPServer {
         listener = try NWListener(using: parameters, on: .any)
 
         for route in routes {
-            self.routes[route.path] = route.html
+            self.routes[route.path] = route
         }
     }
 
@@ -87,15 +110,21 @@ public actor TestHTTPServer {
 
     private func respond(to request: String, on connection: NWConnection) {
         let path = Self.path(fromRequestLine: request)
-        let body = routes[path] ?? "<html><head><title>Not Found</title></head><body>404</body></html>"
-        let status = routes[path] == nil ? "404 Not Found" : "200 OK"
+        let route = routes[path]
+        let body = route?.html ?? "<html><head><title>Not Found</title></head><body>404</body></html>"
+        let status = route == nil ? "404 Not Found" : "200 OK"
+        let contentType = route?.contentType ?? "text/html; charset=utf-8"
 
         let bytes = Array(body.utf8)
+        let extra = (route?.extraHeaders ?? [:])
+            .map { "\($0.key): \($0.value)\r\n" }
+            .joined()
+
         let response = """
         HTTP/1.1 \(status)\r
-        Content-Type: text/html; charset=utf-8\r
+        Content-Type: \(contentType)\r
         Content-Length: \(bytes.count)\r
-        Connection: close\r
+        \(extra)Connection: close\r
         \r
         \(body)
         """

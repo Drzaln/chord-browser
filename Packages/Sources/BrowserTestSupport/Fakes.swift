@@ -66,6 +66,22 @@ public final class FakeWebEngine: WebEngine {
 
     public func liveViewCount() -> Int { createdPanes.count }
 
+    /// State the fake will report for a live pane, as WebKit would.
+    public var interactionStates: [UUID: Data] = [:]
+    /// What the store seeded before a view was built — the assertion that
+    /// restore actually reached the engine.
+    public private(set) var seededStates: [UUID: Data] = [:]
+
+    public func interactionState(for paneID: UUID) -> Data? { interactionStates[paneID] }
+
+    public func hasLiveView(paneID: UUID) -> Bool { createdPanes.contains(paneID) }
+
+    public func seedInteractionState(_ data: Data, for paneID: UUID) {
+        guard !createdPanes.contains(paneID) else { return }
+        seededStates[paneID] = data
+        interactionStates[paneID] = data
+    }
+
     /// Drives the delegate as WebKit would.
     public func emit(_ snapshot: PaneSnapshot, for paneID: UUID) {
         snapshots[paneID] = snapshot
@@ -119,6 +135,16 @@ public actor FakeTabRepository: TabRepository, SpaceRepository {
     public func saveInteractionState(_ data: Data?, paneID: UUID) async throws {
         interactionStates[paneID] = data
     }
+
+    public private(set) var prunedKeepingCounts: [Int] = []
+
+    public func pruneInteractionStates(keeping paneIDs: Set<UUID>) async throws {
+        prunedKeepingCounts.append(paneIDs.count)
+        interactionStates = interactionStates.filter { paneIDs.contains($0.key) }
+    }
+
+    /// Lets a test see exactly what restore would read back.
+    public func storedInteractionStateCount() -> Int { interactionStates.count }
 
     public func setLoadError(_ error: (any Error)?) { loadError = error }
 }

@@ -87,4 +87,16 @@ public struct SQLiteTabRepository: TabRepository, SpaceRepository {
             ).upsert(db)
         }
     }
+
+    public func pruneInteractionStates(keeping paneIDs: Set<UUID>) async throws {
+        let keep = paneIDs.map(\.uuidString)
+        try await database.writer.write { db in
+            let deleted = try PaneInteractionStateRow
+                .filter(!keep.contains(Column("paneId")))
+                .deleteAll(db)
+            if deleted > 0 {
+                Log.db.debug("pruned \(deleted, privacy: .public) orphaned interaction state(s)")
+            }
+        }
+    }
 }

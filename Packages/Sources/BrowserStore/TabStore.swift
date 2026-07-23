@@ -20,8 +20,13 @@ public final class TabStore {
     public internal(set) var activeSpaceID: UUID?
     public var selectedTabID: UUID?
 
+    /// Which panes are still waiting on their stored `interactionState`.
+    /// Deliberately observed: flipping a pane to `.resolved` is what re-renders
+    /// the content view and lets its surface be built.
+    var stateResolution: [UUID: StateResolution] = [:]
+
     @ObservationIgnored let engine: any WebEngine
-    @ObservationIgnored private let repository: any TabRepository
+    @ObservationIgnored let repository: any TabRepository
     @ObservationIgnored let spaceRepository: (any SpaceRepository)?
     @ObservationIgnored let historyRepository: (any HistoryRepository)?
     @ObservationIgnored let archiveRepository: (any ArchiveRepository)?
@@ -98,6 +103,9 @@ public final class TabStore {
         } else {
             // Restored tabs are lazy: no web view exists until one is activated.
             selectedTabID = visibleTabs.max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
+            // Only the tab about to be shown has its blob read. The rest are
+            // read if and when they are activated (6.5).
+            if let selectedTabID { resolveInteractionState(forTab: selectedTabID) }
         }
 
         startSweep()
@@ -132,6 +140,10 @@ public final class TabStore {
             url: url, spaceID: spaceID, placement: .ephemeral(order: order), now: clock.now
         )
         tabs.append(tab)
+        // A brand-new pane definitionally has nothing stored, so mark it
+        // resolved rather than spending a disk read to discover that — and to
+        // avoid withholding its surface for a frame.
+        for pane in tab.panes { stateResolution[pane.id] = .resolved }
         selectedTabID = tab.id
         scheduleSave()
     }
@@ -167,6 +179,7 @@ public final class TabStore {
             engine.evict(paneID: pane.id)
             runtimes[pane.id] = nil
         }
+        forgetStateResolution(forPanes: tabs[index].panes.map(\.id))
         let neighbours = visibleTabs
         let closedPosition = neighbours.firstIndex { $0.id == tabID }
         tabs.remove(at: index)
@@ -208,7 +221,17 @@ public final class TabStore {
 
     public func select(_ tabID: UUID) {
         guard tabs.contains(where: { $0.id == tabID }) else { return }
+
+        // Capture before the switch, while the outgoing tab's view is still
+        // live. This is the "persist on deactivation" rule in 3.2 — the only
+        // point at which a tab the user merely switched away from gets its
+        // state written.
+        if let outgoing = selectedTabID, outgoing != tabID {
+            captureInteractionState(forTab: outgoing)
+        }
+
         selectedTabID = tabID
+        resolveInteractionState(forTab: tabID)
         touch(tabID)
     }
 
@@ -235,6 +258,13 @@ public final class TabStore {
             Log.store.error("no space for tab \(tab.id, privacy: .public); refusing to render")
             return nil
         }
+
+        // Withhold the surface until the pane's stored state has been read.
+        // Building the view first would load the bare URL, and seeding state
+        // into a live view afterwards would throw that load away and fight the
+        // user for the scroll position.
+        guard !isAwaitingInteractionState(tab.focusedPaneID) else { return nil }
+
         return engine.surface(for: tab.focusedPane, in: space)
     }
 
@@ -257,6 +287,9 @@ public final class TabStore {
         // window and doing nothing (6.3).
         if occluded {
             stopSweep()
+            // A hidden window is the last safe moment to capture state: the
+            // machine may sleep or the app be killed without another chance.
+            captureAllInteractionState()
             flushSave()
         } else {
             startSweep()
@@ -298,12 +331,28 @@ public final class TabStore {
         saveTask = Task { await self.performSave() }
     }
 
+    /// `flushSave` that can be awaited, for the quit path.
+    public func flushSaveAndWait() async {
+        saveTask?.cancel()
+        await performSave()
+    }
+
     private func performSave() async {
         let snapshot = tabs
         do {
             try await repository.save(snapshot)
         } catch {
             Log.store.error("tab save failed: \(String(describing: error))")
+        }
+
+        // Reclaim state for panes that no longer exist. Nothing else does this:
+        // the blob table has no foreign key to `pane`, on purpose, so a closed
+        // tab's state would otherwise sit on disk forever (6.5).
+        let living = Set(snapshot.flatMap { $0.panes.map(\.id) })
+        do {
+            try await repository.pruneInteractionStates(keeping: living)
+        } catch {
+            Log.store.error("interaction state prune failed: \(String(describing: error))")
         }
     }
 }

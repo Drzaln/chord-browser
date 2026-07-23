@@ -75,7 +75,12 @@ struct TabStoreTests {
         await store.restore()
         #expect(engine.liveViewCount() == 0)
 
-        _ = store.surface(for: store.tabs[0])
+        // Since M4 the surface is withheld until the pane's stored
+        // interactionState has been read, so the first request returns nil and
+        // the view is built on the render that follows.
+        for _ in 0..<400 where store.surface(for: store.tabs[0]) == nil {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
         #expect(engine.liveViewCount() == 1)
     }
 

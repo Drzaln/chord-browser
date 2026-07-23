@@ -128,6 +128,13 @@ final class WebViewPool {
         return view
     }
 
+    func contains(_ paneID: UUID) -> Bool { live[paneID] != nil }
+
+    /// Reads a live view without counting as a use. Capturing interactionState
+    /// must not reorder the LRU — persisting every pane on quit would otherwise
+    /// rewrite the eviction order for no reason.
+    func peek(_ paneID: UUID) -> LiveWebView? { live[paneID] }
+
     func insert(_ view: LiveWebView) {
         live[view.paneID] = view
         touch(view.paneID)

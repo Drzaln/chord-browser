@@ -86,7 +86,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        launch.store?.flushSave()
+    /// Defers termination until session state is on disk.
+    ///
+    /// `applicationWillTerminate` is too late to be useful here: it cannot wait,
+    /// and the process is gone before a detached write task is ever scheduled.
+    /// A force-quit still loses whatever happened since the last deactivation —
+    /// which is precisely why state is captured on every tab switch and on
+    /// occlusion rather than only on the way out.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let store = launch.store else { return .terminateNow }
+
+        Task {
+            await store.flushInteractionState()
+            await store.flushSaveAndWait()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }

@@ -60,6 +60,39 @@ extension NavigationCoordinator: WKNavigationDelegate {
         }
     }
 
+    /// Turns a response the web view cannot display into a download.
+    ///
+    /// Without this, clicking a `.zip` or `.dmg` link does nothing at all —
+    /// WebKit will not start a download on its own.
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse
+    ) async -> WKNavigationResponsePolicy {
+        // `canShowMIMEType` is false for anything WebKit has no renderer for,
+        // which is exactly the set that should download instead.
+        navigationResponse.canShowMIMEType ? .allow : .download
+    }
+
+    /// After returning `.download` from the response policy above. Setting the
+    /// delegate here is required — progress is never reported otherwise.
+    func webView(
+        _ webView: WKWebView,
+        navigationResponse: WKNavigationResponse,
+        didBecome download: WKDownload
+    ) {
+        engine?.adoptDownload(download, suggestedURL: navigationResponse.response.url)
+    }
+
+    /// After returning `.download` from the *action* policy — a link marked
+    /// `download`, for instance.
+    func webView(
+        _ webView: WKWebView,
+        navigationAction: WKNavigationAction,
+        didBecome download: WKDownload
+    ) {
+        engine?.adoptDownload(download, suggestedURL: navigationAction.request.url)
+    }
+
     /// Content processes die routinely. Without this the app looks hung — the
     /// view goes blank and never recovers. Required from day one (3.4).
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {

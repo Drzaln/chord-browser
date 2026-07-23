@@ -8,6 +8,7 @@ import SwiftUI
 /// loading progress tick redraws this bar and nothing else (6.4).
 struct NavigationBar: View {
     @Bindable var store: TabStore
+    @Bindable var downloads: DownloadsStore
 
     @State private var text: String = ""
     @FocusState private var isFieldFocused: Bool
@@ -37,6 +38,8 @@ struct NavigationBar: View {
                 } else {
                     button("arrow.clockwise", label: "Reload", enabled: true) { store.reload() }
                 }
+
+                DownloadsButton(downloads: downloads)
 
                 addressField
             }

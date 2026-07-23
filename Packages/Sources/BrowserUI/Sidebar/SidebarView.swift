@@ -4,12 +4,13 @@ import SwiftUI
 
 struct SidebarView: View {
     @Bindable var store: TabStore
+    @Bindable var downloads: DownloadsStore
 
     var body: some View {
         VStack(spacing: 0) {
             SpaceSwitcher(store: store)
 
-            NavigationBar(store: store)
+            NavigationBar(store: store, downloads: downloads)
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
 

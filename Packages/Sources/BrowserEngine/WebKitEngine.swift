@@ -41,14 +41,22 @@ public final class WebKitEngine: WebEngine {
 
     private var coordinator: NavigationCoordinator?
 
+    /// Owns `WKDownload` and its delegate. Public so the UI can list and cancel
+    /// downloads without WebKit appearing in any signature it can see.
+    public let downloads: DownloadCoordinator
+
     /// Retained so an evicted or crashed pane can be revived without the model
     /// layer having to hand its state back.
     private var interactionStates: [UUID: Data] = [:]
     /// Last known URL per pane, for reload-after-crash.
     private var lastKnownURL: [UUID: URL] = [:]
 
-    public init(configuration: EngineConfiguration) {
+    public init(
+        configuration: EngineConfiguration,
+        downloads: DownloadCoordinator = DownloadCoordinator()
+    ) {
         self.configuration = configuration
+        self.downloads = downloads
         self.pool = WebViewPool(capacity: configuration.liveViewCapacity)
         self.favicons = FaviconLoader(cacheDirectory: configuration.faviconCacheDirectory)
 
@@ -170,6 +178,26 @@ public final class WebKitEngine: WebEngine {
 
     public func evictAll() { pool.evictAll() }
 
+    /// Prefers the live view's current state over the last captured one, so a
+    /// tab the user has scrolled since it was revived persists where they
+    /// actually left it.
+    public func interactionState(for paneID: UUID) -> Data? {
+        if let live = pool.peek(paneID), let state = live.interactionState {
+            interactionStates[paneID] = state
+            return state
+        }
+        return interactionStates[paneID]
+    }
+
+    public func hasLiveView(paneID: UUID) -> Bool {
+        pool.contains(paneID)
+    }
+
+    public func seedInteractionState(_ data: Data, for paneID: UUID) {
+        guard !pool.contains(paneID) else { return }
+        interactionStates[paneID] = data
+    }
+
     public func liveViewCount() -> Int { pool.count }
 
     // MARK: - Coordinator callbacks
@@ -232,5 +260,11 @@ public final class WebKitEngine: WebEngine {
     /// Pauses network-bound background work while the window is occluded (6.3).
     public func setOccluded(_ occluded: Bool) {
         Task { await favicons.setPaused(occluded) }
+    }
+
+    // MARK: - Downloads
+
+    func adoptDownload(_ download: WKDownload, suggestedURL: URL?) {
+        downloads.adopt(download, suggestedURL: suggestedURL)
     }
 }

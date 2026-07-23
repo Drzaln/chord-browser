@@ -43,7 +43,7 @@ struct AppRootView: View {
     var body: some View {
         switch launch {
         case .ready(let environment):
-            RootView(store: environment.store)
+            RootView(store: environment.store, downloads: environment.downloads)
                 #if DEBUG
                 .overlay(DebugOverlay(store: environment.store))
                 #endif

@@ -72,5 +72,21 @@ public protocol WebEngine: AnyObject {
     func evict(paneID: UUID) -> Data?
     func evictAll()
 
+    /// `interactionState` for a pane that is still live, without disturbing it.
+    ///
+    /// This is what makes restore worth anything: `evict` only yields state for
+    /// panes that happened to be evicted, so a tab the user simply switched away
+    /// from would otherwise be persisted with nothing to restore from.
+    func interactionState(for paneID: UUID) -> Data?
+
+    /// Whether a pane currently owns a web view. Restore is lazy, so for most
+    /// panes this is false and must stay that way (6.2).
+    func hasLiveView(paneID: UUID) -> Bool
+
+    /// Seeds the state a pane should restore from before its view is built.
+    /// Ignored once the view exists — restoring into a live view would throw
+    /// away whatever the user has since done in it.
+    func seedInteractionState(_ data: Data, for paneID: UUID)
+
     func liveViewCount() -> Int
 }

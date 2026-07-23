@@ -154,6 +154,36 @@ Caveats worth keeping honest:
 ### Migration from v2
 - [ ] An existing profile opens with history and archive tables added, tabs intact
 
+## M4 — Session restore + downloads
+
+### Restore
+> `interactionState` is written on tab *deactivation*, on occlusion, and on
+> quit. A force-quit still loses whatever happened since the last switch — there
+> is no way around that, which is exactly why capture is not left to quit alone.
+
+- [x] Quit and relaunch: a tab's back/forward history still works (verified e2e —
+      a tab that merely reloaded its URL cannot go back, so this distinguishes
+      real restore from a reload)
+- [x] After relaunch, no tab has loaded until it is clicked
+- [x] `paneInteractionState` has rows after a normal quit (it had none before M4;
+      check with `sqlite3 browser.sqlite "select count(*) from paneInteractionState"`)
+- [ ] Scroll position comes back on a long page
+- [ ] Text typed into a form comes back
+- [ ] Switch tabs, then force-quit: the tab you switched *away* from restores,
+      the one you were looking at may not
+- [ ] Closing a tab drops its stored state (count above goes down after a save)
+
+### Downloads
+- [x] A link to a non-renderable file downloads instead of doing nothing
+- [x] The file lands in ~/Downloads and is byte-for-byte correct (verified in the
+      real sandboxed app — `swift test` runs unsandboxed and cannot prove this)
+- [x] A second download of the same name becomes `name-1`, it does not overwrite
+- [ ] The progress bar advances on a large, slow download
+- [ ] A download with no `Content-Length` shows an indeterminate bar, not 0%
+- [ ] Cancel actually stops the transfer
+- [ ] Clearing a finished row leaves the file on disk
+- [ ] The downloads button is hidden until there is something to show
+
 ### 30-minute soak
 - [x] 20 tabs open, cycle through them repeatedly for 30 minutes
 - [x] Record footprint at start and end (debug overlay, `Cmd+Ctrl+P`)

@@ -13,10 +13,10 @@ only the current position within it.
 
 | | |
 |---|---|
-| **Completed** | M1 Browse, M2 Spaces, M3 Command bar + ephemeral tabs |
-| **Next** | M4 — Session restore + downloads |
-| **Branch** | `m3-command-bar` |
-| **Tests** | 131 passing (121 unit + 10 end-to-end) |
+| **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads |
+| **Next** | M5 — Split view + Little Arc |
+| **Branch** | `m4-restore-downloads` |
+| **Tests** | 150 passing (136 unit + 14 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -154,15 +154,24 @@ Each has an ADR; the spec text was updated in the same commit.
 Resolved: GRDB over Core Data (ADR 001); history is title/URL only (ADR 007);
 archive keeps the last 100, no time limit.
 
-## Notes for M4
+## How M4 works
 
-- `interactionState` is captured on eviction and stored out-of-line in
-  `paneInteractionState`, but **it is never written on ordinary deactivation** —
-  M4 must add that, debounced, or restore is only as good as the last eviction.
-- `TabRepository.loadInteractionState`/`saveInteractionState` exist and are
-  tested; nothing in the store calls them yet.
-- Downloads need `WKDownloadDelegate`. Verified against the SDK headers
-  2026-07-23, so this does not need re-deriving:
+- **Capture** happens on tab deactivation (`TabStore.select`), on occlusion, and
+  on quit. Eviction still captures too. A force-quit loses only what changed
+  since the last switch — that is the reason capture is not left to quit alone.
+- **Quit is awaited.** `applicationShouldTerminate` returns `.terminateLater` and
+  replies once the writes land. `applicationWillTerminate` cannot do this: it
+  cannot wait, and a detached task never runs before the process dies.
+- **Resolution is lazy.** A restored pane starts with no blob; it is read the
+  first time the pane is shown. `surface(for:)` returns nil while that read is in
+  flight, which is why the content view renders its card and nothing else for a
+  frame. Building the view first would load the bare URL and then have to throw
+  it away.
+- **Pruning** happens after every save, because `paneInteractionState` has no
+  foreign key to `pane` and nothing else would reclaim a closed tab's blob.
+- Brand-new tabs are marked resolved at creation — nothing is stored for them, so
+  a disk read would only cost a frame of withheld surface.
+### Downloads — verified against the SDK headers, then against the real app
   - Required: `download(_:decideDestinationUsing:suggestedFilename:completionHandler:)`.
     Hand back a file URL that does **not** exist, in a directory that does.
   - Optional: `downloadDidFinish(_:)`,
@@ -178,18 +187,14 @@ archive keeps the last 100, no time limit.
   - `decidePlaceholderPolicy` / `didReceivePlaceholderURL` / `didReceiveFinalURL`
     are **iOS and visionOS only — they do not exist on macOS.** There is no
     placeholder-file path available to us.
-- **The sandbox cannot currently write a download.**
-  `BrowserApp/Browser.entitlements` grants only
-  `com.apple.security.files.user-selected.read-write`. Writing to `~/Downloads`
-  needs `com.apple.security.files.downloads.read-write`; without it the
-  destination must come from an `NSSavePanel`, which is what user-selected
-  covers. This is a decision to make, not an oversight to paper over.
-- **`paneInteractionState` has no foreign key to `pane`**
-  (`Migrations.swift`), and `save()` does `TabRow.deleteAll` which cascades only
-  to `pane`. Nothing prunes the blob table today — harmless while only evictions
-  write to it, but once M4 writes on every deactivation, closed tabs orphan
-  their blobs and the table grows without bound. That is the §6.5 concern
-  directly. M4 needs a prune.
+- **The sandbox now grants `com.apple.security.files.downloads.read-write`**, so
+  downloads go straight to `~/Downloads` with no save panel. Chosen deliberately
+  over an `NSSavePanel` per download, which the existing user-selected
+  entitlement would have covered without widening the sandbox.
+- **`swift test` runs unsandboxed, so the e2e download test cannot prove the
+  entitlement works.** That was verified by hand against the real app instead:
+  a 200 KB file downloaded to `~/Downloads` byte-for-byte identical to source.
+  Re-verify by hand after touching entitlements; no automated test covers it.
 - The archive deliberately drops `interactionState` (§4.3, ADR 007); restoring an
   archived tab reloads. Intended, not an oversight to "fix".
 - Add e2e coverage alongside: the harness (`E2EHarness`) makes a second store
