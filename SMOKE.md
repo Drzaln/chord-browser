@@ -144,6 +144,13 @@ Caveats worth keeping honest:
 - [x] An open tab in *another* Space is findable, and its row names the Space
 - [x] Commands ("new space", "close tab") are reachable by name
 
+### Window chrome
+- [x] No dead band above the web content — the card starts at the top inset,
+      not below a reserved titlebar strip
+- [x] Traffic lights clear the Space switcher without overlapping it
+- [ ] The window is still draggable by its top edge (`.hiddenTitleBar` keeps the
+      strip draggable, but the content now runs under it — worth a tug)
+
 ### Visual sweep — 2026-07-23
 
 Screen recording is granted, so these were checked by screenshot rather than

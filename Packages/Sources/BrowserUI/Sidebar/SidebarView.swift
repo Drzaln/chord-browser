@@ -8,6 +8,10 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Clears the traffic lights, which the window no longer reserves
+            // space for. Sidebar only — the web content starts at the top edge.
+            Color.clear.frame(height: Metrics.titlebarInset)
+
             SpaceSwitcher(store: store)
 
             NavigationBar(store: store, downloads: downloads)

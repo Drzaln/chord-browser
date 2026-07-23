@@ -24,6 +24,11 @@ public enum Metrics {
     public static let sidebarRowHeight: CGFloat = 30
     public static let contentCornerRadius: CGFloat = 10
     public static let contentInset: CGFloat = 8
+    /// Vertical clearance for the traffic lights under `.hiddenTitleBar`.
+    ///
+    /// Only the sidebar needs it — the lights sit over the sidebar alone, so
+    /// reserving it window-wide leaves a dead band above the web content.
+    public static let titlebarInset: CGFloat = 28
     public static let faviconSize: CGFloat = 16
     public static let shadowRadius: CGFloat = 12
     public static let shadowOpacity: Double = 0.18
