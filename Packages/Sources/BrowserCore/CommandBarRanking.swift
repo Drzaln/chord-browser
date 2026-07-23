@@ -22,11 +22,16 @@ public struct Suggestion: Identifiable, Hashable, Sendable {
     ///
     /// Without it, a fuzzy match on an open tab in another Space looks identical
     /// to a navigation, and Return silently jumps Spaces instead.
-    public var actionLabel: String {
+    ///
+    /// Depends on the destination because the same row does different things
+    /// depending on how the bar was opened: an open tab is *switched to*
+    /// normally, but *moved into the split* when the bar was opened to fill a
+    /// pane. §4.4 requires the row to say so before it happens, not after.
+    public func actionLabel(for destination: ActivationDestination) -> String {
         switch kind {
-        case .openTab: "Switch to Tab"
-        case .history, .navigate: "Go to Page"
-        case .search: "Search"
+        case .openTab: destination == .newPane ? "Move to Split" : "Switch to Tab"
+        case .history, .navigate: destination == .newPane ? "Open in Split" : "Go to Page"
+        case .search: destination == .newPane ? "Search in Split" : "Search"
         case .archived: "Reopen Tab"
         case .command: "Run Command"
         }

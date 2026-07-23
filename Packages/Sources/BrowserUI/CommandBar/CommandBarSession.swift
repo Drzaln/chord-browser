@@ -1,3 +1,4 @@
+import BrowserCore
 import Foundation
 import Observation
 
@@ -10,10 +11,24 @@ import Observation
 /// What Return does to the highlighted result, decided by which shortcut opened
 /// the bar (4.4).
 public enum CommandBarMode: Sendable {
-    /// `Cmd+T` — Return opens the result in a new tab.
+    /// `Cmd+T` and the sidebar's New Tab — Return opens the result in a new tab.
     case newTab
     /// `Cmd+L` — Return navigates the tab you are already on.
     case currentTab
+    /// `Cmd+Shift+D` — Return opens the result as a new pane beside the
+    /// focused one (4.5). Same reasoning as `Cmd+T`: you are splitting in order
+    /// to put something specific there, and a blank pane makes you type the
+    /// destination afterwards anyway.
+    case newPane
+
+    /// Where Return sends the highlighted result.
+    var destination: ActivationDestination {
+        switch self {
+        case .newTab: .newTab
+        case .currentTab: .currentTab
+        case .newPane: .newPane
+        }
+    }
 }
 
 @MainActor

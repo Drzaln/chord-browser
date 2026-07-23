@@ -12,7 +12,7 @@ struct BrowserApp: App {
         // a group spawns a *second* window when a URL is handed to the app —
         // whose RootView then runs `store.restore()` again on the same store.
         Window("Browser", id: "main") {
-            AppRootView(launch: appDelegate.launch)
+            AppRootView(launch: appDelegate.launch, commandBar: appDelegate.commandBar)
                 .onAppear { appDelegate.attachOcclusionObserver() }
         }
         .windowStyle(.hiddenTitleBar)
@@ -42,11 +42,18 @@ enum Launch {
 
 struct AppRootView: View {
     let launch: Launch
+    let commandBar: CommandBarController?
 
     var body: some View {
         switch launch {
         case .ready(let environment):
-            RootView(store: environment.store, downloads: environment.downloads)
+            RootView(
+                store: environment.store,
+                downloads: environment.downloads,
+                openCommandBar: { mode in
+                    commandBar?.present(over: NSApp.mainWindow, mode: mode)
+                }
+            )
                 #if DEBUG
                 .overlay(DebugOverlay(store: environment.store))
                 #endif
@@ -112,10 +119,14 @@ struct BrowserCommands: Commands {
 
             Divider()
 
-            // Split view (4.5). Up to four panes; beyond that the store
-            // declines rather than replacing one.
-            Button("Split Tab") { launch.store?.splitSelectedTab() }
-                .keyboardShortcut("d", modifiers: [.command, .shift])
+            // Split view (4.5). Opens the command bar to say *what* goes in the
+            // new pane, the same way Cmd+T asks what goes in a new tab — a
+            // blank pane just makes you type the destination afterwards. The
+            // store still declines beyond four panes rather than replacing one.
+            Button("Split Tab…") {
+                commandBar?.toggle(over: NSApp.mainWindow, mode: .newPane)
+            }
+            .keyboardShortcut("d", modifiers: [.command, .shift])
 
             Button("Close Pane") {
                 guard let store = launch.store, let tab = store.selectedTab else { return }

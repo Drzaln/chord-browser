@@ -294,6 +294,18 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 - [ ] In a split, Cmd+F searches only the focused pane (unit-tested; confirm by
       hand that the other pane does not scroll)
 
+### Command bar as the way in (§4.4)
+- [x] The sidebar's **New Tab** button opens the command bar, not a blank tab
+- [x] **`Cmd+Shift+D`** opens the command bar, and Return puts the result in a
+      new *pane* — the tab count does not change
+- [x] In split mode the rows read "Move to Split" / "Open in Split", not
+      "Switch to Tab"
+- [x] `Cmd+N` still opens a plain blank tab
+- [ ] `Cmd+Enter` from split mode forces a new tab rather than a pane
+      (unit-tested; confirm by hand)
+- [ ] `Cmd+Shift+D` on a tab that already has 4 panes — the store declines, so
+      check the bar does not leave you with a dismissed panel and no feedback
+
 ### Sidebar: hide and reveal (§4.1)
 
 Verified 2026-07-23 by driving the app. Read the state without a screenshot by

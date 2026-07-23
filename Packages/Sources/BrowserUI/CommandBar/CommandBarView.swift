@@ -34,7 +34,8 @@ struct CommandBarView: View {
         .onChange(of: session.presentToken, initial: true) { reset() }
         // Cmd+Enter, routed in from the panel's key-equivalent handling.
         .onChange(of: session.activateToken) {
-            activate(forceNewTab: session.activateForcesNewTab)
+            // Cmd+Enter forces a new tab from any mode, splitting included.
+            activate(to: session.activateForcesNewTab ? .newTab : session.mode.destination)
         }
         .onChange(of: query) { highlighted = 0 }
     }
@@ -52,9 +53,10 @@ struct CommandBarView: View {
                 // own submit and ignores it entirely when Command is held, so
                 // Cmd+Enter is caught by the panel's performKeyEquivalent and
                 // routed back through the session (4.4).
-                // Cmd+T opens in a new tab, Cmd+L navigates the current one
-                // (4.4). Cmd+Enter still forces a new tab from either.
-                .onSubmit { activate(forceNewTab: session.mode == .newTab) }
+                // Cmd+T opens in a new tab, Cmd+L navigates the current one,
+                // Cmd+Shift+D fills a new pane (4.4, 4.5). Cmd+Enter still
+                // forces a new tab from any of them.
+                .onSubmit { activate(to: session.mode.destination) }
                 .onKeyPress(.upArrow) { move(-1) }
                 .onKeyPress(.downArrow) { move(1) }
                 .onKeyPress(.escape) {
@@ -73,13 +75,14 @@ struct CommandBarView: View {
                     ForEach(Array(results.enumerated()), id: \.element.id) { index, suggestion in
                         CommandBarRow(
                             suggestion: suggestion,
-                            isHighlighted: index == highlighted
+                            isHighlighted: index == highlighted,
+                            destination: session.mode.destination
                         )
                         .id(suggestion.id)
                         .contentShape(Rectangle())
                         .onTapGesture {
                             highlighted = index
-                            activate(forceNewTab: session.mode == .newTab)
+                            activate(to: session.mode.destination)
                         }
                     }
                 }
@@ -119,9 +122,9 @@ struct CommandBarView: View {
         return .handled
     }
 
-    private func activate(forceNewTab: Bool) {
+    private func activate(to destination: ActivationDestination) {
         guard results.indices.contains(highlighted) else { return }
-        store.activate(results[highlighted], forceNewTab: forceNewTab)
+        store.activate(results[highlighted], destination: destination)
         dismiss()
     }
 }
@@ -129,6 +132,9 @@ struct CommandBarView: View {
 struct CommandBarRow: View {
     let suggestion: Suggestion
     let isHighlighted: Bool
+    /// Decides the row's action text: the same result reads "Switch to Tab" or
+    /// "Move to Split" depending on how the bar was opened (4.4).
+    let destination: ActivationDestination
 
     var body: some View {
         HStack(spacing: 10) {
@@ -153,7 +159,7 @@ struct CommandBarRow: View {
             // Tab" is otherwise indistinguishable from a navigation until it
             // has already happened.
             HStack(spacing: 6) {
-                Text(suggestion.actionLabel)
+                Text(suggestion.actionLabel(for: destination))
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
                 Image(systemName: "arrow.right")

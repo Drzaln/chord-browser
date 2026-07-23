@@ -17,7 +17,7 @@ only the current position within it.
 | **In progress** | M6 Polish — hide/reveal sidebar, favourites, find-in-page done |
 | **Next** | M6's remainder: swipe Space switching, cross-section drag, print, PDF |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 196 passing (178 unit + 18 end-to-end) |
+| **Tests** | 200 passing (182 unit + 18 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -312,6 +312,16 @@ Each has an ADR; the spec text was updated in the same commit.
 - `BrowserStore` is a package the §3.5 list omitted (ADR 005)
 - Audio playback detected by user script, not the SPI everyone else uses (ADR 008)
 - `Cmd+T` opens the command bar per §4.4; plain new tab moved to `Cmd+N`
+- **Every way of making a tab or a pane opens the command bar first**, not a
+  blank page: `Cmd+T`, the sidebar's New Tab button, and `Cmd+Shift+D`. The bar
+  is a three-mode thing now (`CommandBarMode`), and where a result lands is an
+  `ActivationDestination` rather than a `forceNewTab` flag — a Bool cannot say
+  which of three places a result belongs in. `Cmd+N` still opens a plain blank
+  tab, which is the escape hatch when you genuinely want one.
+  In `.newPane` mode, choosing an *already-open tab* moves it into the split
+  exactly as dragging it there would (4.5) rather than duplicating it, and the
+  row says "Move to Split" instead of "Switch to Tab" — §4.4 requires a row to
+  announce what Return does before it happens.
 - `Cmd+T` opens results in a *new* tab, `Cmd+L` navigates the *current* one.
   §4.4 originally had Return always navigate the current tab, which meant
   `Cmd+T` replaced the tab you were on — the one thing nobody expects it to do.

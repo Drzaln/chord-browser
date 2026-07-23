@@ -290,9 +290,14 @@ struct CommandBarRankingTests {
 
         // The cross-Space jump has to be visible before it happens, not after.
         let openTab = try #require(results.first { if case .openTab = $0.kind { true } else { false } })
-        #expect(openTab.actionLabel == "Switch to Tab")
+        #expect(openTab.actionLabel(for: .newTab) == "Switch to Tab")
 
         let search = try #require(results.first { if case .search = $0.kind { true } else { false } })
-        #expect(search.actionLabel == "Search")
+        #expect(search.actionLabel(for: .newTab) == "Search")
+
+        // Opened to fill a split, the same rows must say so instead. An open
+        // tab is *moved* into the split there, not switched to.
+        #expect(openTab.actionLabel(for: .newPane) == "Move to Split")
+        #expect(search.actionLabel(for: .newPane) == "Search in Split")
     }
 }

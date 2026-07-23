@@ -13,6 +13,7 @@ struct SidebarView: View {
     @Bindable var downloads: DownloadsStore
     /// Overhanging the page rather than sitting in its own lane.
     var isFloating: Bool = false
+    var openCommandBar: (CommandBarMode) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -126,9 +127,12 @@ struct SidebarView: View {
         .disabled(store.spaces.count <= 1)
     }
 
+    /// Opens the command bar rather than a blank tab, exactly as `Cmd+T` does
+    /// (4.4). A new tab is one Return away, and you almost always wanted a
+    /// destination rather than an empty page.
     private var newTabButton: some View {
         Button {
-            store.newTab()
+            openCommandBar(.newTab)
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "plus")

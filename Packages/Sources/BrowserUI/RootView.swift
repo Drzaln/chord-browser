@@ -4,6 +4,10 @@ import SwiftUI
 public struct RootView: View {
     @Bindable private var store: TabStore
     @Bindable private var downloads: DownloadsStore
+    /// Opens the command bar. Injected because the controller is owned by the
+    /// app delegate — the panel outlives any view, and Store must not depend
+    /// on UI to reach it.
+    private let openCommandBar: (CommandBarMode) -> Void
 
     /// The sidebar is hidden but the pointer has reached the left edge, so it
     /// is showing on top of the page (4.1).
@@ -13,9 +17,14 @@ public struct RootView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(store: TabStore, downloads: DownloadsStore) {
+    public init(
+        store: TabStore,
+        downloads: DownloadsStore,
+        openCommandBar: @escaping (CommandBarMode) -> Void = { _ in }
+    ) {
         self.store = store
         self.downloads = downloads
+        self.openCommandBar = openCommandBar
     }
 
     /// Collapsed and not currently revealed: the sidebar is not on screen at
@@ -52,7 +61,10 @@ public struct RootView: View {
 
             if !isHidden {
                 SidebarView(
-                    store: store, downloads: downloads, isFloating: store.isSidebarCollapsed
+                    store: store,
+                    downloads: downloads,
+                    isFloating: store.isSidebarCollapsed,
+                    openCommandBar: openCommandBar
                 )
                 // Slides in from off-screen rather than fading: the sidebar is
                 // arriving from the edge the pointer just touched, and saying

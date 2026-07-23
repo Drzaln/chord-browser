@@ -52,19 +52,26 @@ extension TabStore {
         )
     }
 
-    /// - Parameter forceNewTab: `Cmd+Enter` — open in a new tab rather than
-    ///   navigating the current one (4.4).
-    public func activate(_ suggestion: Suggestion, forceNewTab: Bool = false) {
+    /// - Parameter destination: where the result goes, decided by the shortcut
+    ///   that opened the bar (4.4) — or forced to `.newTab` by `Cmd+Enter`.
+    public func activate(
+        _ suggestion: Suggestion, destination: ActivationDestination = .newTab
+    ) {
         switch suggestion.kind {
         case .openTab(let tabID, let spaceID, _):
-            if spaceID != activeSpaceID { selectSpace(spaceID) }
-            select(tabID)
+            // Choosing an already-open tab always switches to it rather than
+            // opening a duplicate (4.4) — except when splitting, where the tab
+            // is *moved* into the split exactly as dragging it there would
+            // (4.5). Either way the tab never ends up existing twice.
+            if destination == .newPane, let target = selectedTabID, target != tabID {
+                split(target, byMoving: tabID)
+            } else {
+                if spaceID != activeSpaceID { selectSpace(spaceID) }
+                select(tabID)
+            }
 
-        case .history(let url), .navigate(let url):
-            open(url, forceNewTab: forceNewTab)
-
-        case .search(_, let url):
-            open(url, forceNewTab: forceNewTab)
+        case .history(let url), .navigate(let url), .search(_, let url):
+            open(url, destination: destination)
 
         case .archived(let tab):
             restoreArchived(tab)
@@ -74,11 +81,16 @@ extension TabStore {
         }
     }
 
-    private func open(_ url: URL, forceNewTab: Bool) {
-        if forceNewTab || selectedTab == nil {
+    private func open(_ url: URL, destination: ActivationDestination) {
+        switch destination {
+        case .newPane where selectedTabID != nil:
+            splitSelectedTab(url: url)
+        // With no tab to split or navigate, there is only one sensible landing
+        // place and it is a new tab.
+        case .newTab, .newPane:
             newTab(url: url)
-        } else {
-            navigate(to: url)
+        case .currentTab:
+            if selectedTab == nil { newTab(url: url) } else { navigate(to: url) }
         }
     }
 
