@@ -7,6 +7,8 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            SpaceSwitcher(store: store)
+
             NavigationBar(store: store)
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
@@ -14,7 +16,7 @@ struct SidebarView: View {
             // Lazy so a large tab list does not build every row up front (6.4).
             ScrollView {
                 LazyVStack(spacing: 2) {
-                    ForEach(store.tabs) { tab in
+                    ForEach(store.visibleTabs) { tab in
                         TabRowView(
                             tab: tab,
                             isSelected: tab.id == store.selectedTabID,
@@ -22,6 +24,7 @@ struct SidebarView: View {
                             close: { store.closeTab(tab.id) }
                         )
                         .id(tab.id)  // stable identity, so rows are not rebuilt
+                        .contextMenu { moveMenu(for: tab) }
                     }
                 }
                 .padding(.horizontal, 8)
@@ -30,7 +33,27 @@ struct SidebarView: View {
             newTabButton
         }
         .frame(width: Metrics.sidebarWidth)
-        .background(.regularMaterial)
+        .background {
+            // The active Space's gradient, under a material overlay (4.1).
+            if let space = store.activeSpace {
+                SpaceTheme.gradient(for: space)
+                    .opacity(0.35)
+                    .overlay(.regularMaterial)
+            } else {
+                Color.clear.overlay(.regularMaterial)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func moveMenu(for tab: BrowserCore.Tab) -> some View {
+        // Cross-Space drag-and-drop is M6; the menu is the M2 affordance.
+        Menu("Move to Space") {
+            ForEach(store.spaces.filter { $0.id != tab.spaceID }) { space in
+                Button(space.name) { store.moveTab(tab.id, toSpace: space.id) }
+            }
+        }
+        .disabled(store.spaces.count <= 1)
     }
 
     private var newTabButton: some View {

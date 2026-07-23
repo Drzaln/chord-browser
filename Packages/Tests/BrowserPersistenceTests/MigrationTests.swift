@@ -10,15 +10,99 @@ import Testing
 @Suite("Schema migrations")
 struct MigrationTests {
 
-    @Test("v1 creates the expected tables")
-    func v1CreatesTables() throws {
+    @Test("The full migrator creates the expected tables")
+    func createsTables() throws {
         let queue = try DatabaseQueue()
         try Migrations.makeMigrator().migrate(queue)
 
+        let expected = ["tab", "pane", "paneInteractionState", "space"]
         let existing = try queue.read { db in
-            try ["tab", "pane", "paneInteractionState"].filter { try db.tableExists($0) }
+            try expected.filter { try db.tableExists($0) }
         }
-        #expect(existing == ["tab", "pane", "paneInteractionState"])
+        #expect(existing == expected)
+    }
+
+    /// The v1 fixture: a database migrated only as far as v1, with a tab in it.
+    /// This is the shape 7.2 requires every future migration to be tested
+    /// against — captured from the prior version, not hand-written at v2.
+    private func v1Fixture(tabCount: Int) throws -> DatabaseQueue {
+        var config = Configuration()
+        config.foreignKeysEnabled = true
+        let queue = try DatabaseQueue(configuration: config)
+
+        var v1Only = DatabaseMigrator()
+        v1Only.registerMigration("v1_initial") { db in
+            try Migrations.v1ForTesting(db)
+        }
+        try v1Only.migrate(queue)
+
+        try queue.write { db in
+            for index in 0..<tabCount {
+                let tabID = UUID().uuidString
+                try db.execute(
+                    sql: """
+                        INSERT INTO tab
+                            (id, placementKind, placementOrder, focusedPaneID,
+                             lastAccessedAt, createdAt)
+                        VALUES (?, 'ephemeral', ?, ?, 0, 0)
+                        """,
+                    arguments: [tabID, index, UUID().uuidString]
+                )
+            }
+        }
+        return queue
+    }
+
+    @Test("v2 adopts existing v1 tabs into a generated default Space")
+    func v2AdoptsExistingTabs() throws {
+        let queue = try v1Fixture(tabCount: 3)
+
+        try Migrations.makeMigrator().migrate(queue)
+
+        let (spaceCount, tabCount, orphanCount) = try queue.read { db in
+            (
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM space") ?? 0,
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM tab") ?? 0,
+                try Int.fetchOne(
+                    db,
+                    sql: """
+                        SELECT COUNT(*) FROM tab
+                        WHERE spaceId IS NULL OR spaceId = ''
+                           OR spaceId NOT IN (SELECT id FROM space)
+                        """
+                ) ?? 0
+            )
+        }
+
+        // No user data is deleted by a migration, ever (7.2).
+        #expect(tabCount == 3)
+        #expect(spaceCount == 1)
+        #expect(orphanCount == 0)
+    }
+
+    @Test("v2 on an empty v1 profile still creates the default Space")
+    func v2OnEmptyProfile() throws {
+        let queue = try v1Fixture(tabCount: 0)
+
+        try Migrations.makeMigrator().migrate(queue)
+
+        let spaceCount = try queue.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM space") ?? 0
+        }
+        #expect(spaceCount == 1)
+    }
+
+    @Test("The generated Space has a usable data store identifier")
+    func generatedSpaceIsUsable() throws {
+        let queue = try v1Fixture(tabCount: 1)
+        try Migrations.makeMigrator().migrate(queue)
+
+        let row = try queue.read { db in try SpaceRow.fetchOne(db) }
+        let space = try #require(row.flatMap(SpaceMapping.model(from:)))
+
+        #expect(!space.name.isEmpty)
+        #expect(space.gradient.count == 2)
+        #expect(!space.isPrivate)
     }
 
     @Test("Migrating twice is a no-op")
@@ -43,6 +127,7 @@ struct MigrationTests {
         try queue.write { db in
             try TabRow(
                 id: tabID,
+                spaceId: UUID().uuidString,
                 placementKind: "ephemeral",
                 placementOrder: 0,
                 focusedPaneID: UUID().uuidString,

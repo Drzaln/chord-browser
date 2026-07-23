@@ -27,9 +27,21 @@ public final class FakeWebEngine: WebEngine {
 
     public init() {}
 
-    public func surface(for pane: Pane) -> AnyWebSurface {
+    /// Records which Space each view was built against, so tests can assert
+    /// that a pane never gets a view from the wrong data store.
+    public private(set) var spaceForPane: [UUID: UUID] = [:]
+    public private(set) var removedDataForSpaces: [UUID] = []
+    public var removeDataError: (any Error)?
+
+    public func surface(for pane: Pane, in space: Space) -> AnyWebSurface {
         if !createdPanes.contains(pane.id) { createdPanes.append(pane.id) }
+        spaceForPane[pane.id] = space.id
         return .empty(id: pane.id)
+    }
+
+    public func removeData(for space: Space) async throws {
+        if let removeDataError { throw removeDataError }
+        removedDataForSpaces.append(space.id)
     }
 
     public func load(_ url: URL, in paneID: UUID) { loadedURLs.append((paneID, url)) }
@@ -69,15 +81,25 @@ public final class FakeWebEngine: WebEngine {
     }
 }
 
-public actor FakeTabRepository: TabRepository {
+public actor FakeTabRepository: TabRepository, SpaceRepository {
     public private(set) var stored: [Tab]
+    public private(set) var storedSpaces: [Space]
     public private(set) var saveCount = 0
+    public private(set) var spaceSaveCount = 0
     public var loadError: (any Error)?
 
     private var interactionStates: [UUID: Data] = [:]
 
-    public init(stored: [Tab] = []) {
+    public init(stored: [Tab] = [], spaces: [Space] = []) {
         self.stored = stored
+        self.storedSpaces = spaces
+    }
+
+    public func loadSpaces() async throws -> [Space] { storedSpaces }
+
+    public func saveSpaces(_ spaces: [Space]) async throws {
+        storedSpaces = spaces
+        spaceSaveCount += 1
     }
 
     public func loadAll() async throws -> [Tab] {

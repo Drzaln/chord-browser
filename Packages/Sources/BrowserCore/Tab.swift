@@ -1,10 +1,9 @@
 import Foundation
 
-/// A sidebar entry. Owns one or more panes; M1 only ever creates one.
-///
-/// `spaceID` is intentionally absent until M2 — see `docs/adr/003-no-space-in-m1.md`.
+/// A sidebar entry. Owns one or more panes; M1 and M2 only ever create one.
 public struct Tab: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
+    public var spaceID: UUID
     public var placement: TabPlacement
     public var panes: [Pane]
     public var focusedPaneID: UUID
@@ -13,6 +12,7 @@ public struct Tab: Identifiable, Codable, Hashable, Sendable {
 
     public init(
         id: UUID = UUID(),
+        spaceID: UUID,
         placement: TabPlacement,
         panes: [Pane],
         focusedPaneID: UUID? = nil,
@@ -21,6 +21,7 @@ public struct Tab: Identifiable, Codable, Hashable, Sendable {
     ) {
         precondition(!panes.isEmpty, "a tab must have at least one pane")
         self.id = id
+        self.spaceID = spaceID
         self.placement = placement
         self.panes = panes
         self.focusedPaneID = focusedPaneID ?? panes[0].id
@@ -28,10 +29,11 @@ public struct Tab: Identifiable, Codable, Hashable, Sendable {
         self.createdAt = createdAt
     }
 
-    /// Convenience for the M1 single-pane case.
-    public init(url: URL, placement: TabPlacement, now: Date) {
+    /// Convenience for the single-pane case.
+    public init(url: URL, spaceID: UUID, placement: TabPlacement, now: Date) {
         let pane = Pane(url: url)
         self.init(
+            spaceID: spaceID,
             placement: placement,
             panes: [pane],
             focusedPaneID: pane.id,

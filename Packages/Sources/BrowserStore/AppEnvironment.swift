@@ -31,10 +31,13 @@ public struct AppEnvironment {
             )
         )
 
+        let repository = SQLiteTabRepository(database: database)
+
         return AppEnvironment(
             store: TabStore(
                 engine: engine,
-                repository: SQLiteTabRepository(database: database),
+                repository: repository,
+                spaceRepository: repository,
                 clock: SystemClock()
             )
         )

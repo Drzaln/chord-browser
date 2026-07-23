@@ -19,6 +19,7 @@ enum TabMapping {
 
         let tabRow = TabRow(
             id: tab.id.uuidString,
+            spaceId: tab.spaceID.uuidString,
             placementKind: kind,
             placementOrder: tab.placement.order,
             focusedPaneID: tab.focusedPaneID.uuidString,
@@ -49,6 +50,13 @@ enum TabMapping {
             return nil
         }
 
+        guard let spaceID = UUID(uuidString: tabRow.spaceId) else {
+            // An unowned tab would be invisible in every Space, which reads to
+            // the user as data loss. Better to skip it loudly.
+            Log.db.error("skipping tab \(tabRow.id, privacy: .public): bad spaceId")
+            return nil
+        }
+
         let panes = paneRows
             .sorted { $0.position < $1.position }
             .compactMap(pane(from:))
@@ -71,6 +79,7 @@ enum TabMapping {
 
         return Tab(
             id: id,
+            spaceID: spaceID,
             placement: placement,
             panes: panes,
             focusedPaneID: focus,

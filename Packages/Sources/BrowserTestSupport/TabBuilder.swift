@@ -10,8 +10,23 @@ public struct TabBuilder {
     private var lastAccessed = Date(timeIntervalSince1970: 1_700_000_000)
     private var favicon: Data?
     private var extraPanes: [Pane] = []
+    private var spaceID = TabBuilder.defaultSpaceID
+
+    /// Stable across builders so tabs land in the same Space unless a test says
+    /// otherwise.
+    public static let defaultSpaceID = UUID()
+
+    public static func defaultSpace() -> Space {
+        Space(id: defaultSpaceID, name: "Personal", sortIndex: 0)
+    }
 
     public init() {}
+
+    public func space(_ id: UUID) -> Self {
+        var copy = self
+        copy.spaceID = id
+        return copy
+    }
 
     public func url(_ value: String) -> Self {
         var copy = self
@@ -60,6 +75,7 @@ public struct TabBuilder {
     public func build() -> Tab {
         let first = Pane(url: url, title: title, faviconData: favicon)
         return Tab(
+            spaceID: spaceID,
             placement: placement,
             panes: [first] + extraPanes,
             focusedPaneID: first.id,

@@ -7,6 +7,7 @@ struct TabRow: Codable, FetchableRecord, PersistableRecord, Sendable {
     static let databaseTableName = "tab"
 
     var id: String
+    var spaceId: String
     var placementKind: String
     var placementOrder: Int
     var focusedPaneID: String

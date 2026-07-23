@@ -10,9 +10,13 @@ import Testing
 @Suite("Defensive row decoding")
 struct MappingTests {
 
-    private func validTabRow(id: String = UUID().uuidString) -> TabRow {
+    private func validTabRow(
+        id: String = UUID().uuidString,
+        spaceId: String = TabBuilder.defaultSpaceID.uuidString
+    ) -> TabRow {
         TabRow(
             id: id,
+            spaceId: spaceId,
             placementKind: "ephemeral",
             placementOrder: 0,
             focusedPaneID: UUID().uuidString,
@@ -38,6 +42,24 @@ struct MappingTests {
         let row = validTabRow(id: "not-a-uuid")
         let pane = validPaneRow(tabId: row.id)
         #expect(TabMapping.model(tabRow: row, paneRows: [pane]) == nil)
+    }
+
+    @Test("A tab with an unparseable spaceId is skipped")
+    func badSpaceID() {
+        let row = validTabRow(spaceId: "not-a-uuid")
+        #expect(TabMapping.model(tabRow: row, paneRows: [validPaneRow(tabId: row.id)]) == nil)
+    }
+
+    @Test("A tab carries its Space through the round-trip")
+    func spaceRoundTrip() throws {
+        let spaceID = UUID()
+        let row = validTabRow(spaceId: spaceID.uuidString)
+
+        let tab = try #require(
+            TabMapping.model(tabRow: row, paneRows: [validPaneRow(tabId: row.id)])
+        )
+        #expect(tab.spaceID == spaceID)
+        #expect(TabMapping.rows(for: tab).tab.spaceId == spaceID.uuidString)
     }
 
     @Test("A tab with an unknown placement kind is skipped")

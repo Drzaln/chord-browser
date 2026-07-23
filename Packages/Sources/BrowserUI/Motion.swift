@@ -6,6 +6,9 @@ public enum Motion {
     public static let tabSelection = Animation.spring(response: 0.28, dampingFraction: 0.86)
     public static let sidebarHover = Animation.easeOut(duration: 0.12)
     public static let progressBar = Animation.easeOut(duration: 0.18)
+    /// Sidebar gradient cross-fade on Space switch. Continuous swipe-driven
+    /// switching is M6; this is the discrete case.
+    public static let spaceSwitch = Animation.spring(response: 0.32, dampingFraction: 0.9)
 
     /// Honour Reduce Motion by collapsing to a cross-fade rather than dropping
     /// feedback entirely.

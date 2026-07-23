@@ -146,6 +146,9 @@ profile switching.
 Requirements:
 - Data stores are created lazily on first use and cached in a registry keyed by
   Space ID.
+- A web view belongs to the Space it was created in: resolve the Space from the
+  tab, never from the current selection, and tear the view down before moving a
+  tab between Spaces. See ADR 006.
 - Deleting a Space must call `WKWebsiteDataStore.remove(forIdentifier:)` to
   reclaim disk. Prompt before doing so; it is irreversible.
 - One Space may be marked `isPrivate`, using `.nonPersistent()` instead.

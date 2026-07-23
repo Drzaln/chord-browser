@@ -20,11 +20,10 @@ struct WebContentCard: View {
                     y: 2
                 )
 
-            if let tab = store.selectedTab {
+            if let tab = store.selectedTab, let surface = store.surface(for: tab) {
                 // Keyed by tab so switching swaps surfaces rather than
                 // reconfiguring one in place.
-                store.surface(for: tab)
-                    .id(tab.id)
+                surface.id(tab.id)
             }
         }
         .padding(Metrics.contentInset)

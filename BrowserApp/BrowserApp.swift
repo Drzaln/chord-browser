@@ -91,5 +91,23 @@ struct BrowserCommands: Commands {
             Button("Reload") { launch.store?.reload() }
                 .keyboardShortcut("r", modifiers: .command)
         }
+
+        CommandMenu("Spaces") {
+            Button("New Space") { launch.store?.addSpace() }
+
+            Divider()
+
+            // Cmd+1...9 (4.2). Bound unconditionally rather than to the current
+            // Space list, so the shortcuts do not churn as Spaces are added;
+            // the store ignores an index that does not exist.
+            ForEach(1...9, id: \.self) { position in
+                Button("Space \(position)") {
+                    launch.store?.selectSpace(atIndex: position - 1)
+                }
+                .keyboardShortcut(
+                    KeyEquivalent(Character("\(position)")), modifiers: .command
+                )
+            }
+        }
     }
 }

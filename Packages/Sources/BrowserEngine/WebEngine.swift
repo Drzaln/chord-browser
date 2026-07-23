@@ -46,7 +46,13 @@ public protocol WebEngine: AnyObject {
 
     /// Returns a renderable surface, creating the underlying web view on first
     /// call. Never call this for a pane the user has not activated (6.2).
-    func surface(for pane: Pane) -> AnyWebSurface
+    ///
+    /// The Space determines which `WKWebsiteDataStore` the view uses, so a pane
+    /// created here can only ever see that Space's cookies.
+    func surface(for pane: Pane, in space: Space) -> AnyWebSurface
+
+    /// Deletes a Space's website data. Irreversible; prompt first (3.3).
+    func removeData(for space: Space) async throws
 
     func load(_ url: URL, in paneID: UUID)
     func goBack(in paneID: UUID)

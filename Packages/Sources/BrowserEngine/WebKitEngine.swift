@@ -29,6 +29,7 @@ public final class WebKitEngine: WebEngine {
     public weak var delegate: (any WebEngineDelegate)?
 
     private let pool: WebViewPool
+    private let dataStores = DataStoreRegistry()
     private let favicons: FaviconLoader
     private let configuration: EngineConfiguration
 
@@ -60,15 +61,21 @@ public final class WebKitEngine: WebEngine {
 
     // MARK: - Surfaces
 
-    public func surface(for pane: Pane) -> AnyWebSurface {
-        let live = liveView(for: pane)
+    public func surface(for pane: Pane, in space: Space) -> AnyWebSurface {
+        let live = liveView(for: pane, in: space)
         return AnyWebSurface(id: pane.id, container: live.container)
     }
 
-    private func liveView(for pane: Pane) -> LiveWebView {
+    public func removeData(for space: Space) async throws {
+        guard !space.isPrivate else { return }  // nothing on disk to reclaim
+        dataStores.forget(spaceID: space.id)
+        try await dataStores.removePersistentStore(dataStoreID: space.dataStoreID)
+    }
+
+    private func liveView(for pane: Pane, in space: Space) -> LiveWebView {
         if let existing = pool.view(for: pane.id) { return existing }
 
-        let webView = makeWebView()
+        let webView = makeWebView(for: space)
         let live = LiveWebView(
             paneID: pane.id, webView: webView, cornerRadius: configuration.cornerRadius
         )
@@ -93,10 +100,13 @@ public final class WebKitEngine: WebEngine {
         return live
     }
 
-    private func makeWebView() -> WKWebView {
+    private func makeWebView(for space: Space) -> WKWebView {
         // Copying a template is cheaper than rebuilding a configuration, and
-        // rebuilding recompiles content rule lists (6.2).
+        // rebuilding recompiles content rule lists (6.2). The data store is the
+        // one thing that varies per Space.
         let config = Self.configurationTemplate.copy() as! WKWebViewConfiguration
+        config.websiteDataStore = dataStores.store(for: space)
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true

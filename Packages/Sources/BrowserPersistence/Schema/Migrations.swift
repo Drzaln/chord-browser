@@ -14,11 +14,18 @@ enum Migrations {
         // Registered at v1 from day one, before anything has changed, because
         // retrofitting versioning later is the painful path.
         migrator.registerMigration("v1_initial", migrate: v1Initial)
+        migrator.registerMigration("v2_add_spaces", migrate: v2AddSpaces)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 1
+    static let currentVersion = 2
+
+    /// Exposed so migration tests can build a fixture database at exactly v1,
+    /// which is what every later migration must be tested against (7.2).
+    static func v1ForTesting(_ db: Database) throws {
+        try v1Initial(db)
+    }
 
     private static func v1Initial(_ db: Database) throws {
         try db.create(table: "tab") { t in
@@ -51,5 +58,49 @@ enum Migrations {
             t.column("data", .blob).notNull()
             t.column("updatedAt", .double).notNull()
         }
+    }
+
+    /// Adds Spaces (M2).
+    ///
+    /// Additive by design: existing tabs are adopted by a generated default
+    /// Space rather than being dropped or rewritten. Nothing the user had is
+    /// deleted, which is the rule every migration here follows (7.2).
+    private static func v2AddSpaces(_ db: Database) throws {
+        try db.create(table: "space") { t in
+            t.primaryKey("id", .text).notNull()
+            t.column("name", .text).notNull()
+            t.column("iconSymbol", .text).notNull()
+            t.column("gradient", .text).notNull()      // comma-separated hex stops
+            t.column("dataStoreID", .text).notNull()
+            t.column("sortIndex", .integer).notNull()
+            t.column("isPrivate", .boolean).notNull().defaults(to: false)
+        }
+
+        // A v1 profile has tabs but no Space to hang them on, so one is created
+        // here and every existing tab is adopted into it.
+        let defaultSpaceID = UUID().uuidString
+        try db.execute(
+            sql: """
+                INSERT INTO space
+                    (id, name, iconSymbol, gradient, dataStoreID, sortIndex, isPrivate)
+                VALUES (?, ?, ?, ?, ?, 0, 0)
+                """,
+            arguments: [
+                defaultSpaceID,
+                "Personal",
+                "person",
+                "#5B7FFF,#8E6BFF",
+                UUID().uuidString,
+            ]
+        )
+
+        try db.alter(table: "tab") { t in
+            t.add(column: "spaceId", .text).notNull().defaults(to: "")
+        }
+        try db.execute(
+            sql: "UPDATE tab SET spaceId = ? WHERE spaceId = ''",
+            arguments: [defaultSpaceID]
+        )
+        try db.create(indexOn: "tab", columns: ["spaceId", "placementOrder"])
     }
 }

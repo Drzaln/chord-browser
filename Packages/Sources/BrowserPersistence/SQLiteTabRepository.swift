@@ -2,7 +2,7 @@ import BrowserCore
 import Foundation
 import GRDB
 
-public struct SQLiteTabRepository: TabRepository {
+public struct SQLiteTabRepository: TabRepository, SpaceRepository {
     private let database: BrowserDatabase
 
     public init(database: BrowserDatabase) {
@@ -38,6 +38,30 @@ public struct SQLiteTabRepository: TabRepository {
                 let (tabRow, paneRows) = TabMapping.rows(for: tab)
                 try tabRow.insert(db)
                 for pane in paneRows { try pane.insert(db) }
+            }
+        }
+    }
+
+    // MARK: - Spaces
+
+    public func loadSpaces() async throws -> [Space] {
+        try await database.writer.read { db in
+            let rows = try SpaceRow.order(Column("sortIndex")).fetchAll(db)
+            let spaces = rows.compactMap(SpaceMapping.model(from:))
+            if spaces.count != rows.count {
+                Log.db.error(
+                    "dropped \(rows.count - spaces.count, privacy: .public) corrupt space row(s)"
+                )
+            }
+            return spaces
+        }
+    }
+
+    public func saveSpaces(_ spaces: [Space]) async throws {
+        try await database.writer.write { db in
+            try SpaceRow.deleteAll(db)
+            for space in spaces {
+                try SpaceMapping.row(for: space).insert(db)
             }
         }
     }
