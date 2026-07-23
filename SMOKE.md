@@ -149,11 +149,20 @@ Caveats worth keeping honest:
 ### Split view
 - [x] `Cmd+Shift+D` splits the focused tab into two panes of equal width
 - [x] The focused pane is visibly marked; the ring only appears when split
-- [ ] **Dragging a divider resizes the two adjacent panes only** — the maths and
-      the store transition are unit-tested, but the gesture wiring is not:
-      there is no mouse-scripting tool on this machine, so nothing has ever
-      actually dragged one
+- [ ] **Dragging a divider tracks the cursor smoothly** and resizes the two
+      adjacent panes only. The maths and the store transition are unit-tested,
+      but the gesture wiring is not: there is no mouse-scripting tool on this
+      machine, so nothing here has ever actually dragged one
 - [ ] The resize cursor appears over a divider
+
+### Drag a tab into a split (§4.5)
+- [ ] Dragging a sidebar row over the content area highlights the pane it would
+      land in
+- [ ] Dropping adds it as a pane, and the dragged row disappears from the
+      sidebar (it is moved, not copied)
+- [ ] Dropping onto a tab that already has 4 panes is refused, and the dragged
+      tab is still in the sidebar afterwards
+- [ ] Dragging a row onto itself does nothing
 - [ ] Clicking an unfocused pane focuses it *and* the click still reaches the
       page (a link under the cursor should follow)
 - [ ] Splitting four times stops at four panes

@@ -40,6 +40,36 @@ extension TabStore {
         scheduleSave()
     }
 
+    /// Drags a sidebar tab into another tab, making a split of it (4.5).
+    ///
+    /// The dragged tab is *moved*, not copied: it stops being its own row and
+    /// becomes a pane. Copying would leave two rows showing the same page with
+    /// no way to tell them apart.
+    public func split(_ tabID: UUID, byMoving sourceTabID: UUID) {
+        guard tabID != sourceTabID,
+              tabs.contains(where: { $0.id == tabID }),
+              let source = tabs.first(where: { $0.id == sourceTabID })
+        else { return }
+
+        guard let target = tabs.first(where: { $0.id == tabID }),
+              target.panes.count < SplitLayout.maxPanes
+        else {
+            Log.store.notice("drop refused: target tab already has \(SplitLayout.maxPanes) panes")
+            return
+        }
+
+        // Take the URL before closing, and let the source's own state go: the
+        // new pane starts fresh rather than inheriting a blob keyed to a pane
+        // that no longer exists.
+        let url = source.focusedPane.url
+
+        closeTab(sourceTabID)
+        // closeTab may have moved the selection; the split must still land on
+        // the tab that was dropped onto.
+        selectedTabID = tabID
+        split(tabID, url: url)
+    }
+
     /// Removes a pane. Closing down to one converts the tab back to a normal
     /// tab (4.5); closing the last pane closes the tab.
     public func closePane(_ paneID: UUID) {
@@ -91,10 +121,25 @@ extension TabStore {
     /// to a fraction and this stays free of view geometry.
     public func resizePanes(in tabID: UUID, dividerAfter index: Int, by delta: Double) {
         guard let tabIndex = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        resizePanes(in: tabID, dividerAfter: index, by: delta,
+                    from: tabs[tabIndex].panes.map(\.widthFraction))
+    }
 
-        let current = tabs[tabIndex].panes.map(\.widthFraction)
-        let updated = SplitLayout.resizing(current, dividerAfter: index, by: delta)
-        guard updated != current else { return }
+    /// Applies a drag against the widths as they were when the drag *started*.
+    ///
+    /// A drag reports its translation from the point it began, so applying that
+    /// to a moving baseline compounds it and the divider runs away from the
+    /// cursor. The caller snapshots the fractions on the first change event and
+    /// passes the same `base` for the rest of the drag.
+    public func resizePanes(
+        in tabID: UUID, dividerAfter index: Int, by delta: Double, from base: [Double]
+    ) {
+        guard let tabIndex = tabs.firstIndex(where: { $0.id == tabID }),
+              base.count == tabs[tabIndex].panes.count
+        else { return }
+
+        let updated = SplitLayout.resizing(base, dividerAfter: index, by: delta)
+        guard updated != tabs[tabIndex].panes.map(\.widthFraction) else { return }
 
         applyFractions(updated, toTabAt: tabIndex)
         // Dragging emits a stream of these; the 2 s debounce coalesces them so

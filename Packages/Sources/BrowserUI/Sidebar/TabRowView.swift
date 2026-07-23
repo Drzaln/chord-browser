@@ -39,6 +39,13 @@ struct TabRowView: View {
         .background(background)
         .contentShape(Rectangle())
         .onTapGesture(perform: select)
+        // Drag a row into the content area to split the tab it lands on (4.5).
+        .draggable(DraggedTab(tabID: tab.id)) {
+            // Drag preview: the row's own title, so it is obvious what is moving.
+            Text(tab.displayTitle)
+                .font(.system(size: 12))
+                .padding(6)
+        }
         .onHover { hovering in
             withAnimation(Motion.respectingReduceMotion(
                 Motion.sidebarHover, reduceMotion: reduceMotion

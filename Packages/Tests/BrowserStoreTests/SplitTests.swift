@@ -145,6 +145,61 @@ struct SplitTests {
         #expect(store.surface(for: unfocused, in: tab) != nil)
     }
 
+    @Test("Dropping a sidebar tab onto another moves it in as a pane")
+    func dropMovesTabIntoSplit() async {
+        let (store, _, _) = makeStore(
+            stored: [TabBuilder().url("https://target.example").build(),
+                     TabBuilder().url("https://dragged.example").build()]
+        )
+        await store.restore()
+
+        let target = try! #require(store.tabs.first { $0.panes[0].url.host() == "target.example" })
+        let dragged = try! #require(store.tabs.first { $0.panes[0].url.host() == "dragged.example" })
+
+        store.split(target.id, byMoving: dragged.id)
+
+        // Moved, not copied: one row fewer, and the URL now lives in a pane.
+        #expect(store.tabs.count == 1)
+        let after = try! #require(store.tabs.first { $0.id == target.id })
+        #expect(after.panes.count == 2)
+        #expect(after.panes.map { $0.url.host() } == ["target.example", "dragged.example"])
+        #expect(store.selectedTabID == target.id)
+    }
+
+    @Test("Dropping a tab onto itself does nothing")
+    func dropOnSelfIsIgnored() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+
+        let tab = try! #require(store.selectedTab)
+        store.split(tab.id, byMoving: tab.id)
+
+        #expect(store.selectedTab?.panes.count == 1)
+        #expect(store.tabs.count == 1)
+    }
+
+    @Test("Dropping onto a full four-pane tab is refused, and keeps the dragged tab")
+    func dropOntoFullTabIsRefused() async {
+        let (store, _, _) = makeStore(
+            stored: [TabBuilder().url("https://target.example").build(),
+                     TabBuilder().url("https://dragged.example").build()]
+        )
+        await store.restore()
+
+        let target = try! #require(store.tabs.first { $0.panes[0].url.host() == "target.example" })
+        let dragged = try! #require(store.tabs.first { $0.panes[0].url.host() == "dragged.example" })
+        store.select(target.id)
+        for _ in 0..<3 { store.splitSelectedTab() }
+        #expect(store.selectedTab?.panes.count == SplitLayout.maxPanes)
+
+        store.split(target.id, byMoving: dragged.id)
+
+        // Refusing must not eat the dragged tab — that would be data loss for
+        // a gesture the user cannot undo.
+        #expect(store.tabs.contains { $0.id == dragged.id })
+        #expect(store.tabs.first { $0.id == target.id }?.panes.count == SplitLayout.maxPanes)
+    }
+
     @Test("A pending pane withholds its own surface, even when the focused one is ready")
     func pendingPaneWithholdsItsOwnSurface() async {
         // This is the exact shape of the bug M4 left behind, made deterministic:

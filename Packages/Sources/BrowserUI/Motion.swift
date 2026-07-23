@@ -33,6 +33,7 @@ public enum Metrics {
     /// Split view (4.5).
     public static let splitDividerWidth: CGFloat = 6
     public static let splitFocusRingWidth: CGFloat = 2
+    public static let splitDropRingWidth: CGFloat = 3
     public static let shadowRadius: CGFloat = 12
     public static let shadowOpacity: Double = 0.18
 }

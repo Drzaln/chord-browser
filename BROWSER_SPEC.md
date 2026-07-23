@@ -296,6 +296,10 @@ protocol ExtensionHost { ... }
 ### 4.5 Split view
 
 - `Cmd+Shift+D` splits the focused tab. Up to 4 panes.
+- **Dragging a sidebar tab onto the content area** splits the tab it lands on,
+  adding the dragged tab's page as a pane. The dragged tab is *moved*, not
+  copied — it stops being its own row. A drop onto a tab that already has 4
+  panes is refused and the dragged tab is left untouched.
 - Drag dividers to resize; `widthFraction` persists per tab.
 - Each pane has independent focus, navigation, and back/forward history.
 - Closing down to one pane converts the tab back to a normal tab.

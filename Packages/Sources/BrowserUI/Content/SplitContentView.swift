@@ -10,6 +10,10 @@ struct SplitContentView: View {
     @Bindable var store: TabStore
     let tab: BrowserCore.Tab
 
+    /// Widths as they were when the current divider drag began. Applying a
+    /// drag's translation to a live baseline compounds it.
+    @State private var dragBase: [Double]?
+
     var body: some View {
         GeometryReader { geometry in
             HStack(spacing: 0) {
@@ -18,16 +22,19 @@ struct SplitContentView: View {
 
                     if index < tab.panes.count - 1 {
                         PaneDivider(
+                            onDragBegan: { dragBase = tab.panes.map(\.widthFraction) },
                             onDrag: { translation in
                                 // Points to a fraction here, so the store and
                                 // the layout maths stay free of view geometry.
-                                guard geometry.size.width > 0 else { return }
+                                guard geometry.size.width > 0, let dragBase else { return }
                                 store.resizePanes(
                                     in: tab.id,
                                     dividerAfter: index,
-                                    by: translation / geometry.size.width
+                                    by: translation / geometry.size.width,
+                                    from: dragBase
                                 )
-                            }
+                            },
+                            onDragEnded: { dragBase = nil }
                         )
                     }
                 }
@@ -62,6 +69,8 @@ private struct PaneCard: View {
     let isFocused: Bool
     let showsFocusRing: Bool
 
+    @State private var isDropTarget = false
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
@@ -79,8 +88,19 @@ private struct PaneCard: View {
             }
         }
         .overlay {
-            // Which pane the keyboard acts on is otherwise invisible.
-            if showsFocusRing {
+            // Which pane the keyboard acts on is otherwise invisible. A drop
+            // target outranks it: during a drag, where the tab will land is the
+            // more urgent question.
+            if isDropTarget {
+                RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
+                    .strokeBorder(Color.accentColor, lineWidth: Metrics.splitDropRingWidth)
+                    .background(
+                        RoundedRectangle(
+                            cornerRadius: Metrics.contentCornerRadius, style: .continuous
+                        )
+                        .fill(Color.accentColor.opacity(0.12))
+                    )
+            } else if showsFocusRing {
                 RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
                     .strokeBorder(
                         isFocused ? Color.accentColor.opacity(0.9) : .clear,
@@ -88,6 +108,11 @@ private struct PaneCard: View {
                     )
             }
         }
+        .dropDestination(for: DraggedTab.self) { dropped, _ in
+            guard let source = dropped.first else { return false }
+            store.split(tab.id, byMoving: source.tabID)
+            return true
+        } isTargeted: { isDropTarget = $0 }
         .padding(Metrics.contentInset)
         // Clicking a pane focuses it. `simultaneousGesture` rather than
         // `onTapGesture`, so the click still reaches the web view — otherwise
@@ -99,9 +124,11 @@ private struct PaneCard: View {
 
 /// The draggable divider between two panes.
 private struct PaneDivider: View {
+    let onDragBegan: () -> Void
     let onDrag: (CGFloat) -> Void
+    let onDragEnded: () -> Void
 
-    @State private var lastTranslation: CGFloat = 0
+    @State private var isDragging = false
 
     var body: some View {
         Rectangle()
@@ -119,14 +146,24 @@ private struct PaneDivider: View {
                 if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
             }
             .gesture(
-                DragGesture(minimumDistance: 1)
+                // `.global`, because this view *moves* as the drag resizes the
+                // panes around it. In the default local space the origin moves
+                // with it, so translation is measured against a shifting frame
+                // and the divider lags and stutters behind the cursor.
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { value in
-                        // Deltas, not absolute translation: the store applies
-                        // each move to the current fractions.
-                        onDrag(value.translation.width - lastTranslation)
-                        lastTranslation = value.translation.width
+                        if !isDragging {
+                            isDragging = true
+                            onDragBegan()
+                        }
+                        // Total translation from the drag's start, applied to
+                        // the widths captured at the same moment.
+                        onDrag(value.translation.width)
                     }
-                    .onEnded { _ in lastTranslation = 0 }
+                    .onEnded { _ in
+                        isDragging = false
+                        onDragEnded()
+                    }
             )
     }
 }
