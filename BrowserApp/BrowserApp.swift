@@ -14,7 +14,9 @@ struct BrowserApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
-            BrowserCommands(launch: appDelegate.launch)
+            BrowserCommands(
+                launch: appDelegate.launch, commandBar: appDelegate.commandBar
+            )
         }
     }
 }
@@ -32,6 +34,7 @@ enum Launch {
         if case .ready(let environment) = self { return environment.store }
         return nil
     }
+
 }
 
 struct AppRootView: View {
@@ -73,11 +76,21 @@ struct LaunchFailureView: View {
 
 struct BrowserCommands: Commands {
     let launch: Launch
+    /// Lives in the UI package, so it is owned by the delegate rather than by
+    /// `AppEnvironment` — Store must not depend on UI.
+    let commandBar: CommandBarController?
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
+            // Cmd+T opens the command bar, not a blank tab (4.4). A new tab is
+            // one Enter away, and usually you wanted a destination anyway.
+            Button("Open Command Bar") {
+                commandBar?.toggle(over: NSApp.mainWindow)
+            }
+            .keyboardShortcut("t", modifiers: .command)
+
             Button("New Tab") { launch.store?.newTab() }
-                .keyboardShortcut("t", modifiers: .command)
+                .keyboardShortcut("n", modifiers: .command)
         }
         CommandGroup(after: .newItem) {
             Button("Close Tab") {

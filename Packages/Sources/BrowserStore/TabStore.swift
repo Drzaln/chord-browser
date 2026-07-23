@@ -15,20 +15,33 @@ enum Log {
 @MainActor
 @Observable
 public final class TabStore {
-    public private(set) var tabs: [Tab] = []
-    public private(set) var spaces: [Space] = []
-    public private(set) var activeSpaceID: UUID?
+    public internal(set) var tabs: [Tab] = []
+    public internal(set) var spaces: [Space] = []
+    public internal(set) var activeSpaceID: UUID?
     public var selectedTabID: UUID?
 
-    @ObservationIgnored private let engine: any WebEngine
+    @ObservationIgnored let engine: any WebEngine
     @ObservationIgnored private let repository: any TabRepository
-    @ObservationIgnored private let spaceRepository: (any SpaceRepository)?
-    @ObservationIgnored private let clock: any Clock
-    @ObservationIgnored private var runtimes: [UUID: PaneRuntime] = [:]
+    @ObservationIgnored let spaceRepository: (any SpaceRepository)?
+    @ObservationIgnored let historyRepository: (any HistoryRepository)?
+    @ObservationIgnored let archiveRepository: (any ArchiveRepository)?
+    @ObservationIgnored let clock: any Clock
+
+    /// How long an unpinned tab may sit idle. User-configurable; "never" is
+    /// allowed and disables the sweep (4.3).
+    public var idleWindow: IdleWindow = .default
+
+    @ObservationIgnored var sweepTask: Task<Void, Never>?
+    @ObservationIgnored var isOccluded = false
+
+    /// Refreshed when the command bar opens, so keystrokes never hit the disk.
+    @ObservationIgnored var cachedHistory: [HistoryEntry] = []
+    @ObservationIgnored var cachedArchive: [ArchivedTab] = []
+    @ObservationIgnored var runtimes: [UUID: PaneRuntime] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
     /// Switching back to a Space should land where you left it.
-    @ObservationIgnored private var lastSelectedTabBySpace: [UUID: UUID] = [:]
+    @ObservationIgnored var lastSelectedTabBySpace: [UUID: UUID] = [:]
 
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
@@ -39,11 +52,15 @@ public final class TabStore {
         engine: any WebEngine,
         repository: any TabRepository,
         spaceRepository: (any SpaceRepository)? = nil,
+        historyRepository: (any HistoryRepository)? = nil,
+        archiveRepository: (any ArchiveRepository)? = nil,
         clock: any Clock
     ) {
         self.engine = engine
         self.repository = repository
         self.spaceRepository = spaceRepository
+        self.historyRepository = historyRepository
+        self.archiveRepository = archiveRepository
         self.clock = clock
         self.engine.delegate = self
     }
@@ -82,6 +99,8 @@ public final class TabStore {
             // Restored tabs are lazy: no web view exists until one is activated.
             selectedTabID = visibleTabs.max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
         }
+
+        startSweep()
     }
 
     /// A tab whose Space no longer exists would be invisible everywhere, which
@@ -99,126 +118,6 @@ public final class TabStore {
             Log.store.notice("adopted \(adopted, privacy: .public) orphaned tab(s)")
             scheduleSave()
         }
-    }
-
-    // MARK: - Spaces
-
-    public var activeSpace: Space? {
-        guard let activeSpaceID else { return spaces.first }
-        return spaces.first { $0.id == activeSpaceID } ?? spaces.first
-    }
-
-    /// The sidebar shows only the active Space's tabs. Partitioning happens in
-    /// memory: the tab set is small, and going to disk on every Space switch
-    /// would blow the 100 ms budget in 6.1.
-    public var visibleTabs: [Tab] {
-        guard let spaceID = activeSpace?.id else { return [] }
-        return tabs
-            .filter { $0.spaceID == spaceID }
-            .sorted { $0.placement.order < $1.placement.order }
-    }
-
-    public func selectSpace(_ spaceID: UUID) {
-        guard spaceID != activeSpaceID, spaces.contains(where: { $0.id == spaceID }) else {
-            return
-        }
-
-        let state = Log.signposts.beginInterval("spaceSwitch")
-        defer { Log.signposts.endInterval("spaceSwitch", state) }
-
-        if let current = activeSpaceID, let selected = selectedTabID {
-            lastSelectedTabBySpace[current] = selected
-        }
-        activeSpaceID = spaceID
-
-        // Web views for the other Space stay live and stay in the pool — the
-        // LRU cap is what bounds them. Evicting on switch would make going back
-        // a reload, which is the opposite of the 100 ms budget.
-        let candidates = visibleTabs
-        if let remembered = lastSelectedTabBySpace[spaceID],
-           candidates.contains(where: { $0.id == remembered }) {
-            selectedTabID = remembered
-        } else {
-            selectedTabID = candidates.max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
-        }
-
-        if selectedTabID == nil { newTab() }
-    }
-
-    /// `Cmd+1...9`. Out-of-range indices are ignored rather than clamped —
-    /// Cmd+7 with three Spaces should do nothing, not jump to the last one.
-    public func selectSpace(atIndex index: Int) {
-        let ordered = spaces.sorted { $0.sortIndex < $1.sortIndex }
-        guard ordered.indices.contains(index) else { return }
-        selectSpace(ordered[index].id)
-    }
-
-    @discardableResult
-    public func addSpace(name: String? = nil) -> Space {
-        let sortIndex = (spaces.map(\.sortIndex).max() ?? -1) + 1
-        let space = Space(
-            name: name ?? "Space \(spaces.count + 1)",
-            gradient: Space.gradient(forIndex: sortIndex),
-            sortIndex: sortIndex
-        )
-        spaces.append(space)
-        Task { await persistSpaces() }
-        selectSpace(space.id)
-        return space
-    }
-
-    public func renameSpace(_ spaceID: UUID, to name: String) {
-        guard let index = spaces.firstIndex(where: { $0.id == spaceID }) else { return }
-        spaces[index].name = name
-        Task { await persistSpaces() }
-    }
-
-    /// Closes the Space's tabs and reclaims its disk. Irreversible — callers
-    /// must have confirmed with the user first (3.3).
-    public func deleteSpace(_ spaceID: UUID) async {
-        guard spaces.count > 1, let index = spaces.firstIndex(where: { $0.id == spaceID })
-        else { return }  // never leave the user with no Space
-
-        let space = spaces[index]
-
-        for tab in tabs where tab.spaceID == spaceID {
-            for pane in tab.panes {
-                engine.evict(paneID: pane.id)
-                runtimes[pane.id] = nil
-            }
-        }
-        tabs.removeAll { $0.spaceID == spaceID }
-        spaces.remove(at: index)
-        lastSelectedTabBySpace[spaceID] = nil
-
-        if activeSpaceID == spaceID {
-            activeSpaceID = nil
-            selectSpace(spaces[0].id)
-        }
-
-        do {
-            try await engine.removeData(for: space)
-        } catch {
-            // The Space is already gone from the user's view; a failed disk
-            // reclaim is a log line, not a failed operation.
-            Log.store.error("failed to remove data for space: \(String(describing: error))")
-        }
-
-        await persistSpaces()
-        scheduleSave()
-    }
-
-    private func persistSpaces() async {
-        do {
-            try await spaceRepository?.saveSpaces(spaces)
-        } catch {
-            Log.store.error("space save failed: \(String(describing: error))")
-        }
-    }
-
-    public var selectedTab: Tab? {
-        guard let selectedTabID else { return nil }
-        return tabs.first { $0.id == selectedTabID }
     }
 
     // MARK: - Commands
@@ -286,6 +185,27 @@ public final class TabStore {
         scheduleSave()
     }
 
+    /// Pinning exempts a tab from the ephemeral sweep (4.3). Order is
+    /// recomputed within the destination section so the two lists stay dense.
+    public func setPinned(_ pinned: Bool, tabID: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }),
+              tabs[index].placement.isPinned != pinned
+        else { return }
+
+        let spaceID = tabs[index].spaceID
+        let order = tabs
+            .filter { $0.spaceID == spaceID && $0.placement.isPinned == pinned }
+            .map(\.placement.order)
+            .max()
+            .map { $0 + 1 } ?? 0
+
+        tabs[index].placement = pinned ? .pinned(order: order) : .ephemeral(order: order)
+        scheduleSave()
+    }
+
+    public func pin(_ tabID: UUID) { setPinned(true, tabID: tabID) }
+    public func unpin(_ tabID: UUID) { setPinned(false, tabID: tabID) }
+
     public func select(_ tabID: UUID) {
         guard tabs.contains(where: { $0.id == tabID }) else { return }
         selectedTabID = tabID
@@ -329,34 +249,42 @@ public final class TabStore {
 
     /// Approach zero CPU while the window is not visible (6.3).
     public func setOccluded(_ occluded: Bool) {
+        isOccluded = occluded
         if let engine = engine as? WebKitEngine {
             engine.setOccluded(occluded)
         }
-        if occluded { flushSave() }
+        // The sweep timer stops entirely rather than firing into a hidden
+        // window and doing nothing (6.3).
+        if occluded {
+            stopSweep()
+            flushSave()
+        } else {
+            startSweep()
+        }
     }
 
     // MARK: - Mutation helpers
 
-    private func touch(_ tabID: UUID) {
+    func touch(_ tabID: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         tabs[index].lastAccessedAt = clock.now
         scheduleSave()
     }
 
-    private func updatePane(_ paneID: UUID, _ mutate: (inout Pane) -> Void) {
+    func updatePane(_ paneID: UUID, _ mutate: (inout Pane) -> Void) {
         guard let index = tabs.firstIndex(where: { tab in
             tab.panes.contains { $0.id == paneID }
         }) else { return }
         tabs[index].updatePane(paneID, mutate)
     }
 
-    private func tabID(owning paneID: UUID) -> UUID? {
+    func tabID(owning paneID: UUID) -> UUID? {
         tabs.first { $0.panes.contains { $0.id == paneID } }?.id
     }
 
     // MARK: - Persistence
 
-    private func scheduleSave() {
+    func scheduleSave() {
         saveTask?.cancel()
         saveTask = Task { [saveDebounce] in
             try? await Task.sleep(for: saveDebounce)
@@ -407,6 +335,12 @@ extension TabStore: WebEngineDelegate {
             }
         }
         if didChange { scheduleSave() }
+
+        // Record the visit once the page has a title and has stopped loading,
+        // so history holds the settled title rather than an intermediate one.
+        if didChange, !snapshot.isLoading, let url = snapshot.url, !snapshot.title.isEmpty {
+            recordVisit(url: url, title: snapshot.title)
+        }
     }
 
     public func paneDidLoadFavicon(_ paneID: UUID, data: Data?) {

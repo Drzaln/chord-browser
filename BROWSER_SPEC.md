@@ -271,7 +271,9 @@ protocol ExtensionHost { ... }
   (default 12h, user-configurable, "never" allowed) is closed.
 - Closed tabs go to a recoverable archive (last 100), searchable from the command
   bar. Never hard-delete on sweep.
-- Pinned tabs are exempt. Audio-playing tabs are exempt.
+- Pinned tabs are exempt. Audio-playing tabs are exempt — detected by injected
+  user script, since no public WebKit API reports playback (ADR 008). The
+  selected tab is also exempt.
 
 ### 4.4 Command bar
 
@@ -575,7 +577,11 @@ Flag these early rather than discovering them late:
 - Unit tests for: fuzzy ranking, ephemeral sweep eligibility, split-view fraction
   math, model codable round-trips.
 - Integration test: create Space → set a cookie → switch Space → assert cookie
-  absent.
+  absent. Done twice: at the data-store level, and end-to-end through a real
+  page (`BrowserE2ETests`).
+- End-to-end suite: real `WKWebView`, real SQLite, real HTTP from a localhost
+  test server. No fakes. This is the layer that catches wiring mistakes unit
+  tests cannot see — it found the duplicate script-handler crash in ADR 008.
 - Manual smoke checklist per milestone, kept in `SMOKE.md` and updated as
   features land.
 - No UI snapshot tests. They will be worthless while the visual layer churns.
@@ -609,7 +615,9 @@ Flag these early rather than discovering them late:
 
 Raise these when the relevant milestone starts; do not decide unilaterally.
 
-- GRDB vs Core Data (M1).
+- ~~GRDB vs Core Data (M1).~~ Resolved: GRDB (ADR 001).
+- ~~Whether history is full-text searchable or title/URL only (M3).~~ Resolved:
+  title and URL only (ADR 007).
+- ~~Archive retention policy for swept ephemeral tabs (M3).~~ Resolved: last
+  100, no time limit, blobs dropped on archive.
 - Whether extension contexts are per-Space or global (M7).
-- Whether history is full-text searchable or title/URL only (M3).
-- Archive retention policy for swept ephemeral tabs (M3).

@@ -69,6 +69,22 @@ extension NavigationCoordinator: WKNavigationDelegate {
     }
 }
 
+extension NavigationCoordinator: WKScriptMessageHandler {
+
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        guard message.name == MediaActivityMonitor.messageName,
+              let webView = message.webView,
+              let paneID = paneID(for: webView),
+              let playing = MediaActivityMonitor.isPlayingAudio(from: message.body)
+        else { return }
+
+        engine?.setPlayingAudio(playing, for: paneID)
+    }
+}
+
 extension NavigationCoordinator: WKUIDelegate {
 
     /// `target="_blank"` and `window.open`. Returning nil tells WebKit we handled

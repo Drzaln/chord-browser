@@ -49,6 +49,16 @@ let package = Package(
             swiftSettings: strict
         ),
 
+        // End-to-end: real engine, real database, real HTTP. No fakes.
+        .testTarget(
+            name: "BrowserE2ETests",
+            dependencies: [
+                "BrowserCore", "BrowserEngine", "BrowserPersistence", "BrowserStore",
+                "BrowserTestSupport",
+            ],
+            swiftSettings: strict
+        ),
+
         .testTarget(
             name: "BrowserCoreTests",
             dependencies: ["BrowserCore", "BrowserTestSupport"],

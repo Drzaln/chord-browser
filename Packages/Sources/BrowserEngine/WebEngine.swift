@@ -12,6 +12,9 @@ public struct PaneSnapshot: Equatable, Sendable {
     public var estimatedProgress: Double
     public var canGoBack: Bool
     public var canGoForward: Bool
+    /// Drives the sweep's audio exemption (4.3). Observed from inside the page;
+    /// see `MediaActivityMonitor`.
+    public var isPlayingAudio: Bool
 
     public init(
         url: URL? = nil,
@@ -19,8 +22,10 @@ public struct PaneSnapshot: Equatable, Sendable {
         isLoading: Bool = false,
         estimatedProgress: Double = 0,
         canGoBack: Bool = false,
-        canGoForward: Bool = false
+        canGoForward: Bool = false,
+        isPlayingAudio: Bool = false
     ) {
+        self.isPlayingAudio = isPlayingAudio
         self.url = url
         self.title = title
         self.isLoading = isLoading

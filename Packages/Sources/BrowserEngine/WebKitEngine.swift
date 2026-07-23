@@ -107,6 +107,17 @@ public final class WebKitEngine: WebEngine {
         let config = Self.configurationTemplate.copy() as! WKWebViewConfiguration
         config.websiteDataStore = dataStores.store(for: space)
 
+        // Each view gets its own content controller. `WKWebViewConfiguration.copy()`
+        // does *not* deep-copy this object, so sharing the template's controller
+        // means adding the same handler name twice — which throws
+        // NSInvalidArgumentException and takes the app down on the second tab.
+        let controller = WKUserContentController()
+        controller.addUserScript(MediaActivityMonitor.makeUserScript())
+        if let coordinator {
+            controller.add(coordinator, name: MediaActivityMonitor.messageName)
+        }
+        config.userContentController = controller
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
@@ -120,8 +131,16 @@ public final class WebKitEngine: WebEngine {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
+        // The user script and message handler are installed per view, not here:
+        // copy() shares this controller between every copy.
         return config
     }()
+
+    func setPlayingAudio(_ playing: Bool, for paneID: UUID) {
+        guard let live = pool.view(for: paneID), live.isPlayingAudio != playing else { return }
+        live.isPlayingAudio = playing
+        handleSnapshot(live.snapshot, for: paneID)
+    }
 
     // MARK: - Navigation
 

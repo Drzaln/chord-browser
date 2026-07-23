@@ -15,11 +15,12 @@ enum Migrations {
         // retrofitting versioning later is the painful path.
         migrator.registerMigration("v1_initial", migrate: v1Initial)
         migrator.registerMigration("v2_add_spaces", migrate: v2AddSpaces)
+        migrator.registerMigration("v3_history_and_archive", migrate: v3HistoryAndArchive)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 2
+    static let currentVersion = 3
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -102,5 +103,32 @@ enum Migrations {
             arguments: [defaultSpaceID]
         )
         try db.create(indexOn: "tab", columns: ["spaceId", "placementOrder"])
+    }
+
+    /// Adds history and the ephemeral-tab archive (M3).
+    ///
+    /// History is title and URL only — full-text search over page content was
+    /// considered and declined (ADR 007). Adding FTS later is a new table and a
+    /// new migration, not a reshape of this one.
+    private static func v3HistoryAndArchive(_ db: Database) throws {
+        try db.create(table: "historyEntry") { t in
+            t.primaryKey("id", .text).notNull()
+            // Unique so a visit is an upsert: one row per page, with a count.
+            t.column("url", .text).notNull().unique()
+            t.column("title", .text).notNull()
+            t.column("lastVisitedAt", .double).notNull()
+            t.column("visitCount", .integer).notNull().defaults(to: 1)
+        }
+        try db.create(indexOn: "historyEntry", columns: ["lastVisitedAt"])
+
+        try db.create(table: "archivedTab") { t in
+            t.primaryKey("id", .text).notNull()
+            t.column("url", .text).notNull()
+            t.column("title", .text).notNull()
+            t.column("faviconData", .blob)
+            t.column("spaceId", .text).notNull()
+            t.column("archivedAt", .double).notNull()
+        }
+        try db.create(indexOn: "archivedTab", columns: ["archivedAt"])
     }
 }

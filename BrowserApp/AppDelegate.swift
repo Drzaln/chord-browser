@@ -1,5 +1,6 @@
 import AppKit
 import BrowserStore
+import BrowserUI
 import os
 
 @MainActor
@@ -11,6 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Built once, at launch, and passed down by hand (3.6).
     let launch: Launch
+
+    /// Built once and reused; rebuilding the panel per invocation would spend
+    /// the command bar's 50 ms budget on view construction (6.1).
+    private(set) lazy var commandBar: CommandBarController? = {
+        guard let store = launch.store else { return nil }
+        return CommandBarController(store: store)
+    }()
 
     override init() {
         let state = Self.signposter.beginInterval("launch")

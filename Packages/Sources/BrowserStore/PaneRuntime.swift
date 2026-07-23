@@ -15,6 +15,8 @@ public final class PaneRuntime {
     public var canGoBack: Bool = false
     public var canGoForward: Bool = false
     public var currentURL: URL?
+    /// Exempts the tab from the ephemeral sweep (4.3).
+    public var isPlayingAudio: Bool = false
 
     init(paneID: UUID) {
         self.paneID = paneID
@@ -26,5 +28,6 @@ public final class PaneRuntime {
         canGoBack = snapshot.canGoBack
         canGoForward = snapshot.canGoForward
         currentURL = snapshot.url
+        isPlayingAudio = snapshot.isPlayingAudio
     }
 }

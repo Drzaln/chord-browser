@@ -16,6 +16,11 @@ final class LiveWebView {
     private(set) var snapshot = PaneSnapshot()
     private var observations: [NSKeyValueObservation] = []
 
+    /// Reported by the page rather than by WebKit; see `MediaActivityMonitor`.
+    var isPlayingAudio = false {
+        didSet { refreshSnapshot() }
+    }
+
     init(paneID: UUID, webView: WKWebView, cornerRadius: CGFloat) {
         self.paneID = paneID
         self.webView = webView
@@ -55,7 +60,8 @@ final class LiveWebView {
             isLoading: webView.isLoading,
             estimatedProgress: webView.estimatedProgress,
             canGoBack: webView.canGoBack,
-            canGoForward: webView.canGoForward
+            canGoForward: webView.canGoForward,
+            isPlayingAudio: isPlayingAudio
         )
     }
 
@@ -76,6 +82,10 @@ final class LiveWebView {
         observations.removeAll()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
+        // A script message handler retains its receiver until removed, which is
+        // one of the two classic leak sources named in 6.7.
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: MediaActivityMonitor.messageName)
         webView.stopLoading()
         container.removeContent()
     }
