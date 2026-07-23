@@ -148,8 +148,11 @@ Caveats worth keeping honest:
 - [x] No dead band above the web content — the card starts at the top inset,
       not below a reserved titlebar strip
 - [x] Traffic lights clear the Space switcher without overlapping it
-- [ ] The window is still draggable by its top edge (`.hiddenTitleBar` keeps the
-      strip draggable, but the content now runs under it — worth a tug)
+- [x] The window is still draggable by its top edge
+- [ ] **Known broken:** double-clicking the top edge no longer zooms the window.
+      The content runs under the titlebar strip since the dead-band fix, so the
+      double-click never reaches it. Deferred to M6 polish; the fix is a real
+      drag/zoom region rather than reverting the layout.
 
 ### Visual sweep — 2026-07-23
 
