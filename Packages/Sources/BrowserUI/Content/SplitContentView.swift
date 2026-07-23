@@ -141,19 +141,13 @@ private struct PaneCard: View {
             // layer at all, the web view swallows the *drop*, because it
             // registers for dragged types itself and is above our destination.
             if store.draggingTabID != nil {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onDrop(of: [.browserTab], isTargeted: $isDropTarget) { providers in
-                        guard let provider = providers.first else { return false }
-                        // Read the payload synchronously on this callback rather
-                        // than sending the provider across an isolation boundary.
-                        DraggedTab.loadTabID(from: provider) { sourceID in
-                            store.endTabDrag()
-                            guard let sourceID else { return }
-                            store.split(tab.id, byMoving: sourceID)
-                        }
-                        return true
+                TabDropTarget(
+                    isTargeted: { isDropTarget = $0 },
+                    onDrop: { sourceID in
+                        store.endTabDrag()
+                        store.split(tab.id, byMoving: sourceID)
                     }
+                )
             }
         }
         // Only the outer edges carry the inset. Insetting the inner edges too

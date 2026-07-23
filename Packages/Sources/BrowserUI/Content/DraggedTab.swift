@@ -19,16 +19,15 @@ struct DraggedTab: Codable, Transferable {
     ///
     /// `.ownProcess` visibility: a tab means nothing outside this app, and it
     /// keeps the identifier off the system pasteboard.
+    /// Registered *eagerly*. A lazy `registerDataRepresentation` promise leaves
+    /// the type advertised on the dragging pasteboard while
+    /// `data(forType:)` still returns nil inside `performDragOperation` — the
+    /// drop then looks like it fired and did nothing.
     var itemProvider: NSItemProvider {
-        let provider = NSItemProvider()
-        let id = tabID
-        provider.registerDataRepresentation(
-            forTypeIdentifier: UTType.browserTab.identifier, visibility: .ownProcess
-        ) { completion in
-            completion(Data(id.uuidString.utf8), nil)
-            return nil
-        }
-        return provider
+        NSItemProvider(
+            item: Data(tabID.uuidString.utf8) as NSData,
+            typeIdentifier: UTType.browserTab.identifier
+        )
     }
 
     /// Reads back what `itemProvider` wrote, delivering the result on the main

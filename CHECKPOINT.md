@@ -138,6 +138,30 @@ and the bar would otherwise crawl upward as you type.
 
 ## Carried debt
 
+- **Drag a tab into a split does not work yet** (§4.5). Everything up to the
+  payload is correct and verified with `cliclick`: the drag starts, the pane
+  highlights, `prepareForDragOperation` and `performDragOperation` both fire,
+  and the pasteboard advertises `com.rizal.browser.tab`. The payload arrives as
+  **zero bytes** — `data(forType:)` returns empty `Data`, not nil, via both the
+  pasteboard and `pasteboardItems`. Tried and rejected: SwiftUI `onDrop` (the
+  `WKWebView` wins the destination search), a lazy
+  `registerDataRepresentation`, and an eager
+  `NSItemProvider(item:typeIdentifier:)`. Next thing to try is dropping
+  `NSItemProvider` entirely and making the sidebar row an AppKit drag *source*
+  (`beginDraggingSession` with an `NSPasteboardItem` carrying the string), which
+  puts both ends under our control.
+  Two findings from this worth keeping regardless:
+  - The destination must return an operation the **source** offers. SwiftUI's
+    `onDrag` advertises `.copy` (mask 1); returning `.move` makes AppKit refuse
+    the drop, so the pane highlights on hover and release does nothing.
+  - `WKWebView` registers for dragged types, and AppKit picks the *deepest*
+    registered view under the cursor, so any SwiftUI-level drop target over web
+    content loses. An AppKit destination mounted above it works — but only
+    while a drag is in flight, or it eats ordinary clicks.
+- **`cliclick` is installed** and is how the divider drag was finally verified.
+  Use `dm:` (not `m:`) between `dd:` and `du:` — `m:` sends *mouseMoved*, which
+  a SwiftUI `DragGesture` tolerates but an AppKit drag session ignores.
+
 - **Double-click on the top strip no longer zooms the window.** Introduced by
   the `.ignoresSafeArea(.container, edges: .top)` that removed the dead band
   above the web content: the card now covers the region AppKit would have
