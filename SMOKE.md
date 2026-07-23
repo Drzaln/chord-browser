@@ -134,7 +134,9 @@ Caveats worth keeping honest:
 - [x] Esc dismisses
 - [x] `Cmd+N` still opens a plain new tab
 - [x] An already-open tab outranks history for the same term (§4.4)
-- [ ] The bar is visually centred and legible over the window
+- [x] The bar is visually centred and legible over the window
+- [x] The result list is actually visible — the panel grows to fit its rows
+      (it did not, for all of M3: the panel was a fixed 60 pt tall)
 - [ ] The app behind it does not visibly activate or lose its selection
 - [ ] Typing filters with no perceptible lag
 - [ ] Up/down arrows move the highlight and wrap at the ends

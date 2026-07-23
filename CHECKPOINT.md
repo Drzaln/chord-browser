@@ -52,8 +52,15 @@ osascript -e 'tell application "System Events" to tell process "Browser" to retu
 
 Window count is the cheapest signal: 1 = main window only, 2 = command bar open.
 `value of value of attribute "AXFocusedUIElement"` reads the focused field.
-Screen recording is *not* granted, so `screencapture` fails — you cannot see the
-app, only query it.
+**Screen recording is granted** (confirmed 2026-07-23) — `screencapture -x -o
+out.png` works, so you *can* see the app, not merely query it. Earlier
+milestones recorded the opposite and it was true then; that is why the command
+bar shipped for two milestones with its result list invisible. Take a
+screenshot before believing any claim about appearance.
+
+Note that AX returns `missing value` for role, title, and value on the command
+bar's SwiftUI hosting view. Element *count* is still a usable signal, but to
+read its text you need a screenshot.
 
 ## Where things are
 
@@ -120,6 +127,15 @@ All three of these cost real debugging time. They are not obvious from the code.
 Window tabbing is disabled in `AppDelegate.disableWindowTabbing()` — we have our
 own vertical tabs and do not want the system tab bar or its shortcut claims.
 
+**The panel must size itself from its content.** It shipped in M3 with a fixed
+`640x60` frame and an `autoresizingMask` on the hosting *view* — which makes the
+view follow the window, never the reverse. The result list rendered correctly
+and was clipped away entirely; every M3 behavioural check passed because Return
+still activated the right row. It is an `NSHostingController` with
+`sizingOptions = [.preferredContentSize]` now, and `setFrame` is overridden to
+anchor the top edge, because AppKit preserves the bottom-left corner on resize
+and the bar would otherwise crawl upward as you type.
+
 ## Carried debt
 
 - ~~No 30-minute soak has been run, for any milestone.~~ **Cleared 2026-07-23.**
@@ -131,12 +147,13 @@ own vertical tabs and do not want the system tab bar or its shortcut claims.
   come from `footprint`, CPU-time deltas, `sample`, and signposts, which is
   enough to clear the §8 gate but does not give first-*painted*-frame timings or
   an Allocations/Leaks trace.
-- **Sidebar scroll (120 fps) is unmeasurable on this machine** — screen
-  recording is not granted, so there is no way to capture frames.
-- Nobody has logged into two real Google accounts by hand. Cookie isolation *is*
-  proven end-to-end against a real page, so this is confirmation, not discovery.
-- The command bar's *appearance* is unverified (no screen recording permission):
-  position, legibility, and whether the window behind it visibly reacts.
+- **Sidebar scroll (120 fps) is still unmeasured**, but no longer known to be
+  unmeasurable: screen recording is granted now, so a capture-based approach is
+  worth trying before declaring it impossible.
+- ~~Nobody has logged into two real Google accounts by hand.~~ **Done
+  2026-07-23** — verified by hand against real Google auth, M2's done-when.
+- ~~The command bar's *appearance* is unverified.~~ **Verified 2026-07-23** by
+  screenshot, which is how the clipped result list below was found.
 
 ## Deviations from the spec
 

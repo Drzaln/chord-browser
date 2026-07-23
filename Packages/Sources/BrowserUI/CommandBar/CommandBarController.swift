@@ -16,6 +16,8 @@ public final class CommandBarController {
         subsystem: "com.rizal.browser", category: "lifecycle"
     )
 
+    private static let width: CGFloat = 640
+
     private let store: TabStore
     private let session = CommandBarSession()
     private var panel: CommandBarPanel?
@@ -63,19 +65,20 @@ public final class CommandBarController {
     private func existingOrNewPanel() -> CommandBarPanel {
         if let panel { return panel }
 
-        let hosting = NSHostingView(
+        let hosting = NSHostingController(
             rootView: CommandBarView(
                 store: store,
                 session: session,
                 dismiss: { [weak self] in self?.dismiss() }
             )
+            .frame(width: Self.width)
         )
-        hosting.frame = NSRect(x: 0, y: 0, width: 640, height: 60)
 
-        // The panel resizes to whatever the result list needs.
-        hosting.autoresizingMask = [.width, .height]
+        // The panel takes its height from the content, so the result list is
+        // actually on screen. Width is fixed by the view above.
+        hosting.sizingOptions = [.preferredContentSize]
 
-        let panel = CommandBarPanel(contentView: hosting, session: session)
+        let panel = CommandBarPanel(contentViewController: hosting, session: session)
         self.panel = panel
         return panel
     }

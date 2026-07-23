@@ -9,7 +9,13 @@ import SwiftUI
 final class CommandBarPanel: NSPanel {
     private let session: CommandBarSession
 
-    init(contentView: NSView, session: CommandBarSession) {
+    /// The panel grows and shrinks as results come and go. AppKit keeps the
+    /// bottom-left corner fixed on resize, which would walk the bar down the
+    /// screen as you type, so the *top* edge is anchored instead.
+    private var anchorTopY: CGFloat?
+    private var anchorCenterX: CGFloat?
+
+    init(contentViewController: NSViewController, session: CommandBarSession) {
         self.session = session
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 60),
@@ -33,7 +39,12 @@ final class CommandBarPanel: NSPanel {
         // the whole bar is unusable.
         becomesKeyOnlyIfNeeded = false
 
-        self.contentView = contentView
+        // A view *controller*, not a bare view: the window follows its
+        // preferredContentSize, which is what makes the result list visible at
+        // all. A plain NSHostingView with an autoresizing mask resizes with the
+        // window rather than driving it, so the list rendered inside a 60 pt
+        // window and was clipped away entirely.
+        self.contentViewController = contentViewController
         standardWindowButton(.closeButton)?.isHidden = true
         standardWindowButton(.miniaturizeButton)?.isHidden = true
         standardWindowButton(.zoomButton)?.isHidden = true
@@ -66,18 +77,30 @@ final class CommandBarPanel: NSPanel {
         return super.performKeyEquivalent(with: event)
     }
 
+    /// Keeps the top edge and horizontal centre fixed through every resize.
+    ///
+    /// The panel is re-laid-out whenever the result count changes, and AppKit
+    /// preserves the origin (bottom-left), so without this the bar visibly
+    /// crawls upward as results appear.
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        var rect = frameRect
+        if let anchorTopY { rect.origin.y = anchorTopY - rect.height }
+        if let anchorCenterX { rect.origin.x = anchorCenterX - rect.width / 2 }
+        super.setFrame(rect, display: flag)
+    }
+
     func present(over parent: NSWindow?) {
-        if let parent {
-            let parentFrame = parent.frame
-            let size = frame.size
+        let reference = parent?.frame ?? NSScreen.main?.visibleFrame
+
+        if let reference {
             // Centred horizontally, biased toward the top third — where the eye
             // already is, and clear of the content below.
-            let origin = NSPoint(
-                x: parentFrame.midX - size.width / 2,
-                y: parentFrame.midY + parentFrame.height / 6
-            )
-            setFrameOrigin(origin)
+            anchorCenterX = reference.midX
+            anchorTopY = reference.midY + reference.height / 6
+            setFrame(frame, display: false)
         } else {
+            anchorCenterX = nil
+            anchorTopY = nil
             center()
         }
 
