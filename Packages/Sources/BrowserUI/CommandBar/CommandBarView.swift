@@ -1,3 +1,4 @@
+import AppKit
 import BrowserCore
 import BrowserStore
 import SwiftUI
@@ -5,6 +6,7 @@ import SwiftUI
 /// The command bar's contents: one input, one ranked result list (4.4).
 struct CommandBarView: View {
     @Bindable var store: TabStore
+    let session: CommandBarSession
     let dismiss: () -> Void
 
     @State private var query = ""
@@ -27,12 +29,12 @@ struct CommandBarView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(.separator, lineWidth: 0.5)
         }
-        .onAppear {
-            // The bar is built once and reused, so state is reset on show
-            // rather than on construction.
-            query = ""
-            highlighted = 0
-            isFocused = true
+        // The bar is built once and reused, so `onAppear` fires only on the
+        // first presentation. Every show is driven by the session token instead.
+        .onChange(of: session.presentToken, initial: true) { reset() }
+        // Cmd+Enter, routed in from the panel's key-equivalent handling.
+        .onChange(of: session.activateToken) {
+            activate(forceNewTab: session.activateForcesNewTab)
         }
         .onChange(of: query) { highlighted = 0 }
     }
@@ -46,6 +48,10 @@ struct CommandBarView: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 18))
                 .focused($isFocused)
+                // Plain Return only. A focused TextField consumes Return for its
+                // own submit and ignores it entirely when Command is held, so
+                // Cmd+Enter is caught by the panel's performKeyEquivalent and
+                // routed back through the session (4.4).
                 .onSubmit { activate(forceNewTab: false) }
                 .onKeyPress(.upArrow) { move(-1) }
                 .onKeyPress(.downArrow) { move(1) }
@@ -80,6 +86,26 @@ struct CommandBarView: View {
             .onChange(of: highlighted) {
                 guard results.indices.contains(highlighted) else { return }
                 proxy.scrollTo(results[highlighted].id)
+            }
+        }
+    }
+
+    private func reset() {
+        query = ""
+        highlighted = 0
+
+        // Focus has to be requested after the panel is key, not while it is
+        // still being ordered in — otherwise the field never becomes first
+        // responder and every keystroke goes to the window instead.
+        //
+        // Ordering between "panel becomes key" and this view update is not
+        // guaranteed, and losing the race means a bar you cannot type into, so
+        // the request is repeated briefly rather than made once.
+        Task { @MainActor in
+            for _ in 0..<10 {
+                isFocused = true
+                if isFocused { return }
+                try? await Task.sleep(for: .milliseconds(20))
             }
         }
     }

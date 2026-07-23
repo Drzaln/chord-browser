@@ -7,8 +7,10 @@ import SwiftUI
 /// without activating the app or disturbing the window behind it, which no
 /// SwiftUI presentation gives us.
 final class CommandBarPanel: NSPanel {
+    private let session: CommandBarSession
 
-    init(contentView: NSView) {
+    init(contentView: NSView, session: CommandBarSession) {
+        self.session = session
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 60),
             // .nonactivatingPanel is the point of using NSPanel at all.
@@ -44,6 +46,24 @@ final class CommandBarPanel: NSPanel {
     /// Esc dismisses (4.4).
     override func cancelOperation(_ sender: Any?) {
         orderOut(nil)
+    }
+
+    /// Cmd+Enter forces a new tab (4.4).
+    ///
+    /// It has to be caught here, before SwiftUI: a focused `TextField` consumes
+    /// Return for its own submit and ignores it outright when Command is held,
+    /// so neither `onSubmit`, `onKeyPress`, nor a `.keyboardShortcut` inside the
+    /// view ever sees the event.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let isReturn = event.charactersIgnoringModifiers == "\r"
+            || event.keyCode == 36
+            || event.keyCode == 76  // numeric keypad enter
+
+        if isReturn, event.modifierFlags.contains(.command) {
+            session.requestActivate(forceNewTab: true)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
     }
 
     func present(over parent: NSWindow?) {

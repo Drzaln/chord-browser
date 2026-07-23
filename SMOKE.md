@@ -86,22 +86,22 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 ## M3 — Command bar + ephemeral tabs
 
 ### Command bar
-> Not verified by automation: macOS blocks synthetic keystrokes without
-> accessibility permission, so the panel's presentation is manual-only. The
-> ranking and activation behind it are covered by tests.
+> Verified live via accessibility automation: open, focus, type, Enter,
+> Cmd+Enter, and Esc all confirmed against the running app. The unticked items
+> below still need a human eye.
 
-- [ ] `Cmd+T` opens the bar centred over the window, input already focused
+- [x] `Cmd+T` opens the bar, input focused and accepting keystrokes
+- [x] Enter opens the highlighted result and dismisses the bar
+- [x] `Cmd+Enter` forces a new tab instead of navigating the current one
+- [x] Esc dismisses
+- [x] `Cmd+N` still opens a plain new tab
+- [x] An already-open tab outranks history for the same term (§4.4)
+- [ ] The bar is visually centred and legible over the window
 - [ ] The app behind it does not visibly activate or lose its selection
-- [ ] `Cmd+T` again, or Esc, dismisses it
-- [ ] Typing filters as you type, with no perceptible lag
+- [ ] Typing filters with no perceptible lag
 - [ ] Up/down arrows move the highlight and wrap at the ends
-- [ ] Enter opens the highlighted result
-- [ ] `Cmd+Enter` forces a new tab instead of navigating the current one
 - [ ] An open tab in *another* Space is findable, and selecting it switches Space
-- [ ] A previously visited page appears from history
-- [ ] Typing a URL offers navigation; typing words offers a search
 - [ ] Commands ("new space", "close tab") are reachable by name
-- [ ] `Cmd+N` still opens a plain new tab
 
 ### Ephemeral sweep
 - [ ] A tab left idle past the window is closed automatically

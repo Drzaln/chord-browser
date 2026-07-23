@@ -9,6 +9,7 @@ import SwiftUI
 @MainActor
 public final class CommandBarController {
     private let store: TabStore
+    private let session = CommandBarSession()
     private var panel: CommandBarPanel?
 
     public init(store: TabStore) {
@@ -29,6 +30,16 @@ public final class CommandBarController {
         Task { await store.prepareCommandBar() }
 
         panel.present(over: parent)
+
+        // After the panel is key, so the text field can actually become first
+        // responder.
+        session.beginPresentation()
+
+        // NSHostingView does not always accept first responder on its own; ask
+        // the panel to route keyboard input into it explicitly.
+        if let content = panel.contentView {
+            panel.makeFirstResponder(content)
+        }
     }
 
     public func dismiss() {
@@ -39,14 +50,18 @@ public final class CommandBarController {
         if let panel { return panel }
 
         let hosting = NSHostingView(
-            rootView: CommandBarView(store: store, dismiss: { [weak self] in self?.dismiss() })
+            rootView: CommandBarView(
+                store: store,
+                session: session,
+                dismiss: { [weak self] in self?.dismiss() }
+            )
         )
         hosting.frame = NSRect(x: 0, y: 0, width: 640, height: 60)
 
         // The panel resizes to whatever the result list needs.
         hosting.autoresizingMask = [.width, .height]
 
-        let panel = CommandBarPanel(contentView: hosting)
+        let panel = CommandBarPanel(contentView: hosting, session: session)
         self.panel = panel
         return panel
     }

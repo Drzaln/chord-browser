@@ -74,6 +74,10 @@ struct SidebarView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .padding(8)
-        .keyboardShortcut("t", modifiers: .command)
+        // No keyboard shortcut here on purpose. A view-level `.keyboardShortcut`
+        // is handled in the window's responder chain and beats the menu item of
+        // the same key, so binding Cmd+T here silently stole it from the command
+        // bar (4.4) and quietly opened tabs instead. Shortcuts live in
+        // `BrowserCommands` only.
     }
 }

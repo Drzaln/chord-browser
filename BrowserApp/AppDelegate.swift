@@ -55,6 +55,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Turns off native window tabbing.
+    ///
+    /// We have our own vertical tabs; the system "Show Tab Bar" item and its
+    /// window-tab shortcuts are confusing next to them, and tabbing adds its own
+    /// claim on Cmd+T.
+    func disableWindowTabbing() {
+        for window in NSApp.windows where window.tabbingMode != .disallowed {
+            window.tabbingMode = .disallowed
+        }
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        disableWindowTabbing()
+
+        // Windows created later (and SwiftUI recreating one) must get the same
+        // treatment, or the shortcut breaks again the next time.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { [weak self] in
+                self?.disableWindowTabbing()
+            }
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
