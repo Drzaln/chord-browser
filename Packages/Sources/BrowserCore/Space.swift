@@ -76,6 +76,15 @@ public struct Space: Identifiable, Codable, Hashable, Sendable {
         self.isPrivate = isPrivate
     }
 
+    /// Whether `iconSymbol` holds an emoji (or any custom glyph) rather than an
+    /// SF Symbol name. SF Symbol names are always ASCII — letters, digits, dots
+    /// — so any non-ASCII scalar means the icon should be drawn as text, not
+    /// looked up as a symbol. Lets a Space carry an emoji without a second field
+    /// or a schema change.
+    public var isEmojiIcon: Bool {
+        iconSymbol.unicodeScalars.contains { $0.value > 0x7F }
+    }
+
     public static let defaultGradient: [ColorHex] = ["#5B7FFF", "#8E6BFF"]
 
     /// The Space a fresh profile starts with.

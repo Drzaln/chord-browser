@@ -282,6 +282,36 @@ struct SpaceStoreTests {
         #expect(store.spaces[0].gradient != store.spaces[1].gradient)
         #expect(store.activeSpace?.name == "Work")  // new Space is activated
     }
+
+    @Test("A custom emoji icon and colour are set and persisted")
+    func customAppearance() async {
+        let (store, _, repository) = makeStore()
+        await store.restore()
+        let id = store.spaces[0].id
+
+        store.setSpaceAppearance(id, icon: "🚀", gradient: ["#112233", "#0A1119"])
+
+        #expect(store.spaces[0].iconSymbol == "🚀")
+        #expect(store.spaces[0].isEmojiIcon)
+        #expect(store.spaces[0].gradient == ["#112233", "#0A1119"])
+        // Persisted, not just in memory.
+        try? await Task.sleep(for: .milliseconds(50))
+        let stored = await repository.storedSpaces.first { $0.id == id }
+        #expect(stored?.iconSymbol == "🚀")
+    }
+
+    @Test("An empty icon is ignored rather than blanking the Space")
+    func emptyIconIgnored() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+        let id = store.spaces[0].id
+        let original = store.spaces[0].iconSymbol
+
+        store.setSpaceAppearance(id, icon: "  ", gradient: [])
+
+        #expect(store.spaces[0].iconSymbol == original)
+        #expect(store.spaces[0].gradient == Space.defaultGradient)  // empty falls back
+    }
 }
 
 @Suite("Space value type")

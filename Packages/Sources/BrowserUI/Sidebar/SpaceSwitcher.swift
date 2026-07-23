@@ -8,6 +8,7 @@ struct SpaceSwitcher: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pendingDeletion: Space?
+    @State private var editing: Space?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -49,6 +50,9 @@ struct SpaceSwitcher: View {
             // 3.3: reclaiming the data store is irreversible, so say so plainly.
             Text("Its tabs, cookies, and cached data are removed permanently.")
         }
+        .sheet(item: $editing) { space in
+            SpaceEditor(store: store, space: space)
+        }
     }
 
     private func spaceButton(_ space: Space) -> some View {
@@ -62,8 +66,7 @@ struct SpaceSwitcher: View {
                 store.selectSpace(space.id)
             }
         } label: {
-            Image(systemName: space.iconSymbol)
-                .font(.system(size: 11, weight: .medium))
+            icon(for: space)
                 .frame(width: 24, height: 24)
                 .background {
                     if isActive {
@@ -88,8 +91,23 @@ struct SpaceSwitcher: View {
         .accessibilityLabel(space.name)
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
         .contextMenu {
+            Button("Edit Space…") { editing = space }
+            Divider()
             Button("Delete Space…", role: .destructive) { pendingDeletion = space }
                 .disabled(store.spaces.count <= 1)
+        }
+    }
+
+    /// An emoji is drawn as text; an SF Symbol name is looked up. `Space` decides
+    /// which by whether the icon is ASCII, so a custom emoji needs no new field.
+    @ViewBuilder
+    private func icon(for space: Space) -> some View {
+        if space.isEmojiIcon {
+            Text(space.iconSymbol)
+                .font(.system(size: 13))
+        } else {
+            Image(systemName: space.iconSymbol)
+                .font(.system(size: 11, weight: .medium))
         }
     }
 }

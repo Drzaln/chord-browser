@@ -92,6 +92,22 @@ extension TabStore {
         Task { await persistSpaces() }
     }
 
+    /// Sets a Space's icon and gradient. Both are already free-form persisted
+    /// columns, so custom emoji and colours need no migration. Empty inputs are
+    /// ignored rather than blanking the Space to an unrenderable state; the
+    /// gradient falls back to the default if the caller hands over nothing.
+    /// `SpaceTheme`'s cache invalidates itself when the stops change, so nothing
+    /// here has to poke the UI.
+    public func setSpaceAppearance(
+        _ spaceID: UUID, icon: String, gradient: [ColorHex]
+    ) {
+        guard let index = spaces.firstIndex(where: { $0.id == spaceID }) else { return }
+        let trimmed = icon.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { spaces[index].iconSymbol = trimmed }
+        spaces[index].gradient = gradient.isEmpty ? Space.defaultGradient : gradient
+        Task { await persistSpaces() }
+    }
+
     /// Closes the Space's tabs and reclaims its disk. Irreversible — callers
     /// must have confirmed with the user first (3.3).
     public func deleteSpace(_ spaceID: UUID) async {

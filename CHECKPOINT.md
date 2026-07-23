@@ -17,7 +17,7 @@ only the current position within it.
 | **In progress** | — M6 is complete and its soak passed; stopped for review |
 | **Next** | M7 Extensions (deliberately last) — start only after review |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 219 passing (200 unit + 19 end-to-end) |
+| **Tests** | 221 passing (202 unit + 19 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -413,6 +413,24 @@ the window's left edge brings it back over the page.
   accessibility pane, which changes a system-wide setting — not done. The routing
   is auditable in source (all through the single helper) and the helper itself is
   trivial and unit-testable; a hands-on toggle is the one remaining manual check.
+
+### Custom Space icon and colour (post-M6 addition)
+
+- **Emoji or SF Symbol, no schema change.** `iconSymbol` and `gradient` were
+  already free-form persisted columns, so a custom emoji lives in `iconSymbol`
+  and a custom colour in `gradient` with no migration. `Space.isEmojiIcon` picks
+  the render path: an SF Symbol name is always ASCII, so any non-ASCII scalar
+  means draw it as `Text`, not `Image(systemName:)`.
+- **`SpaceEditor`** is a sheet from the Space context menu ("Edit Space…") with a
+  name field, an icon field (free entry + a quick-pick emoji row), and a
+  `ColorPicker`. The picked colour becomes a two-stop gradient (accent + a darker
+  sibling) so the sidebar stays a gradient rather than a flat fill. Colour↔hex
+  conversion is AppKit-side in the editor, kept out of Core.
+- **Store:** `setSpaceAppearance(_:icon:gradient:)` persists both; an empty icon
+  is ignored rather than blanking the Space, and an empty gradient falls back to
+  the default. `SpaceTheme`'s cache invalidates on a stops change by itself.
+  Covered by `SpaceTests`; the emoji render and edit flow were verified live
+  (Personal Space set to 🚀 from the editor, rendered on the switcher pill).
 
 ### The User-Agent
 
