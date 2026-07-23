@@ -45,6 +45,22 @@ public actor TestHTTPServer {
     private var routes: [String: Route] = [:]
     private var connections: [NWConnection] = []
 
+    /// Every request's path and headers, most recent first, keys lower-cased.
+    /// Lets a test assert on what was actually *sent* rather than only on what
+    /// was rendered — the User-Agent is the reason this exists (9.6).
+    public private(set) var receivedRequests: [(path: String, headers: [String: String])] = []
+
+    /// A header from the most recent request for a given path.
+    ///
+    /// Per path on purpose. A page load is followed by requests for its
+    /// favicon and anything else it references, and those do not all come from
+    /// WebKit — the favicon loader is `URLSession`, which sends CFNetwork's own
+    /// User-Agent. Asking for "the last request" quietly answers about the
+    /// wrong one.
+    public func header(_ name: String, forPath path: String) -> String? {
+        receivedRequests.first { $0.path == path }?.headers[name.lowercased()]
+    }
+
     public private(set) var port: UInt16 = 0
 
     public init(routes: [Route] = []) throws {
@@ -110,6 +126,7 @@ public actor TestHTTPServer {
 
     private func respond(to request: String, on connection: NWConnection) {
         let path = Self.path(fromRequestLine: request)
+        receivedRequests.insert((path, Self.headers(from: request)), at: 0)
         let route = routes[path]
         let body = route?.html ?? "<html><head><title>Not Found</title></head><body>404</body></html>"
         let status = route == nil ? "404 Not Found" : "200 OK"
@@ -133,6 +150,21 @@ public actor TestHTTPServer {
             content: Data(response.utf8),
             completion: .contentProcessed { _ in connection.cancel() }
         )
+    }
+
+    /// Everything after the request line, up to the blank line. Values may
+    /// contain colons (a URL in a Referer, say), so only the first is a
+    /// separator.
+    private static func headers(from request: String) -> [String: String] {
+        var headers: [String: String] = [:]
+        for line in request.split(separator: "\r\n").dropFirst() {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let name = line[line.startIndex..<colon].lowercased()
+            let value = line[line.index(after: colon)...]
+                .trimmingCharacters(in: .whitespaces)
+            headers[name] = value
+        }
+        return headers
     }
 
     private static func path(fromRequestLine request: String) -> String {

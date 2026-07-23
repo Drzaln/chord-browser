@@ -304,6 +304,25 @@ sizing is still uncovered.
 - **History records challenge pages** — a Cloudflare "Just a moment…" entry is
   in there. `recordVisit` skips blank and error pages, but not interstitials.
 
+## The User-Agent
+
+`WKWebView`'s default UA stops at `(KHTML, like Gecko)` — no `Version/` and no
+`Safari/` token, because both come from `applicationNameForUserAgent`, which is
+unset by default. It is set now (`WebKitEngine.safariUserAgentSuffix`) and
+asserted end-to-end, since no unit test sees a real request.
+
+Two things worth knowing:
+
+- **The hard-coded version will go stale.** WebKit exposes no API for Safari's
+  version and the sandbox blocks reading its Info.plist. A stale-but-plausible
+  version degrades far better than no token at all.
+- **This is not the Chrome spoofing §9.6 warns against.** We are WebKit at the
+  same version Safari ships; saying so is accurate. Per-domain overrides remain
+  the answer for sites that demand Chrome specifically.
+- `TestHTTPServer` records request headers per path. Per *path* because a page
+  load is followed by a favicon fetch, and that one comes from `URLSession`
+  with CFNetwork's own UA — "the last request" answers about the wrong one.
+
 ## Deviations from the spec
 
 Each has an ADR; the spec text was updated in the same commit.

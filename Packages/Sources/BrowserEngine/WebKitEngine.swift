@@ -135,10 +135,30 @@ public final class WebKitEngine: WebEngine {
         return webView
     }
 
+    /// Completes the User-Agent so it looks like the browser it actually is.
+    ///
+    /// WKWebView's default UA ends at `(KHTML, like Gecko)` — no `Version/` and
+    /// no `Safari/` token, because both come from
+    /// `applicationNameForUserAgent`, which is unset by default. Sites sniff
+    /// for those: Google serves a stripped-down page to a UA with no browser
+    /// token at all, which is what made its home page look wrong here.
+    ///
+    /// This is **not** the Chrome spoofing §9.6 warns against. We are WebKit,
+    /// running the same engine at the same version Safari does; saying so is
+    /// accurate, and per-domain overrides remain the answer for the handful of
+    /// sites that demand Chrome specifically.
+    ///
+    /// The version is hard-coded and will go stale. That is the accepted cost:
+    /// WebKit exposes no API for the Safari version, reading Safari's own
+    /// Info.plist is blocked by the sandbox, and a stale-but-plausible version
+    /// degrades far more gracefully than no token at all.
+    static let safariUserAgentSuffix = "Version/26.5 Safari/605.1.15"
+
     private static let configurationTemplate: WKWebViewConfiguration = {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
+        config.applicationNameForUserAgent = safariUserAgentSuffix
         // The user script and message handler are installed per view, not here:
         // copy() shares this controller between every copy.
         return config
