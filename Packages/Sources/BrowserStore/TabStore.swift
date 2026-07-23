@@ -24,6 +24,12 @@ public final class TabStore {
     /// puts the content area's drop layer on screen (4.5).
     public internal(set) var draggingTabID: UUID?
 
+    /// Signed progress of an in-flight swipe between Spaces, in `[-1, 1]` (4.2).
+    /// Positive is toward the next Space (higher `sortIndex`). Observed: the
+    /// sidebar blends its gradient toward the neighbour's as this moves. Volatile
+    /// and never persisted — it is a gesture, not user data. See `TabStore+SpaceSwipe`.
+    public internal(set) var spaceSwipeProgress: Double = 0
+
     /// Whether the sidebar is collapsed to icons (4.1).
     ///
     /// In the store rather than in a view because the menu command drives it

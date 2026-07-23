@@ -63,8 +63,11 @@ struct SidebarView: View {
         .frame(width: Metrics.sidebarWidth)
         .background {
             // The active Space's gradient, under a material overlay (4.1).
+            // While a swipe is in flight it blends toward the neighbour's stops
+            // (4.2); at rest it uses the cached per-Space gradient so an idle
+            // sidebar does not rebuild one every frame (6.4).
             if let space = store.activeSpace {
-                SpaceTheme.gradient(for: space)
+                gradient(for: space)
                     .opacity(0.35)
                     .overlay(.regularMaterial)
             } else {
@@ -82,6 +85,12 @@ struct SidebarView: View {
             x: 2
         )
         .padding(isFloating ? Metrics.contentInset : 0)
+    }
+
+    private func gradient(for space: BrowserCore.Space) -> LinearGradient {
+        store.spaceSwipeProgress == 0
+            ? SpaceTheme.gradient(for: space)
+            : SpaceTheme.gradient(stops: store.swipeBlendedGradient)
     }
 
     /// Clears the traffic lights, and carries the collapse control beside them

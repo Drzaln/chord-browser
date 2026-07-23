@@ -14,10 +14,10 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
-| **In progress** | M6 Polish — sidebar hide/reveal, favourites, find-in-page, command-bar entry points done |
-| **Next** | M6's remainder: swipe Space switching, cross-section drag, animation tuning, print, PDF |
+| **In progress** | M6 Polish — sidebar hide/reveal, favourites, find-in-page, command-bar entry points, swipe Space switching done |
+| **Next** | M6's remainder: cross-section drag, animation tuning, print, PDF |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 201 passing (182 unit + 19 end-to-end) |
+| **Tests** | 212 passing (193 unit + 19 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -312,6 +312,35 @@ the window's left edge brings it back over the page.
 - An emptied field reports *nothing* rather than "not found", or the bar flashes
   red on every backspace as a query is deleted.
 
+### Swipe-driven Space switching (4.2)
+
+- **Raw scroll-phase `NSEvent`, not a gesture recogniser** — a recogniser
+  reports a swipe after the fact and cannot drive progress continuously, which
+  is the whole feel. `SpaceSwipeMonitor` installs a *local* event monitor
+  (`addLocalMonitorForEvents(matching: .scrollWheel)`) so it sees the event
+  before any view dispatch and can consume a swipe the `WKWebView` would
+  otherwise scroll. It engages only when a gesture *begins* with
+  `abs(scrollingDeltaX) > abs(scrollingDeltaY)` **and** carries a real trackpad
+  `phase` — a mouse wheel has no phase and a vertical scroll reaches the page.
+- **The maths is pure and lives in Core** (`SpaceSwipe`): full-swipe distance,
+  commit threshold, rubber-band curve, and the stop-for-stop gradient blend
+  (`ColorHex.lerp`). Tested without a trackpad.
+- **The gradient blend is continuous across the commit.** On release past the
+  threshold the monitor springs `spaceSwipeProgress` to `±1` and only *then*
+  calls `commitSpaceSwipe` — `blend(old, new, 1.0)` equals the neighbour's stops
+  exactly, and resetting to 0 over the now-active Space shows the same pixels,
+  so there is no jump. Below the threshold it springs back to 0.
+- **The idle path does not blend.** `SidebarView` uses the cached
+  `SpaceTheme.gradient(for:)` while `spaceSwipeProgress == 0` and only builds the
+  uncached blended gradient during an active swipe, so an idle sidebar is not
+  rebuilding a gradient every frame (6.4).
+- **Not verified by driving the real app.** A two-finger phased swipe cannot be
+  synthesized by `cliclick`/`osascript` — they cannot emit `.began`/`.changed`/
+  `.ended` scroll `NSEvent`s. The blend/commit/rubber-band logic is unit-tested,
+  and the *rendering* path is shared with discrete `Cmd+1…9` switching, which was
+  screenshot-verified (blue Space → red Space). The continuous gesture itself
+  still wants a hands-on trackpad check.
+
 ### The User-Agent
 
 `WKWebView`'s default UA stops at `(KHTML, like Gecko)` — no `Version/` and no
@@ -333,27 +362,22 @@ Two things worth knowing:
 
 ## Next steps, in order
 
-1. **Swipe-driven Space switching** (4.2). The spec is unusually specific and
-   it is specific for a reason: raw `NSEvent` scroll-phase handling
-   (`.began` / `.changed` / `.ended` with `momentumPhase`) driving animation
-   progress directly, **not** an `NSGestureRecognizer`, with a spring on
-   release and rubber-banding at the ends. A recogniser cannot track
-   continuously, which is the entire feel being copied.
-2. **Cross-section drag-and-drop** (4.1) — reorder within a section, drag
+1. **Cross-section drag-and-drop** (4.1) — reorder within a section, drag
    across sections to change placement, drag onto a Space to move between
    Spaces. Start from `TabDragSource`: the row is already an AppKit drag
    source, so this needs a *destination* beside it, not a second mechanism.
    Do not reach for SwiftUI `onDrag`/`onMove`; see "How drag-to-split works".
    Dragging a row into the favourites grid should pin it — `setPinned` already
    exists and the grid already renders from `pinnedTabs`.
-3. **Animation tuning pass** (5). Everything is already named in
+2. **Animation tuning pass** (5). Everything is already named in
    `Motion.swift`; this is a sit-and-look job, and Reduce Motion needs checking
-   at the same time — it is currently unverified for the sidebar reveal.
-4. **Print** — `WKWebView.printOperationWithPrintInfo(_:)`, confirmed present
+   at the same time — it is currently unverified for the sidebar reveal and the
+   swipe release.
+3. **Print** — `WKWebView.printOperationWithPrintInfo(_:)`, confirmed present
    in the SDK headers (macOS 11+).
-5. **PDF viewing** — check what WebKit already does before building anything.
+4. **PDF viewing** — check what WebKit already does before building anything.
    It may be free.
-6. **Re-run the soak** (`scripts/soak.sh seed` then `run`). §8 gates every
+5. **Re-run the soak** (`scripts/soak.sh seed` then `run`). §8 gates every
    milestone on it, and M6 adds a permanent tracking area plus a find bar that
    holds a cancellable task — both cheap, neither yet measured over 30 minutes.
 
@@ -402,6 +426,19 @@ sizing is still uncovered.
   | Apple Developer Documentation". Weak matches rank last and are noise rather
   than wrong answers, but the bar fills with rows a user would not call
   matches. Wants a quality floor, not just a score. Found in the visual sweep.
+### From the swipe session (2026-07-24)
+
+- **The swipe monitor can hijack a page's horizontal scroll.** A trackpad
+  gesture that *begins* more horizontal than vertical is claimed for a Space
+  switch, so a wide table or a horizontally-scrolling page swiped sideways
+  switches Space instead of scrolling. This ambiguity is inherent to the gesture
+  and Arc resolves it the same way; the `.began`-dominance gate is the only
+  disambiguation. If it proves annoying, the next lever is a larger horizontal
+  bias or restricting the monitor to swipes that start over the sidebar.
+- **A phased two-finger swipe is not scriptable** — verify the release spring,
+  rubber-band feel, and gradient tracking by hand on a trackpad. Everything
+  around it is covered (unit tests + the shared discrete-switch render path).
+
 ### From the M6 session (2026-07-23)
 
 - **Reduce Motion is unverified for the sidebar reveal.** The animation is

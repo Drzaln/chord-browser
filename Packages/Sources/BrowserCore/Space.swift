@@ -23,6 +23,21 @@ public struct ColorHex: Codable, Hashable, Sendable, ExpressibleByStringLiteral 
             Double(packed & 0xFF) / 255
         )
     }
+
+    /// Linear RGB interpolation between two hex colours. Used to blend a Space's
+    /// gradient toward its neighbour's while a swipe is in flight (4.2). Returns
+    /// `a` unchanged if either endpoint is not a `#RRGGBB` string.
+    public static func lerp(_ a: ColorHex, _ b: ColorHex, t: Double) -> ColorHex {
+        guard let ca = a.components, let cb = b.components else { return a }
+        let clamped = max(0, min(1, t))
+        func mix(_ x: Double, _ y: Double) -> Int {
+            Int((x + (y - x) * clamped) * 255 + 0.5)
+        }
+        return ColorHex(
+            String(format: "#%02X%02X%02X",
+                   mix(ca.red, cb.red), mix(ca.green, cb.green), mix(ca.blue, cb.blue))
+        )
+    }
 }
 
 /// A named workspace with its own tab set and its own cookies.

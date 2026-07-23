@@ -24,6 +24,17 @@ enum SpaceTheme {
         return gradient
     }
 
+    /// Builds a gradient from arbitrary stops, uncached. Only for the live
+    /// swipe blend (4.2), where the stops change every frame and caching would
+    /// churn — the idle sidebar still goes through `gradient(for:)`.
+    static func gradient(stops: [ColorHex]) -> LinearGradient {
+        LinearGradient(
+            colors: stops.map(color(from:)),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     static func accent(for space: Space) -> Color {
         space.gradient.first.map(color(from:)) ?? .accentColor
     }

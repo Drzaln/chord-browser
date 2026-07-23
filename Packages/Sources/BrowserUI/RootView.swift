@@ -14,6 +14,9 @@ public struct RootView: View {
     @State private var isRevealed = false
     @State private var collapseTask: Task<Void, Never>?
     @State private var window: NSWindow?
+    /// The two-finger Space-switch swipe (4.2). Held here so its local event
+    /// monitor lives exactly as long as the view is on screen.
+    @State private var swipeMonitor: SpaceSwipeMonitor?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -106,6 +109,15 @@ public struct RootView: View {
             if !collapsed { cancelPendingHide(); isRevealed = false }
         }
         .task { await store.restore() }
+        .onAppear {
+            let monitor = SpaceSwipeMonitor(store: store)
+            monitor.start()
+            swipeMonitor = monitor
+        }
+        .onDisappear {
+            swipeMonitor?.stop()
+            swipeMonitor = nil
+        }
     }
 
     private func reveal() {
