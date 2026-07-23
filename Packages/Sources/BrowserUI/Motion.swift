@@ -30,6 +30,9 @@ public enum Metrics {
     /// reserving it window-wide leaves a dead band above the web content.
     public static let titlebarInset: CGFloat = 28
     public static let faviconSize: CGFloat = 16
+    /// Split view (4.5).
+    public static let splitDividerWidth: CGFloat = 6
+    public static let splitFocusRingWidth: CGFloat = 2
     public static let shadowRadius: CGFloat = 12
     public static let shadowOpacity: Double = 0.18
 }

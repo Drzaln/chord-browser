@@ -41,6 +41,21 @@ extension TabStore {
         }
     }
 
+    /// Captures a single pane that is about to lose its web view — a pane
+    /// closed out of a split, where the rest of the tab lives on.
+    func captureInteractionState(for paneID: UUID) {
+        guard engine.hasLiveView(paneID: paneID),
+              let state = engine.interactionState(for: paneID)
+        else { return }
+        persistInteractionState(state, paneID: paneID)
+    }
+
+    /// Marks a brand-new pane resolved. Nothing is stored for it, so a disk read
+    /// would only cost a frame of withheld surface.
+    func markInteractionStateResolved(_ paneID: UUID) {
+        stateResolution[paneID] = .resolved
+    }
+
     /// Captures every live pane, without waiting for the writes. For occlusion,
     /// where the app keeps running.
     public func captureAllInteractionState() {

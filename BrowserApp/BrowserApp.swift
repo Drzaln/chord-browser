@@ -109,6 +109,19 @@ struct BrowserCommands: Commands {
 
             Divider()
 
+            // Split view (4.5). Up to four panes; beyond that the store
+            // declines rather than replacing one.
+            Button("Split Tab") { launch.store?.splitSelectedTab() }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
+
+            Button("Close Pane") {
+                guard let store = launch.store, let tab = store.selectedTab else { return }
+                store.closePane(tab.focusedPaneID)
+            }
+            .keyboardShortcut("d", modifiers: [.command, .shift, .option])
+
+            Divider()
+
             Button("Reload") { launch.store?.reload() }
                 .keyboardShortcut("r", modifiers: .command)
         }

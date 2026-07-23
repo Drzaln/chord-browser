@@ -144,6 +144,23 @@ Caveats worth keeping honest:
 - [x] An open tab in *another* Space is findable, and its row names the Space
 - [x] Commands ("new space", "close tab") are reachable by name
 
+## M5 — Split view + Little Arc
+
+### Split view
+- [x] `Cmd+Shift+D` splits the focused tab into two panes of equal width
+- [x] The focused pane is visibly marked; the ring only appears when split
+- [ ] **Dragging a divider resizes the two adjacent panes only** — the maths and
+      the store transition are unit-tested, but the gesture wiring is not:
+      there is no mouse-scripting tool on this machine, so nothing has ever
+      actually dragged one
+- [ ] The resize cursor appears over a divider
+- [ ] Clicking an unfocused pane focuses it *and* the click still reaches the
+      page (a link under the cursor should follow)
+- [ ] Splitting four times stops at four panes
+- [ ] `Cmd+Shift+Opt+D` closes the focused pane; down to one converts the tab
+      back to a normal tab with no divider
+- [ ] Pane widths survive quit and relaunch
+
 ### Window chrome
 - [x] No dead band above the web content — the card starts at the top inset,
       not below a reserved titlebar strip

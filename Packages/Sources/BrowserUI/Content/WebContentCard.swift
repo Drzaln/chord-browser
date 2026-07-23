@@ -11,21 +11,15 @@ struct WebContentCard: View {
     @Bindable var store: TabStore
 
     var body: some View {
-        ZStack {
+        if let tab = store.selectedTab {
+            // Split view is just a tab with more panes (3.2), so there is one
+            // path here rather than a normal case and a split case.
+            SplitContentView(store: store, tab: tab)
+                .id(tab.id)
+        } else {
             RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
                 .fill(Color(nsColor: .textBackgroundColor))
-                .shadow(
-                    color: .black.opacity(Metrics.shadowOpacity),
-                    radius: Metrics.shadowRadius,
-                    y: 2
-                )
-
-            if let tab = store.selectedTab, let surface = store.surface(for: tab) {
-                // Keyed by tab so switching swaps surfaces rather than
-                // reconfiguring one in place.
-                surface.id(tab.id)
-            }
+                .padding(Metrics.contentInset)
         }
-        .padding(Metrics.contentInset)
     }
 }

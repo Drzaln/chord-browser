@@ -254,6 +254,17 @@ public final class TabStore {
     /// The Space is resolved from the tab, not from the active selection, so a
     /// view can never be built against the wrong data store.
     public func surface(for tab: Tab) -> AnyWebSurface? {
+        surface(for: tab.focusedPane, in: tab)
+    }
+
+    /// Per *pane*, because split view renders every pane at once.
+    ///
+    /// The gate below must be checked for the pane being rendered, not for the
+    /// tab's focused one. While they were always the same — one pane per tab —
+    /// gating on the focused pane looked correct; with a second pane on screen
+    /// it would build that pane's view before its state had been read and throw
+    /// the restore away.
+    public func surface(for pane: Pane, in tab: Tab) -> AnyWebSurface? {
         guard let space = spaces.first(where: { $0.id == tab.spaceID }) else {
             Log.store.error("no space for tab \(tab.id, privacy: .public); refusing to render")
             return nil
@@ -263,9 +274,9 @@ public final class TabStore {
         // Building the view first would load the bare URL, and seeding state
         // into a live view afterwards would throw that load away and fight the
         // user for the scroll position.
-        guard !isAwaitingInteractionState(tab.focusedPaneID) else { return nil }
+        guard !isAwaitingInteractionState(pane.id) else { return nil }
 
-        return engine.surface(for: tab.focusedPane, in: space)
+        return engine.surface(for: pane, in: space)
     }
 
     public func runtime(for paneID: UUID) -> PaneRuntime {
