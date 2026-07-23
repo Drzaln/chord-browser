@@ -5,7 +5,7 @@ import Foundation
 /// Pure and dependency-free so it is unit-testable, and so the command bar (M3)
 /// can reuse it unchanged.
 public enum URLInput {
-    public static let searchTemplate = "https://duckduckgo.com/?q="
+    public static let searchTemplate = "https://www.google.com/search?q="
 
     public static func resolve(_ raw: String) -> URL? {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -46,7 +46,7 @@ public final class TabStore {
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
 
-    public static let defaultNewTabURL = URL(string: "https://duckduckgo.com")!
+    public static let defaultNewTabURL = URL(string: "https://www.google.com")!
 
     public init(
         engine: any WebEngine,
