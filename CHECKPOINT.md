@@ -14,10 +14,10 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
-| **In progress** | M6 Polish — hide/reveal sidebar, favourites, find-in-page done |
-| **Next** | M6's remainder: swipe Space switching, cross-section drag, print, PDF |
+| **In progress** | M6 Polish — sidebar hide/reveal, favourites, find-in-page, command-bar entry points done |
+| **Next** | M6's remainder: swipe Space switching, cross-section drag, animation tuning, print, PDF |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 200 passing (182 unit + 18 end-to-end) |
+| **Tests** | 201 passing (182 unit + 19 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -27,6 +27,53 @@ visible / 0.006% occluded — every budget clear by a wide margin, and no leak
 over 30 minutes. Numbers and method in [SMOKE.md](SMOKE.md); the runner is
 `scripts/soak.sh` (`seed` then `run`). Two gaps remain, neither blocking: no
 Instruments pass, and sidebar scroll is still unmeasured. See Carried debt.
+
+## Kickoff prompt for the next session
+
+Paste this whole block. It is deliberately blunt about the traps, because every
+one of them has already cost a session here.
+
+```
+Read BROWSER_SPEC.md and CHECKPOINT.md in full before writing any code.
+
+M1-M5 are done. M6 (Polish) is partly done: the sidebar hides and reveals from
+the screen edge, favourites are a per-Space pinned grid, find-in-page works, and
+New Tab / Split Tab both open the command bar. Single `main` branch, 201 tests
+passing, `./scripts/prepush.sh` green.
+
+Start with the ordered list under "Next steps" in CHECKPOINT.md. In short:
+finish M6 — swipe-driven Space switching, cross-section drag-and-drop, an
+animation tuning pass, print, and PDF viewing — then re-run the soak and stop.
+
+Follow Section 11 strictly. In particular:
+
+**Never invent WebKit API.** Check the SDK headers under
+$(xcrun --sdk macosx --show-sdk-path)/System/Library/Frameworks/WebKit.framework/Headers/
+rather than assuming a symbol or a signature, and tell me when something does
+not exist instead of guessing. That is how M4 learned `decidePlaceholderPolicy`
+is iOS-only, and how M6 learned `WKFindResult` reports only `matchFound` — so a
+"3 of 12" find counter is not buildable and the find bar does not pretend.
+
+**Verify UI work by driving the real app, not by reasoning about it.** Screen
+recording and accessibility are granted and `cliclick` is installed:
+`screencapture -x -o out.png`, `osascript` for keys, `cliclick` for the pointer.
+Use `dm:` (not `m:`) between `dd:` and `du:`. Get a window's real frame from
+`osascript ... get position of window 1` rather than estimating it off a
+screenshot — M6 aimed at a 6-point edge strip from a guess and missed it twice.
+Reading one pixel (`screencapture -x -R<x>,<y>,4,4`) is a cheap way to assert
+"is the sidebar showing" without spending a screenshot.
+
+**Before trusting a regression test, verify it fails against the bug.** Two
+tests in this repo passed against the very bug they claimed to cover — one
+because a redundant condition masked the real guard, one because a synchronous
+fake made the race impossible to stage. Break the fix, watch the test go red,
+put it back.
+
+**`swift test` runs UNSANDBOXED**, so it cannot verify anything
+entitlement-dependent; that needs a manual check against the real app.
+
+Update CHECKPOINT.md in the same commit as the work it describes.
+```
 
 ## Build and verify
 
@@ -208,7 +255,9 @@ Both ends of the drag are AppKit and both are ours. That is the whole fix.
   `store.restore()` again on the same store — which failed its load and replaced
   a working session with an empty one. `restore()` is now guarded to run once.
 
-## How the collapsible sidebar works
+## How M6 works (so far)
+
+### The sidebar: hide and reveal
 
 Arc's model: collapsed means **gone**, not narrowed, and the pointer reaching
 the window's left edge brings it back over the page.
@@ -238,7 +287,7 @@ the window's left edge brings it back over the page.
 - The collapsed state is a window preference in `UserDefaults`, not a schema
   column: it is not user data and has no business carrying a migration.
 
-## Favourites (pinned tabs)
+### Favourites (pinned tabs)
 
 - `TabPlacement.pinned` and `setPinned` existed from M1, in the model *and* the
   schema. The sidebar simply never separated them from the ephemeral tabs, so
@@ -248,15 +297,67 @@ the window's left edge brings it back over the page.
   which is already scoped to the active Space. That is worth a test rather than
   a comment: a regression leaks one Space's favourites into another.
 
+### Find-in-page
+
+- **`WKFindResult` reports `matchFound` and nothing else** — no total, no index
+  of the current match. "3 of 12" is not buildable on the public API, so the bar
+  says found or not found. Do not add a counter by injecting a DOM-walking
+  script; that is a page-rewriting mechanism this app has no other use for.
+- **Clearing the highlight goes through `evaluateJavaScript`**, which is not the
+  preferred route and is deliberate. There is no modern equivalent:
+  `deselectAll` belongs to the legacy `WebView`, and `WKWebView` has no
+  stop-finding call. Verified against the headers, not assumed.
+- It searches the **focused pane**, not the tab. In a split, Cmd+F means the
+  pane you are reading; searching all of them scrolls panes you are not.
+- An emptied field reports *nothing* rather than "not found", or the bar flashes
+  red on every backspace as a query is deleted.
+
+### The User-Agent
+
+`WKWebView`'s default UA stops at `(KHTML, like Gecko)` — no `Version/` and no
+`Safari/` token, because both come from `applicationNameForUserAgent`, which is
+unset by default. It is set now (`WebKitEngine.safariUserAgentSuffix`) and
+asserted end-to-end, since no unit test sees a real request.
+
+Two things worth knowing:
+
+- **The hard-coded version will go stale.** WebKit exposes no API for Safari's
+  version and the sandbox blocks reading its Info.plist. A stale-but-plausible
+  version degrades far better than no token at all.
+- **This is not the Chrome spoofing §9.6 warns against.** We are WebKit at the
+  same version Safari ships; saying so is accurate. Per-domain overrides remain
+  the answer for sites that demand Chrome specifically.
+- `TestHTTPServer` records request headers per path. Per *path* because a page
+  load is followed by a favicon fetch, and that one comes from `URLSession`
+  with CFNetwork's own UA — "the last request" answers about the wrong one.
+
 ## Next steps, in order
 
-1. **M6's remainder**: swipe-driven Space switching, cross-section
-   drag-and-drop, animation tuning, print, PDF viewing.
+1. **Swipe-driven Space switching** (4.2). The spec is unusually specific and
+   it is specific for a reason: raw `NSEvent` scroll-phase handling
+   (`.began` / `.changed` / `.ended` with `momentumPhase`) driving animation
+   progress directly, **not** an `NSGestureRecognizer`, with a spring on
+   release and rubber-banding at the ends. A recogniser cannot track
+   continuously, which is the entire feel being copied.
+2. **Cross-section drag-and-drop** (4.1) — reorder within a section, drag
+   across sections to change placement, drag onto a Space to move between
+   Spaces. Start from `TabDragSource`: the row is already an AppKit drag
+   source, so this needs a *destination* beside it, not a second mechanism.
+   Do not reach for SwiftUI `onDrag`/`onMove`; see "How drag-to-split works".
+   Dragging a row into the favourites grid should pin it — `setPinned` already
+   exists and the grid already renders from `pinnedTabs`.
+3. **Animation tuning pass** (5). Everything is already named in
+   `Motion.swift`; this is a sit-and-look job, and Reduce Motion needs checking
+   at the same time — it is currently unverified for the sidebar reveal.
+4. **Print** — `WKWebView.printOperationWithPrintInfo(_:)`, confirmed present
+   in the SDK headers (macOS 11+).
+5. **PDF viewing** — check what WebKit already does before building anything.
+   It may be free.
+6. **Re-run the soak** (`scripts/soak.sh seed` then `run`). §8 gates every
+   milestone on it, and M6 adds a permanent tracking area plus a find bar that
+   holds a cancellable task — both cheap, neither yet measured over 30 minutes.
 
-M6's cross-section drag-and-drop should start from `TabDragSource` — the sidebar
-row is already an AppKit drag source, and reordering within the sidebar needs a
-destination beside it, not a second mechanism. Do not reach for SwiftUI's
-`onDrag`/`onMove` for it; see "How drag-to-split works".
+Then stop for review. M7 (Extensions) is deliberately last.
 
 Not blocking, and worth doing whenever: the Instruments pass §6.7 wants
 (Allocations/Leaks, never run), and sidebar-scroll fps now that screen recording
@@ -301,27 +402,34 @@ sizing is still uncovered.
   | Apple Developer Documentation". Weak matches rank last and are noise rather
   than wrong answers, but the bar fills with rows a user would not call
   matches. Wants a quality floor, not just a score. Found in the visual sweep.
+### From the M6 session (2026-07-23)
+
+- **Reduce Motion is unverified for the sidebar reveal.** The animation is
+  routed through `Motion.respectingReduceMotion`, but nobody has turned the
+  setting on and looked. Same for the pinned grid.
+- **The reveal strip's click pass-through is untested in practice.** `hitTest`
+  returns nil so clicks *cannot* hit it, but as laid out today the 6-point strip
+  overlaps only the content card's 8-point inset, not the web view — so the
+  mechanism has never actually been exercised. It will matter the moment that
+  inset changes.
+- **`Cmd+Shift+D` on a tab that already has four panes** opens the command bar,
+  and the store then declines the split. Nobody has checked what that looks
+  like; the bar most likely just dismisses with no feedback, which reads as the
+  command being broken.
+- **`Cmd+Enter` from split mode** is unit-tested (forces a new tab, not a pane)
+  but unconfirmed by hand.
+- **An archived-tab result in split mode reopens as a tab, not a pane.**
+  Deliberate — `restoreArchived` builds a tab — but it is the one destination
+  the mode does not honour, and the row label does not say so.
+- **The favicon loader is `URLSession`**, so it sends CFNetwork's User-Agent
+  rather than the browser's. Harmless today; worth knowing if a site ever serves
+  us a favicon it would not serve Safari.
+- **One launch came up with the sidebar expanded** when the stored preference
+  said collapsed, and it has not reproduced in 5 consecutive launches since. If
+  it returns, suspect `WindowAccessor` reporting a window before the scene has
+  one.
 - **History records challenge pages** — a Cloudflare "Just a moment…" entry is
   in there. `recordVisit` skips blank and error pages, but not interstitials.
-
-## The User-Agent
-
-`WKWebView`'s default UA stops at `(KHTML, like Gecko)` — no `Version/` and no
-`Safari/` token, because both come from `applicationNameForUserAgent`, which is
-unset by default. It is set now (`WebKitEngine.safariUserAgentSuffix`) and
-asserted end-to-end, since no unit test sees a real request.
-
-Two things worth knowing:
-
-- **The hard-coded version will go stale.** WebKit exposes no API for Safari's
-  version and the sandbox blocks reading its Info.plist. A stale-but-plausible
-  version degrades far better than no token at all.
-- **This is not the Chrome spoofing §9.6 warns against.** We are WebKit at the
-  same version Safari ships; saying so is accurate. Per-domain overrides remain
-  the answer for sites that demand Chrome specifically.
-- `TestHTTPServer` records request headers per path. Per *path* because a page
-  load is followed by a favicon fetch, and that one comes from `URLSession`
-  with CFNetwork's own UA — "the last request" answers about the wrong one.
 
 ## Deviations from the spec
 
