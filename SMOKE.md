@@ -141,6 +141,17 @@ Caveats worth keeping honest:
 - [ ] An open tab in *another* Space is findable, and selecting it switches Space
 - [ ] Commands ("new space", "close tab") are reachable by name
 
+### Cmd+T vs Cmd+L (§4.4, changed after M4 review)
+- [ ] `Cmd+T` + Enter opens the result in a **new** tab, leaving the current one
+- [ ] `Cmd+L` + Enter navigates the **current** tab, opening nothing new
+- [ ] `Cmd+Enter` forces a new tab from either mode
+- [ ] Typing a complete address (`github.com`) highlights that address, **not**
+      an open tab that happens to fuzzy-match it
+- [ ] Typing a word (`github`) still highlights the open tab, with the search
+      fallback last
+- [ ] Every row shows what Return will do — a cross-Space result reads
+      "Switch to Tab" *before* you press it
+
 ### Ephemeral sweep
 - [ ] A tab left idle past the window is closed automatically
 - [ ] The tab you are looking at is never closed

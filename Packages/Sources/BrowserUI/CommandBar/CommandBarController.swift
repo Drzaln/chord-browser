@@ -26,11 +26,11 @@ public final class CommandBarController {
 
     public var isVisible: Bool { panel?.isVisible ?? false }
 
-    public func toggle(over parent: NSWindow?) {
-        isVisible ? dismiss() : present(over: parent)
+    public func toggle(over parent: NSWindow?, mode: CommandBarMode = .newTab) {
+        isVisible ? dismiss() : present(over: parent, mode: mode)
     }
 
-    public func present(over parent: NSWindow?) {
+    public func present(over parent: NSWindow?, mode: CommandBarMode = .newTab) {
         // Bounds the app-side work only: panel on screen and routed to first
         // responder. It does not include the compositor putting the frame on
         // the display.
@@ -47,7 +47,7 @@ public final class CommandBarController {
 
         // After the panel is key, so the text field can actually become first
         // responder.
-        session.beginPresentation()
+        session.beginPresentation(mode: mode)
 
         // NSHostingView does not always accept first responder on its own; ask
         // the panel to route keyboard input into it explicitly.

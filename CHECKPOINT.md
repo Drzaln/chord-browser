@@ -146,6 +146,10 @@ Each has an ADR; the spec text was updated in the same commit.
 - `BrowserStore` is a package the §3.5 list omitted (ADR 005)
 - Audio playback detected by user script, not the SPI everyone else uses (ADR 008)
 - `Cmd+T` opens the command bar per §4.4; plain new tab moved to `Cmd+N`
+- `Cmd+T` opens results in a *new* tab, `Cmd+L` navigates the *current* one.
+  §4.4 originally had Return always navigate the current tab, which meant
+  `Cmd+T` replaced the tab you were on — the one thing nobody expects it to do.
+  Spec text updated in the same commit.
 
 ## Open decisions (BROWSER_SPEC §12)
 

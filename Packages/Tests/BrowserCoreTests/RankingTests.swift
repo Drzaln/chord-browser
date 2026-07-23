@@ -225,4 +225,74 @@ struct CommandBarRankingTests {
                 < #require(titles.firstIndex(of: "Example B"))
         )
     }
+
+    @Test("A typed address outranks an open tab that merely fuzzy-matches it")
+    func typedAddressWinsTopSlot() throws {
+        // The reported bug: typing a complete address highlighted an open tab in
+        // another Space, so Return switched Space instead of navigating.
+        let tab = TabBuilder()
+            .url("https://github.com/groue/GRDB.swift")
+            .title("GRDB")
+            .build()
+
+        let results = CommandBarRanking.suggestions(
+            for: input(query: "github.com", tabs: [tab])
+        )
+
+        let first = try #require(results.first)
+        guard case .navigate(let url) = first.kind else {
+            Issue.record("expected the typed address first, got \(first.kind)")
+            return
+        }
+        #expect(url.absoluteString == "https://github.com")
+    }
+
+    @Test("A bare host counts as a typed address")
+    func bareHostWinsTopSlot() throws {
+        let tab = TabBuilder().url("https://example.com/deep/page").title("Example").build()
+
+        let results = CommandBarRanking.suggestions(
+            for: input(query: "example.com", tabs: [tab])
+        )
+
+        guard case .navigate = try #require(results.first).kind else {
+            Issue.record("expected a navigate suggestion first")
+            return
+        }
+    }
+
+    @Test("A search query still sorts last, so an open tab keeps the top slot")
+    func searchQueryStaysLast() throws {
+        // Only a *complete* address jumps the queue. For ordinary words an open
+        // tab really is the better guess, which is 4.4's rule.
+        let tab = TabBuilder().url("https://github.com").title("GitHub").build()
+
+        let results = CommandBarRanking.suggestions(
+            for: input(query: "github", tabs: [tab])
+        )
+
+        guard case .openTab = try #require(results.first).kind else {
+            Issue.record("expected the open tab first for a non-address query")
+            return
+        }
+        guard case .search = try #require(results.last).kind else {
+            Issue.record("expected the search fallback last")
+            return
+        }
+    }
+
+    @Test("Every row states what Return will do to it")
+    func rowsCarryAnActionLabel() throws {
+        let tab = TabBuilder().url("https://github.com").title("GitHub").build()
+        let results = CommandBarRanking.suggestions(
+            for: input(query: "github", tabs: [tab])
+        )
+
+        // The cross-Space jump has to be visible before it happens, not after.
+        let openTab = try #require(results.first { if case .openTab = $0.kind { true } else { false } })
+        #expect(openTab.actionLabel == "Switch to Tab")
+
+        let search = try #require(results.first { if case .search = $0.kind { true } else { false } })
+        #expect(search.actionLabel == "Search")
+    }
 }

@@ -277,11 +277,21 @@ protocol ExtensionHost { ... }
 
 ### 4.4 Command bar
 
-- `Cmd+T` opens a non-activating `NSPanel` centered over the window.
+- `Cmd+T` and `Cmd+L` both open a non-activating `NSPanel` centered over the
+  window. They differ only in what Return does: `Cmd+T` opens the result in a
+  **new tab**, `Cmd+L` navigates the **current** tab.
 - Single input. Ranked results across: open tabs (all Spaces), history,
   bookmarks, commands, then raw URL / search-query fallback.
 - Fuzzy scoring with recency weighting. Open tabs outrank history at equal score.
-- Enter navigates or switches; `Cmd+Enter` forces a new tab; Esc dismisses.
+- A **complete typed address takes the top slot**, ahead of open tabs. A search
+  query does not — there an open tab or a history hit is the better guess, so
+  the fallback stays last.
+- Every row states what Return will do to it ("Switch to Tab", "Go to Page",
+  "Search"…). A result that switches Space must announce that before it happens,
+  not after.
+- Return acts per the mode above; `Cmd+Enter` forces a new tab from either mode;
+  Esc dismisses. Choosing an already-open tab always switches to it rather than
+  opening a duplicate.
 
 ### 4.5 Split view
 

@@ -84,12 +84,20 @@ struct BrowserCommands: Commands {
         CommandGroup(replacing: .newItem) {
             // Cmd+T opens the command bar, not a blank tab (4.4). A new tab is
             // one Enter away, and usually you wanted a destination anyway.
-            Button("Open Command Bar") {
-                commandBar?.toggle(over: NSApp.mainWindow)
+            Button("New Tab…") {
+                commandBar?.toggle(over: NSApp.mainWindow, mode: .newTab)
             }
             .keyboardShortcut("t", modifiers: .command)
 
-            Button("New Tab") { launch.store?.newTab() }
+            // Same bar, aimed at the tab you are on — the conventional Cmd+L.
+            // Without it, Cmd+T had to double as "replace this tab", which is
+            // the one thing users never expect it to do.
+            Button("Open Location…") {
+                commandBar?.toggle(over: NSApp.mainWindow, mode: .currentTab)
+            }
+            .keyboardShortcut("l", modifiers: .command)
+
+            Button("New Blank Tab") { launch.store?.newTab() }
                 .keyboardShortcut("n", modifiers: .command)
         }
         CommandGroup(after: .newItem) {

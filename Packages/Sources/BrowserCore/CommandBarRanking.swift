@@ -18,6 +18,20 @@ public struct Suggestion: Identifiable, Hashable, Sendable {
     public var subtitle: String
     public var score: Int
 
+    /// What Return will actually do to this row, shown on the row itself.
+    ///
+    /// Without it, a fuzzy match on an open tab in another Space looks identical
+    /// to a navigation, and Return silently jumps Spaces instead.
+    public var actionLabel: String {
+        switch kind {
+        case .openTab: "Switch to Tab"
+        case .history, .navigate: "Go to Page"
+        case .search: "Search"
+        case .archived: "Reopen Tab"
+        case .command: "Run Command"
+        }
+    }
+
     public init(id: String, kind: Kind, title: String, subtitle: String, score: Int) {
         self.id = id
         self.kind = kind
@@ -103,10 +117,18 @@ public enum CommandBarRanking {
         }
         results = Array(results.prefix(resultLimit))
 
-        // The raw URL or search fallback always stays reachable, at the top when
-        // nothing else matched and at the end when something did (4.4).
+        // The raw URL or search fallback always stays reachable (4.4).
+        //
+        // A *complete* address goes first: having typed one, Return must go
+        // there. It previously sorted last on `Int.min`, so any open tab that
+        // fuzzy-matched the text won the highlight and Return jumped Spaces
+        // instead of navigating. A search query still sorts last, because there
+        // an open tab or a history hit really is the better guess.
         if let fallback = fallback(query: query) {
-            results.isEmpty ? results.append(fallback) : results.insert(fallback, at: results.count)
+            switch fallback.kind {
+            case .navigate: results.insert(fallback, at: 0)
+            default: results.append(fallback)
+            }
         }
         return results
     }

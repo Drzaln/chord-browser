@@ -52,7 +52,9 @@ struct CommandBarView: View {
                 // own submit and ignores it entirely when Command is held, so
                 // Cmd+Enter is caught by the panel's performKeyEquivalent and
                 // routed back through the session (4.4).
-                .onSubmit { activate(forceNewTab: false) }
+                // Cmd+T opens in a new tab, Cmd+L navigates the current one
+                // (4.4). Cmd+Enter still forces a new tab from either.
+                .onSubmit { activate(forceNewTab: session.mode == .newTab) }
                 .onKeyPress(.upArrow) { move(-1) }
                 .onKeyPress(.downArrow) { move(1) }
                 .onKeyPress(.escape) {
@@ -77,7 +79,7 @@ struct CommandBarView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             highlighted = index
-                            activate(forceNewTab: false)
+                            activate(forceNewTab: session.mode == .newTab)
                         }
                     }
                 }
@@ -145,7 +147,19 @@ struct CommandBarRow: View {
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 12)
+
+            // What Return will do, on the row itself. A cross-Space "Switch to
+            // Tab" is otherwise indistinguishable from a navigation until it
+            // has already happened.
+            HStack(spacing: 6) {
+                Text(suggestion.actionLabel)
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(isHighlighted ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 7)
