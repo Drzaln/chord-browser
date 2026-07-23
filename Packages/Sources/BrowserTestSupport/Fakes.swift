@@ -52,6 +52,30 @@ public final class FakeWebEngine: WebEngine {
 
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
+    /// Find-in-page. `findMatches` is the text the fake pretends the page
+    /// contains, so a test can drive both the hit and the miss.
+    public var findMatches: Set<String> = []
+    /// How long a given query takes to answer. Without this the fake replies
+    /// synchronously and queries always complete in the order they were made,
+    /// which makes an out-of-order result impossible to stage — and a test for
+    /// one passes whether or not the code guards against it.
+    public var findDelays: [String: Duration] = [:]
+    public private(set) var findQueries: [(paneID: UUID, text: String, backwards: Bool)] = []
+    public private(set) var clearedFindPanes: [UUID] = []
+
+    public func find(_ text: String, in paneID: UUID, backwards: Bool) async -> Bool {
+        findQueries.append((paneID, text, backwards))
+        if let delay = findDelays[text] {
+            // Deliberately not cancellation-aware: the point is to let a
+            // superseded query finish and try to report, so the store's own
+            // guard is what has to stop it.
+            try? await Task.sleep(for: delay)
+        }
+        return findMatches.contains(text)
+    }
+
+    public func clearFind(in paneID: UUID) { clearedFindPanes.append(paneID) }
+
     @discardableResult
     public func evict(paneID: UUID) -> Data? {
         evictedPanes.append(paneID)

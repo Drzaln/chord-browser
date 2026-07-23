@@ -34,6 +34,14 @@ public final class TabStore {
         didSet { UserDefaults.standard.set(isSidebarCollapsed, forKey: "sidebar.collapsed") }
     }
 
+    /// Find-in-page (M6). See `TabStore+Find`.
+    public var isFindBarVisible = false
+    public var findText = ""
+    /// `nil` until a non-empty query has been run, so an empty bar does not
+    /// report "not found".
+    public internal(set) var findFoundMatch: Bool?
+    @ObservationIgnored var findTask: Task<Void, Never>?
+
     /// Which panes are still waiting on their stored `interactionState`.
     /// Deliberately observed: flipping a pane to `.resolved` is what re-renders
     /// the content view and lets its surface be built.

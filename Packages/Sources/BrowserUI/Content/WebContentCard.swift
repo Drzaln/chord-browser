@@ -16,6 +16,14 @@ struct WebContentCard: View {
             // path here rather than a normal case and a split case.
             SplitContentView(store: store, tab: tab)
                 .id(tab.id)
+                // Over the content rather than above it: pushing the page down
+                // to make room would relayout every pane for the length of a
+                // search.
+                .overlay(alignment: .topTrailing) {
+                    if store.isFindBarVisible {
+                        FindBar(store: store)
+                    }
+                }
         } else {
             RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
                 .fill(Color(nsColor: .textBackgroundColor))

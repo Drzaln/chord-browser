@@ -129,6 +129,20 @@ struct BrowserCommands: Commands {
                 .keyboardShortcut("r", modifiers: .command)
         }
 
+        // Find-in-page (M6). Cmd+G / Cmd+Shift+G are the platform's, and they
+        // work whether or not the field has focus — which is the point: you
+        // find, click into the page, then keep stepping through matches.
+        CommandGroup(after: .textEditing) {
+            Button("Find…") { launch.store?.showFindBar() }
+                .keyboardShortcut("f", modifiers: .command)
+
+            Button("Find Next") { launch.store?.findNext() }
+                .keyboardShortcut("g", modifiers: .command)
+
+            Button("Find Previous") { launch.store?.findPrevious() }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+        }
+
         CommandGroup(after: .toolbar) {
             // Cmd+S. Arc's binding, and nothing here saves a document.
             Button("Toggle Sidebar") {

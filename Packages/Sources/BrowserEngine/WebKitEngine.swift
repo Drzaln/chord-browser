@@ -167,6 +167,45 @@ public final class WebKitEngine: WebEngine {
         pool.view(for: paneID)?.snapshot
     }
 
+    // MARK: - Find in page
+
+    public func find(_ text: String, in paneID: UUID, backwards: Bool) async -> Bool {
+        guard !text.isEmpty, let webView = pool.view(for: paneID)?.webView else { return false }
+
+        let configuration = WKFindConfiguration()
+        configuration.backwards = backwards
+        // Wrapping is the default and the right one here: a find bar that stops
+        // dead at the end of the document reads as "no more matches" when there
+        // are several above the fold.
+        configuration.wraps = true
+        // Case-insensitive, matching every other find bar on the platform.
+        configuration.caseSensitive = false
+
+        // The Swift refinement of `findString(_:withConfiguration:...)` is
+        // throwing. A thrown find is not a miss to report loudly — it means
+        // the page went away mid-search — so it reads as "no match".
+        do {
+            return try await webView.find(text, configuration: configuration).matchFound
+        } catch {
+            Log.engine.debug("find failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    public func clearFind(in paneID: UUID) {
+        // WebKit has no "stop finding" call in the modern API — the old
+        // `hideFindUI`/`stopFinding` pair belongs to the legacy WebView. What
+        // clears the highlight is collapsing the selection the find left
+        // behind, which is what the deselect-all command does.
+        guard let webView = pool.view(for: paneID)?.webView else { return }
+        // Failure is not worth surfacing: the page may have navigated away or
+        // be mid-load, and the only consequence is a highlight that outlives
+        // the find bar by one navigation.
+        webView.evaluateJavaScript("window.getSelection().removeAllRanges()") { _, error in
+            if let error { Log.engine.debug("clearFind: \(error.localizedDescription)") }
+        }
+    }
+
     // MARK: - Lifecycle
 
     @discardableResult

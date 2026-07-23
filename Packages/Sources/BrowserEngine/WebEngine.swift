@@ -67,6 +67,19 @@ public protocol WebEngine: AnyObject {
 
     func snapshot(for paneID: UUID) -> PaneSnapshot?
 
+    /// Find-in-page (§8, M6). Returns whether a match was found, and scrolls
+    /// the page to it.
+    ///
+    /// A `Bool` because that is genuinely all WebKit reports: `WKFindResult`
+    /// carries `matchFound` and nothing else — no match count, no index of the
+    /// current one. "3 of 12" cannot be built on the public API, so the find
+    /// bar does not pretend to.
+    func find(_ text: String, in paneID: UUID, backwards: Bool) async -> Bool
+
+    /// Drops the find selection, so dismissing the bar does not leave the page
+    /// highlighted.
+    func clearFind(in paneID: UUID)
+
     /// Captures `interactionState`, tears the view down, keeps nothing else.
     @discardableResult
     func evict(paneID: UUID) -> Data?
