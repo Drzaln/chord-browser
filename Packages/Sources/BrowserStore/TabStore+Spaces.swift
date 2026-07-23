@@ -24,6 +24,19 @@ extension TabStore {
             .sorted { $0.placement.order < $1.placement.order }
     }
 
+    /// The active Space's pinned tabs — its favourites (4.1).
+    ///
+    /// Per-Space for free: `visibleTabs` is already filtered by the active
+    /// Space, so a Space's favourites cannot leak into another's.
+    public var pinnedTabs: [Tab] {
+        visibleTabs.filter { $0.placement.isPinned }
+    }
+
+    /// Everything else: the ephemeral tabs the sweep may eventually close.
+    public var unpinnedTabs: [Tab] {
+        visibleTabs.filter { !$0.placement.isPinned }
+    }
+
     public func selectSpace(_ spaceID: UUID) {
         guard spaceID != activeSpaceID, spaces.contains(where: { $0.id == spaceID }) else {
             return

@@ -285,27 +285,40 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 
 ## M6 — Polish
 
-### Collapsible sidebar (§4.1)
+### Find-in-page (§8, M6)
+- [x] `Cmd+F` opens the bar with focus in the field
+- [x] Typing searches as you go; `Cmd+G` / `Cmd+Shift+G` step matches
+- [x] A miss says "Not found" and outlines the bar; an *emptied* field says
+      nothing rather than flashing "Not found" on every backspace
+- [x] Esc and the close button dismiss it and clear the page's highlight
+- [ ] In a split, Cmd+F searches only the focused pane (unit-tested; confirm by
+      hand that the other pane does not scroll)
 
-Verified 2026-07-23 by driving the app. The state is readable without a
-screenshot: sample a pixel that is sidebar when expanded and page when
-collapsed (`screencapture -x -R750,350,4,4`), which is how the launch
-determinism below was checked cheaply.
+### Sidebar: hide and reveal (§4.1)
 
-- [x] `Cmd+S` and the sidebar button both collapse and expand it
-- [x] Collapsed shows favicons only, Space icons stacked, no address field
-- [x] **Hovering the rail expands it over the page without shifting web
-      content** — the page's logo and search box stay at identical screen
-      coordinates
-- [x] Leaving re-collapses it, after a delay, and re-entering cancels that
-- [x] **The traffic lights are hidden in the rail** and return on expand. They
-      do not fit 48 points: before this the zoom button sat on the web content
-- [x] The collapsed state survives relaunch — 5 of 5 launches, checked because
-      one earlier launch came up expanded and a race here would be a real bug.
-      Not reproduced since; if it returns, suspect `WindowAccessor` reporting a
-      window before the scene has one
-- [x] Drag-to-split still works from the hover-expanded sidebar
-- [ ] Reduce Motion collapses the animation to a cross-fade
+Verified 2026-07-23 by driving the app. Read the state without a screenshot by
+sampling a pixel that is sidebar when revealed and page when hidden
+(`screencapture -x -R560,400,4,4`). Get the window's real frame from
+`osascript ... get position of window 1` rather than estimating it off a
+screenshot — a 6-point strip does not survive a guess.
+
+- [x] `Cmd+S` and the sidebar button hide it **completely** — no rail, content
+      fills the window
+- [x] **Reaching the window's left edge reveals it** over the page, as a
+      floating card, without shifting web content
+- [x] Leaving hides it again after a delay; re-entering cancels that
+- [x] The traffic lights are hidden while the sidebar is, and return with it
+- [x] The hidden state survives relaunch
+- [ ] The reveal strip does not swallow clicks. Note it currently overlaps only
+      the content card's 8-point inset, not the web view, so this is untested
+      in practice — it will matter if the inset ever goes away
+
+### Favourites (§4.1)
+- [x] "Pin to Favourites" moves a tab from the list into the grid
+- [x] The grid is 4 tiles per row, favicon only, and selection is visible
+- [x] Unpin returns it to the ephemeral list
+- [x] A Space's favourites do not appear in another Space
+- [ ] Favourites survive relaunch (the placement is persisted from M1; confirm)
 
 ### 30-minute soak
 - [x] 20 tabs open, cycle through them repeatedly for 30 minutes

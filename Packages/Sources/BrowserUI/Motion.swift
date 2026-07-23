@@ -36,11 +36,9 @@ public enum Motion {
 
 public enum Metrics {
     public static let sidebarWidth: CGFloat = 240
-    /// The collapsed rail: one favicon plus breathing room (4.1). Wide enough
-    /// to stay a hover target — a hairline strip is hard to hit on purpose and
-    /// easy to hit by accident.
-    public static let sidebarCollapsedWidth: CGFloat = 48
     public static let sidebarRowHeight: CGFloat = 30
+    /// A favourite's tile in the pinned grid (4.1).
+    public static let pinnedTileHeight: CGFloat = 44
     public static let contentCornerRadius: CGFloat = 10
     public static let contentInset: CGFloat = 8
     /// Vertical clearance for the traffic lights under `.hiddenTitleBar`.

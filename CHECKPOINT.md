@@ -14,10 +14,10 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
-| **In progress** | M6 Polish — collapsible sidebar done |
-| **Next** | M6's remainder: swipe Space switching, cross-section drag, find-in-page, print, PDF |
+| **In progress** | M6 Polish — hide/reveal sidebar, favourites, find-in-page done |
+| **Next** | M6's remainder: swipe Space switching, cross-section drag, print, PDF |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 188 passing (170 unit + 18 end-to-end) |
+| **Tests** | 196 passing (178 unit + 18 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -81,7 +81,7 @@ Packages/Sources/
   BrowserCore/           value types + pure logic (ranking, sweep policy). Foundation only.
   BrowserPersistence/    GRDB, migrations, row types, mappers
   BrowserEngine/         the ONLY package importing WebKit
-  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleArc/+Restore)
+  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleArc/+Restore/+Find)
   BrowserUI/             SwiftUI + command bar and Little Arc panels. Never WebKit.
   BrowserTestSupport/    fakes, TabBuilder, TestHTTPServer
 Packages/Tests/
@@ -210,30 +210,48 @@ Both ends of the drag are AppKit and both are ours. That is the whole fix.
 
 ## How the collapsible sidebar works
 
+Arc's model: collapsed means **gone**, not narrowed, and the pointer reaching
+the window's left edge brings it back over the page.
+
 - **The lane and the sidebar are different widths.** `RootView` reserves
-  `laneWidth` in the layout and draws the sidebar over it in a `ZStack`. A
-  hover-expanded sidebar therefore overhangs the page instead of pushing it —
-  4.1 requires that hovering not shift web content, and shifting it would
-  relayout every web view for the length of a hover.
-- **`showsRail` is not `store.isSidebarCollapsed`.** A collapsed sidebar under
-  the pointer is expanded; only the two together make the icons-only rail.
-- **The traffic lights are hidden while the rail shows** (`TrafficLights`).
+  `laneWidth` — zero when collapsed — and draws the sidebar over it in a
+  `ZStack`. A revealed sidebar overhangs the page instead of pushing it: 4.1
+  requires that revealing not shift web content, and shifting it would relayout
+  every web view for as long as the pointer sat there.
+- **The edge reveal is an `NSTrackingArea`, and that detail matters.** With the
+  sidebar fully hidden there is no view left to hover, and the strip that
+  replaces it lies over the web view. Two approaches failed first: a SwiftUI
+  `onHover` overlay swallows clicks meant for the page (and
+  `allowsHitTesting(false)` kills the hover too — the M5 drop-target trap), and
+  a `mouseMoved` local monitor never fired. A tracking area reports enter and
+  exit *regardless of hit testing*, so `hitTest` returns nil and clicks pass
+  straight through.
+- **The traffic lights are hidden while the sidebar is** (`TrafficLights`).
   AppKit puts them at a fixed offset from the window's top-left regardless of
-  what is underneath, so in a 48-point rail the zoom button lands on the web
-  content. They return on any expand, including a hover.
-- **Collapse-on-exit is delayed and cancellable** (`Motion.sidebarCollapseDelay`).
-  Zero delay makes the sidebar snap shut while the pointer travels from a row
-  to the page.
-- The state is a window preference in `UserDefaults`, not a schema column: it
-  is not user data and has no business carrying a migration.
-- `SpaceSwitcher` swaps `HStackLayout` for `VStackLayout` through `AnyLayout`
-  rather than branching to two copies of the content, so the icons keep their
-  identity and animate into place instead of being torn down.
+  what is underneath, so with no sidebar they land on the page.
+- **Hide-on-exit is delayed and cancellable** (`Motion.sidebarCollapseDelay`).
+  Zero delay makes the sidebar snap shut while the pointer travels toward a row
+  near its edge.
+- The revealed sidebar is a floating card — rounded, shadowed, inset — and the
+  in-lane one is flush. That is Arc, and it is what makes the revealed state
+  read as *over* the content rather than part of it.
+- The collapsed state is a window preference in `UserDefaults`, not a schema
+  column: it is not user data and has no business carrying a migration.
+
+## Favourites (pinned tabs)
+
+- `TabPlacement.pinned` and `setPinned` existed from M1, in the model *and* the
+  schema. The sidebar simply never separated them from the ephemeral tabs, so
+  there is no new state here and no migration — only §4.1's section, finally
+  rendered, as `PinnedGrid`.
+- **Per-Space comes for free** because `pinnedTabs` filters `visibleTabs`,
+  which is already scoped to the active Space. That is worth a test rather than
+  a comment: a regression leaks one Space's favourites into another.
 
 ## Next steps, in order
 
 1. **M6's remainder**: swipe-driven Space switching, cross-section
-   drag-and-drop, animation tuning, find-in-page, print, PDF viewing.
+   drag-and-drop, animation tuning, print, PDF viewing.
 
 M6's cross-section drag-and-drop should start from `TabDragSource` — the sidebar
 row is already an AppKit drag source, and reordering within the sidebar needs a
