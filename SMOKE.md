@@ -45,11 +45,49 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 - [ ] Repeat while a second tab is open: the other tab is unaffected
 
 ### Performance (6.1 gate)
-- [ ] Cold launch to first interactive frame < 400 ms
-- [ ] Idle CPU with the window visible and nothing loading < 0.5%
-- [ ] Idle CPU with the window minimised ~0%
-- [ ] App RSS with 20 tabs / 5 live < 150 MB
-- [ ] Sidebar scroll stays at display refresh with 20 tabs
+- [x] Cold launch to first interactive frame < 400 ms
+- [x] Idle CPU with the window visible and nothing loading < 0.5%
+- [x] Idle CPU with the window minimised ~0%
+- [x] App RSS with 20 tabs / 5 live < 150 MB
+- [ ] Sidebar scroll stays at display refresh with 20 tabs — **not measurable
+      here**: needs frame capture, and screen recording is not granted on this
+      machine. Still needs a human eye or an Instruments run.
+
+Full §6.1 results are in the table below; they cover M1–M3 together, since the
+gate had never been run for any of them.
+
+## §6.1 budgets — measured 2026-07-23
+
+Conditions: Apple Silicon, Debug build, 3 Spaces, 22 tabs, 12 live web views
+(more than the 5 the budget assumes, so the footprint rows are measured under
+heavier load than required).
+
+| Metric | Target | Ceiling | Measured | |
+|---|---|---|---|---|
+| App process footprint | < 150 MB | 250 MB | **59–72 MB** | pass |
+| Total footprint | < 1.2 GB | 1.8 GB | **654–775 MB** | pass |
+| Idle CPU, visible | < 0.5% | 1% | **0.36%** app | pass |
+| Idle CPU, occluded | ~0% | 0.2% | **0.01%** app | pass |
+| Cold launch | < 400 ms | 800 ms | **< 308 ms** | pass |
+| Space switch | < 100 ms | 200 ms | **< 1 ms** | pass |
+| Command bar open | < 50 ms | 100 ms | **6–27 ms** | pass |
+| Sidebar scroll | 120 fps | no drops at 60 | not measurable | — |
+
+Read the CPU rows as the **app process alone**, consistent with the footprint
+row that says "excl. content processes". Whole-tree idle CPU (app + WebContent +
+GPU + Networking) was 1.17% visible and 0.11% occluded; the difference is live
+pages animating, which is not an app-layer cost.
+
+Caveats worth keeping honest:
+- Cold launch is an upper bound. It is `open` → accessibility reports a window,
+  and each accessibility probe alone costs ~144 ms, so the real number is well
+  under 308 ms. In-app work is far smaller: the `launch` signpost (environment
+  construction) is 4–6 ms and `restore` (22 tabs) is 55 ms.
+- Space switch and command bar are **signpost intervals bounding app-side work**,
+  not the compositor putting a frame on the display. A true first-painted-frame
+  number needs the Instruments pass §6.7 asks for at M1/M3/M7, still not done.
+- The first command bar open is 27 ms because the panel is built lazily; every
+  open after is 6–10 ms.
 
 ## M2 — Spaces
 
@@ -117,8 +155,37 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 - [ ] An existing profile opens with history and archive tables added, tabs intact
 
 ### 30-minute soak
-- [ ] 20 tabs open, cycle through them repeatedly for 30 minutes
-- [ ] Record footprint at start and end (debug overlay, `Cmd+Ctrl+P`)
-- [ ] Growth over the soak means a leak — investigate before moving on
+- [x] 20 tabs open, cycle through them repeatedly for 30 minutes
+- [x] Record footprint at start and end (debug overlay, `Cmd+Ctrl+P`)
+- [x] Growth over the soak means a leak — investigate before moving on
 
-Start: ______ MB   End: ______ MB
+Start: **70** MB   End: **62** MB
+
+Run 2026-07-23 on Apple Silicon: 3 Spaces, 22 tabs, 12 live web views (the pool
+cap), Space switched every 4 s for 30 minutes, sampled every 60 s.
+
+| | start | end | range |
+|---|---|---|---|
+| App `phys_footprint` | 70 MB | 62 MB | 59–72 MB |
+| App + all WebKit helpers | 720 MB | 727 MB | 654–775 MB |
+| Live web views | 12 | 12 | 12 throughout |
+
+No growth over 30 minutes — the app process finished *lower* than it started,
+and the total oscillates around a flat mean. No leak signal.
+
+### How to re-run the measurements
+
+Footprint was read with `footprint -p <pid>`, which reports the same
+`phys_footprint` the debug overlay shows, so the two are comparable.
+
+Idle CPU must be measured as a **CPU-time delta** over a window
+(`ps -o cputime=`), not with `ps %cpu` — the latter is an average over the
+process's whole lifetime and will happily report a healthy number for an app
+that has been spinning for the last minute.
+
+Measure idle only after letting the app **settle for 3–4 minutes**. Sampled
+immediately after the soak, the occluded app process read 0.29% — over its 0.2%
+ceiling — and settled to 0.01% once WebKit finished reclaiming. The transient is
+JavaScriptCore's `libpas` scavenger thread, not app-layer work: a 20-second
+`sample` of the process while occluded put the main thread in `mach_msg2_trap`
+for 17397 of 17398 samples. Do not chase this one without re-measuring settled.

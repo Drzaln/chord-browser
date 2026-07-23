@@ -1,6 +1,7 @@
 import AppKit
 import BrowserStore
 import SwiftUI
+import os
 
 /// Owns the command bar panel and its lifetime.
 ///
@@ -8,6 +9,13 @@ import SwiftUI
 /// the 50 ms open-to-input-ready budget in 6.1 on view construction alone.
 @MainActor
 public final class CommandBarController {
+    /// The 50 ms budget in 6.1 is too tight to measure from outside the process
+    /// — an accessibility probe costs more than the budget itself — so the
+    /// interval is recorded here instead.
+    private static let signposter = OSSignposter(
+        subsystem: "com.rizal.browser", category: "lifecycle"
+    )
+
     private let store: TabStore
     private let session = CommandBarSession()
     private var panel: CommandBarPanel?
@@ -23,6 +31,12 @@ public final class CommandBarController {
     }
 
     public func present(over parent: NSWindow?) {
+        // Bounds the app-side work only: panel on screen and routed to first
+        // responder. It does not include the compositor putting the frame on
+        // the display.
+        let interval = Self.signposter.beginInterval("commandBarOpen")
+        defer { Self.signposter.endInterval("commandBarOpen", interval) }
+
         let panel = existingOrNewPanel()
 
         // History and archive are refreshed here, once, rather than on every

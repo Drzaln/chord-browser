@@ -20,7 +20,10 @@ only the current position within it.
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
-**No milestone has passed its §6.1 performance gate.** See Carried debt.
+**The §6.1 performance gate passes** as of 2026-07-23, covering M1–M3 together.
+Numbers and method in [SMOKE.md](SMOKE.md). Two gaps remain, neither blocking:
+no Instruments pass, and sidebar scroll cannot be measured without screen
+recording. See Carried debt.
 
 ## Build and verify
 
@@ -117,13 +120,19 @@ All three of these cost real debugging time. They are not obvious from the code.
 Window tabbing is disabled in `AppDelegate.disableWindowTabbing()` — we have our
 own vertical tabs and do not want the system tab bar or its shortcut claims.
 
-## Carried debt — clear before M5
+## Carried debt
 
-- **No 30-minute soak has been run, for any milestone.** §8 gates every
-  milestone on it; §6.7 wants Instruments passes at M1/M3/M7. Neither happened.
-  Footprint was ~139 MB with a few tabs (target < 150 MB). Cold launch, Space
-  switch, command-bar open, and idle CPU are all unmeasured. This is three
-  milestones of unmeasured performance debt — the compounding §8 warns about.
+- ~~No 30-minute soak has been run, for any milestone.~~ **Cleared 2026-07-23.**
+  Soak run and every §6.1 budget measured; all pass, with the numbers and their
+  caveats in [SMOKE.md](SMOKE.md). No leak: app footprint 70 MB → 62 MB over 30
+  minutes, total flat at ~720 MB. Headroom is large — the app process is using
+  under half its 150 MB target with 12 live views.
+- **Instruments passes (§6.7) are still not done** for M1/M3. The numbers above
+  come from `footprint`, CPU-time deltas, `sample`, and signposts, which is
+  enough to clear the §8 gate but does not give first-*painted*-frame timings or
+  an Allocations/Leaks trace.
+- **Sidebar scroll (120 fps) is unmeasurable on this machine** — screen
+  recording is not granted, so there is no way to capture frames.
 - Nobody has logged into two real Google accounts by hand. Cookie isolation *is*
   proven end-to-end against a real page, so this is confirmation, not discovery.
 - The command bar's *appearance* is unverified (no screen recording permission):
@@ -152,8 +161,35 @@ archive keeps the last 100, no time limit.
   M4 must add that, debounced, or restore is only as good as the last eviction.
 - `TabRepository.loadInteractionState`/`saveInteractionState` exist and are
   tested; nothing in the store calls them yet.
-- Downloads need `WKDownloadDelegate`. Check the header before writing against
-  it — do not assume method names.
+- Downloads need `WKDownloadDelegate`. Verified against the SDK headers
+  2026-07-23, so this does not need re-deriving:
+  - Required: `download(_:decideDestinationUsing:suggestedFilename:completionHandler:)`.
+    Hand back a file URL that does **not** exist, in a directory that does.
+  - Optional: `downloadDidFinish(_:)`,
+    `download(_:didFailWithError:resumeData:)`, redirect and auth-challenge
+    callbacks.
+  - `WKDownload` conforms to `NSProgressReporting` — progress UI reads
+    `download.progress`, it does not count bytes by hand.
+  - Downloads arrive via `WKNavigationDelegate`'s
+    `webView(_:navigationAction:didBecomeDownload:)` /
+    `webView(_:navigationResponse:didBecomeDownload:)` after returning the
+    `.download` policy, or from `startDownloadUsingRequest`. **The delegate must
+    be set inside those callbacks** or progress is never reported.
+  - `decidePlaceholderPolicy` / `didReceivePlaceholderURL` / `didReceiveFinalURL`
+    are **iOS and visionOS only — they do not exist on macOS.** There is no
+    placeholder-file path available to us.
+- **The sandbox cannot currently write a download.**
+  `BrowserApp/Browser.entitlements` grants only
+  `com.apple.security.files.user-selected.read-write`. Writing to `~/Downloads`
+  needs `com.apple.security.files.downloads.read-write`; without it the
+  destination must come from an `NSSavePanel`, which is what user-selected
+  covers. This is a decision to make, not an oversight to paper over.
+- **`paneInteractionState` has no foreign key to `pane`**
+  (`Migrations.swift`), and `save()` does `TabRow.deleteAll` which cascades only
+  to `pane`. Nothing prunes the blob table today — harmless while only evictions
+  write to it, but once M4 writes on every deactivation, closed tabs orphan
+  their blobs and the table grows without bound. That is the §6.5 concern
+  directly. M4 needs a prune.
 - The archive deliberately drops `interactionState` (§4.3, ADR 007); restoring an
   archived tab reloads. Intended, not an oversight to "fix".
 - Add e2e coverage alongside: the harness (`E2EHarness`) makes a second store
