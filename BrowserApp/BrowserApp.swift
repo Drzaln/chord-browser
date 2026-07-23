@@ -140,6 +140,14 @@ struct BrowserCommands: Commands {
                 .keyboardShortcut("r", modifiers: .command)
         }
 
+        // Print the page (M6). Cmd+P, the platform's, replacing the default
+        // print item so it targets the focused pane's web view rather than a
+        // document the app does not have.
+        CommandGroup(replacing: .printItem) {
+            Button("Print…") { launch.store?.printSelectedPane() }
+                .keyboardShortcut("p", modifiers: .command)
+        }
+
         // Find-in-page (M6). Cmd+G / Cmd+Shift+G are the platform's, and they
         // work whether or not the field has focus — which is the point: you
         // find, click into the page, then keep stepping through matches.

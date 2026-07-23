@@ -280,6 +280,12 @@ public final class TabStore {
         scheduleSave()
     }
 
+    /// Prints the focused pane's page (M6). Searches the focused pane, like find
+    /// (4.1): in a split, Cmd+P prints the pane you are reading.
+    public func printSelectedPane() {
+        selectedTab.map { engine.printPane(paneID: $0.focusedPaneID) }
+    }
+
     public func goBack() { selectedTab.map { engine.goBack(in: $0.focusedPaneID) } }
     public func goForward() { selectedTab.map { engine.goForward(in: $0.focusedPaneID) } }
     public func reload() { selectedTab.map { engine.reload(paneID: $0.focusedPaneID) } }

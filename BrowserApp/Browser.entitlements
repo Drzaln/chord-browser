@@ -13,5 +13,11 @@
 	     user-selected access alone cannot reach that folder unprogrammed. -->
 	<key>com.apple.security.files.downloads.read-write</key>
 	<true/>
+	<!-- Printing (M6). A sandboxed app cannot open the print system without
+	     this; without it WKWebView's print operation is refused and AppKit
+	     puts up "This application does not support printing." swift test runs
+	     unsandboxed and cannot catch that — verified against the real app. -->
+	<key>com.apple.security.print</key>
+	<true/>
 </dict>
 </plist>

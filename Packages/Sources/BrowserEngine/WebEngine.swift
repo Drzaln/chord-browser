@@ -67,6 +67,12 @@ public protocol WebEngine: AnyObject {
 
     func snapshot(for paneID: UUID) -> PaneSnapshot?
 
+    /// Presents the system print panel for a pane's page (M6). A no-op for a
+    /// pane with no live view — you cannot print a page that was never shown.
+    /// The `NSPrintOperation` stays inside this package; nothing WebKit- or
+    /// AppKit-print-shaped crosses the seam.
+    func printPane(paneID: UUID)
+
     /// Find-in-page (§8, M6). Returns whether a match was found, and scrolls
     /// the page to it.
     ///

@@ -14,10 +14,10 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
-| **In progress** | M6 Polish — sidebar hide/reveal, favourites, find, command-bar entry points, swipe switching, cross-section drag done |
-| **Next** | M6's remainder: animation tuning, print, PDF |
+| **In progress** | M6 Polish — sidebar, favourites, find, command bar, swipe switching, cross-section drag, print, PDF done |
+| **Next** | M6's remainder: animation tuning pass, then re-run the soak |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 217 passing (198 unit + 19 end-to-end) |
+| **Tests** | 219 passing (200 unit + 19 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
 | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
 
@@ -369,6 +369,31 @@ the window's left edge brings it back over the page.
 - **Simplification:** a drop onto the grid appends rather than landing on the
   aimed-at cell; the grid has no obvious linear slot and the end is predictable.
 
+### Print and PDF
+
+- **Print goes through the engine so no AppKit-print type leaks.** The store
+  calls `engine.printPane(paneID:)` on the focused pane (like find, 4.1); the
+  `NSPrintOperation` is built and run entirely inside `WebKitEngine`.
+- **It must be `runModal(for: window…)`, not `runOperation()`.** WebKit builds
+  its printing view lazily against a window context; the synchronous
+  `runOperation()` runs before that exists and AppKit puts up "This application
+  does not support printing." Also a pane with no live view is skipped — there is
+  nothing to render.
+- **The sandbox needs `com.apple.security.print`.** Without it the print system
+  is refused and you get the *same* "does not support printing" alert even with
+  the correct call — which is the trap, since it looks identical to the code bug.
+  Added to `Browser.entitlements`. `swift test` runs unsandboxed and cannot catch
+  this; it was found and the fix confirmed by driving the real app (the print
+  panel with a live page preview now appears). Re-verify by hand after touching
+  entitlements — no automated test covers it, exactly as with downloads.
+- **PDF viewing is free.** `WKWebView` has a built-in PDF renderer, so
+  `canShowMIMEType` is true for `application/pdf` and the navigation policy
+  already returns `.allow` — no download, no code. Verified live: a PDF URL
+  rendered inline, and the tab even picked up the document's title and favicon.
+  Nothing was built for it; the only risk is a future WebKit that drops the
+  built-in viewer, at which point the response policy would start downloading
+  PDFs and this note is where to look.
+
 ### The User-Agent
 
 `WKWebView`'s default UA stops at `(KHTML, like Gecko)` — no `Version/` and no
@@ -394,11 +419,7 @@ Two things worth knowing:
    `Motion.swift`; this is a sit-and-look job, and Reduce Motion needs checking
    at the same time — it is currently unverified for the sidebar reveal and the
    swipe release.
-3. **Print** — `WKWebView.printOperationWithPrintInfo(_:)`, confirmed present
-   in the SDK headers (macOS 11+).
-4. **PDF viewing** — check what WebKit already does before building anything.
-   It may be free.
-5. **Re-run the soak** (`scripts/soak.sh seed` then `run`). §8 gates every
+2. **Re-run the soak** (`scripts/soak.sh seed` then `run`). §8 gates every
    milestone on it, and M6 adds a permanent tracking area plus a find bar that
    holds a cancellable task — both cheap, neither yet measured over 30 minutes.
 

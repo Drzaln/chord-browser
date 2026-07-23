@@ -187,6 +187,30 @@ public final class WebKitEngine: WebEngine {
         pool.view(for: paneID)?.snapshot
     }
 
+    // MARK: - Print
+
+    public func printPane(paneID: UUID) {
+        // Only a pane with a live view can be printed — its `printOperation`
+        // renders the view's current content, so restore-lazy panes have nothing
+        // to hand the printer.
+        guard let webView = pool.view(for: paneID)?.webView else { return }
+
+        // Without a window there is no print — and it must go through
+        // `runModal(for:…)`, not `runOperation()`. WebKit builds its printing
+        // view lazily against a window context, and the synchronous
+        // `runOperation()` runs before that context exists, so AppKit puts up
+        // "This application does not support printing." The window-anchored sheet
+        // form gives WebKit the context and prints correctly. Verified by hand —
+        // `.run()` failed on both HTML and PDF pages, the sheet works.
+        guard let window = webView.window else { return }
+
+        let operation = webView.printOperation(with: NSPrintInfo.shared)
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        operation.view?.frame = webView.bounds
+        operation.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+    }
+
     // MARK: - Find in page
 
     public func find(_ text: String, in paneID: UUID, backwards: Bool) async -> Bool {

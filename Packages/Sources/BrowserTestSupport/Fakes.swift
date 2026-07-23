@@ -52,6 +52,9 @@ public final class FakeWebEngine: WebEngine {
 
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
+    public private(set) var printedPanes: [UUID] = []
+    public func printPane(paneID: UUID) { printedPanes.append(paneID) }
+
     /// Find-in-page. `findMatches` is the text the fake pretends the page
     /// contains, so a test can drive both the hit and the miss.
     public var findMatches: Set<String> = []
