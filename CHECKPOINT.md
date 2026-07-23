@@ -190,6 +190,14 @@ archive keeps the last 100, no time limit.
   it away.
 - **Pruning** happens after every save, because `paneInteractionState` has no
   foreign key to `pane` and nothing else would reclaim a closed tab's blob.
+- **Known latent bug, will bite in M5.** Capture and resolution iterate *every*
+  pane of a tab, but `surface(for:)` gates only `tab.focusedPaneID`. With one
+  pane per tab those are the same thing, which is why M4 could not tell them
+  apart. M5 renders every pane, so a non-focused pane can have its web view
+  built before its blob resolves — it will load the bare URL and throw the
+  restored state away. Fix the gate per pane, and cover it with an e2e test that
+  restores a two-pane tab and asserts the *non-focused* pane kept its
+  back/forward history.
 - Brand-new tabs are marked resolved at creation — nothing is stored for them, so
   a disk read would only cost a frame of withheld surface.
 ### Downloads — verified against the SDK headers, then against the real app
