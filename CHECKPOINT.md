@@ -14,8 +14,8 @@ only the current position within it.
 | | |
 |---|---|
 | **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc |
-| **In progress** | M6 Polish — sidebar, favourites, find, command bar, swipe switching, cross-section drag, print, PDF done |
-| **Next** | M6's remainder: animation tuning pass, then re-run the soak |
+| **In progress** | M6 Polish — everything but the final soak done; animation/Reduce-Motion pass done |
+| **Next** | Re-run the soak (in progress), then stop for review |
 | **Branch** | `main` — single branch, linear history, one commit per milestone |
 | **Tests** | 219 passing (200 unit + 19 end-to-end) |
 | **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
@@ -394,6 +394,24 @@ the window's left edge brings it back over the page.
   built-in viewer, at which point the response policy would start downloading
   PDFs and this note is where to look.
 
+### Animation and Reduce Motion pass (5)
+
+- **Every animation entry point already routes through one helper**,
+  `Motion.respectingReduceMotion`, or honours the setting explicitly: the tab and
+  Space-switch springs, the sidebar collapse, the progress bar, the swipe
+  release, and Little Arc's scale-in (which skips straight to `alphaValue = 1`
+  under Reduce Motion). This was an audit as much as a change — the discipline was
+  already there.
+- **The sidebar reveal now *fades* under Reduce Motion** rather than sliding.
+  `respectingReduceMotion` only speeds the driving animation to near-instant; the
+  `.move(edge: .leading)` transition still travelled. Swapping it for `.opacity`
+  when `reduceMotion` is set drops the travel, which is the actual point of the
+  setting. One line in `RootView`.
+- **Not toggled live.** Flipping Reduce Motion means driving System Settings'
+  accessibility pane, which changes a system-wide setting — not done. The routing
+  is auditable in source (all through the single helper) and the helper itself is
+  trivial and unit-testable; a hands-on toggle is the one remaining manual check.
+
 ### The User-Agent
 
 `WKWebView`'s default UA stops at `(KHTML, like Gecko)` — no `Version/` and no
@@ -415,11 +433,7 @@ Two things worth knowing:
 
 ## Next steps, in order
 
-1. **Animation tuning pass** (5). Everything is already named in
-   `Motion.swift`; this is a sit-and-look job, and Reduce Motion needs checking
-   at the same time — it is currently unverified for the sidebar reveal and the
-   swipe release.
-2. **Re-run the soak** (`scripts/soak.sh seed` then `run`). §8 gates every
+1. **Re-run the soak** (`scripts/soak.sh seed` then `run`). §8 gates every
    milestone on it, and M6 adds a permanent tracking area plus a find bar that
    holds a cancellable task — both cheap, neither yet measured over 30 minutes.
 
@@ -483,9 +497,10 @@ sizing is still uncovered.
 
 ### From the M6 session (2026-07-23)
 
-- **Reduce Motion is unverified for the sidebar reveal.** The animation is
-  routed through `Motion.respectingReduceMotion`, but nobody has turned the
-  setting on and looked. Same for the pinned grid.
+- **Reduce Motion routing is complete, but never toggled live.** Every animation
+  goes through `Motion.respectingReduceMotion` (audited), and the sidebar reveal
+  now fades rather than slides under the setting. Nobody has turned the setting on
+  in System Settings and watched — see "Animation and Reduce Motion pass".
 - **The reveal strip's click pass-through is untested in practice.** `hitTest`
   returns nil so clicks *cannot* hit it, but as laid out today the 6-point strip
   overlaps only the content card's 8-point inset, not the web view — so the

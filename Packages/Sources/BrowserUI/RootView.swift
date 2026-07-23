@@ -71,8 +71,10 @@ public struct RootView: View {
                 )
                 // Slides in from off-screen rather than fading: the sidebar is
                 // arriving from the edge the pointer just touched, and saying
-                // so is most of what makes the reveal feel like Arc's.
-                .transition(.move(edge: .leading))
+                // so is most of what makes the reveal feel like Arc's. Under
+                // Reduce Motion it fades instead — the point of the setting is
+                // to drop travel, which speeding the slide alone does not.
+                .transition(reduceMotion ? .opacity : .move(edge: .leading))
                 // Leaving the sidebar is an ordinary hover exit — the view is
                 // on screen by then, so no tracking strip is involved.
                 .onHover { isInside in
