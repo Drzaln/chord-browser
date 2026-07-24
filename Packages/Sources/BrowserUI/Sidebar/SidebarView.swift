@@ -96,9 +96,9 @@ struct SidebarView: View {
         // lights sit at the window's top edge, so an 8-point top inset put the
         // header — and its collapse button — that much lower than them. Running
         // the card to the top edge lines the collapse button up with the lights.
-        .padding(.leading, isFloating ? Metrics.contentInset : 0)
-        .padding(.bottom, isFloating ? Metrics.contentInset : 0)
-        .padding(.trailing, isFloating ? Metrics.contentInset : 0)
+        //.padding(.leading, isFloating ? Metrics.contentInset : 0)
+        //.padding(.bottom, isFloating ? Metrics.contentInset : 0)
+        //.padding(.trailing, isFloating ? Metrics.contentInset : 0)
     }
 
     // MARK: - Ephemeral list and drops
