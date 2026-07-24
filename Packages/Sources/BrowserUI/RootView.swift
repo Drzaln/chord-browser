@@ -45,6 +45,16 @@ public struct RootView: View {
         store.isSidebarCollapsed ? 0 : Metrics.sidebarWidth
     }
 
+    /// The x below which a swipe is over the sidebar and may switch Spaces (4.2).
+    /// Zero while the sidebar is hidden, so the gesture is off then. A floating
+    /// (revealed) sidebar is inset by `contentInset`, so its right edge sits that
+    /// much further right. This is what keeps the Space swipe from stealing the
+    /// web view's back/forward gesture.
+    private var sidebarEngageWidth: CGFloat {
+        guard !isHidden else { return 0 }
+        return Metrics.sidebarWidth + (store.isSidebarCollapsed ? Metrics.contentInset : 0)
+    }
+
     public var body: some View {
         ZStack(alignment: .topLeading) {
             HStack(spacing: 0) {
@@ -120,12 +130,22 @@ public struct RootView: View {
         .task { await store.restore() }
         .onAppear {
             let monitor = SpaceSwipeMonitor(store: store)
+            monitor.engageMaxX = sidebarEngageWidth
+            monitor.window = window
             monitor.start()
             swipeMonitor = monitor
         }
         .onDisappear {
             swipeMonitor?.stop()
             swipeMonitor = nil
+        }
+        // Keep the swipe gesture scoped to the sidebar as its width and
+        // visibility change, and once the window exists.
+        .onChange(of: sidebarEngageWidth) { _, width in
+            swipeMonitor?.engageMaxX = width
+        }
+        .onChange(of: window == nil) { _, _ in
+            swipeMonitor?.window = window
         }
     }
 

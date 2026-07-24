@@ -27,6 +27,20 @@ final class SpaceSwipeMonitor {
     private var engaged = false
     private var accumulated: Double = 0
 
+    /// The x (in window coordinates, from the left edge) below which a swipe is
+    /// over the sidebar and may switch Spaces. Zero disables the gesture — set
+    /// while the sidebar is hidden. Kept updated by `RootView` as the sidebar's
+    /// width and visibility change.
+    ///
+    /// This is the fix for the back/forward collision: a horizontal swipe over
+    /// the *web content* must reach `WKWebView`'s own navigation gesture, so the
+    /// Space switch only claims swipes that start over the sidebar.
+    var engageMaxX: CGFloat = 0
+
+    /// The main window. A swipe in any other window (the command bar panel, say)
+    /// is never a Space switch.
+    weak var window: NSWindow?
+
     init(store: TabStore) {
         self.store = store
     }
@@ -49,8 +63,18 @@ final class SpaceSwipeMonitor {
     private func handle(_ event: NSEvent) -> Bool {
         switch event.phase {
         case .began:
+            // Only over the sidebar. A swipe that begins over the web content is
+            // left alone so `WKWebView`'s back/forward navigation gesture gets
+            // it — the two gestures are the same shape and would otherwise fight.
+            guard engageMaxX > 0, event.locationInWindow.x <= engageMaxX else {
+                return false
+            }
+            // ...and only in the main window, not a floating panel.
+            if let window, let eventWindow = event.window, eventWindow !== window {
+                return false
+            }
             // Only a clearly-horizontal trackpad swipe drives a Space switch;
-            // anything else is left for the page or the sidebar list.
+            // anything else is left for the sidebar list to scroll.
             guard abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) else {
                 return false
             }

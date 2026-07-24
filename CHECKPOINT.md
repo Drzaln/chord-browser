@@ -324,6 +324,15 @@ the window's left edge brings it back over the page.
   otherwise scroll. It engages only when a gesture *begins* with
   `abs(scrollingDeltaX) > abs(scrollingDeltaY)` **and** carries a real trackpad
   `phase` — a mouse wheel has no phase and a vertical scroll reaches the page.
+- **Scoped to the sidebar, so it never fights back/forward.** The gesture only
+  engages when the swipe begins over the sidebar (`event.locationInWindow.x <=
+  engageMaxX`, where `RootView` keeps `engageMaxX` at the sidebar's right edge —
+  zero while the sidebar is hidden — and passes the main window so a floating
+  panel is ignored). A swipe over the web content falls straight through to
+  `WKWebView`'s own back/forward navigation gesture
+  (`allowsBackForwardNavigationGestures`, already on). Without this the two
+  same-shaped gestures collided and a two-finger swipe over a page switched Space
+  instead of navigating.
 - **The maths is pure and lives in Core** (`SpaceSwipe`): full-swipe distance,
   commit threshold, rubber-band curve, and the stop-for-stop gradient blend
   (`ColorHex.lerp`). Tested without a trackpad.
@@ -527,13 +536,13 @@ sizing is still uncovered.
   matches. Wants a quality floor, not just a score. Found in the visual sweep.
 ### From the swipe session (2026-07-24)
 
-- **The swipe monitor can hijack a page's horizontal scroll.** A trackpad
-  gesture that *begins* more horizontal than vertical is claimed for a Space
-  switch, so a wide table or a horizontally-scrolling page swiped sideways
-  switches Space instead of scrolling. This ambiguity is inherent to the gesture
-  and Arc resolves it the same way; the `.began`-dominance gate is the only
-  disambiguation. If it proves annoying, the next lever is a larger horizontal
-  bias or restricting the monitor to swipes that start over the sidebar.
+- ~~The swipe monitor can hijack a page's horizontal scroll.~~ **Fixed
+  2026-07-24.** The Space-switch swipe now engages only over the sidebar
+  (`engageMaxX` in `SpaceSwipeMonitor`, kept at the sidebar's right edge by
+  `RootView`), so a swipe over the page reaches `WKWebView` — both its horizontal
+  scroll and its back/forward navigation gesture, which the Space swipe used to
+  steal. Reported by the user: a two-finger swipe to go back/forward switched
+  Space instead. See "Swipe-driven Space switching".
 - **A phased two-finger swipe is not scriptable** — verify the release spring,
   rubber-band feel, and gradient tracking by hand on a trackpad. Everything
   around it is covered (unit tests + the shared discrete-switch render path).
