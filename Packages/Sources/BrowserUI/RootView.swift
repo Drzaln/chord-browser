@@ -4,10 +4,10 @@ import SwiftUI
 public struct RootView: View {
     @Bindable private var store: TabStore
     @Bindable private var downloads: DownloadsStore
-    /// Opens the command bar. Injected because the controller is owned by the
-    /// app delegate — the panel outlives any view, and Store must not depend
-    /// on UI to reach it.
-    private let openCommandBar: (CommandBarMode) -> Void
+    /// Opens the command bar, optionally pre-filled with a query. Injected
+    /// because the controller is owned by the app delegate — the panel outlives
+    /// any view, and Store must not depend on UI to reach it.
+    private let openCommandBar: (CommandBarMode, String?) -> Void
 
     /// The sidebar is hidden but the pointer has reached the left edge, so it
     /// is showing on top of the page (4.1).
@@ -30,7 +30,7 @@ public struct RootView: View {
     public init(
         store: TabStore,
         downloads: DownloadsStore,
-        openCommandBar: @escaping (CommandBarMode) -> Void = { _ in }
+        openCommandBar: @escaping (CommandBarMode, String?) -> Void = { _, _ in }
     ) {
         self.store = store
         self.downloads = downloads

@@ -96,7 +96,7 @@ struct CommandBarView: View {
     }
 
     private func reset() {
-        query = ""
+        query = session.initialQuery
         highlighted = 0
 
         // Focus has to be requested after the panel is key, not while it is
@@ -106,10 +106,19 @@ struct CommandBarView: View {
         // Ordering between "panel becomes key" and this view update is not
         // guaranteed, and losing the race means a bar you cannot type into, so
         // the request is repeated briefly rather than made once.
+        let hasPrefill = !session.initialQuery.isEmpty
         Task { @MainActor in
             for _ in 0..<10 {
                 isFocused = true
-                if isFocused { return }
+                if isFocused {
+                    // Select the pre-filled URL so the first keystroke replaces
+                    // it, matching Cmd+L. The field editor is the first responder
+                    // once the SwiftUI field is focused.
+                    if hasPrefill {
+                        (NSApp.keyWindow?.firstResponder as? NSText)?.selectAll(nil)
+                    }
+                    return
+                }
                 try? await Task.sleep(for: .milliseconds(20))
             }
         }

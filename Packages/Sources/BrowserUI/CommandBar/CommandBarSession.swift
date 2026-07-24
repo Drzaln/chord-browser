@@ -40,13 +40,19 @@ final class CommandBarSession {
     /// Set by the shortcut that opened the bar, read when Return is pressed.
     private(set) var mode: CommandBarMode = .newTab
 
+    /// Text the input should open pre-filled with, and select. Used when the
+    /// sidebar address button opens the bar on the current URL (like Cmd+L in a
+    /// conventional browser). Empty for an ordinary open.
+    private(set) var initialQuery: String = ""
+
     /// Incremented when something outside the SwiftUI view asks for the
     /// highlighted result to be opened.
     private(set) var activateToken = 0
     private(set) var activateForcesNewTab = false
 
-    func beginPresentation(mode: CommandBarMode) {
+    func beginPresentation(mode: CommandBarMode, initialQuery: String = "") {
         self.mode = mode
+        self.initialQuery = initialQuery
         presentToken += 1
     }
 

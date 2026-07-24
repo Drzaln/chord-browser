@@ -30,13 +30,16 @@ struct PinnedGrid: View {
 
     private func tile(_ tab: BrowserCore.Tab) -> some View {
         let isSelected = tab.id == store.selectedTabID
+        // Tinted with the Space colour, matching the tab rows and the address
+        // button (items 1 and 4).
+        let tint = SpaceTheme.accent(for: store.activeSpace ?? Space.makeDefault())
 
         return Button {
             store.select(tab.id)
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isSelected ? AnyShapeStyle(.selection) : AnyShapeStyle(.quaternary))
+                    .fill(isSelected ? tint.opacity(0.40) : tint.opacity(0.14))
 
                 favicon(for: tab)
                     .frame(width: 20, height: 20)

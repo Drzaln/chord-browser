@@ -466,6 +466,30 @@ the window's left edge brings it back over the page.
   untinted until the tint was told to bleed to the top edge. Verified live: the
   border turns blue for one Space and green for another, top edge included.
 
+### UI polish (post-M6, 2026-07-24)
+
+A batch of small UI improvements. Not manually re-driven by the agent (the user
+tests these by hand); they build and the unit suite is green.
+
+- **Space colour tints the tab highlights and address button.** `SidebarView`
+  passes `SpaceTheme.accent(for:)` down as a `tint`; `TabRowView` and the
+  `PinnedGrid` tiles fill their selected/hover states with `tint.opacity(...)`
+  instead of the system `.selection`, and the address button uses the same tint.
+  So a selected tab in a green Space reads green, not system blue (items 1 & 4).
+- **The sidebar address field is now a button, not a text field.** Clicking it
+  opens the command bar in `.currentTab` mode pre-filled with the current URL and
+  the text selected — i.e. exactly Cmd+L (item 3). The `openCommandBar` closure
+  grew a `String?` prefill argument (threaded App→Root→Sidebar→NavigationBar), and
+  `CommandBarSession.initialQuery` carries it; `CommandBarView.reset()` seeds the
+  field and `selectAll`s it via the field editor. The button shows the host, not
+  the full URL.
+- **The command bar dismisses on losing focus.** `CommandBarPanel` observes its
+  own `didResignKeyNotification` and orders out — clicking the window behind it
+  now closes it, which `hidesOnDeactivate` alone did not do (item 2).
+- **The floating sidebar aligns with the traffic lights.** Its card is inset on
+  three sides but no longer the top, so the collapse button sits on the same line
+  as the lights instead of 8 pt below (item 5).
+
 ### The User-Agent
 
 `WKWebView`'s default UA stops at `(KHTML, like Gecko)` — no `Version/` and no
@@ -490,14 +514,54 @@ Two things worth knowing:
 **M6 is complete.** Every §8 item landed and the 30-minute soak passed
 (2026-07-24) — stopped here for review, as the milestone process requires.
 
-When review clears, **M7 (Extensions)** is next and deliberately last: a
-`WKWebExtensionController` + `WKWebExtensionContext` host, a `.crx` unpack
-helper into `~/Library/Application Support/<App>/Extensions/`, and popover
-surfacing in the sidebar header (4.7). Critical rule from the spec: **do not
-reimplement the WebExtensions API** — use Apple's framework and accept its
-coverage gaps. Verify every symbol against the SDK headers first, as always.
-Before starting, resolve the one open decision below (contexts per-Space vs
-global). Content blocking (4.8) is independent of extensions and can go with it.
+When review clears, **M7 (Extensions)** is next and deliberately last. The plan
+below is agreed with the user; **the open decision is settled: extension contexts
+are per-Space.** Read §4.7 first, and verify every `WKWebExtension*` symbol
+against the SDK headers before use — they were spot-checked on 2026-07-24 (macOS
+26.5 SDK) and all exist, but re-verify signatures.
+
+**M7 — Extensions, per-Space (agreed plan)**
+
+- **Decision: per-Space contexts.** Each Space loads its own copy of an enabled
+  extension — isolated storage, permissions, background workers. Fits Spaces'
+  existing cookie/storage isolation. Cost: a background service worker is one
+  process *per Space it's enabled in*; surface per-Space extension memory in the
+  UI (§6.6). Supersedes the §12 open decision → **ADR 009**.
+- **Per-Space isolation is first-class:**
+  `WKWebExtensionController.Configuration.configurationWithIdentifier:(NSUUID)`
+  gives persistent per-identifier on-disk storage — the analogue of
+  `WKWebsiteDataStore(forIdentifier:)`. So **one `WKWebExtensionController` per
+  Space**, config keyed by the Space id, its `defaultWebsiteDataStore` = the
+  Space's store, wired via `WKWebViewConfiguration.webExtensionController`.
+- **Loading:** `WKWebExtension.extension(resourceBaseURL:)` (an unpacked dir) →
+  `WKWebExtensionContext(for:)` → `controller.load(context)`. `.crx` (Chrome) and
+  `.xpi` (Firefox) are both ZIPs to unpack into
+  `~/Library/Application Support/Browser/Extensions/`; MV3 only.
+- **The bulk of the work is the tab/window model:** implement the
+  `WKWebExtensionTab` / `WKWebExtensionWindow` protocols over `Tab`/`Pane`/main
+  window and feed each controller via its delegate
+  (`openWindowsForExtensionContext:`, `focusedWindowFor…`, `didOpenTab:` /
+  `didCloseTab:` / `didActivateTab:`). The `WKWebExtensionTab` methods map almost
+  one-to-one onto `Tab`/`Pane` + engine calls.
+- **Toolbar UI (§4.7):** `context.action(for: tab)` → `WKWebExtensionAction`
+  (icon/badge/popover); delegate `presentPopupForAction:` surfaces the popover in
+  the sidebar header; `didUpdateAction:` for badge changes. Permissions via
+  `grantedPermissions` + delegate prompts.
+- **Layering call for the user:** §7.1 says `BrowserEngine` is the only WebKit
+  importer, but the host needs WebKit too. Recommendation: a `BrowserExtensions`
+  target that imports WebKit + Engine, behind an `ExtensionHost` protocol (no
+  `WK*` type reaches Store/UI), and amend §7.1 to "the **engine layer** is the
+  WebKit boundary." Confirm before building 7.1.
+- **Phases (each a commit, done-when):** 7.1 seam + package + per-Space controller
+  wiring · 7.2 `.crx`/`.xpi` unpack helper · 7.3 tab/window model · 7.4 per-Space
+  enable/disable (needs a schema decision — enablement table vs per-Space prefs) ·
+  7.5 action popover + permission UI · 7.6 soak with N extensions across 3 Spaces,
+  then stop for review. Content blocking (§4.8) is independent and can ride along
+  or be its own milestone — **ask the user**.
+- **Reminder:** **do not reimplement the WebExtensions API** (Orion's ~70% after
+  six years). Coverage = Apple's framework = Safari's. Entitlements may need
+  additions for extension processes — `swift test` runs unsandboxed and cannot
+  catch that, so verify against the real app (as with print/downloads).
 
 Two hands-on checks are still owed on M6 work, neither blocking: the swipe
 gesture on a real trackpad (only its logic and shared render path are covered),

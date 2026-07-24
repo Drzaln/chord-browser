@@ -7,6 +7,9 @@ struct TabRowView: View {
     // Fully qualified: SwiftUI ships its own `Tab` type on macOS 15.
     let tab: BrowserCore.Tab
     let isSelected: Bool
+    /// The active Space's colour, so a tab's highlight reads as part of the
+    /// Space rather than the generic system selection (item 1).
+    var tint: Color = .accentColor
     let select: () -> Void
     let close: () -> Void
     let beginDrag: () -> Void
@@ -86,10 +89,12 @@ struct TabRowView: View {
     @ViewBuilder
     private var background: some View {
         let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        // Tinted with the Space colour rather than the system selection, so a
+        // selected tab matches the Space's gradient (item 1).
         if isSelected {
-            shape.fill(.selection)
+            shape.fill(tint.opacity(0.40))
         } else if isHovering {
-            shape.fill(.quaternary)
+            shape.fill(tint.opacity(0.18))
         } else {
             shape.fill(.clear)
         }

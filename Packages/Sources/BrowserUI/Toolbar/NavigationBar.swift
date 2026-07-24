@@ -9,13 +9,23 @@ import SwiftUI
 struct NavigationBar: View {
     @Bindable var store: TabStore
     @Bindable var downloads: DownloadsStore
+    /// The active Space's colour, tinting the address button to match the tabs
+    /// (item 4).
+    var tint: Color = .accentColor
+    /// Opens the command bar pre-filled with the current URL, like Cmd+L.
+    var openCommandBar: (CommandBarMode, String?) -> Void = { _, _ in }
 
-    @State private var text: String = ""
-    @FocusState private var isFieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var runtime: PaneRuntime? {
         store.selectedTab.map { store.runtime(for: $0.focusedPaneID) }
+    }
+
+    /// The address shown on the button, live from the focused pane.
+    private var currentURLString: String {
+        runtime?.currentURL?.absoluteString
+            ?? store.selectedTab?.focusedPane.url.absoluteString
+            ?? ""
     }
 
     var body: some View {
@@ -46,21 +56,45 @@ struct NavigationBar: View {
 
             progressBar
         }
-        .onChange(of: store.selectedTabID) { syncField() }
-        .onChange(of: runtime?.currentURL) { syncField() }
-        .onAppear { syncField() }
     }
 
+    /// A button, not an editable field: clicking it opens the command bar with
+    /// the current URL, exactly like Cmd+L (item 3). Editing happens there, with
+    /// the same ranked results as everywhere else, so the sidebar keeps a single
+    /// place to type a destination.
     private var addressField: some View {
-        TextField("Search or enter address", text: $text)
-            .textFieldStyle(.roundedBorder)
-            .font(.system(size: 12))
-            .focused($isFieldFocused)
-            .onSubmit {
-                guard let url = URLInput.resolve(text) else { return }
-                store.navigate(to: url)
-                isFieldFocused = false
-            }
+        Button {
+            openCommandBar(.currentTab, currentURLString)
+        } label: {
+            Text(displayAddress)
+                .font(.system(size: 12))
+                .foregroundStyle(currentURLString.isEmpty ? .secondary : .primary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .frame(height: 22)
+                .background(
+                    // Tinted with the Space colour, matching the tabs (item 4).
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(tint.opacity(0.18))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Edit address")
+        .accessibilityLabel("Address: \(displayAddress)")
+    }
+
+    /// The host alone when there is one — shorter and calmer than the full URL,
+    /// the way a modern browser's collapsed address reads — falling back to the
+    /// whole string, then a prompt.
+    private var displayAddress: String {
+        guard !currentURLString.isEmpty else { return "Search or enter address" }
+        if let host = URL(string: currentURLString)?.host() {
+            return host
+        }
+        return currentURLString
     }
 
     @ViewBuilder
@@ -93,13 +127,5 @@ struct NavigationBar: View {
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.35)
         .accessibilityLabel(label)
-    }
-
-    /// The field shows the live URL except while the user is typing in it.
-    private func syncField() {
-        guard !isFieldFocused else { return }
-        text = runtime?.currentURL?.absoluteString
-            ?? store.selectedTab?.focusedPane.url.absoluteString
-            ?? ""
     }
 }

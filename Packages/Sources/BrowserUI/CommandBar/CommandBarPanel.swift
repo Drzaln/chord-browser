@@ -39,6 +39,15 @@ final class CommandBarPanel: NSPanel {
         // the whole bar is unusable.
         becomesKeyOnlyIfNeeded = false
 
+        // Dismiss the moment focus leaves the bar — clicking the window behind
+        // it, or another app. `hidesOnDeactivate` covers only the whole app
+        // losing focus; this also catches focus moving to the main window, which
+        // is what makes the bar feel like an overlay rather than a stray window.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleResignKey),
+            name: NSWindow.didResignKeyNotification, object: self
+        )
+
         // A view *controller*, not a bare view: the window follows its
         // preferredContentSize, which is what makes the result list visible at
         // all. A plain NSHostingView with an autoresizing mask resizes with the
@@ -56,6 +65,10 @@ final class CommandBarPanel: NSPanel {
 
     /// Esc dismisses (4.4).
     override func cancelOperation(_ sender: Any?) {
+        orderOut(nil)
+    }
+
+    @objc private func handleResignKey() {
         orderOut(nil)
     }
 

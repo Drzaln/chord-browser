@@ -50,8 +50,10 @@ struct AppRootView: View {
             RootView(
                 store: environment.store,
                 downloads: environment.downloads,
-                openCommandBar: { mode in
-                    commandBar?.present(over: NSApp.mainWindow, mode: mode)
+                openCommandBar: { mode, query in
+                    commandBar?.present(
+                        over: NSApp.mainWindow, mode: mode, initialQuery: query ?? ""
+                    )
                 }
             )
                 #if DEBUG

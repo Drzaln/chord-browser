@@ -13,7 +13,14 @@ struct SidebarView: View {
     @Bindable var downloads: DownloadsStore
     /// Overhanging the page rather than sitting in its own lane.
     var isFloating: Bool = false
-    var openCommandBar: (CommandBarMode) -> Void = { _ in }
+    var openCommandBar: (CommandBarMode, String?) -> Void = { _, _ in }
+
+    /// The active Space's colour, used to tint the tab highlights and the
+    /// address button so they read as part of the Space (items 1 and 4). Cheap
+    /// to recompute — it is one colour off the cached gradient stops.
+    private var spaceTint: Color {
+        SpaceTheme.accent(for: store.activeSpace ?? Space.makeDefault())
+    }
 
     /// While a tab is being dragged, the row slot the ephemeral list would drop
     /// it into (4.1). Nil at rest and whenever the pointer is not over the list.
@@ -29,9 +36,12 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             header
 
-            NavigationBar(store: store, downloads: downloads)
-                .padding(.horizontal, 10)
-                .padding(.bottom, 8)
+            NavigationBar(
+                store: store, downloads: downloads,
+                tint: spaceTint, openCommandBar: openCommandBar
+            )
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
 
             // §4.1's sections, in order. The pinned grid is skipped entirely
             // when empty rather than left as a gap — an empty grid in a fresh
@@ -82,7 +92,13 @@ struct SidebarView: View {
             radius: Metrics.shadowRadius,
             x: 2
         )
-        .padding(isFloating ? Metrics.contentInset : 0)
+        // Inset the floating card on three sides but not the top: the traffic
+        // lights sit at the window's top edge, so an 8-point top inset put the
+        // header — and its collapse button — that much lower than them. Running
+        // the card to the top edge lines the collapse button up with the lights.
+        .padding(.leading, isFloating ? Metrics.contentInset : 0)
+        .padding(.bottom, isFloating ? Metrics.contentInset : 0)
+        .padding(.trailing, isFloating ? Metrics.contentInset : 0)
     }
 
     // MARK: - Ephemeral list and drops
@@ -98,6 +114,7 @@ struct SidebarView: View {
                     TabRowView(
                         tab: tab,
                         isSelected: tab.id == store.selectedTabID,
+                        tint: spaceTint,
                         select: { store.select(tab.id) },
                         close: { store.closeTab(tab.id) },
                         beginDrag: { store.beginTabDrag(tab.id) },
@@ -231,7 +248,7 @@ struct SidebarView: View {
     /// destination rather than an empty page.
     private var newTabButton: some View {
         Button {
-            openCommandBar(.newTab)
+            openCommandBar(.newTab, nil)
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "plus")
