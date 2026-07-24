@@ -90,6 +90,11 @@ public final class TabStore {
     /// conformance to `ExtensionTabModel` (TabStore+Extensions.swift) is inert.
     @ObservationIgnored public weak var extensionHost: (any ExtensionHost)?
 
+    /// Runs once at the end of `restore()`, after Spaces and tabs are loaded.
+    /// `AppEnvironment` uses it to re-load enabled extensions (7.4), which needs
+    /// the restored Spaces to exist first.
+    @ObservationIgnored public var afterRestore: (@MainActor () async -> Void)?
+
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
 
@@ -160,6 +165,9 @@ public final class TabStore {
         }
 
         startSweep()
+
+        // Extensions load after the Spaces they belong to exist (7.4).
+        await afterRestore?()
     }
 
     /// A tab whose Space no longer exists would be invisible everywhere, which
@@ -211,6 +219,7 @@ public final class TabStore {
               spaces.contains(where: { $0.id == spaceID })
         else { return }
 
+        let fromSpaceID = tabs[index].spaceID
         for pane in tabs[index].panes {
             engine.evict(paneID: pane.id)
         }
@@ -218,6 +227,11 @@ public final class TabStore {
         let order = (tabs.filter { $0.spaceID == spaceID }.map(\.placement.order).max() ?? -1) + 1
         tabs[index].spaceID = spaceID
         tabs[index].placement = tabs[index].placement.withOrder(order)
+
+        // To each Space's extensions this reads as the tab leaving one window
+        // and arriving in another (7.4).
+        extensionHost?.extensionTabDidClose(tabID, inSpace: fromSpaceID)
+        extensionHost?.extensionTabDidOpen(tabID, inSpace: spaceID)
 
         if selectedTabID == tabID {
             selectedTabID = visibleTabs.first?.id

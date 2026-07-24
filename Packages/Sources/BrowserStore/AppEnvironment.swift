@@ -10,6 +10,9 @@ import Foundation
 public struct AppEnvironment {
     public let store: TabStore
     public let downloads: DownloadsStore
+    /// Present when the extensions flag is on (M7, 7.4). The app uses it to list,
+    /// install, enable, and disable extensions. `nil` when extensions are off.
+    public let extensions: ExtensionsService?
     /// Retained strongly here: the engine holds the provider `weak` so a live
     /// browser must keep the host alive somewhere, and this environment is the
     /// object with the app's lifetime. `nil` when the extensions flag is off,
@@ -19,11 +22,13 @@ public struct AppEnvironment {
     public init(
         store: TabStore,
         downloads: DownloadsStore,
-        extensionHost: (any ExtensionHost)? = nil
+        extensionHost: (any ExtensionHost)? = nil,
+        extensions: ExtensionsService? = nil
     ) {
         self.store = store
         self.downloads = downloads
         self.extensionHost = extensionHost
+        self.extensions = extensions
     }
 
     /// The real, on-disk configuration.
@@ -75,16 +80,34 @@ public struct AppEnvironment {
         // store is the model the adapters read; the engine, forwarded as an
         // existential, is the provider that vends a pane's live web view. Neither
         // line names a WebKit type, so the Store stays WebKit-free.
+        var extensionsService: ExtensionsService?
         if let host = extensionHost as? WebKitExtensionHost {
             host.tabModel = store
             host.paneWebViewProvider = engine
             store.extensionHost = host
+
+            // The library, the host, and the enablement store, coordinated (7.4).
+            let service = ExtensionsService(
+                installer: ExtensionInstaller(
+                    extensionsDirectory: support.appending(path: "Extensions")
+                ),
+                host: host,
+                enablement: SQLiteExtensionEnablementRepository(database: database)
+            )
+            extensionsService = service
+            // Re-load enabled extensions once the Spaces they belong to have been
+            // restored. `restore()` invokes this at its end.
+            store.afterRestore = { [weak store] in
+                guard let store else { return }
+                await service.restoreEnabled(spaces: store.spaces)
+            }
         }
 
         return AppEnvironment(
             store: store,
             downloads: DownloadsStore(coordinator: engine.downloads),
-            extensionHost: extensionHost
+            extensionHost: extensionHost,
+            extensions: extensionsService
         )
     }
 }

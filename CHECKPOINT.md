@@ -14,11 +14,11 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — 7.1, 7.2, 7.3a, **7.3b** done (seam + per-Space wiring + install helper + load/MV3 + tab/window model), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase **7.4** — per-Space enable/disable (needs a schema decision); 7.3b was verified live 2026-07-24 |
+| **In progress** | **M7 Extensions** — 7.1–7.4 done (seam + per-Space wiring + install + load/MV3 + tab/window model + enable/disable persistence), behind `FeatureFlags.extensionsEnabled` (default off) |
+| **Next**        | M7 phase **7.5** — action popover in the sidebar header + permission-grant UI (§4.7, §6.6) |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 257 passing (238 unit + 19 end-to-end)                                                                           |
-| **Schema**      | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`)                                                    |
+| **Tests**       | 268 passing (249 unit + 19 end-to-end)                                                                           |
+| **Schema**      | v4 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`)                          |
 | **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 
 **The §6.1 performance gate passes** — re-run for M6 on 2026-07-24 with the
@@ -669,13 +669,49 @@ see and drive tabs.
     `log show`/`log stream` on this machine — the reliable signal was a
     `screencapture` of the injected banner. Prefer screenshots over logs here.
 
+### Phase 7.4 — per-Space enable/disable + persistence (2026-07-24)
+
+- **Schema decision: a SQLite table, not per-Space prefs.** Enablement is
+  behaviour-affecting user state, not a window preference, so it gets the
+  migration/backup/row-mapping discipline of §7.2. Migration
+  **`v4_extension_enablement`** — table `extensionEnablement(spaceId, slug)`,
+  PK `(spaceId, slug)`, `spaceId` a cascade FK to `space` so deleting a Space
+  reclaims its rows. Presence = enabled; disabling deletes the row. Additive,
+  no existing data touched. Schema is now **v4**.
+- **`ExtensionEnablementRepository`** in Core (WebKit-free, beside the other repo
+  protocols), `SQLiteExtensionEnablementRepository` in Persistence.
+- **`ExtensionsService`** (BrowserStore, WebKit-free) coordinates the three
+  parts: `ExtensionInstaller` (library), `ExtensionHost` (load/unload), and the
+  enablement repo. `enable` = load **then** persist (a bundle that fails to load
+  is not left marked on); `disable` = unload then unpersist; `restoreEnabled`
+  re-loads everything that was on, best-effort (a since-uninstalled bundle or a
+  vanished Space is skipped and logged, never a launch failure).
+- **Launch reload** runs *after* `store.restore()` via a new `afterRestore`
+  hook, because extensions load into Spaces and the Spaces must exist first.
+  `AppEnvironment` wires it when the flag is on.
+- **Lifecycle gap closed.** The only runtime tab create/remove path that did not
+  already notify the host was **`moveTab` across Spaces** — now fires
+  `didClose(fromSpace)` + `didOpen(toSpace)`. Everything else already routes
+  through `newTab`/`closeTab`: Little Arc promotion calls `newTab`, drag-to-split
+  absorb and last-pane close call `closeTab`, and restored/adopted tabs are seen
+  via the load-time `tabs(for:)` query (extensions load after restore). A
+  same-Space split adds a pane to an existing `Tab`, so there is no extension-tab
+  change.
+- **UI deferred to 7.5** (user's call): 7.4 is model + persistence only. No
+  surface yet calls `enable`/`disable` — that is the popover work.
+- **11 new tests** (4 enablement persistence incl. the v4 migration + per-Space +
+  idempotency; 6 service enable/disable/restore with fakes; 1 `moveTab`
+  close+open, verified red). All green; prepush green.
+
 ## Next steps, in order
 
-**M7 is in progress.** 7.1, 7.2, 7.3a, 7.3b landed and 7.3b is **verified live**
-(above). Continue with **7.4** (per-Space
-enable/disable + a schema decision: enablement table vs per-Space prefs), 7.5
-(action popover + permission UI), 7.6 (soak, then stop for review). Content
-blocking (§4.8) was deferred to its own later milestone.
+**M7 is in progress.** 7.1–7.4 landed; 7.3b is **verified live** (above).
+Continue with **7.5** (extension action popover in the sidebar header, §4.7, and
+the **permission-grant UI** — the manual check proved content scripts stay inert
+until host permissions are granted; `setPermissionStatus(.grantedExplicitly,
+for: .allHostsAndSchemes())` or a `promptForPermissionMatchPatterns` delegate
+prompt is the real path), then 7.6 (soak, then stop for review). Content blocking
+(§4.8) was deferred to its own later milestone.
 
 The agreed plan below still holds for the remaining phases. **M6 is complete**;
 its 30-minute soak passed (2026-07-24).
@@ -849,8 +885,9 @@ Each has an ADR; the spec text was updated in the same commit.
 
 - ~~Extension contexts per-Space or global (M7)~~ Resolved: per-Space, one
   `WKWebExtensionController` per Space (ADR 011).
-- Open for 7.4: how per-Space enablement is stored — an enablement table vs
-  per-Space prefs. Decide when 7.4 starts.
+- ~~Open for 7.4: how per-Space enablement is stored — an enablement table vs
+  per-Space prefs.~~ Resolved: SQLite table, migration `v4_extension_enablement`
+  (it is behaviour-affecting user state, so it earns §7.2's discipline).
 - Open for the user: whether content blocking (§4.8) rides M7 or is its own
   milestone. **Answered 2026-07-24: its own later milestone.**
 

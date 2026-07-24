@@ -86,6 +86,22 @@ struct ExtensionModelTests {
         #expect(store.extensionActiveTab(inSpace: UUID()) == nil)
     }
 
+    @Test func moveTabAcrossSpacesFiresCloseThenOpen() async {
+        let (store, host) = await makeStore()
+        let fromSpace = store.activeSpaceID!
+        let toSpace = Space(name: "Other", sortIndex: 1)
+        store.spaces.append(toSpace)
+        store.newTab(url: URL(string: "https://example.com")!)
+        let id = store.selectedTabID!
+
+        store.moveTab(id, toSpace: toSpace.id)
+
+        // The extension in the source Space sees it leave; the destination sees
+        // it arrive.
+        #expect(host.closed.contains { $0.0 == id && $0.1 == fromSpace })
+        #expect(host.opened.contains { $0.0 == id && $0.1 == toSpace.id })
+    }
+
     @Test func modelListsTabsInTheSpaceInOrder() async {
         let (store, _) = await makeStore()
         let spaceID = store.activeSpaceID!
