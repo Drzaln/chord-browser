@@ -15,7 +15,7 @@ only the current position within it.
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
 | **In progress** | **M7 Extensions** — 7.1, 7.2, 7.3a, **7.3b** done (seam + per-Space wiring + install helper + load/MV3 + tab/window model), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase **7.4** — per-Space enable/disable (needs a schema decision) + hands-on verification of 7.3b with a real extension |
+| **Next**        | M7 phase **7.4** — per-Space enable/disable (needs a schema decision); 7.3b was verified live 2026-07-24 |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 257 passing (238 unit + 19 end-to-end)                                                                           |
 | **Schema**      | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`)                                                    |
@@ -649,23 +649,30 @@ see and drive tabs.
   `closeTab`. Other creation paths (split panes, restore, adopt-orphans, Little
   Arc promotion) do **not** yet notify the host; an extension would not see tabs
   born that way until it re-queries. Noted as 7.3b debt; fold into 7.4.
-- **Covered by tests, not yet driven live.** 9 new tests: adapter data-mapping,
-  actions-drive-the-model, `webView(for:)` returns the provider's view, stable
-  caching identity (BrowserExtensions); and Store-side snapshot correctness +
-  the open/activate/close hooks firing (BrowserStore, the didOpen hook verified
-  red). **Still owed: a real extension in the real sandboxed app** (§11) — a
-  content-script or `tabs.query` extension across two Spaces — which is also
-  where background-worker entitlements would first surface. `swift test` cannot
-  reach that.
+- **Covered by tests, and now VERIFIED LIVE (2026-07-24).** 9 unit tests
+  (adapter mapping/actions/`webView(for:)`/caching identity; Store snapshots +
+  open/activate/close hooks, didOpen verified red). Then driven in the real
+  sandboxed app with a synthetic MV3 content-script extension loaded into one
+  Space: **its banner appeared on a page in that Space and not in another**, so
+  content-script injection through our `WKWebView` and per-Space isolation both
+  work end-to-end. No extra entitlement was needed for content scripts. Two
+  findings came out of the drive, both expected and folded into later phases:
+  - **Restored tabs never fire `extensionTabDidOpen`**, so the extension only
+    saw *freshly opened* tabs, not restored ones (the lifecycle debt above).
+    Fold into 7.4: also notify on restore/split/adopt/promotion.
+  - **Content scripts do not inject until host permissions are granted.** MV3
+    `<all_urls>` is silently inert until `context.setPermissionStatus(
+    .grantedExplicitly, for: .allHostsAndSchemes())` (or the delegate prompt).
+    That granting is **7.5** (permission UI); the check used a throwaway
+    `grantAllHostsForTesting` to prove the pipe.
+  - **Tooling note:** `os.Logger` notice/info logs were *not* retrievable via
+    `log show`/`log stream` on this machine — the reliable signal was a
+    `screencapture` of the injected banner. Prefer screenshots over logs here.
 
 ## Next steps, in order
 
-**M7 is in progress.** 7.1, 7.2, 7.3a, 7.3b landed (above). **Before 7.4, do the
-owed hands-on check:** enable the flag, load a real MV3 extension (e.g. a simple
-`tabs.query`/content-script one) in the running app across two Spaces, and
-confirm it sees the right tabs and can drive them — this is the first real-app
-exercise of the whole M7 stack and where entitlement gaps (background-worker
-processes) would show. Then **7.4** (per-Space
+**M7 is in progress.** 7.1, 7.2, 7.3a, 7.3b landed and 7.3b is **verified live**
+(above). Continue with **7.4** (per-Space
 enable/disable + a schema decision: enablement table vs per-Space prefs), 7.5
 (action popover + permission UI), 7.6 (soak, then stop for review). Content
 blocking (§4.8) was deferred to its own later milestone.
