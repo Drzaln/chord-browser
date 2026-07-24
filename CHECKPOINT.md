@@ -1137,7 +1137,12 @@ budgets pass with the blocker on. This is the milestone stop point (§8).
 - **Whitelist / per-site disable** (an `ignore-previous-rules` rule keyed to the
   current host) — the machinery is already there.
 - Instruments Allocations/Leaks pass (§6.7), still never run.
-- Pre-existing `ExtensionArchiveTests.reinstallOverwritesInPlace` parallel flake.
+- ~~Pre-existing `ExtensionArchiveTests.reinstallOverwritesInPlace` parallel
+  flake.~~ **Fixed 2026-07-25:** `writeTemp` wrote sources to a fixed name in the
+  shared temp dir, and three tests used `ext.xpi`; Swift Testing runs them in
+  parallel, so one truncated the file while another read it ("not a recognised
+  extension archive"). Each source now gets a unique directory. 5 consecutive
+  full runs clean.
 
 ## Next steps, in order
 

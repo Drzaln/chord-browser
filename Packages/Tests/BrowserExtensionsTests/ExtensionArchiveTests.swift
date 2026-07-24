@@ -108,8 +108,16 @@ struct ExtensionInstallerTests {
         return (installer, { try? FileManager.default.removeItem(at: root) })
     }
 
+    /// Writes the source into a **unique** directory, keeping `name` (and thus
+    /// the slug the installer derives from it) intact. A fixed name in the shared
+    /// temp dir raced: several tests use `ext.xpi`, and Swift Testing runs them
+    /// in parallel, so one could truncate the file while another read it —
+    /// surfacing as "not a recognised extension archive".
     private func writeTemp(_ data: Data, name: String) throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appending(path: name)
+        let dir = FileManager.default.temporaryDirectory
+            .appending(path: "extsrc-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appending(path: name)
         try data.write(to: url)
         return url
     }
