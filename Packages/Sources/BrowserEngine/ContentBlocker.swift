@@ -3,37 +3,42 @@ import CryptoKit
 import Foundation
 import WebKit
 
-/// Compiles, caches, and weekly-refreshes the native content-blocking list
-/// (§4.8, milestones C2–C3). One of the WebKit-importing engine types; the
-/// compiled `WKContentRuleList` never leaves the engine — the engine attaches it
-/// to each view's content controller, and nothing above sees a `WK*` type.
+/// Compiles, caches, chunks, and weekly-refreshes the native content-blocking
+/// lists (§4.8). One of the WebKit-importing engine types; the compiled
+/// `WKContentRuleList`s never leave the engine — the engine attaches them to
+/// each view's content controller, and nothing above sees a `WK*` type.
 ///
-/// **The store is the cache.** `WKContentRuleListStore` persists a compiled list
-/// on disk keyed by identifier, so after the first launch `prepare()` looks the
-/// list up and returns it without re-converting or re-compiling — §6.6's "never
-/// compile on window open". Compilation only happens on the first launch (seed)
-/// and on the weekly refresh, and it runs off the main thread inside WebKit —
-/// `await` suspends without blocking (a *main-thread-blocking* wait deadlocks,
-/// because the completion handler is delivered on the main queue).
+/// **The store is the cache.** `WKContentRuleListStore` persists compiled lists
+/// on disk keyed by identifier, so a normal launch looks them up and attaches
+/// them without re-converting or re-compiling — §6.6's "never compile on window
+/// open". Compilation only happens on the first launch (seed) and on the weekly
+/// refresh, off the main thread inside WebKit (`await` suspends without
+/// blocking; a *main-thread-blocking* wait deadlocks, since the completion
+/// handler is delivered on the main queue).
+///
+/// **Multiple lists.** The full EasyList + EasyPrivacy is ~137k rules, well past
+/// one list's practical compile size, so it is split into chunks of
+/// `maxRulesPerList` and each compiled separately; WebKit attaches several lists
+/// to a view and matches across all of them.
 @MainActor
 public final class ContentBlocker {
     private let store: WKContentRuleListStore
     private let seedIdentifier: String
     private let seedList: () -> String?
 
-    // Refresh (C3)
     private let listURLs: [URL]
     private let fetch: (URL) async -> String?
     private let defaults: UserDefaults
     private let now: () -> Date
     private let refreshInterval: TimeInterval
-    private let maxRules: Int
-    private var currentIdentifier: String
+    private let maxRulesPerList: Int
 
-    /// The compiled list once `prepare()` (or a refresh) has run, else `nil`.
-    public private(set) var compiledList: WKContentRuleList?
+    /// The compiled lists currently attached, once `activeLists()` (or a
+    /// refresh) has run.
+    public private(set) var compiledLists: [WKContentRuleList] = []
 
     private static let lastRefreshKey = "contentBlocking.lastRefresh"
+    private static let currentIdentifierKey = "contentBlocking.currentIdentifier"
 
     /// The public EasyList + EasyPrivacy sources (§4.8).
     public static let defaultListURLs = [
@@ -50,14 +55,10 @@ public final class ContentBlocker {
         defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init,
         refreshInterval: TimeInterval = ContentBlockRefresh.interval,
-        // The real EasyList + EasyPrivacy convert to ~137k rules (verified live:
-        // 138,632 lines → 137,687 rules, 945 skipped — 99.3% coverage). Compiling
-        // the whole set is far more transient memory than §6.2 allows; 50k
-        // compiles reliably in ~1.4 s and is the practical cap for one list.
-        // EasyList is roughly most-important-first, so the kept head is the
-        // high-value rules. Chunking into several lists to capture the tail is a
-        // possible later enhancement — measure memory in C4 first.
-        maxRules: Int = 50_000
+        // Compiling the full ~137k-rule set at once is far more transient memory
+        // than §6.2 allows and can hit an uncatchable abort; ~50k compiles
+        // reliably in ~1.4 s, so the lists are chunked to this size.
+        maxRulesPerList: Int = 50_000
     ) {
         self.seedIdentifier = seedIdentifier
         self.store = store
@@ -67,80 +68,106 @@ public final class ContentBlocker {
         self.defaults = defaults
         self.now = now
         self.refreshInterval = refreshInterval
-        self.maxRules = maxRules
-        self.currentIdentifier = seedIdentifier
+        self.maxRulesPerList = maxRulesPerList
     }
 
-    /// Returns the compiled seed list, using the on-disk cache when present and
-    /// compiling from the seed only when it is not. This is the fast first-frame
-    /// path; the fuller fetched list arrives later via `refreshIfDue()`.
+    /// The lists to attach right now: the cached full set from a previous
+    /// refresh if we have one, else the bundled seed. This is the fast
+    /// first-frame path — no fetch, and no recompile when cached. Crucially it
+    /// re-attaches the *full* cached list on every launch, not just the seed, so
+    /// blocking does not silently shrink to the seed between weekly refreshes.
     @discardableResult
-    public func prepare() async -> WKContentRuleList? {
-        if let cached = try? await store.contentRuleList(forIdentifier: seedIdentifier) {
-            compiledList = cached
+    public func activeLists() async -> [WKContentRuleList] {
+        if let id = defaults.string(forKey: Self.currentIdentifierKey),
+            let cached = await loadChunks(baseIdentifier: id)
+        {
+            compiledLists = cached
             return cached
         }
-        guard let text = seedList() else {
-            Log.engine.error("content blocking: no seed list available")
-            return nil
-        }
-        let list = await compile(text, identifier: seedIdentifier, label: "seed")
-        compiledList = list
-        return list
+        let lists = await compileChunks(from: seedList(), baseIdentifier: seedIdentifier)
+        compiledLists = lists
+        return lists
     }
 
     /// If a week has passed (or we have never refreshed), fetches the full
-    /// EasyList/EasyPrivacy, converts, compiles under a **content-hashed**
-    /// identifier, and returns the new list; otherwise `nil`. The hash means an
-    /// unchanged list is a cache hit, and old lists are pruned from the store.
-    /// A fetch failure leaves the last-refresh date untouched, so it retries on
-    /// the next launch rather than waiting a week.
+    /// EasyList/EasyPrivacy, converts, compiles it in chunks under a
+    /// **content-hashed** identifier, records it as current, prunes older lists,
+    /// and returns the new set; otherwise `[]`. The hash makes an unchanged list
+    /// a cache hit. A fetch failure leaves the date untouched, so it retries next
+    /// launch rather than waiting a week.
     @discardableResult
-    public func refreshIfDue() async -> WKContentRuleList? {
+    public func refreshIfDue() async -> [WKContentRuleList] {
         let last = defaults.object(forKey: Self.lastRefreshKey) as? Date
         guard ContentBlockRefresh.isDue(lastRefresh: last, now: now(), interval: refreshInterval)
-        else { return nil }
+        else { return [] }
 
         var combined = ""
         for url in listURLs {
             guard let text = await fetch(url) else {
                 Log.engine.error("content blocking: refresh fetch failed for \(url, privacy: .public)")
-                return nil
+                return []
             }
             combined += text
             combined += "\n"
         }
 
         let identifier = "blocklist-" + Self.shortHash(combined)
-        let list: WKContentRuleList?
-        if let cached = try? await store.contentRuleList(forIdentifier: identifier) {
-            list = cached  // content unchanged since a previous refresh
+        let lists: [WKContentRuleList]
+        if let cached = await loadChunks(baseIdentifier: identifier) {
+            lists = cached  // content unchanged since a previous refresh
         } else {
-            let converted = ContentBlockConverter.convert(combined)
-            let rules = Array(converted.rules.prefix(maxRules))
-            guard let json = try? rules.contentRuleListJSON() else { return nil }
-            list = await compile(json: json, identifier: identifier, ruleCount: rules.count)
+            lists = await compileChunks(from: combined, baseIdentifier: identifier)
         }
+        guard !lists.isEmpty else { return [] }
 
-        guard let list else { return nil }
-        compiledList = list
-        currentIdentifier = identifier
+        compiledLists = lists
         defaults.set(now(), forKey: Self.lastRefreshKey)
-        await pruneIdentifiers(keeping: [identifier, seedIdentifier])
-        return list
+        defaults.set(identifier, forKey: Self.currentIdentifierKey)
+        await pruneIdentifiers(currentBase: identifier)
+        return lists
     }
 
     // MARK: -
 
-    private func compile(_ filterText: String, identifier: String, label: String) async
-        -> WKContentRuleList?
+    /// Splits converted rules into `maxRulesPerList` chunks and compiles each
+    /// under `<baseIdentifier>-<index>`, using the cache per chunk. A chunk that
+    /// fails to compile is skipped — partial blocking beats none.
+    private func compileChunks(from text: String?, baseIdentifier: String) async
+        -> [WKContentRuleList]
     {
-        let converted = ContentBlockConverter.convert(filterText)
-        guard let json = try? converted.rules.contentRuleListJSON() else {
-            Log.engine.error("content blocking: could not serialise \(label, privacy: .public) rules")
-            return nil
+        guard let text else { return [] }
+        let rules = ContentBlockConverter.convert(text).rules
+        var lists: [WKContentRuleList] = []
+        var index = 0
+        var start = 0
+        while start < rules.count {
+            let end = min(start + maxRulesPerList, rules.count)
+            let id = "\(baseIdentifier)-\(index)"
+            if let cached = try? await store.contentRuleList(forIdentifier: id) {
+                lists.append(cached)
+            } else if let json = try? Array(rules[start..<end]).contentRuleListJSON(),
+                let list = await compile(json: json, identifier: id, ruleCount: end - start)
+            {
+                lists.append(list)
+            }
+            start = end
+            index += 1
         }
-        return await compile(json: json, identifier: identifier, ruleCount: converted.rules.count)
+        return lists
+    }
+
+    /// Loads the cached chunks for a base identifier, `<base>-0`, `<base>-1`, …
+    /// until one is missing. `nil` if none are cached.
+    private func loadChunks(baseIdentifier: String) async -> [WKContentRuleList]? {
+        var lists: [WKContentRuleList] = []
+        var index = 0
+        while let list = try? await store.contentRuleList(
+            forIdentifier: "\(baseIdentifier)-\(index)")
+        {
+            lists.append(list)
+            index += 1
+        }
+        return lists.isEmpty ? nil : lists
     }
 
     private func compile(json: String, identifier: String, ruleCount: Int) async
@@ -160,11 +187,15 @@ public final class ContentBlocker {
         }
     }
 
-    /// Removes stale compiled lists so the store does not accumulate one per
-    /// weekly fetch. Only touches our own `blocklist-` identifiers.
-    private func pruneIdentifiers(keeping keep: Set<String>) async {
+    /// Removes stale compiled lists so the store does not accumulate one set per
+    /// weekly fetch. Keeps the seed's chunks and the current list's chunks; only
+    /// touches our own `blocklist-` identifiers.
+    private func pruneIdentifiers(currentBase: String) async {
         let ids = await store.availableIdentifiers() ?? []
-        for id in ids where id.hasPrefix("blocklist-") && !keep.contains(id) {
+        for id in ids
+        where id.hasPrefix("blocklist-")
+            && !id.hasPrefix(seedIdentifier) && !id.hasPrefix(currentBase)
+        {
             try? await store.removeContentRuleList(forIdentifier: id)
         }
     }
@@ -176,7 +207,7 @@ public final class ContentBlocker {
 
     // MARK: - Defaults
 
-    /// The bundled starter list (C2). A curated EasyList/EasyPrivacy subset so
+    /// The bundled starter list. A curated EasyList/EasyPrivacy subset so
     /// blocking works on first launch, offline; the refresh replaces it with the
     /// full fetched lists.
     public nonisolated static func bundledSeedList() -> String? {

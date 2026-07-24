@@ -1098,6 +1098,30 @@ The §8/§4.8 gate. Ran the mainstream-SPA soak with `contentBlockingEnabled` on
 - Numbers/method in [SMOKE.md](SMOKE.md) ("30-minute soak — content blocking");
   samples in `/tmp/soak-052928.tsv`.
 
+### Post-milestone — full-list chunking + a day-2 fix (2026-07-25)
+
+An optional follow-up that both widened coverage and fixed a real bug found
+while doing it.
+
+- **Chunking.** The 50k cap dropped ~87k of the 137k rules. WebKit attaches
+  several `WKContentRuleList`s to a view and matches across all of them, so the
+  full converted set is now split into `maxRulesPerList` (50k) chunks and each
+  compiled under `<base>-<index>`; the engine holds `[WKContentRuleList]` and
+  `applyContentRuleLists` attaches them all. Verified against the real lists:
+  **all ~137k rules compile as 3 chunks in ~3.7 s**, off-main, no abort — so
+  coverage went from the 50k head to the whole of EasyList + EasyPrivacy.
+- **Bug fixed: blocking silently shrank to the seed between weekly refreshes.**
+  C3 only attached the refresh result when a refresh was *due*; on any launch
+  within the week `refreshIfDue()` returned nothing, so only the tiny bundled
+  seed stayed attached and the full cached list was ignored. New `activeLists()`
+  re-attaches the cached full set every launch (keyed by a persisted
+  `currentIdentifier`), falling back to the seed only on the very first launch.
+  A regression test (`reattachesCachedFullList`) covers it.
+- API changes: `ContentBlocker.compiledList` → `compiledLists`, `prepare()` →
+  `activeLists()`, both `refreshIfDue()` and `activeLists()` return
+  `[WKContentRuleList]`; `WebKitEngine.applyContentRuleList` →
+  `applyContentRuleLists([…])`. 302 tests, prepush green.
+
 ## Content blocking is complete — ready for review
 
 C1–C4 have landed on `main` behind `FeatureFlags.contentBlockingEnabled`

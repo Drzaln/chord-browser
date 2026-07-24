@@ -52,10 +52,11 @@ public final class WebKitEngine: WebEngine {
     /// downloads without WebKit appearing in any signature it can see.
     public let downloads: DownloadCoordinator
 
-    /// The compiled native content-blocking list (§4.8, C2), or nil when the
-    /// feature is off or compilation has not finished. Attached to every web
-    /// view's content controller. An immutable compiled object, safe to share.
-    private var contentRuleList: WKContentRuleList?
+    /// The compiled native content-blocking lists (§4.8). Empty until the first
+    /// compile finishes. Attached to every web view's content controller. The
+    /// full EasyList + EasyPrivacy exceeds one list's practical size, so it is
+    /// split across several immutable compiled lists, all attached together.
+    private var contentRuleLists: [WKContentRuleList] = []
 
     /// Retained so an evicted or crashed pane can be revived without the model
     /// layer having to hand its state back.
@@ -148,9 +149,9 @@ public final class WebKitEngine: WebEngine {
         // Native content blocking (§4.8, C2). The compiled list is shared and
         // immutable; adding it to each view's controller is what actually
         // enforces the rules. Nil when the feature is off or the first-launch
-        // compile is still in flight — `applyContentRuleList` retrofits those.
-        if let contentRuleList {
-            controller.add(contentRuleList)
+        // compile is still in flight — `applyContentRuleLists` retrofits those.
+        for list in contentRuleLists {
+            controller.add(list)
         }
         config.userContentController = controller
 
@@ -164,19 +165,19 @@ public final class WebKitEngine: WebEngine {
         return webView
     }
 
-    /// Installs the compiled content-blocking list (§4.8, C2), applying it both
+    /// Installs the compiled content-blocking lists (§4.8), applying them both
     /// to views built afterwards and to any already live — first-launch
     /// compilation finishes after the first views exist, so those must be
-    /// retrofitted or they would browse unblocked until reloaded. `nil` clears
-    /// it. Immutable and shared, so the same object attaches to every view.
-    public func applyContentRuleList(_ list: WKContentRuleList?) {
-        contentRuleList = list
+    /// retrofitted or they would browse unblocked until reloaded. An empty array
+    /// clears them. Immutable and shared, so the same objects attach to every
+    /// view.
+    public func applyContentRuleLists(_ lists: [WKContentRuleList]) {
+        contentRuleLists = lists
         for live in pool.liveViews {
             let controller = live.webView.configuration.userContentController
-            if let list {
+            controller.removeAllContentRuleLists()
+            for list in lists {
                 controller.add(list)
-            } else {
-                controller.removeAllContentRuleLists()
             }
         }
     }

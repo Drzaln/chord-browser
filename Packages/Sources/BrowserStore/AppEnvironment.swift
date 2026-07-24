@@ -68,11 +68,13 @@ public struct AppEnvironment {
         let blocker = ContentBlocker()
         let contentBlocker: ContentBlocker? = blocker
         Task {
-            // Seed first (fast, offline), attach it, then let the weekly refresh
-            // fetch the full lists and swap in when ready (C3).
-            engine.applyContentRuleList(await blocker.prepare())
-            if let refreshed = await blocker.refreshIfDue() {
-                engine.applyContentRuleList(refreshed)
+            // Attach the currently-active lists first (the cached full set, or
+            // the seed on first launch), then let the weekly refresh fetch the
+            // full lists and swap in when ready (C3).
+            engine.applyContentRuleLists(await blocker.activeLists())
+            let refreshed = await blocker.refreshIfDue()
+            if !refreshed.isEmpty {
+                engine.applyContentRuleLists(refreshed)
             }
         }
 
