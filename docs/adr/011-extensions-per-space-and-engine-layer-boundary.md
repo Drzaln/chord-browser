@@ -119,6 +119,26 @@ That cleaves 7.3 along a natural line:
   the real app (§11) — the loaded context has nothing observable until it has
   tabs. So it is its own slice.
 
+## 7.3b: the boundary runs outward once, for `webView(for:)`
+
+7.1's controller handoff went Extensions→Engine, so it could stay opaque: the
+host built the `WKWebExtensionController`, the engine only stored it, and
+`ExtensionControllerHandle` kept its `controller` *internal* to the engine.
+
+`WKWebExtensionTab.webView(for:)` reverses that. It must return the pane's live
+`WKWebView`, which the engine owns, so the host has to read it — and an opaque
+wrapper cannot help, because WebKit wants the real view, not a box. So
+`BrowserEngine` exposes `PaneWebViewProviding` (`paneWebView(_:) -> WKWebView?`),
+which names `WKWebView` in its signature.
+
+This is allowed by the amendment above ("the two engine-layer packages may share
+`WK*` types with each other"), with the discipline that made the earlier
+boundary hold: it is kept **off** the `WebEngine` protocol that Store and UI
+consume, and `AppEnvironment` forwards it as `any PaneWebViewProviding` — an
+existential — so no Store or UI source ever names `WKWebView`. The symbol is
+importable from those layers but never referenced there, which is the property
+that actually protects view code from WebKit churn.
+
 ## What phase 7.1 did *not* do
 
 7.1 was the seam, the package, and per-Space controller *wiring* only. 7.2 added

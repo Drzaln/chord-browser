@@ -62,15 +62,27 @@ public struct AppEnvironment {
         let repository = SQLiteTabRepository(database: database)
         let history = SQLiteHistoryRepository(database: database)
 
+        let store = TabStore(
+            engine: engine,
+            repository: repository,
+            spaceRepository: repository,
+            historyRepository: history,
+            archiveRepository: history,
+            clock: SystemClock()
+        )
+
+        // Wire the tab/window model both ways (7.3b) when extensions are on. The
+        // store is the model the adapters read; the engine, forwarded as an
+        // existential, is the provider that vends a pane's live web view. Neither
+        // line names a WebKit type, so the Store stays WebKit-free.
+        if let host = extensionHost as? WebKitExtensionHost {
+            host.tabModel = store
+            host.paneWebViewProvider = engine
+            store.extensionHost = host
+        }
+
         return AppEnvironment(
-            store: TabStore(
-                engine: engine,
-                repository: repository,
-                spaceRepository: repository,
-                historyRepository: history,
-                archiveRepository: history,
-                clock: SystemClock()
-            ),
+            store: store,
             downloads: DownloadsStore(coordinator: engine.downloads),
             extensionHost: extensionHost
         )

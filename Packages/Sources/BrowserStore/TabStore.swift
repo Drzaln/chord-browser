@@ -1,5 +1,6 @@
 import BrowserCore
 import BrowserEngine
+import BrowserExtensions
 import Foundation
 import Observation
 import os
@@ -82,6 +83,12 @@ public final class TabStore {
 
     /// Switching back to a Space should land where you left it.
     @ObservationIgnored var lastSelectedTabBySpace: [UUID: UUID] = [:]
+
+    /// Set by `AppEnvironment` when the extensions flag is on (M7, 7.3b). The
+    /// Store calls its tab-lifecycle hooks so each Space's controller can fire
+    /// the matching WebExtensions events. `nil` when extensions are off, and the
+    /// conformance to `ExtensionTabModel` (TabStore+Extensions.swift) is inert.
+    @ObservationIgnored public weak var extensionHost: (any ExtensionHost)?
 
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
@@ -188,7 +195,10 @@ public final class TabStore {
         // resolved rather than spending a disk read to discover that — and to
         // avoid withholding its surface for a frame.
         for pane in tab.panes { stateResolution[pane.id] = .resolved }
+        let previous = selectedTabID
         selectedTabID = tab.id
+        extensionHost?.extensionTabDidOpen(tab.id, inSpace: spaceID)
+        extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
         scheduleSave()
     }
 
@@ -224,9 +234,11 @@ public final class TabStore {
             runtimes[pane.id] = nil
         }
         forgetStateResolution(forPanes: tabs[index].panes.map(\.id))
+        let closedSpaceID = tabs[index].spaceID
         let neighbours = visibleTabs
         let closedPosition = neighbours.firstIndex { $0.id == tabID }
         tabs.remove(at: index)
+        extensionHost?.extensionTabDidClose(tabID, inSpace: closedSpaceID)
 
         if selectedTabID == tabID {
             // Select the neighbour that is now in the closed tab's slot, within
@@ -264,19 +276,30 @@ public final class TabStore {
     public func unpin(_ tabID: UUID) { setPinned(false, tabID: tabID) }
 
     public func select(_ tabID: UUID) {
-        guard tabs.contains(where: { $0.id == tabID }) else { return }
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        let outgoing = selectedTabID
 
         // Capture before the switch, while the outgoing tab's view is still
         // live. This is the "persist on deactivation" rule in 3.2 — the only
         // point at which a tab the user merely switched away from gets its
         // state written.
-        if let outgoing = selectedTabID, outgoing != tabID {
+        if let outgoing, outgoing != tabID {
             captureInteractionState(forTab: outgoing)
         }
 
         selectedTabID = tabID
         resolveInteractionState(forTab: tabID)
         touch(tabID)
+
+        // `previous` is the prior active tab only when it was in the same Space;
+        // the previousActiveTab argument to the WebExtensions event must belong
+        // to the same window (Space), which our per-Space controllers require.
+        let previousInSameSpace =
+            outgoing.flatMap { id in tabs.first(where: { $0.id == id }) }
+            .flatMap { $0.spaceID == tab.spaceID ? $0.id : nil }
+        extensionHost?.extensionTabDidActivate(
+            tabID, previous: previousInSameSpace, inSpace: tab.spaceID
+        )
     }
 
     public func navigate(to url: URL) {

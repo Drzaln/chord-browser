@@ -18,7 +18,7 @@ import WebKit
 /// `ExtensionControllerHandle`; everything else the app sees is on
 /// `ExtensionHost`, which is WebKit-free.
 @MainActor
-public final class WebKitExtensionHost: ExtensionHost {
+public final class WebKitExtensionHost: NSObject, ExtensionHost {
     // `private(set)` rather than `private` so the package's own tests can reach
     // the controllers through `@testable`; the handle's controller is internal
     // to the engine and cannot be read from here.
@@ -31,22 +31,88 @@ public final class WebKitExtensionHost: ExtensionHost {
     /// Loaded contexts, keyed by Space then by extension slug.
     private var loadedContexts: [UUID: [String: Loaded]] = [:]
 
-    public init() {}
+    // MARK: - Tab/window model (7.3b)
+
+    /// Injected by `AppEnvironment`. Both are WebKit-free at the seam: the model
+    /// is `TabStore`, the provider is the engine forwarded as an existential.
+    public weak var tabModel: (any ExtensionTabModel)?
+    public weak var paneWebViewProvider: (any PaneWebViewProviding)?
+
+    /// One window adapter per Space and one tab adapter per (Space, tab), cached
+    /// so WebKit sees a stable object identity for each.
+    private var windowAdapters: [UUID: ExtensionWindowAdapter] = [:]
+    private var tabAdapters: [UUID: [UUID: ExtensionTabAdapter]] = [:]
+    /// Reverse map for delegate callbacks, which hand back a controller.
+    private var controllerSpace: [ObjectIdentifier: UUID] = [:]
+    /// Space metadata needed after `prepare` (e.g. private-ness).
+    private var spaces: [UUID: Space] = [:]
+
+    public override init() { super.init() }
 
     public var preparedSpaceIDs: Set<UUID> { Set(controllers.keys) }
 
     @discardableResult
     public func prepare(_ space: Space) -> ExtensionControllerHandle {
+        spaces[space.id] = space
         if let existing = controllers[space.id] {
             return ExtensionControllerHandle(existing)
         }
 
         let controller = WKWebExtensionController(configuration: makeConfiguration(for: space))
+        controller.delegate = self
         controllers[space.id] = controller
+        controllerSpace[ObjectIdentifier(controller)] = space.id
         Log.extensions.debug(
             "prepared extension controller for space \(space.id, privacy: .public)"
         )
         return ExtensionControllerHandle(controller)
+    }
+
+    // MARK: - Adapter cache (7.3b)
+
+    func windowAdapter(forSpace spaceID: UUID) -> ExtensionWindowAdapter {
+        if let existing = windowAdapters[spaceID] { return existing }
+        let adapter = ExtensionWindowAdapter(spaceID: spaceID, host: self)
+        windowAdapters[spaceID] = adapter
+        return adapter
+    }
+
+    func tabAdapter(for tabID: UUID, inSpace spaceID: UUID) -> ExtensionTabAdapter {
+        if let existing = tabAdapters[spaceID]?[tabID] { return existing }
+        let adapter = ExtensionTabAdapter(tabID: tabID, spaceID: spaceID, host: self)
+        tabAdapters[spaceID, default: [:]][tabID] = adapter
+        return adapter
+    }
+
+    func isSpacePrivate(_ spaceID: UUID) -> Bool {
+        spaces[spaceID]?.isPrivate ?? false
+    }
+
+    // MARK: - Tab lifecycle (7.3b) — called by the Store
+
+    public func extensionTabDidOpen(_ tabID: UUID, inSpace spaceID: UUID) {
+        guard let controller = controllers[spaceID] else { return }
+        controller.didOpenTab(tabAdapter(for: tabID, inSpace: spaceID))
+    }
+
+    public func extensionTabDidActivate(
+        _ tabID: UUID, previous previousTabID: UUID?, inSpace spaceID: UUID
+    ) {
+        guard let controller = controllers[spaceID] else { return }
+        let previous = previousTabID.map { tabAdapter(for: $0, inSpace: spaceID) }
+        controller.didActivateTab(
+            tabAdapter(for: tabID, inSpace: spaceID), previousActiveTab: previous
+        )
+    }
+
+    public func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID) {
+        guard let controller = controllers[spaceID] else {
+            tabAdapters[spaceID]?[tabID] = nil
+            return
+        }
+        let adapter = tabAdapter(for: tabID, inSpace: spaceID)
+        controller.didCloseTab(adapter, windowIsClosing: false)
+        tabAdapters[spaceID]?[tabID] = nil
     }
 
     // MARK: - Loading (7.3)
@@ -145,5 +211,23 @@ public final class WebKitExtensionHost: ExtensionHost {
                 WKWebsiteDataStore(forIdentifier: space.dataStoreID)
         }
         return configuration
+    }
+}
+
+// MARK: - WKWebExtensionControllerDelegate (7.3b)
+
+extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
+    public func webExtensionController(
+        _ controller: WKWebExtensionController, openWindowsFor context: WKWebExtensionContext
+    ) -> [any WKWebExtensionWindow] {
+        guard let spaceID = controllerSpace[ObjectIdentifier(controller)] else { return [] }
+        return [windowAdapter(forSpace: spaceID)]
+    }
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController, focusedWindowFor context: WKWebExtensionContext
+    ) -> (any WKWebExtensionWindow)? {
+        guard let spaceID = controllerSpace[ObjectIdentifier(controller)] else { return nil }
+        return windowAdapter(forSpace: spaceID)
     }
 }

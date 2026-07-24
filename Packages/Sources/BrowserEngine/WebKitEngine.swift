@@ -33,7 +33,9 @@ public final class WebKitEngine: WebEngine {
     /// afterwards (M7).
     public weak var extensionControllerProvider: (any ExtensionControllerProviding)?
 
-    private let pool: WebViewPool
+    // Internal, not private: the `PaneWebViewProviding` conformance (7.3b) lives
+    // in its own file and reads a pane's live view from the pool.
+    let pool: WebViewPool
     private let dataStores = DataStoreRegistry()
     private let favicons: FaviconLoader
     private let configuration: EngineConfiguration

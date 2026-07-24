@@ -1,0 +1,84 @@
+import BrowserCore
+import BrowserExtensions
+import Foundation
+
+/// `TabStore` as the data source the extension tab/window adapters read (M7,
+/// 7.3b). WebKit-free — the adapters live below the Store and pull tab state up
+/// through this protocol, defined in `BrowserExtensions` and injected downward
+/// (§3.5). Everything is Space-scoped, because extensions are per-Space
+/// (ADR 011).
+extension TabStore: ExtensionTabModel {
+    public func extensionTabs(inSpace spaceID: UUID) -> [ExtensionTabSnapshot] {
+        tabsInSpace(spaceID).enumerated().map { index, tab in
+            snapshot(of: tab, index: index)
+        }
+    }
+
+    public func extensionActiveTab(inSpace spaceID: UUID) -> ExtensionTabSnapshot? {
+        // The selected tab counts as active only when it is in this Space.
+        guard let selectedTabID,
+            let tab = tabs.first(where: { $0.id == selectedTabID }),
+            tab.spaceID == spaceID
+        else { return nil }
+        let index = tabsInSpace(spaceID).firstIndex { $0.id == tab.id } ?? 0
+        return snapshot(of: tab, index: index)
+    }
+
+    public func extensionTab(_ tabID: UUID) -> ExtensionTabSnapshot? {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return nil }
+        let index = tabsInSpace(tab.spaceID).firstIndex { $0.id == tabID } ?? 0
+        return snapshot(of: tab, index: index)
+    }
+
+    // MARK: - Actions
+
+    public func extensionActivateTab(_ tabID: UUID) { select(tabID) }
+
+    public func extensionLoadURL(_ url: URL, inTab tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        engine.load(url, in: tab.focusedPaneID)
+        updatePane(tab.focusedPaneID) { $0.url = url }
+        scheduleSave()
+    }
+
+    public func extensionReloadTab(_ tabID: UUID, fromOrigin: Bool) {
+        // WebKit's reload has no from-origin distinction we expose; a plain
+        // reload is the honest mapping. `fromOrigin` is accepted so the adapter
+        // signature matches without lying about a cache-bypass we cannot do.
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        engine.reload(paneID: tab.focusedPaneID)
+    }
+
+    public func extensionGoBack(inTab tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        engine.goBack(in: tab.focusedPaneID)
+    }
+
+    public func extensionGoForward(inTab tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        engine.goForward(in: tab.focusedPaneID)
+    }
+
+    public func extensionCloseTab(_ tabID: UUID) { closeTab(tabID) }
+
+    // MARK: -
+
+    private func tabsInSpace(_ spaceID: UUID) -> [Tab] {
+        tabs
+            .filter { $0.spaceID == spaceID }
+            .sorted { $0.placement.order < $1.placement.order }
+    }
+
+    private func snapshot(of tab: Tab, index: Int) -> ExtensionTabSnapshot {
+        let pane = tab.focusedPane
+        return ExtensionTabSnapshot(
+            id: tab.id,
+            spaceID: tab.spaceID,
+            focusedPaneID: tab.focusedPaneID,
+            url: pane.url,
+            title: pane.displayTitle,
+            isSelected: tab.id == selectedTabID,
+            index: index
+        )
+    }
+}

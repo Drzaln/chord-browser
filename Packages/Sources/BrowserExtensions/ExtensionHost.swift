@@ -42,4 +42,14 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
 
     /// Extensions currently loaded in a Space, sorted by slug.
     func loadedExtensions(in space: Space) -> [LoadedExtension]
+
+    // MARK: - Tab lifecycle (7.3b)
+    //
+    // The Store calls these as tabs open, activate, and close, so each Space's
+    // controller can fire the matching WebExtensions events. WebKit-free (UUIDs
+    // only); a no-op for a Space with no controller.
+
+    func extensionTabDidOpen(_ tabID: UUID, inSpace spaceID: UUID)
+    func extensionTabDidActivate(_ tabID: UUID, previous previousTabID: UUID?, inSpace spaceID: UUID)
+    func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID)
 }
