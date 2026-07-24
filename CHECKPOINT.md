@@ -15,8 +15,9 @@ only the current position within it.
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
 | **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Content blocking** | **§4.8 — C1–C4 complete and VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, soak). Behind `FeatureFlags.contentBlockingEnabled` (default off). **Ready for review.** |
-| **Next**        | Review. Then: flip `contentBlockingEnabled` (and/or `extensionsEnabled`) on for daily use; optional follow-ups below |
+| **Content blocking** | **§4.8 — C1–C4 complete and VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, soak). |
+| **Shipped** | **Extensions (M7) and content blocking are now ON by default — `FeatureFlags` deleted (§7.4).** Both are always wired in `AppEnvironment.live()`. |
+| **Next**        | Review. Optional follow-ups below (rule-list chunking, settings toggle, per-site whitelist, Instruments pass). |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
