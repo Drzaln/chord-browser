@@ -144,6 +144,7 @@ public final class WebKitEngine: WebEngine {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.allowsBackForwardNavigationGestures = true
+        webView.configuration.preferences.setValue(true, forKey: "fullScreenEnabled")
         webView.allowsMagnification = true
         webView.customUserAgent = nil
         webView.navigationDelegate = coordinator

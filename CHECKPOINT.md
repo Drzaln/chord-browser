@@ -38,14 +38,16 @@ one of them has already cost a session here.
 ```
 Read BROWSER_SPEC.md and CHECKPOINT.md in full before writing any code.
 
-M1-M5 are done. M6 (Polish) is partly done: the sidebar hides and reveals from
-the screen edge, favourites are a per-Space pinned grid, find-in-page works, and
-New Tab / Split Tab both open the command bar. Single `main` branch, 201 tests
-passing, `./scripts/prepush.sh` green.
+M1-M6 are done. M7 (Extensions) is in progress: 7.1-7.4 landed, 7.3b verified
+live, all behind `FeatureFlags.extensionsEnabled` (default off). Single `main`
+branch, 268 tests passing, `./scripts/prepush.sh` green, schema v4.
 
-Start with the ordered list under "Next steps" in CHECKPOINT.md. In short:
-finish M6 — swipe-driven Space switching with swipe animation (that works really good!), cross-section drag-and-drop, an
-animation tuning pass, print, and PDF viewing — then re-run the soak and stop.
+Your job is **7.5** (action popover + permission UI). The full plan, the two
+decisions already made, and the SDK-verified WKWebExtension symbols are under
+"Next steps, in order" → "M7 phase 7.5" in CHECKPOINT.md. Implement 7.5a→7.5d in
+order, one commit per sub-phase, staging with
+`git add -A ':!Browser.xcodeproj/project.pbxproj'` and committing ONLY when the
+user asks. Live-verify 7.5c injection with the recipe under "Verifying 7.5 live".
 
 Follow Section 11 strictly. In particular:
 
@@ -706,12 +708,69 @@ see and drive tabs.
 ## Next steps, in order
 
 **M7 is in progress.** 7.1–7.4 landed; 7.3b is **verified live** (above).
-Continue with **7.5** (extension action popover in the sidebar header, §4.7, and
-the **permission-grant UI** — the manual check proved content scripts stay inert
-until host permissions are granted; `setPermissionStatus(.grantedExplicitly,
-for: .allHostsAndSchemes())` or a `promptForPermissionMatchPatterns` delegate
-prompt is the real path), then 7.6 (soak, then stop for review). Content blocking
+Continue with **7.5**, then 7.6 (soak, then stop for review). Content blocking
 (§4.8) was deferred to its own later milestone.
+
+### M7 phase 7.5 — action popover + permission UI (PLANNED, not started)
+
+Split into four atomic sub-phases (one commit each, M7 discipline). **No UI for
+extensions exists yet** — `ExtensionsService` is the only user-facing layer, so
+7.5 builds the first surface. Two design decisions were made 2026-07-24:
+
+- **§6.6 memory: defer.** No WKWebExtension API exposes process/memory (checked
+  every `WKWebExtension*.h` on the macOS 26.5 SDK). 7.5d surfaces *presence/count*
+  of background-worker extensions per Space; real memory is a later follow-up —
+  proc sampling is fragile/SPI-adjacent, do NOT reach for it.
+- **Permission grants persist in a new SQLite table, schema v5.** Not left to
+  WebKit's own persistence.
+
+- **7.5a — WK-free action model + `didUpdateAction:` wiring.** New
+  `ExtensionActionSnapshot` (WK-free: slug, spaceID, label, badgeText,
+  `presentsPopup`, `enabled`, icon as PNG `Data?`). Host implements
+  `webExtensionController(_:didUpdate:forExtensionContext:)`, maps
+  `WKWebExtensionAction` → snapshot, caches per (Space, slug), fires a change
+  observer the Store/UI reads. Extend `ExtensionHost` + `ExtensionsService` with
+  `actions(in:)`. Default action via `context.action(for: nil)` / `action(for:)`.
+- **7.5b — popover + sidebar-header buttons.** `WKWebExtensionAction.popupPopover`
+  is a ready-made `NSPopover` (macOS) — host takes an anchor `NSView` from UI and
+  calls `popover.show(relativeTo:of:preferredEdge:)`, keeping WebKit in the host
+  (ADR 011). Implement delegate
+  `webExtensionController(_:presentActionPopup:for:completionHandler:)` for
+  extension-initiated popups. SwiftUI action buttons in the sidebar header, behind
+  `extensionsEnabled`.
+- **7.5c — permission-grant UI + schema v5 (load-bearing).** Content scripts stay
+  inert until host permissions are granted. Implement the three delegate prompts:
+  `promptForPermissionMatchPatterns` / `promptForPermissionToAccess` (URLs) /
+  `promptForPermissions`. Surface a WK-free `PermissionRequest` to the Store → a
+  SwiftUI grant/deny sheet; the completion handler returns the allowed set.
+  Persist grants in a new `grantedPermissions` table (migration **v5**); on
+  `load`, re-apply via `context.setPermissionStatus(.grantedExplicitly,
+  for: matchPattern)`. All permission API is `macos(15.4)` — clears our floor.
+  Only Denied/Unknown/GrantedExplicitly may be *set*.
+- **7.5d — per-Space background-worker presence (§6.6).** Count/flag extensions
+  with a background worker per Space in the extensions UI. Memory deferred.
+
+**Verified API (checked against the SDK headers 2026-07-24 — safe to use):**
+- `WKWebExtensionAction`: `.popupPopover` (`NSPopover?`, macOS), `.popupWebView`,
+  `.presentsPopup`, `.label`, `.badgeText`, `.isEnabled`, `iconForSize(_:)`
+  (`NSImage?`), `closePopup()`.
+- `WKWebExtensionContext`: `action(for:)`, `setPermissionStatus(_:for:)` (for
+  permission / URL / matchPattern; `.grantedExplicitly`), `hasPermission(_:in:)`,
+  `permissionStatus(for:in:)`.
+- Delegate Swift names: `webExtensionController(_:didUpdate:forExtensionContext:)`,
+  `webExtensionController(_:presentActionPopup:for:completionHandler:)`,
+  `webExtensionController(_:promptForPermissions:in:for:completionHandler:)`,
+  `webExtensionController(_:promptForPermissionToAccess:in:for:completionHandler:)`,
+  `webExtensionController(_:promptForPermissionMatchPatterns:in:for:completionHandler:)`.
+
+**Verifying 7.5 live (when ready):** add a temporary DEBUG hook in `AppDelegate`
+to flip the flag on + load a dev extension (an unpacked MV3 dir works as
+`resourceBaseURL`), grant all-hosts, open a **fresh** tab, screenshot. A
+content-script banner appearing = injection works; absent in another Space =
+per-Space isolation. Content scripts only inject on page load — a
+restored/already-loaded page won't get them retroactively. Revert the scaffolding
+after; `os.Logger` logs are NOT retrievable via `log show`/`log stream` on this
+host, so `screencapture -x -o out.png` + Read the image is the reliable signal.
 
 The agreed plan below still holds for the remaining phases. **M6 is complete**;
 its 30-minute soak passed (2026-07-24).
