@@ -49,6 +49,12 @@ public protocol WebEngineDelegate: AnyObject {
 public protocol WebEngine: AnyObject {
     var delegate: (any WebEngineDelegate)? { get set }
 
+    /// Supplies the per-Space web-extension controller attached to each new web
+    /// view (M7). WebKit-free by design — the handle is opaque — so the Store
+    /// can inject the host without importing WebKit. `nil` means no extensions,
+    /// which is the state until one is loaded. See ADR 011.
+    var extensionControllerProvider: (any ExtensionControllerProviding)? { get set }
+
     /// Returns a renderable surface, creating the underlying web view on first
     /// call. Never call this for a pane the user has not activated (6.2).
     ///

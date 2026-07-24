@@ -11,15 +11,15 @@ only the current position within it.
 
 ## Status
 
-| | |
-|---|---|
-| **Completed** | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, **M6 Polish** |
-| **In progress** | — M6 is complete and its soak passed; stopped for review |
-| **Next** | M7 Extensions (deliberately last) — start only after review |
-| **Branch** | `main` — single branch, linear history, one commit per milestone |
-| **Tests** | 221 passing (202 unit + 19 end-to-end) |
-| **Schema** | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`) |
-| **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 |
+|                 |                                                                                                                 |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
+| **In progress** | **M7 Extensions** — phase 7.1 done (seam + package + per-Space controller wiring), behind `FeatureFlags.extensionsEnabled` (default off) |
+| **Next**        | M7 phase 7.2 — `.crx`/`.xpi` unpack helper                                                                       |
+| **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
+| **Tests**       | 227 passing (208 unit + 19 end-to-end)                                                                          |
+| **Schema**      | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`)                                                    |
+| **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 
 **The §6.1 performance gate passes** — re-run for M6 on 2026-07-24 with the
 swipe scroll monitor, the sidebar drop layer, and the find bar's cancellable
@@ -44,7 +44,7 @@ New Tab / Split Tab both open the command bar. Single `main` branch, 201 tests
 passing, `./scripts/prepush.sh` green.
 
 Start with the ordered list under "Next steps" in CHECKPOINT.md. In short:
-finish M6 — swipe-driven Space switching, cross-section drag-and-drop, an
+finish M6 — swipe-driven Space switching with swipe animation (that works really good!), cross-section drag-and-drop, an
 animation tuning pass, print, and PDF viewing — then re-run the soak and stop.
 
 Follow Section 11 strictly. In particular:
@@ -94,7 +94,7 @@ behaviour after driving the UI.
 **Never `cp` that database to back it up, and never restore one next to a
 stale `-wal`.** GRDB runs in WAL mode: recent commits live in
 `browser.sqlite-wal`, so a copy of the main file alone is stale, and dropping
-it back beside a *newer* WAL replays that WAL over an older database. That
+it back beside a _newer_ WAL replays that WAL over an older database. That
 corrupted the store on 2026-07-23 and took a `sqlite3 .recover` pass to undo
 (history and archive survived; the tab list did not). Use `.backup` to snapshot
 and delete `-wal`/`-shm` when restoring — `scripts/soak.sh` does both now.
@@ -113,13 +113,13 @@ osascript -e 'tell application "System Events" to tell process "Browser" to retu
 Window count is the cheapest signal: 1 = main window only, 2 = command bar open.
 `value of value of attribute "AXFocusedUIElement"` reads the focused field.
 **Screen recording is granted** (confirmed 2026-07-23) — `screencapture -x -o
-out.png` works, so you *can* see the app, not merely query it. Earlier
+out.png` works, so you _can_ see the app, not merely query it. Earlier
 milestones recorded the opposite and it was true then; that is why the command
 bar shipped for two milestones with its result list invisible. Take a
 screenshot before believing any claim about appearance.
 
 Note that AX returns `missing value` for role, title, and value on the command
-bar's SwiftUI hosting view. Element *count* is still a usable signal, but to
+bar's SwiftUI hosting view. Element _count_ is still a usable signal, but to
 read its text you need a screenshot.
 
 ## Where things are
@@ -148,10 +148,10 @@ docs/adr/                why the non-obvious calls were made
    (fuzzy ranking, sweep eligibility) lives there as pure functions, which is
    why it is testable without a UI, a clock, or WebKit.
 3. **Restore is lazy.** N saved tabs must create 0 web views. Asserted in unit
-   *and* e2e tests.
+   _and_ e2e tests.
 4. **Volatile state (load progress) goes to `PaneRuntime`, never to `tabs`.**
 5. **A web view belongs to the Space it was created in.** Resolve the Space from
-   the *tab*, never the selection; evict before moving a tab. ADR 006.
+   the _tab_, never the selection; evict before moving a tab. ADR 006.
 6. **Per-view `WKUserContentController`.** `WKWebViewConfiguration.copy()` shares
    it, and a duplicate script-handler name throws and kills the app on the
    second tab. ADR 008.
@@ -189,12 +189,12 @@ own vertical tabs and do not want the system tab bar or its shortcut claims.
 
 **Any panel must size itself from its content, and say so twice.** This has now
 bitten in two milestones. Assigning `contentViewController` makes the window
-adopt that controller's *fitting* size, and a web surface has no intrinsic
+adopt that controller's _fitting_ size, and a web surface has no intrinsic
 height — Little Arc's panel opened at 105x37 until `setContentSize` was called
-*after* the assignment.
+_after_ the assignment.
 
 **The panel must size itself from its content.** It shipped in M3 with a fixed
-`640x60` frame and an `autoresizingMask` on the hosting *view* — which makes the
+`640x60` frame and an `autoresizingMask` on the hosting _view_ — which makes the
 view follow the window, never the reverse. The result list rendered correctly
 and was clipped away entirely; every M3 behavioural check passed because Return
 still activated the right row. It is an `NSHostingController` with
@@ -209,13 +209,14 @@ and the bar would otherwise crawl upward as you type.
 - `SplitLayout` in Core owns the width maths, so the invariant that fractions
   sum to 1.0 is provable without a gesture.
 - A divider drag must be measured in **`.global`** space and applied to the
-  widths snapshotted at drag *start*. The divider moves as it resizes; local
+  widths snapshotted at drag _start_. The divider moves as it resizes; local
   coordinates and accumulated deltas both make it run away from the cursor.
 - **Little Arc's page is an ordinary `Pane` that is in no `Tab`** — invisible to
   the sidebar, the sweep, and persistence. It uses the active Space's data
-  store, so a link arrives already logged in. Promotion reads the *current* URL,
+  store, so a link arrives already logged in. Promotion reads the _current_ URL,
   not the one it opened with, then tears the panel's view down: nothing else
   refers to that pane, so it would otherwise outlive the app.
+
 ### How drag-to-split works
 
 Both ends of the drag are AppKit and both are ours. That is the whole fix.
@@ -230,7 +231,7 @@ Both ends of the drag are AppKit and both are ours. That is the whole fix.
   to `onDrag` here.
 - **The destination is `TabDropTarget`**, mounted over a pane only while a drag
   is in flight. `WKWebView` registers for dragged types itself and AppKit picks
-  the *deepest* registered view under the cursor, so a SwiftUI `onDrop` on the
+  the _deepest_ registered view under the cursor, so a SwiftUI `onDrop` on the
   hosting view always loses to the page. A permanent AppKit layer would win the
   drop but eat every ordinary click.
 - **The destination must return an operation the source offers.** `onDrag`
@@ -245,7 +246,7 @@ Both ends of the drag are AppKit and both are ours. That is the whole fix.
   short of the close button so that stays clickable. Its "was this a drag?" flag
   is cleared by the next `mouseDown` and never when the session ends: clearing
   it in `draggingSession(_:endedAt:operation:)` let a mouse-up arriving
-  afterwards read as a plain click, so ending *any* drag also selected the row
+  afterwards read as a plain click, so ending _any_ drag also selected the row
   that had just been dragged.
 - Tests cover the payload only (`BrowserUITests`). **No test covers the drag**,
   and the one that would have mattered cannot be written: the empty-payload bug
@@ -275,7 +276,7 @@ the window's left edge brings it back over the page.
   `onHover` overlay swallows clicks meant for the page (and
   `allowsHitTesting(false)` kills the hover too — the M5 drop-target trap), and
   a `mouseMoved` local monitor never fired. A tracking area reports enter and
-  exit *regardless of hit testing*, so `hitTest` returns nil and clicks pass
+  exit _regardless of hit testing_, so `hitTest` returns nil and clicks pass
   straight through.
 - **The traffic lights are hidden while the sidebar is** (`TrafficLights`).
   AppKit puts them at a fixed offset from the window's top-left regardless of
@@ -290,13 +291,13 @@ the window's left edge brings it back over the page.
   near its edge.
 - The revealed sidebar is a floating card — rounded, shadowed, inset — and the
   in-lane one is flush. That is Arc, and it is what makes the revealed state
-  read as *over* the content rather than part of it.
+  read as _over_ the content rather than part of it.
 - The collapsed state is a window preference in `UserDefaults`, not a schema
   column: it is not user data and has no business carrying a migration.
 
 ### Favourites (pinned tabs)
 
-- `TabPlacement.pinned` and `setPinned` existed from M1, in the model *and* the
+- `TabPlacement.pinned` and `setPinned` existed from M1, in the model _and_ the
   schema. The sidebar simply never separated them from the ephemeral tabs, so
   there is no new state here and no migration — only §4.1's section, finally
   rendered, as `PinnedGrid`.
@@ -316,22 +317,22 @@ the window's left edge brings it back over the page.
   stop-finding call. Verified against the headers, not assumed.
 - It searches the **focused pane**, not the tab. In a split, Cmd+F means the
   pane you are reading; searching all of them scrolls panes you are not.
-- An emptied field reports *nothing* rather than "not found", or the bar flashes
+- An emptied field reports _nothing_ rather than "not found", or the bar flashes
   red on every backspace as a query is deleted.
 
 ### Swipe-driven Space switching (4.2)
 
 - **Raw scroll-phase `NSEvent`, not a gesture recogniser** — a recogniser
   reports a swipe after the fact and cannot drive progress continuously, which
-  is the whole feel. `SpaceSwipeMonitor` installs a *local* event monitor
+  is the whole feel. `SpaceSwipeMonitor` installs a _local_ event monitor
   (`addLocalMonitorForEvents(matching: .scrollWheel)`) so it sees the event
   before any view dispatch and can consume a swipe the `WKWebView` would
-  otherwise scroll. It engages only when a gesture *begins* with
+  otherwise scroll. It engages only when a gesture _begins_ with
   `abs(scrollingDeltaX) > abs(scrollingDeltaY)` **and** carries a real trackpad
   `phase` — a mouse wheel has no phase and a vertical scroll reaches the page.
 - **Scoped to the sidebar, so it never fights back/forward.** The gesture only
   engages when the swipe begins over the sidebar (`event.locationInWindow.x <=
-  engageMaxX`, where `RootView` keeps `engageMaxX` at the sidebar's right edge —
+engageMaxX`, where `RootView` keeps `engageMaxX` at the sidebar's right edge —
   zero while the sidebar is hidden — and passes the main window so a floating
   panel is ignored). A swipe over the web content falls straight through to
   `WKWebView`'s own back/forward navigation gesture
@@ -342,7 +343,7 @@ the window's left edge brings it back over the page.
   commit threshold, rubber-band curve, and the stop-for-stop gradient blend
   (`ColorHex.lerp`). Tested without a trackpad.
 - **The gradient blend is continuous across the commit.** On release past the
-  threshold the monitor springs `spaceSwipeProgress` to `±1` and only *then*
+  threshold the monitor springs `spaceSwipeProgress` to `±1` and only _then_
   calls `commitSpaceSwipe` — `blend(old, new, 1.0)` equals the neighbour's stops
   exactly, and resetting to 0 over the now-active Space shows the same pixels,
   so there is no jump. Below the threshold it springs back to 0.
@@ -353,7 +354,7 @@ the window's left edge brings it back over the page.
 - **Not verified by driving the real app.** A two-finger phased swipe cannot be
   synthesized by `cliclick`/`osascript` — they cannot emit `.began`/`.changed`/
   `.ended` scroll `NSEvent`s. The blend/commit/rubber-band logic is unit-tested,
-  and the *rendering* path is shared with discrete `Cmd+1…9` switching, which was
+  and the _rendering_ path is shared with discrete `Cmd+1…9` switching, which was
   screenshot-verified (blue Space → red Space). The continuous gesture itself
   still wants a hands-on trackpad check.
 
@@ -366,7 +367,7 @@ the window's left edge brings it back over the page.
   `onDrop`/`onMove` (see "How drag-to-split works").
 - **`reorderTab(_:toPinned:at:)` in Core-adjacent Store logic** does both jobs at
   once: `pinned == the tab's current section` is a reorder, a change of section
-  pins/unpins it as it moves. It renumbers only the *destination* section densely
+  pins/unpins it as it moves. It renumbers only the _destination_ section densely
   and leaves the source's orders monotonic-with-a-gap, which `visibleTabs` sorts
   fine. Unit-tested (`ReorderTests`), including per-Space isolation.
 - **Three drop regions**, all mounted only while `draggingTabID != nil` so they
@@ -380,7 +381,7 @@ the window's left edge brings it back over the page.
 - **Verified live with `cliclick`** (`dd`/`dm`/`du`, as the divider drag was):
   drag-to-pin moved a tab from the list into the grid (list 4→3), and
   drag-onto-Space-2 moved a tab out of the active Space (list 3→2). Reorder
-  *within* a section was not eyeballed — the fixture tabs share a title, so it is
+  _within_ a section was not eyeballed — the fixture tabs share a title, so it is
   invisible on screen — but it is the same drop path and is unit-tested.
 - **Simplification:** a drop onto the grid appends rather than landing on the
   aimed-at cell; the grid has no obvious linear slot and the end is predictable.
@@ -396,7 +397,7 @@ the window's left edge brings it back over the page.
   does not support printing." Also a pane with no live view is skipped — there is
   nothing to render.
 - **The sandbox needs `com.apple.security.print`.** Without it the print system
-  is refused and you get the *same* "does not support printing" alert even with
+  is refused and you get the _same_ "does not support printing" alert even with
   the correct call — which is the trap, since it looks identical to the code bug.
   Added to `Browser.entitlements`. `swift test` runs unsandboxed and cannot catch
   this; it was found and the fix confirmed by driving the real app (the print
@@ -418,7 +419,7 @@ the window's left edge brings it back over the page.
   release, and Little Arc's scale-in (which skips straight to `alphaValue = 1`
   under Reduce Motion). This was an audit as much as a change — the discipline was
   already there.
-- **The sidebar reveal now *fades* under Reduce Motion** rather than sliding.
+- **The sidebar reveal now _fades_ under Reduce Motion** rather than sliding.
   `respectingReduceMotion` only speeds the driving animation to near-instant; the
   `.move(edge: .leading)` transition still travelled. Swapping it for `.opacity`
   when `reduceMotion` is set drops the travel, which is the actual point of the
@@ -461,7 +462,7 @@ the window's left edge brings it back over the page.
   content card — not just the sidebar (`RootView.spaceBorderTint`, following the
   swipe blend). It **must** be `.background { spaceBorderTint.ignoresSafeArea() }`:
   without `ignoresSafeArea` the tint stops at the titlebar safe-area line and the
-  card's *top* inset shows raw window chrome, so every edge but the top is
+  card's _top_ inset shows raw window chrome, so every edge but the top is
   coloured. Found and fixed by driving the app — the top strip was visibly
   untinted until the tint was told to bleed to the top edge. Verified live: the
   border turns blue for one Space and green for another, top edge included.
@@ -505,18 +506,71 @@ Two things worth knowing:
 - **This is not the Chrome spoofing §9.6 warns against.** We are WebKit at the
   same version Safari ships; saying so is accurate. Per-domain overrides remain
   the answer for sites that demand Chrome specifically.
-- `TestHTTPServer` records request headers per path. Per *path* because a page
+- `TestHTTPServer` records request headers per path. Per _path_ because a page
   load is followed by a favicon fetch, and that one comes from `URLSession`
   with CFNetwork's own UA — "the last request" answers about the wrong one.
 
+## How M7 works (so far)
+
+### Phase 7.1 — seam + package + per-Space controller wiring (2026-07-24)
+
+- **Extensions are per-Space** (ADR 011, resolving §12). One
+  `WKWebExtensionController` per Space, its configuration keyed by the Space's
+  `dataStoreID` (`WKWebExtensionController.Configuration(identifier:)`, verified
+  in the SDK headers) and its `defaultWebsiteDataStore` set to the same
+  identifier — the storage isolation lives on the controller's config, so
+  per-Space *contexts* on a shared controller would not isolate. A private Space
+  gets `.nonPersistent()`.
+- **The engine layer is the WebKit boundary now, not just `BrowserEngine`.**
+  §7.1 was amended: the extension host is a *second* WebKit importer,
+  `BrowserExtensions` (imports Core + Engine), rather than bloating the engine
+  with an unrelated job. The two engine-layer packages share `WK*` types with
+  each other; nothing WebKit-shaped crosses into Store or UI.
+- **The seam is the `AnyWebSurface` trick.** `BrowserEngine` declares
+  `ExtensionControllerHandle` (opaque; its `WKWebExtensionController` is
+  *internal* to the engine) and a WebKit-free `ExtensionControllerProviding`
+  protocol. `WebKitEngine.makeWebView` sets `config.webExtensionController =
+  handle.controller` when the provider has one for the Space, unwrapping on its
+  own side. `WebKitExtensionHost` (in `BrowserExtensions`) builds the
+  controllers and conforms to the provider.
+- **`AppEnvironment` wires it without importing WebKit** — provider and host are
+  WebKit-free in their public surface. `BrowserStore` gained a dependency on
+  `BrowserExtensions`; dependencies still flow downward. The host is retained by
+  `AppEnvironment` (the engine holds the provider `weak`).
+- **Behind a flag** (§7.4): new `FeatureFlags` in Core, `extensionsEnabled`
+  default off. With it off `AppEnvironment` builds no host and attaches no
+  controller, so the shipping browser is exactly what it was before M7. The flag
+  is deleted when M7 ships.
+- **SPM platform floor raised `.v15` → `15.4`** to match the documented hard
+  floor (§2/§7.3) so the extension API is available without scattering
+  `if #available`. The app target was already 15.4.
+- **Tests** (`BrowserExtensionsTests/PerSpaceControllerTests`, 6): per-Space
+  controller identity and isolation, idempotent `prepare`, nil handle before
+  `prepare`, persistent-vs-private configuration. The isolation test was
+  confirmed to go red against a deliberately shared-controller bug, then
+  restored (per the "verify a regression test fails" rule).
+- **Not yet done in 7.1** (by design): no `.crx` unpack, no
+  `WKWebExtensionContext` load, no tab/window model. Those are 7.2–7.5.
+- **Not verified against the real app.** `swift test` runs unsandboxed;
+  extension *processes* may need entitlement additions that only show against
+  the sandboxed app, and 7.1 loads no context anyway. First live check is owed
+  once a context actually loads (7.3).
+
 ## Next steps, in order
 
-**M6 is complete.** Every §8 item landed and the 30-minute soak passed
-(2026-07-24) — stopped here for review, as the milestone process requires.
+**M7 is in progress.** Phase 7.1 landed (above). Continue with **7.2** —
+`.crx`/`.xpi` unpack helper into
+`~/Library/Application Support/Browser/Extensions/`, MV3 only — then 7.3 (the
+tab/window model, the bulk of the work), 7.4 (per-Space enable/disable + a
+schema decision), 7.5 (action popover + permission UI), 7.6 (soak, then stop for
+review). Content blocking (§4.8) was deferred to its own later milestone.
 
-When review clears, **M7 (Extensions)** is next and deliberately last. The plan
-below is agreed with the user; **the open decision is settled: extension contexts
-are per-Space.** Read §4.7 first, and verify every `WKWebExtension*` symbol
+The agreed plan below still holds for the remaining phases. **M6 is complete**;
+its 30-minute soak passed (2026-07-24).
+
+The **M7 (Extensions)** plan below is agreed with the user; **the open decision
+is settled: extension contexts are per-Space** (now ADR 011, and 7.1 built the
+wiring for it). Read §4.7 first, and verify every `WKWebExtension*` symbol
 against the SDK headers before use — they were spot-checked on 2026-07-24 (macOS
 26.5 SDK) and all exist, but re-verify signatures.
 
@@ -525,7 +579,7 @@ against the SDK headers before use — they were spot-checked on 2026-07-24 (mac
 - **Decision: per-Space contexts.** Each Space loads its own copy of an enabled
   extension — isolated storage, permissions, background workers. Fits Spaces'
   existing cookie/storage isolation. Cost: a background service worker is one
-  process *per Space it's enabled in*; surface per-Space extension memory in the
+  process _per Space it's enabled in_; surface per-Space extension memory in the
   UI (§6.6). Supersedes the §12 open decision → **ADR 009**.
 - **Per-Space isolation is first-class:**
   `WKWebExtensionController.Configuration.configurationWithIdentifier:(NSUUID)`
@@ -578,7 +632,7 @@ sizing is still uncovered.
 - ~~Drag a tab into a split does not work yet.~~ **Done 2026-07-23**, described
   under "How drag-to-split works" below.
 - **`cliclick` is installed** and is how the divider drag was finally verified.
-  Use `dm:` (not `m:`) between `dd:` and `du:` — `m:` sends *mouseMoved*, which
+  Use `dm:` (not `m:`) between `dd:` and `du:` — `m:` sends _mouseMoved_, which
   a SwiftUI `DragGesture` tolerates but an AppKit drag session ignores.
 
 - ~~Double-click on the top strip no longer zooms the window.~~ **Fixed
@@ -597,14 +651,14 @@ sizing is still uncovered.
   under half its 150 MB target with 12 live views.
 - **Instruments passes (§6.7) are still not done** for M1/M3. The numbers above
   come from `footprint`, CPU-time deltas, `sample`, and signposts, which is
-  enough to clear the §8 gate but does not give first-*painted*-frame timings or
+  enough to clear the §8 gate but does not give first-_painted_-frame timings or
   an Allocations/Leaks trace.
 - **Sidebar scroll (120 fps) is still unmeasured**, but no longer known to be
   unmeasurable: screen recording is granted now, so a capture-based approach is
   worth trying before declaring it impossible.
 - ~~Nobody has logged into two real Google accounts by hand.~~ **Done
   2026-07-23** — verified by hand against real Google auth, M2's done-when.
-- ~~The command bar's *appearance* is unverified.~~ **Verified 2026-07-23** by
+- ~~The command bar's _appearance_ is unverified.~~ **Verified 2026-07-23** by
   screenshot, which is how the clipped result list below was found. A full
   visual sweep followed (sidebar, favicon fallback, progress bar, Space
   gradients, command bar navigation) — results in [SMOKE.md](SMOKE.md).
@@ -612,6 +666,7 @@ sizing is still uncovered.
   | Apple Developer Documentation". Weak matches rank last and are noise rather
   than wrong answers, but the bar fills with rows a user would not call
   matches. Wants a quality floor, not just a score. Found in the visual sweep.
+
 ### From the swipe session (2026-07-24)
 
 - ~~The swipe monitor can hijack a page's horizontal scroll.~~ **Fixed
@@ -632,7 +687,7 @@ sizing is still uncovered.
   now fades rather than slides under the setting. Nobody has turned the setting on
   in System Settings and watched — see "Animation and Reduce Motion pass".
 - **The reveal strip's click pass-through is untested in practice.** `hitTest`
-  returns nil so clicks *cannot* hit it, but as laid out today the 6-point strip
+  returns nil so clicks _cannot_ hit it, but as laid out today the 6-point strip
   overlaps only the content card's 8-point inset, not the web view — so the
   mechanism has never actually been exercised. It will matter the moment that
   inset changes.
@@ -669,18 +724,23 @@ Each has an ADR; the spec text was updated in the same commit.
   `ActivationDestination` rather than a `forceNewTab` flag — a Bool cannot say
   which of three places a result belongs in. `Cmd+N` still opens a plain blank
   tab, which is the escape hatch when you genuinely want one.
-  In `.newPane` mode, choosing an *already-open tab* moves it into the split
+  In `.newPane` mode, choosing an _already-open tab_ moves it into the split
   exactly as dragging it there would (4.5) rather than duplicating it, and the
   row says "Move to Split" instead of "Switch to Tab" — §4.4 requires a row to
   announce what Return does before it happens.
-- `Cmd+T` opens results in a *new* tab, `Cmd+L` navigates the *current* one.
+- `Cmd+T` opens results in a _new_ tab, `Cmd+L` navigates the _current_ one.
   §4.4 originally had Return always navigate the current tab, which meant
   `Cmd+T` replaced the tab you were on — the one thing nobody expects it to do.
   Spec text updated in the same commit.
 
 ## Open decisions (BROWSER_SPEC §12)
 
-- Extension contexts per-Space or global (M7)
+- ~~Extension contexts per-Space or global (M7)~~ Resolved: per-Space, one
+  `WKWebExtensionController` per Space (ADR 011).
+- Open for 7.4: how per-Space enablement is stored — an enablement table vs
+  per-Space prefs. Decide when 7.4 starts.
+- Open for the user: whether content blocking (§4.8) rides M7 or is its own
+  milestone. **Answered 2026-07-24: its own later milestone.**
 
 Resolved: GRDB over Core Data (ADR 001); history is title/URL only (ADR 007);
 archive keeps the last 100, no time limit.
@@ -703,7 +763,7 @@ archive keeps the last 100, no time limit.
 - ~~Known latent bug, will bite in M5.~~ **Fixed in M5.** `surface(for:)` gated
   on `tab.focusedPaneID` while capture and resolution iterated every pane —
   identical with one pane per tab, wrong the moment split view renders a second.
-  Now `surface(for:in:)` per pane. Worth knowing how it was caught: the *e2e*
+  Now `surface(for:in:)` per pane. Worth knowing how it was caught: the _e2e_
   regression test for it **passed against the buggy code**, because it polled
   until resolution finished and both panes always resolved together. Only a
   unit test that forces the two panes to disagree
@@ -711,22 +771,24 @@ archive keeps the last 100, no time limit.
   Verify a regression test fails before trusting it.
 - Brand-new tabs are marked resolved at creation — nothing is stored for them, so
   a disk read would only cost a frame of withheld surface.
+
 ### Downloads — verified against the SDK headers, then against the real app
-  - Required: `download(_:decideDestinationUsing:suggestedFilename:completionHandler:)`.
-    Hand back a file URL that does **not** exist, in a directory that does.
-  - Optional: `downloadDidFinish(_:)`,
-    `download(_:didFailWithError:resumeData:)`, redirect and auth-challenge
-    callbacks.
-  - `WKDownload` conforms to `NSProgressReporting` — progress UI reads
-    `download.progress`, it does not count bytes by hand.
-  - Downloads arrive via `WKNavigationDelegate`'s
-    `webView(_:navigationAction:didBecomeDownload:)` /
-    `webView(_:navigationResponse:didBecomeDownload:)` after returning the
-    `.download` policy, or from `startDownloadUsingRequest`. **The delegate must
-    be set inside those callbacks** or progress is never reported.
-  - `decidePlaceholderPolicy` / `didReceivePlaceholderURL` / `didReceiveFinalURL`
-    are **iOS and visionOS only — they do not exist on macOS.** There is no
-    placeholder-file path available to us.
+
+- Required: `download(_:decideDestinationUsing:suggestedFilename:completionHandler:)`.
+  Hand back a file URL that does **not** exist, in a directory that does.
+- Optional: `downloadDidFinish(_:)`,
+  `download(_:didFailWithError:resumeData:)`, redirect and auth-challenge
+  callbacks.
+- `WKDownload` conforms to `NSProgressReporting` — progress UI reads
+  `download.progress`, it does not count bytes by hand.
+- Downloads arrive via `WKNavigationDelegate`'s
+  `webView(_:navigationAction:didBecomeDownload:)` /
+  `webView(_:navigationResponse:didBecomeDownload:)` after returning the
+  `.download` policy, or from `startDownloadUsingRequest`. **The delegate must
+  be set inside those callbacks** or progress is never reported.
+- `decidePlaceholderPolicy` / `didReceivePlaceholderURL` / `didReceiveFinalURL`
+  are **iOS and visionOS only — they do not exist on macOS.** There is no
+  placeholder-file path available to us.
 - **The sandbox now grants `com.apple.security.files.downloads.read-write`**, so
   downloads go straight to `~/Downloads` with no save panel. Chosen deliberately
   over an `NSSavePanel` per download, which the existing user-selected

@@ -314,8 +314,10 @@ protocol ExtensionHost { ... }
 
 ### 4.7 Extensions
 
-- Host via `WKWebExtensionController` + `WKWebExtensionContext`, one controller
-  shared across Spaces, contexts scoped per Space where feasible.
+- Host via `WKWebExtensionController` + `WKWebExtensionContext`, **one controller
+  per Space** (ADR 011 — resolves §12; storage isolation lives on the
+  controller's configuration and data store, so per-Space contexts on a shared
+  controller would not isolate).
 - Load from unpacked directories in
   `~/Library/Application Support/<App>/Extensions/`.
 - Ship a small CLI or in-app helper to unpack a `.crx` into that directory. Do
@@ -468,10 +470,15 @@ away.
 ### 7.1 Isolating WebKit
 
 WebKit is the fastest-moving dependency and the one Apple changes without asking.
-`BrowserEngine` is the only package that imports it, and inside that package,
-framework types must not leak through the public interface — no `WKWebView`,
-`WKNavigationDelegate`, or `WKWebExtensionContext` in any signature `BrowserUI`
-or `BrowserCore` can see. Wrap them.
+The **engine layer is the WebKit boundary**: `BrowserEngine` and — from M7 —
+`BrowserExtensions` are the only packages that import it (amended by ADR 011,
+which adds the extension host as a second WebKit importer rather than folding it
+into `BrowserEngine`). Inside those packages, framework types must not leak
+through the public interface — no `WKWebView`, `WKNavigationDelegate`, or
+`WKWebExtensionContext` in any signature `BrowserUI` or `BrowserCore` can see.
+Wrap them. The two engine-layer packages may share `WK*` types with each other
+(the extension controller reaches the engine as an opaque
+`ExtensionControllerHandle`); nothing WebKit-shaped crosses into Store or UI.
 
 Concretely: when `WKWebExtension` gains APIs in a future macOS, or a delegate
 method is deprecated, the change should touch one package and no view code. If
@@ -638,4 +645,5 @@ Raise these when the relevant milestone starts; do not decide unilaterally.
   title and URL only (ADR 007).
 - ~~Archive retention policy for swept ephemeral tabs (M3).~~ Resolved: last
   100, no time limit, blobs dropped on archive.
-- Whether extension contexts are per-Space or global (M7).
+- ~~Whether extension contexts are per-Space or global (M7).~~ Resolved:
+  per-Space, one `WKWebExtensionController` per Space (ADR 011).

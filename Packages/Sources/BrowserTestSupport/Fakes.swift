@@ -14,6 +14,7 @@ public struct FixedClock: Clock {
 @MainActor
 public final class FakeWebEngine: WebEngine {
     public weak var delegate: (any WebEngineDelegate)?
+    public weak var extensionControllerProvider: (any ExtensionControllerProviding)?
 
     public private(set) var createdPanes: [UUID] = []
     public private(set) var evictedPanes: [UUID] = []

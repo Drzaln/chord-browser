@@ -28,6 +28,11 @@ public struct EngineConfiguration: Sendable {
 public final class WebKitEngine: WebEngine {
     public weak var delegate: (any WebEngineDelegate)?
 
+    /// Set once at launch by `AppEnvironment`. Consulted per web view; not
+    /// retained by any configuration, so flipping it affects only views built
+    /// afterwards (M7).
+    public weak var extensionControllerProvider: (any ExtensionControllerProviding)?
+
     private let pool: WebViewPool
     private let dataStores = DataStoreRegistry()
     private let favicons: FaviconLoader
@@ -114,6 +119,15 @@ public final class WebKitEngine: WebEngine {
         // one thing that varies per Space.
         let config = Self.configurationTemplate.copy() as! WKWebViewConfiguration
         config.websiteDataStore = dataStores.store(for: space)
+
+        // Attach this Space's extension controller, if the host has one loaded
+        // (M7). Left unset when the Space has no extensions, so a configuration
+        // for an extension-free Space is exactly what it was before M7. The
+        // controller stays behind the opaque handle — no WebKit type reaches
+        // here from above the engine. See ADR 011.
+        if let handle = extensionControllerProvider?.extensionControllerHandle(for: space) {
+            config.webExtensionController = handle.controller
+        }
 
         // Each view gets its own content controller. `WKWebViewConfiguration.copy()`
         // does *not* deep-copy this object, so sharing the template's controller
