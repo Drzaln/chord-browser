@@ -31,6 +31,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// Loaded contexts, keyed by Space then by extension slug.
     private var loadedContexts: [UUID: [String: Loaded]] = [:]
 
+    /// Fired on the main actor when an extension updates its action (7.5a).
+    public var onActionsChanged: (@MainActor () -> Void)?
+
     // MARK: - Tab/window model (7.3b)
 
     /// Injected by `AppEnvironment`. Both are WebKit-free at the seam: the model
@@ -184,6 +187,53 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             .sorted { $0.slug < $1.slug }
     }
 
+    // MARK: - Toolbar actions (7.5a)
+
+    public func actions(in space: Space) -> [ExtensionActionSnapshot] {
+        (loadedContexts[space.id] ?? [:])
+            .sorted { $0.key < $1.key }
+            .compactMap { slug, loaded in
+                // The default (tab-independent) action; `action(for: nil)` is
+                // the toolbar action the header button represents.
+                guard let action = loaded.context.action(for: nil) else { return nil }
+                return snapshot(of: action, slug: slug, spaceID: space.id)
+            }
+    }
+
+    private func snapshot(
+        of action: WKWebExtension.Action, slug: String, spaceID: UUID
+    ) -> ExtensionActionSnapshot {
+        ExtensionActionSnapshot(
+            slug: slug,
+            spaceID: spaceID,
+            label: action.label,
+            badgeText: action.badgeText,
+            presentsPopup: action.presentsPopup,
+            enabled: action.isEnabled,
+            icon: Self.pngData(from: action.icon(for: CGSize(width: 32, height: 32)))
+        )
+    }
+
+    /// Renders an `NSImage` to PNG so no AppKit image type crosses into UI.
+    private static func pngData(from image: NSImage?) -> Data? {
+        guard let image,
+            let tiff = image.tiffRepresentation,
+            let rep = NSBitmapImageRep(data: tiff)
+        else { return nil }
+        return rep.representation(using: .png, properties: [:])
+    }
+
+    /// Finds the (Space, slug) a context belongs to. Few extensions load, so a
+    /// linear scan is cheaper than maintaining a reverse map.
+    private func locate(_ context: WKWebExtensionContext) -> (spaceID: UUID, slug: String)? {
+        for (spaceID, bySlug) in loadedContexts {
+            for (slug, loaded) in bySlug where loaded.context === context {
+                return (spaceID, slug)
+            }
+        }
+        return nil
+    }
+
     // MARK: - ExtensionControllerProviding
 
     public func extensionControllerHandle(for space: Space) -> ExtensionControllerHandle? {
@@ -229,5 +279,19 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
     ) -> (any WKWebExtensionWindow)? {
         guard let spaceID = controllerSpace[ObjectIdentifier(controller)] else { return nil }
         return windowAdapter(forSpace: spaceID)
+    }
+
+    // MARK: - Action updates (7.5a)
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        didUpdate action: WKWebExtension.Action,
+        forExtensionContext context: WKWebExtensionContext
+    ) {
+        // We do not need the action here — `actions(in:)` rebuilds from the
+        // current state — only the signal that something changed, so the UI
+        // re-reads. Cheap and keeps a single source of truth.
+        guard locate(context) != nil else { return }
+        onActionsChanged?()
     }
 }

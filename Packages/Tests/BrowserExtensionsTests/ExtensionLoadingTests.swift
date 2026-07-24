@@ -109,6 +109,46 @@ struct ExtensionLoadingTests {
         #expect(host.loadedExtensions(in: personal).isEmpty)
     }
 
+    // MARK: - Toolbar actions (7.5a)
+
+    private static let mv3WithPopup = """
+        {
+          "manifest_version": 3, "name": "Popup Ext", "version": "1.0",
+          "action": { "default_title": "Do Thing", "default_popup": "popup.html" }
+        }
+        """
+    private static let mv3NoPopup = """
+        {
+          "manifest_version": 3, "name": "Click Ext", "version": "1.0",
+          "action": { "default_title": "Click Me" }
+        }
+        """
+
+    @Test func actionsReflectTheLoadedExtensions() async throws {
+        let host = WebKitExtensionHost()
+        let (popup, c1) = try installedExtension(slug: "popup", manifest: Self.mv3WithPopup)
+        let (click, c2) = try installedExtension(slug: "click", manifest: Self.mv3NoPopup)
+        defer { c1(); c2() }
+        let s = space()
+
+        try await host.load(popup, in: s)
+        try await host.load(click, in: s)
+
+        let actions = host.actions(in: s)
+        // Sorted by slug: "click" before "popup".
+        #expect(actions.map(\.slug) == ["click", "popup"])
+        #expect(actions.allSatisfy { $0.spaceID == s.id })
+        // A manifest with `default_popup` presents a popup; one without does not.
+        let byslug = Dictionary(uniqueKeysWithValues: actions.map { ($0.slug, $0) })
+        #expect(byslug["popup"]?.presentsPopup == true)
+        #expect(byslug["click"]?.presentsPopup == false)
+    }
+
+    @Test func actionsAreEmptyForAnExtensionlessSpace() {
+        let host = WebKitExtensionHost()
+        #expect(host.actions(in: space()).isEmpty)
+    }
+
     @Test func anUnreadableBundleThrows() async throws {
         let host = WebKitExtensionHost()
         // A directory with no manifest.json is not a readable extension.

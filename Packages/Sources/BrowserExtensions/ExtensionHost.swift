@@ -43,6 +43,20 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// Extensions currently loaded in a Space, sorted by slug.
     func loadedExtensions(in space: Space) -> [LoadedExtension]
 
+    // MARK: - Toolbar actions (7.5a)
+
+    /// The default toolbar-action snapshot for every extension loaded in a
+    /// Space, sorted by slug. WebKit-free: the live `WKWebExtensionAction` stays
+    /// inside the host (ADR 011). Rebuilt from the current action state each
+    /// call, so it always reflects the latest label / badge / enabled-ness.
+    func actions(in space: Space) -> [ExtensionActionSnapshot]
+
+    /// Called on the main actor whenever an extension updates its action (badge,
+    /// icon, enabled-ness), so the Store can invalidate and the UI re-read
+    /// `actions(in:)`. Set by `AppEnvironment`; the host holds it, not a list of
+    /// observers.
+    var onActionsChanged: (@MainActor () -> Void)? { get set }
+
     // MARK: - Tab lifecycle (7.3b)
     //
     // The Store calls these as tabs open, activate, and close, so each Space's

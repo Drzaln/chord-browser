@@ -108,6 +108,14 @@ public final class TabStore {
     /// conformance to `ExtensionTabModel` (TabStore+Extensions.swift) is inert.
     @ObservationIgnored public weak var extensionHost: (any ExtensionHost)?
 
+    /// Bumped whenever an extension updates its toolbar action (M7, 7.5a).
+    /// `AppEnvironment` wires the host's `onActionsChanged` to increment this, so
+    /// a SwiftUI view that reads it re-renders and re-queries
+    /// `ExtensionsService.actions(in:)`. It carries no action data itself — it is
+    /// purely an observation trigger, so the WebKit-free values stay in the
+    /// service.
+    public internal(set) var extensionActionsToken: Int = 0
+
     /// Runs once at the end of `restore()`, after Spaces and tabs are loaded.
     /// `AppEnvironment` uses it to re-load enabled extensions (7.4), which needs
     /// the restored Spaces to exist first.

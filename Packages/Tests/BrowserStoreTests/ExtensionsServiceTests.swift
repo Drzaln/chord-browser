@@ -37,6 +37,8 @@ private final class FakeHost: ExtensionHost {
     func extensionTabDidOpen(_ tabID: UUID, inSpace spaceID: UUID) {}
     func extensionTabDidActivate(_ tabID: UUID, previous: UUID?, inSpace spaceID: UUID) {}
     func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID) {}
+    func actions(in space: Space) -> [ExtensionActionSnapshot] { [] }
+    var onActionsChanged: (@MainActor () -> Void)?
 }
 
 private actor FakeEnablement: ExtensionEnablementRepository {

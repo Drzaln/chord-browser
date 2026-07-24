@@ -37,6 +37,8 @@ private final class RecordingExtensionHost: ExtensionHost {
     }
     func unload(slug: String, in space: Space) throws {}
     func loadedExtensions(in space: Space) -> [LoadedExtension] { [] }
+    func actions(in space: Space) -> [ExtensionActionSnapshot] { [] }
+    var onActionsChanged: (@MainActor () -> Void)?
 }
 
 @MainActor

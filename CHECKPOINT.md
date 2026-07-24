@@ -14,10 +14,10 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — 7.1–7.4 done (seam + per-Space wiring + install + load/MV3 + tab/window model + enable/disable persistence), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase **7.5** — action popover in the sidebar header + permission-grant UI (§4.7, §6.6) |
+| **In progress** | **M7 Extensions** — 7.1–7.4 done + **7.5a** (WK-free action model + `didUpdate` wiring), behind `FeatureFlags.extensionsEnabled` (default off) |
+| **Next**        | M7 phase **7.5b** — popover + sidebar-header action buttons (then 7.5c permission UI, 7.5d worker presence) |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 268 passing (249 unit + 19 end-to-end)                                                                           |
+| **Tests**       | 270 passing (251 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v4 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`)                          |
 | **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 
@@ -704,6 +704,37 @@ see and drive tabs.
 - **11 new tests** (4 enablement persistence incl. the v4 migration + per-Space +
   idempotency; 6 service enable/disable/restore with fakes; 1 `moveTab`
   close+open, verified red). All green; prepush green.
+
+### Phase 7.5a — WK-free action model + `didUpdate` wiring (2026-07-24)
+
+First slice of 7.5. Builds the WebKit-free action surface the sidebar header
+(7.5b) will render; no UI yet.
+
+- **`ExtensionActionSnapshot`** (BrowserExtensions, WK-free): slug, spaceID,
+  `label`, `badgeText`, `presentsPopup`, `enabled`, `icon` as pre-rendered PNG
+  `Data?`. The live `WKWebExtension.Action` never leaves the host — the icon is
+  rasterised to PNG inside the host (`NSImage` → `NSBitmapImageRep` → PNG) so no
+  AppKit image type crosses into UI (ADR 011).
+- **`ExtensionHost.actions(in:)`** rebuilds snapshots from each loaded context's
+  `context.action(for: nil)` (the default, tab-independent action) every call, so
+  it always reflects the current label/badge/enabled state. Sorted by slug.
+  Mirrored on `ExtensionsService.actions(in:)`.
+- **The Swift type is `WKWebExtension.Action`, not `WKWebExtensionAction`** (the
+  ObjC name is obsoleted in Swift), and the icon accessor is `icon(for:)` not
+  `iconForSize:`. Both bit once during the build — noting so 7.5b/c don't repeat.
+- **Change signal, not change data.** The host implements
+  `webExtensionController(_:didUpdate:forExtensionContext:)` and, on a change,
+  fires an `onActionsChanged` closure. `AppEnvironment` wires that to bump a new
+  observable `TabStore.extensionActionsToken`; a SwiftUI view reading the token
+  re-queries `actions(in:)`. No action data flows through the token — the
+  WK-free values stay in the service, the token is purely an observation trigger.
+- **Verified against real WebKit** (`swift test`): two MV3 bundles (one with
+  `default_popup`, one without) load into a Space; `actions(in:)` returns both
+  sorted by slug, and `presentsPopup` is `true`/`false` respectively — proving
+  the snapshot reads real action state, not a guess. 2 new tests; 270 total.
+- **No UI, no popover, no live-app check yet.** The header buttons and the
+  popover are 7.5b; the `onActionsChanged`→UI path is wired but nothing renders
+  it until then.
 
 ## Next steps, in order
 

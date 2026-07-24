@@ -85,6 +85,10 @@ public struct AppEnvironment {
             host.tabModel = store
             host.paneWebViewProvider = engine
             store.extensionHost = host
+            // An action update (badge, icon, enabled-ness) bumps an observable
+            // token on the store so the sidebar header re-reads `actions(in:)`
+            // (7.5a). No action data flows through here — just the trigger.
+            host.onActionsChanged = { [weak store] in store?.extensionActionsToken &+= 1 }
 
             // The library, the host, and the enablement store, coordinated (7.4).
             let service = ExtensionsService(

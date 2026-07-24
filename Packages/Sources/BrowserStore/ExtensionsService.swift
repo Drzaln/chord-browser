@@ -45,6 +45,12 @@ public final class ExtensionsService {
         host.loadedExtensions(in: space)
     }
 
+    /// The default toolbar-action snapshots for the extensions loaded in a Space
+    /// (7.5a), sorted by slug. WebKit-free values the sidebar header renders.
+    public func actions(in space: Space) -> [ExtensionActionSnapshot] {
+        host.actions(in: space)
+    }
+
     @discardableResult
     public func install(from url: URL) throws -> InstalledExtension {
         try installer.install(from: url)
