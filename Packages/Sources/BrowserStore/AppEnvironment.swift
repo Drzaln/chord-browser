@@ -18,17 +18,22 @@ public struct AppEnvironment {
     /// object with the app's lifetime. `nil` when the extensions flag is off,
     /// in which case no host exists and the engine attaches no controller (M7).
     public let extensionHost: (any ExtensionHost)?
+    /// The native content blocker (§4.8, C2), present when the flag is on.
+    /// Retained for the app's lifetime; it owns the compiled rule list.
+    public let contentBlocker: ContentBlocker?
 
     public init(
         store: TabStore,
         downloads: DownloadsStore,
         extensionHost: (any ExtensionHost)? = nil,
-        extensions: ExtensionsService? = nil
+        extensions: ExtensionsService? = nil,
+        contentBlocker: ContentBlocker? = nil
     ) {
         self.store = store
         self.downloads = downloads
         self.extensionHost = extensionHost
         self.extensions = extensions
+        self.contentBlocker = contentBlocker
     }
 
     /// The real, on-disk configuration.
@@ -62,6 +67,19 @@ public struct AppEnvironment {
             extensionHost = host
         } else {
             extensionHost = nil
+        }
+
+        // Native content blocking (§4.8, C2), behind its own flag. The compile
+        // runs off-main inside WebKit; views built before it finishes are
+        // retrofitted by `applyContentRuleList`. With the flag off nothing is
+        // compiled or attached.
+        let contentBlocker: ContentBlocker?
+        if flags.contentBlockingEnabled {
+            let blocker = ContentBlocker()
+            contentBlocker = blocker
+            Task { engine.applyContentRuleList(await blocker.prepare()) }
+        } else {
+            contentBlocker = nil
         }
 
         let repository = SQLiteTabRepository(database: database)
@@ -119,7 +137,8 @@ public struct AppEnvironment {
             store: store,
             downloads: DownloadsStore(coordinator: engine.downloads),
             extensionHost: extensionHost,
-            extensions: extensionsService
+            extensions: extensionsService,
+            contentBlocker: contentBlocker
         )
     }
 }

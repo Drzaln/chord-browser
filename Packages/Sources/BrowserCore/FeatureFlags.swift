@@ -13,8 +13,14 @@ public struct FeatureFlags: Sendable, Equatable {
     /// host is being built across 7.1–7.6.
     public var extensionsEnabled: Bool
 
-    public init(extensionsEnabled: Bool = false) {
+    /// Content blocking (§4.8). When off, no rule list is compiled or attached,
+    /// so the engine builds exactly the web views it did before. Default off
+    /// while the native blocker is built across C1–C4. Deleted when it ships.
+    public var contentBlockingEnabled: Bool
+
+    public init(extensionsEnabled: Bool = false, contentBlockingEnabled: Bool = false) {
         self.extensionsEnabled = extensionsEnabled
+        self.contentBlockingEnabled = contentBlockingEnabled
     }
 
     /// The shipping configuration: everything in-progress is off.

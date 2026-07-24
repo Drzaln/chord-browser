@@ -15,8 +15,8 @@ only the current position within it.
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
 | **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off) |
-| **In progress** | **Content blocking (§4.8)** — **C1** done (pure ABP→JSON converter in Core). Next C2 compile/cache/attach, C3 weekly refresh, C4 soak. |
-| **Next**        | C2 — `ContentBlocker` in `BrowserEngine`: compile off-main, store-as-cache, attach to each view |
+| **In progress** | **Content blocking (§4.8)** — **C1 + C2** done (converter + compile/cache/attach off-main, bundled seed, flag-gated). Next C3 weekly refresh, C4 soak + live "it blocks" check. |
+| **Next**        | C3 — weekly refresh + fetch of the full EasyList/EasyPrivacy |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
@@ -995,6 +995,47 @@ re-runs our own code over the real lists (fits §2/§3.6 and the solo-tool manda
 - **14 tests** (url-filter translation, network/exception/options/resource-type
   mapping, element hiding, dropped-rule table, JSON shape + round-trip). 291
   total, prepush green. No WebKit imported by C1 — the whole converter is pure.
+
+### Phase C2 — ContentBlocker compile/cache/attach (2026-07-25)
+
+- **`ContentBlocker`** (BrowserEngine, WebKit-importing) owns a
+  `WKContentRuleListStore` and the compiled `WKContentRuleList`, which never
+  leaves the engine. `prepare()` looks the list up by identifier (the store is
+  the on-disk cache — §6.6's "never compile on window open"); only when it is
+  absent does it read the seed, run C1's `ContentBlockConverter`, and
+  `compileContentRuleList`. **Compilation runs off-main inside WebKit** via
+  `await` — no main-thread block, so no deadlock (the C1 finding).
+- **`WebKitEngine.applyContentRuleList(_:)`** stores the compiled list and adds
+  it to each view's `WKUserContentController` — both in `makeWebView` for new
+  views and, crucially, **retrofitted onto already-live views**, because the
+  first-launch compile finishes after the first views exist (they would browse
+  unblocked until reloaded otherwise). `nil` clears via
+  `removeAllContentRuleLists`.
+- **Bundled seed list** (`Resources/seed-blocklist.txt`, a curated
+  EasyList/EasyPrivacy subset — major ad/tracker networks) so blocking works on
+  first launch offline; C3 replaces it with the full fetched lists. Loaded via
+  `Bundle.module` (added `resources: [.process(...)]` to the BrowserEngine SPM
+  target). `bundledSeedList()` is `nonisolated` so it can be the default provider.
+- **Flag-gated:** `FeatureFlags.contentBlockingEnabled` (default off). With it
+  off, `AppEnvironment` builds no blocker and attaches nothing — the engine is
+  exactly what it was. On, it builds the blocker and, in a `Task`, compiles then
+  `engine.applyContentRuleList(await blocker.prepare())`. The blocker is retained
+  on `AppEnvironment`.
+- **Verified against real WebKit** (4 tests, temp on-disk stores so the app's
+  real cache is untouched): the **bundled seed converts + compiles**; a second
+  `prepare()` returns the list **from cache even when the seed would fail**;
+  inline rules compile; a comments-only seed compiles to an empty list without
+  trapping. 295 total, prepush green (app build bundles the resource).
+- **NOT yet driven live** — the decisive "a real ad/tracker request is actually
+  blocked" check is folded into **C4**, which runs ad-heavy mainstream sites with
+  the flag on and screenshots the effect; that run also confirms `Bundle.module`
+  resolves the seed in the packaged app (a graceful nil-and-log if not).
+
+**Known flake (pre-existing, not C2):** `ExtensionArchiveTests
+.reinstallOverwritesInPlace` failed once under full parallel `swift test`
+("not a recognised extension archive") and passed in isolation and on retry —
+a test-isolation race in the installer's temp-dir handling, worth a fixture
+fix sometime.
 
 ## Next steps, in order
 

@@ -52,6 +52,11 @@ public final class WebKitEngine: WebEngine {
     /// downloads without WebKit appearing in any signature it can see.
     public let downloads: DownloadCoordinator
 
+    /// The compiled native content-blocking list (§4.8, C2), or nil when the
+    /// feature is off or compilation has not finished. Attached to every web
+    /// view's content controller. An immutable compiled object, safe to share.
+    private var contentRuleList: WKContentRuleList?
+
     /// Retained so an evicted or crashed pane can be revived without the model
     /// layer having to hand its state back.
     private var interactionStates: [UUID: Data] = [:]
@@ -140,6 +145,13 @@ public final class WebKitEngine: WebEngine {
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
         }
+        // Native content blocking (§4.8, C2). The compiled list is shared and
+        // immutable; adding it to each view's controller is what actually
+        // enforces the rules. Nil when the feature is off or the first-launch
+        // compile is still in flight — `applyContentRuleList` retrofits those.
+        if let contentRuleList {
+            controller.add(contentRuleList)
+        }
         config.userContentController = controller
 
         let webView = WKWebView(frame: .zero, configuration: config)
@@ -150,6 +162,23 @@ public final class WebKitEngine: WebEngine {
         webView.navigationDelegate = coordinator
         webView.uiDelegate = coordinator
         return webView
+    }
+
+    /// Installs the compiled content-blocking list (§4.8, C2), applying it both
+    /// to views built afterwards and to any already live — first-launch
+    /// compilation finishes after the first views exist, so those must be
+    /// retrofitted or they would browse unblocked until reloaded. `nil` clears
+    /// it. Immutable and shared, so the same object attaches to every view.
+    public func applyContentRuleList(_ list: WKContentRuleList?) {
+        contentRuleList = list
+        for live in pool.liveViews {
+            let controller = live.webView.configuration.userContentController
+            if let list {
+                controller.add(list)
+            } else {
+                controller.removeAllContentRuleLists()
+            }
+        }
     }
 
     /// Completes the User-Agent so it looks like the browser it actually is.

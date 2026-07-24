@@ -33,7 +33,12 @@ let package = Package(
             swiftSettings: strict
         ),
 
-        .target(name: "BrowserEngine", dependencies: ["BrowserCore"], swiftSettings: strict),
+        .target(
+            name: "BrowserEngine",
+            dependencies: ["BrowserCore"],
+            resources: [.process("Resources/seed-blocklist.txt")],
+            swiftSettings: strict
+        ),
 
         // WebKit-extension host (M7). The second WebKit importer after Engine;
         // §7.1 was amended to "the engine layer is the WebKit boundary." No

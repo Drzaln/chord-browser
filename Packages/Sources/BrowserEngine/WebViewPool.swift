@@ -122,6 +122,10 @@ final class WebViewPool {
 
     var count: Int { live.count }
 
+    /// Every live view, order-independent — used to retrofit a content rule list
+    /// onto views that already exist when compilation finishes (C2).
+    var liveViews: [LiveWebView] { Array(live.values) }
+
     func view(for paneID: UUID) -> LiveWebView? {
         guard let view = live[paneID] else { return nil }
         touch(paneID)

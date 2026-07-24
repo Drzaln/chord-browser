@@ -1,0 +1,59 @@
+! Seed blocklist for content blocking (milestone C2).
+! A curated starter subset of EasyList + EasyPrivacy — high-value ad and
+! tracker networks — so blocking is real and demonstrable before C3 fetches
+! the full lists. Adblock Plus syntax; converted by ContentBlockConverter.
+[Adblock Plus 2.0]
+! --- Ad networks ---
+||doubleclick.net^
+||googlesyndication.com^
+||googleadservices.com^
+||g.doubleclick.net^
+||pagead2.googlesyndication.com^
+||adservice.google.com^
+||amazon-adsystem.com^
+||adnxs.com^
+||adsystem.com^
+||advertising.com^
+||moatads.com^
+||rubiconproject.com^
+||pubmatic.com^
+||openx.net^
+||criteo.com^
+||criteo.net^
+||taboola.com^
+||outbrain.com^
+||scorecardresearch.com^
+||adform.net^
+||casalemedia.com^
+||smartadserver.com^
+||3lift.com^
+||bidswitch.net^
+! --- Analytics / trackers ---
+||google-analytics.com^
+||googletagmanager.com^
+||googletagservices.com^
+||hotjar.com^
+||mixpanel.com^
+||segment.com^
+||segment.io^
+||fullstory.com^
+||mouseflow.com^
+||quantserve.com^
+||chartbeat.com^
+||branch.io^
+||amplitude.com^
+||heapanalytics.com^
+||nr-data.net^
+||bugsnag.com^
+! --- Social widgets / beacons ---
+||connect.facebook.net^
+||platform.twitter.com^$third-party
+||analytics.tiktok.com^
+! --- Common ad path patterns ---
+/pagead/*
+/adsbygoogle/*
+||stats.wp.com^
+! --- Cosmetic: generic ad containers ---
+##.adsbygoogle
+##.ad-banner
+##.sponsored-post
