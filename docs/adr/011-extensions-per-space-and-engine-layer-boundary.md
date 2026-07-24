@@ -73,6 +73,32 @@ M7 spans several commits (7.1–7.6). Per §7.4 the whole subsystem sits behind
 controller and the shipping browser is byte-for-byte what it was before M7. The
 flag is deleted when the milestone ships.
 
+## 7.2 stores a ZIP, not an unpacked directory
+
+The plan said "both are ZIPs to unpack into `Extensions/`". Reading the SDK
+header changed the call: `WKWebExtension.extension(resourceBaseURL:)` accepts
+"a directory with a `manifest.json` file **or a ZIP archive** containing a
+`manifest.json` file". WebKit unpacks the ZIP itself.
+
+So `ExtensionInstaller` normalises each bundle to a ZIP and stores *that* —
+`.xpi` copied through, `.crx` with its signed `Cr24` header stripped (CRX2 and
+CRX3, plain little-endian offset math in `ExtensionArchive`) — rather than
+carrying a hand-rolled ZIP extractor. That extractor would have meant
+central-directory parsing, deflate, and zip-slip defence, all to produce a tree
+WebKit re-reads on every load anyway. The one transform we do keep — CRX header
+stripping — is pure and fully unit-tested against synthetic CRX2/CRX3 blobs.
+
+Consequence: the on-disk library is `Extensions/<slug>.zip`, not
+`Extensions/<slug>/`. Bundles are opaque on disk (no editing resources in
+place), which for a personal browser is a non-cost. If a future need wants an
+inspectable tree, `WKWebExtension` reads a directory too and the installer can
+grow an extract path then.
+
+**MV3 enforcement is deferred to load (7.3).** Nothing in 7.2 reads inside the
+ZIP; `WKWebExtension` parses the manifest and reports `manifestVersion`, which
+is where "MV3 only" is enforced. WebKit itself accepts MV2, so that rejection is
+our policy applied at load, not WebKit's.
+
 ## What 7.1 does *not* do
 
 7.1 is the seam, the package, and per-Space controller *wiring* only. No `.crx`

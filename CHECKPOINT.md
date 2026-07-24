@@ -14,10 +14,10 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — phase 7.1 done (seam + package + per-Space controller wiring), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase 7.2 — `.crx`/`.xpi` unpack helper                                                                       |
+| **In progress** | **M7 Extensions** — phases 7.1–7.2 done (seam + per-Space wiring + `.crx`/`.xpi` install helper), behind `FeatureFlags.extensionsEnabled` (default off) |
+| **Next**        | M7 phase 7.3 — the `WKWebExtensionTab`/`WKWebExtensionWindow` model + context loading                            |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 227 passing (208 unit + 19 end-to-end)                                                                          |
+| **Tests**       | 241 passing (222 unit + 19 end-to-end)                                                                           |
 | **Schema**      | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`)                                                    |
 | **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 
@@ -556,14 +556,44 @@ Two things worth knowing:
   the sandboxed app, and 7.1 loads no context anyway. First live check is owed
   once a context actually loads (7.3).
 
+### Phase 7.2 — `.crx`/`.xpi` install helper (2026-07-24)
+
+- **Deviation from the plan, verified against the header: store a ZIP, not an
+  unpacked directory.** `WKWebExtension.extension(resourceBaseURL:)` reads "a
+  directory … *or a ZIP archive* containing a `manifest.json`" (SDK header). So
+  `ExtensionInstaller` normalises each bundle to a ZIP and stores
+  `Extensions/<slug>.zip` — no hand-rolled ZIP extractor (no central-directory
+  parse, no deflate, no zip-slip surface) for a tree WebKit re-reads anyway. See
+  ADR 011.
+- **`ExtensionArchive` is the pure part**: detect format by magic bytes (`Cr24`
+  / `PK\x03\x04`), and for a `.crx` strip the signed header — CRX2 (pubkey+sig)
+  and CRX3 (protobuf header), little-endian offset math — to recover the
+  embedded ZIP. `.xpi`/`.zip` pass through. No file system, no WebKit; unit
+  tested against synthetic CRX2/CRX3 blobs (the CRX3 offset test was confirmed
+  red against an off-by-header bug, then restored).
+- **`ExtensionInstaller` is the I/O part**: `install(from:)`,
+  `installedExtensions()`, `remove(slug:)` over the on-disk library. Slug from
+  the source filename stem, sanitised so a hostile name cannot escape the
+  directory. Reinstalling overwrites in place. It is WebKit-free — pure file +
+  byte work — living in `BrowserExtensions` because that is the subsystem.
+- **MV3 enforcement is deferred to load (7.3).** Nothing in 7.2 reads inside the
+  ZIP; `WKWebExtension.manifestVersion` is where "MV3 only" gets enforced (WebKit
+  itself accepts MV2, so it is our policy at load, not WebKit's).
+- **Not wired to the app yet** and not driven live: no UI calls `install`, and
+  nothing loads the stored ZIP. That is 7.3+. The installer's directory will be
+  `support/Extensions/` when wired.
+
 ## Next steps, in order
 
-**M7 is in progress.** Phase 7.1 landed (above). Continue with **7.2** —
-`.crx`/`.xpi` unpack helper into
-`~/Library/Application Support/Browser/Extensions/`, MV3 only — then 7.3 (the
-tab/window model, the bulk of the work), 7.4 (per-Space enable/disable + a
-schema decision), 7.5 (action popover + permission UI), 7.6 (soak, then stop for
-review). Content blocking (§4.8) was deferred to its own later milestone.
+**M7 is in progress.** Phases 7.1–7.2 landed (above). Continue with **7.3** —
+the `WKWebExtensionTab`/`WKWebExtensionWindow` model over `Tab`/`Pane`/main
+window, feeding each per-Space controller via its delegate, and actually loading
+a stored ZIP through `WKWebExtension.extension(resourceBaseURL:)` →
+`WKWebExtensionContext` → `controller.load(context)`. This is the bulk of the
+milestone. Enforce **MV3 only** here via `manifestVersion`. Then 7.4 (per-Space
+enable/disable + a schema decision: enablement table vs per-Space prefs), 7.5
+(action popover + permission UI), 7.6 (soak, then stop for review). Content
+blocking (§4.8) was deferred to its own later milestone.
 
 The agreed plan below still holds for the remaining phases. **M6 is complete**;
 its 30-minute soak passed (2026-07-24).
