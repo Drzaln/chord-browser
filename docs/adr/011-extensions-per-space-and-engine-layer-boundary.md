@@ -99,10 +99,28 @@ ZIP; `WKWebExtension` parses the manifest and reports `manifestVersion`, which
 is where "MV3 only" is enforced. WebKit itself accepts MV2, so that rejection is
 our policy applied at load, not WebKit's.
 
-## What 7.1 does *not* do
+## 7.3 splits into load (7.3a) and the tab/window model (7.3b)
 
-7.1 is the seam, the package, and per-Space controller *wiring* only. No `.crx`
-is unpacked, no `WKWebExtensionContext` is loaded, no tab/window model is
-implemented. Those are 7.2–7.5. The host at 7.1 can stand up a per-Space
-controller and hand it to the engine; that is the whole claim, and it is what
-the tests cover.
+The whole `WKWebExtensionControllerDelegate` is `@optional` (SDK header), so
+`WKWebExtensionController.load(context)` succeeds with no delegate — the
+extension loads and its background logic runs, it just sees an empty browser.
+That cleaves 7.3 along a natural line:
+
+- **7.3a — loading** is buildable and unit-testable now, against real WebKit in
+  `swift test`: `WKWebExtension(resourceBaseURL:)` → reject `manifestVersion < 3`
+  → `WKWebExtensionContext(for:)` → `controller.load`. This is our **MV3-only**
+  enforcement point (WebKit accepts MV2; the policy is ours, applied where the
+  manifest is first parsed).
+- **7.3b — the tab/window model** needs tab state from `TabStore`, which sits
+  *above* `BrowserExtensions` — so a WebKit-free model protocol is defined in
+  `BrowserExtensions` and the Store conforms (inject downward, §3.5). It also
+  needs a pane's live `WKWebView`, held privately by the engine, reached through
+  an engine-layer accessor. And it cannot be trusted without a real extension in
+  the real app (§11) — the loaded context has nothing observable until it has
+  tabs. So it is its own slice.
+
+## What phase 7.1 did *not* do
+
+7.1 was the seam, the package, and per-Space controller *wiring* only. 7.2 added
+the install helper; 7.3a added loading + MV3. The tab/window model (7.3b),
+per-Space enable/disable (7.4), and the action/permission UI (7.5) remain.

@@ -14,10 +14,10 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — phases 7.1–7.2 done (seam + per-Space wiring + `.crx`/`.xpi` install helper), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase 7.3 — the `WKWebExtensionTab`/`WKWebExtensionWindow` model + context loading                            |
+| **In progress** | **M7 Extensions** — 7.1, 7.2, **7.3a** done (seam + per-Space wiring + install helper + load path with MV3 enforcement), behind `FeatureFlags.extensionsEnabled` (default off) |
+| **Next**        | M7 phase **7.3b** — the `WKWebExtensionTab`/`WKWebExtensionWindow` model (needs `TabStore` injection + live verification with a real extension) |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 241 passing (222 unit + 19 end-to-end)                                                                           |
+| **Tests**       | 248 passing (229 unit + 19 end-to-end)                                                                           |
 | **Schema**      | v3 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`)                                                    |
 | **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 
@@ -583,14 +583,53 @@ Two things worth knowing:
   nothing loads the stored ZIP. That is 7.3+. The installer's directory will be
   `support/Extensions/` when wired.
 
+### Phase 7.3a — extension load path + MV3 enforcement (2026-07-24)
+
+7.3 split into 7.3a (loading, done here) and 7.3b (the tab/window model). The
+split is deliberate: **the whole `WKWebExtensionControllerDelegate` is
+`@optional`** (verified in the header), so `controller.load(context)` succeeds
+with no delegate — the extension just sees an empty browser. That makes the
+loading path buildable and unit-testable *now*, while the tab/window model needs
+`TabStore` injection and a hands-on check with a real extension (§11), so it is
+its own slice.
+
+- **`WebKitExtensionHost.load(_:in:)`**: `WKWebExtension(resourceBaseURL:)`
+  (async throws) → **reject `manifestVersion < 3`** → `WKWebExtensionContext(for:)`
+  with `uniqueIdentifier = slug` (stable per Space+slug; the controller is
+  already per-Space) → `controller.load(context)`. Tracks loaded contexts keyed
+  by Space then slug; `unload(slug:in:)` and `loadedExtensions(in:)` round it
+  out. All three are on the WebKit-free `ExtensionHost` protocol
+  (`LoadedExtension` in, out — no `WK*`).
+- **MV3 is our policy, not WebKit's.** WebKit loads MV2 fine (the break-test
+  confirmed it loaded an MV2 bundle when the gate was weakened). We reject it at
+  load, the first point the manifest is parsed.
+- **Verified against real WebKit in `swift test`**: a synthetic MV3 manifest in a
+  temp directory (which `resourceBaseURL` accepts, same as a ZIP) loads into a
+  real per-Space controller; MV2 is rejected with
+  `unsupportedManifestVersion(2)`; a manifest-less directory throws
+  `unreadableBundle`; loads are per-Space isolated. 7 tests; the MV3 gate was
+  confirmed red against a `>= 2` weakening.
+- **Not yet driven in the real app.** `swift test` is unsandboxed; extension
+  *processes* (background service workers) may need entitlement additions that
+  only surface against the sandboxed app, and a synthetic inert extension
+  exercises no worker. First real-app check comes with 7.3b, when a loaded
+  extension has tabs to see.
+
 ## Next steps, in order
 
-**M7 is in progress.** Phases 7.1–7.2 landed (above). Continue with **7.3** —
+**M7 is in progress.** 7.1, 7.2, 7.3a landed (above). Continue with **7.3b** —
 the `WKWebExtensionTab`/`WKWebExtensionWindow` model over `Tab`/`Pane`/main
-window, feeding each per-Space controller via its delegate, and actually loading
-a stored ZIP through `WKWebExtension.extension(resourceBaseURL:)` →
-`WKWebExtensionContext` → `controller.load(context)`. This is the bulk of the
-milestone. Enforce **MV3 only** here via `manifestVersion`. Then 7.4 (per-Space
+window, feeding each per-Space controller via its (optional) delegate
+(`openWindowsFor:`, `focusedWindowFor:`, `didOpenTab:`/`didCloseTab:`/
+`didActivateTab:`). All `WKWebExtensionTab`/`Window` methods are optional, so a
+minimal-but-honest adapter is fine to start. **The hard seam:** the adapters
+live in `BrowserExtensions` (WebKit) but need tab state from `TabStore`
+(`BrowserStore`, above them), so define a WebKit-free model protocol *in*
+`BrowserExtensions` and have the Store conform (inject downward, per §3.5). Note
+`webView(for:)` must return a pane's live `WKWebView`, which the engine holds
+privately — an engine-layer accessor is needed (WK-typed, engine↔extensions
+only). **Verify with a real extension in the real app** (§11); load is unit-
+covered but the tab model is not observable without a page. Then 7.4 (per-Space
 enable/disable + a schema decision: enablement table vs per-Space prefs), 7.5
 (action popover + permission UI), 7.6 (soak, then stop for review). Content
 blocking (§4.8) was deferred to its own later milestone.

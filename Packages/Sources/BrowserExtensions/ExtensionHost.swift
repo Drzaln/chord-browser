@@ -27,4 +27,19 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
 
     /// Spaces that currently have a controller.
     var preparedSpaceIDs: Set<UUID> { get }
+
+    /// Loads an installed bundle into a Space's controller (7.3). Enforces
+    /// **MV3 only** — an MV2 bundle throws `unsupportedManifestVersion` — and
+    /// prepares the Space's controller if it was not already. The underlying
+    /// `WKWebExtensionContext` stays inside the host; the caller gets a
+    /// WebKit-free descriptor.
+    @discardableResult
+    func load(_ installed: InstalledExtension, in space: Space) async throws -> LoadedExtension
+
+    /// Unloads a previously loaded extension from a Space. A no-op if it was not
+    /// loaded there.
+    func unload(slug: String, in space: Space) throws
+
+    /// Extensions currently loaded in a Space, sorted by slug.
+    func loadedExtensions(in space: Space) -> [LoadedExtension]
 }
