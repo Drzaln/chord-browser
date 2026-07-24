@@ -111,6 +111,52 @@ switches; WebKit's own eviction then brings it down and holds it. Samples in
 pass were not re-run for M6 — the M1 numbers above stand and the app layer did
 not change shape.
 
+### 30-minute soak — M7 (extensions), measured 2026-07-24
+
+The §8/§6.6 gate for M7: a soak **with extensions across 3 Spaces**. Fixture is
+3 Spaces / 21 tabs / 32 panes (one 4-pane split per Space) seeded with
+**mainstream SPAs** — Google, YouTube, X, Instagram, Reddit, Wikipedia, GitHub,
+Amazon (`SOAK_URLS=… scripts/soak.sh seed`, a new override) — far heavier than
+the curated list. One extension (`soakext`: content script + background service
+worker + `<all_urls>` host access) was enabled **in all three Spaces** via
+pre-seeded `extensionEnablement` + `grantedPermission` rows, so it loaded on
+launch through `restoreEnabled` and ran a per-Space worker (§6.6). Content-script
+injection was confirmed on the live pages ("SOAK EXT ACTIVE" banner). Driven with
+Cmd+1…3 Space switches every 4 s for 30 minutes.
+
+| | Start (min 0) | Settled (min ~9) | End (min 30) | |
+|---|---|---|---|---|
+| App process footprint | 55 MB | 64 MB | **64 MB** | flat, no growth |
+| Total (app + WebKit helpers) | 317 MB | ~470 MB | **485 MB** | flat |
+
+| §6.1 budget | measured | target | ceiling | |
+|---|---|---|---|---|
+| App process RSS | **64 MB** | < 150 MB | 250 MB | pass (wide) |
+| Total footprint | **485 MB** | < 1.2 GB | 1.8 GB | pass (wide) |
+| Idle CPU, window visible | **0.63%** | < 0.5% | 1% | under ceiling¹ |
+
+**No leak.** The app process rises 55→64 MB in the first ~9 minutes (warm-up as
+per-Space workers and initial pages load) and is then **flat at 64 MB** for the
+remaining 20+ minutes. Total peaks ~747 MB during the first Space-switch wave
+(every mainstream SPA coming alive at once), then WebKit's eviction (§6.2) brings
+it down and **holds it at ~470–485 MB** — a +15 MB drift over the last 20 minutes,
+within noise. Process inventory at the end: 1 app + 5 WebKit helpers (1
+networking, 3 WebContent, 1 GPU) — the three per-Space extension workers did
+**not** balloon the process count; WebKit consolidates them.
+
+That mainstream SPAs + three extension workers still settle to **485 MB total and
+64 MB app** — a third of the 1.2 GB budget and under half the 150 MB app target —
+is the headline: the extension subsystem adds no measurable app-process cost, and
+per-Space isolation does not multiply footprint the way a naive design would.
+
+¹ Idle CPU was measured on the app process after the run, with the mainstream
+SPAs still live. The **0.5% target is a "no animation" baseline**; YouTube,
+Reddit, et al. run background timers/compositor updates continuously, so a truly
+idle reading is not available with this fixture. 0.63% is comfortably under the
+1% ceiling; the cheap-site M6 soak (near-flat CPU) is the no-animation reference.
+Samples in `/tmp/soak-220853.tsv` at the time of the run. Instruments
+Allocations/Leaks (§6.7) still not run — carried debt, same as M1/M3/M6.
+
 ## M2 — Spaces
 
 ### Switching

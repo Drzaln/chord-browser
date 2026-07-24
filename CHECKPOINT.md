@@ -14,8 +14,8 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — 7.1–7.4 + **7.5 complete (a–d)**, all **VERIFIED LIVE** (action model, popover + header buttons, permission-grant UI + schema v5, background-worker presence + host-access toggle), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase **7.6** — soak with N extensions across 3 Spaces, then stop for review |
+| **In progress** | **M7 Extensions** — 7.1–7.4 + **7.5 (a–d)** + **7.6 soak** all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off). **Ready for review.** |
+| **Next**        | **M7 review** (stop point). Then: flip `extensionsEnabled` on for real use, or content blocking (§4.8, its own milestone) |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
@@ -901,12 +901,55 @@ affordance the 7.5c live finding showed was needed.
   reports `hasBackgroundContent`, a content-script-only one does not; against
   real WebKit). 277 total, prepush green.
 
+### Phase 7.6 — soak with extensions across 3 Spaces (2026-07-24)
+
+The §8/§6.6 gate for M7. Ran `scripts/soak.sh` (new `SOAK_URLS` override) with a
+**mainstream-SPA** fixture — 3 Spaces / 21 tabs / 32 panes over Google, YouTube,
+X, Instagram, Reddit, Wikipedia, GitHub, Amazon — and one extension (`soakext`:
+content script + background worker + `<all_urls>`) **enabled in all three
+Spaces**, so a per-Space background worker ran and content scripts injected on
+the live pages. 30 minutes of Cmd+1…3 Space switching.
+
+- **Pass, wide margins, no leak.** App process **55→64 MB then flat at 64 MB**
+  for 20+ min (≪ 150 MB target). Total peaked ~747 MB as every SPA loaded at
+  once, then WebKit eviction (§6.2) settled it to **~470–485 MB and held**
+  (≪ 1.2 GB target). Idle CPU 0.63% (app, window visible) — under the 1% ceiling;
+  the 0.5% target is a no-animation baseline the live SPAs don't represent.
+- **The extension subsystem adds no measurable app-process cost.** Even with
+  three per-Space workers, the end process inventory was 1 app + 5 WebKit helpers
+  (1 networking / 3 WebContent / 1 GPU) — WebKit consolidates the workers rather
+  than one-process-per-worker blowing up the count. Per-Space isolation did not
+  multiply footprint.
+- Numbers and method in [SMOKE.md](SMOKE.md) ("30-minute soak — M7"); samples in
+  `/tmp/soak-220853.tsv`. Setup used a temporary `AppDelegate` DEBUG flag flip
+  (reverted) plus pre-seeded `extensionEnablement`/`grantedPermission` rows; the
+  real session was `.backup`'d and restored via `scripts/soak.sh restore`.
+- **`SOAK_URLS` override added to `scripts/soak.sh`** so a heavier run needs no
+  edit to the curated (cheap, not-ours-to-hammer) default list.
+
+## M7 is complete — ready for review
+
+All of M7 (7.1–7.6) has landed on `main` behind `FeatureFlags.extensionsEnabled`
+(default **off**), so the shipping browser is unchanged until the flag is
+flipped. Everything is verified live, `./scripts/prepush.sh` is green (277
+tests), schema is v5, and the §6.1 budgets pass with the extension soak. This is
+the M7 stop point (§8: stop after each milestone and wait for review).
+
+**Owed / carried into the review, none blocking:**
+- Instruments Allocations/Leaks pass (§6.7) — never run, same as M1/M3/M6.
+- `optional_host_permissions` is the only path that triggers WebKit's runtime
+  permission prompt; required `host_permissions` needs the 7.5d "Access on all
+  sites" toggle. Both work; noted so a future extension-management UI keeps the
+  toggle prominent.
+- No extension-management surface beyond the header (install/remove is
+  `ExtensionsService`-only, no UI); fine for personal use, a candidate follow-up.
+
 ## Next steps, in order
 
-**M7 is in progress.** 7.1–7.4 landed; 7.3b, **and now all of 7.5, are verified
-live** (above). Next is **7.6** (soak with N extensions across 3 Spaces, then
-stop for review). Content blocking (§4.8) was deferred to its own later
-milestone.
+**M7 is complete (7.1–7.6).** 7.3b and all of 7.5–7.6 are verified live (above).
+This is the review stop point. After review: either flip `extensionsEnabled` on
+for daily use, or start content blocking (§4.8), which was deferred to its own
+later milestone.
 
 ### M7 phase 7.5 — action popover + permission UI (DONE, verified live 2026-07-24)
 

@@ -28,6 +28,14 @@ URLS=(
     "https://httpbin.org" "https://www.w3.org"
 )
 
+# Override the URL set for a heavier, more realistic run — e.g. the M7 soak,
+# which uses mainstream SPAs (google/youtube/x/instagram/…) to exercise
+# extension content scripts and background workers against real pages. Pass a
+# space-separated list: SOAK_URLS="https://a https://b" scripts/soak.sh seed
+if [ -n "${SOAK_URLS:-}" ]; then
+    read -r -a URLS <<< "$SOAK_URLS"
+fi
+
 seed() {
     osascript -e 'quit app "Browser"' 2>/dev/null || true
     sleep 3
