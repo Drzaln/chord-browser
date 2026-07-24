@@ -505,12 +505,14 @@ sizing is still uncovered.
   Use `dm:` (not `m:`) between `dd:` and `du:` — `m:` sends *mouseMoved*, which
   a SwiftUI `DragGesture` tolerates but an AppKit drag session ignores.
 
-- **Double-click on the top strip no longer zooms the window.** Introduced by
-  the `.ignoresSafeArea(.container, edges: .top)` that removed the dead band
-  above the web content: the card now covers the region AppKit would have
-  handled the double-click in. Dragging still works. The fix is a thin
-  drag/zoom region over the top inset rather than reverting the layout —
-  deferred deliberately, not forgotten.
+- ~~Double-click on the top strip no longer zooms the window.~~ **Fixed
+  2026-07-24.** `TitlebarDoubleClickMonitor` — a local `.leftMouseDown` monitor,
+  not an overlay view, so it intercepts only the double-click in the top
+  `titlebarInset` strip (past the traffic lights, main window only) and never
+  blocks an ordinary click on the page beneath. It honours the system
+  "double-click title bar to" preference, defaulting to zoom. Verified live with
+  `cliclick dc:` — the window fills the screen and a second double-click
+  restores it.
 
 - ~~No 30-minute soak has been run, for any milestone.~~ **Cleared 2026-07-23.**
   Soak run and every §6.1 budget measured; all pass, with the numbers and their

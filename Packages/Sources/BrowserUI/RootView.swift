@@ -17,6 +17,9 @@ public struct RootView: View {
     /// The two-finger Space-switch swipe (4.2). Held here so its local event
     /// monitor lives exactly as long as the view is on screen.
     @State private var swipeMonitor: SpaceSwipeMonitor?
+    /// Double-click the top strip to zoom, lost when the card was extended over
+    /// the titlebar. Same lifecycle as the swipe monitor.
+    @State private var titlebarMonitor: TitlebarDoubleClickMonitor?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -134,18 +137,26 @@ public struct RootView: View {
             monitor.window = window
             monitor.start()
             swipeMonitor = monitor
+
+            let titlebar = TitlebarDoubleClickMonitor()
+            titlebar.window = window
+            titlebar.start()
+            titlebarMonitor = titlebar
         }
         .onDisappear {
             swipeMonitor?.stop()
             swipeMonitor = nil
+            titlebarMonitor?.stop()
+            titlebarMonitor = nil
         }
         // Keep the swipe gesture scoped to the sidebar as its width and
-        // visibility change, and once the window exists.
+        // visibility change, and hand both monitors the window once it exists.
         .onChange(of: sidebarEngageWidth) { _, width in
             swipeMonitor?.engageMaxX = width
         }
         .onChange(of: window == nil) { _, _ in
             swipeMonitor?.window = window
+            titlebarMonitor?.window = window
         }
     }
 
