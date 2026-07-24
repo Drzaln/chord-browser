@@ -1,3 +1,4 @@
+import AppKit
 import BrowserCore
 import BrowserEngine
 import BrowserExtensions
@@ -39,6 +40,8 @@ private final class FakeHost: ExtensionHost {
     func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID) {}
     func actions(in space: Space) -> [ExtensionActionSnapshot] { [] }
     var onActionsChanged: (@MainActor () -> Void)?
+    func registerActionAnchor(_ view: NSView?, forSlug slug: String, in space: Space) {}
+    func presentAction(slug: String, in space: Space) {}
 }
 
 private actor FakeEnablement: ExtensionEnablementRepository {

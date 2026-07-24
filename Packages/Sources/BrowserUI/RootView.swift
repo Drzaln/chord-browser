@@ -1,9 +1,13 @@
+import BrowserExtensions
 import BrowserStore
 import SwiftUI
 
 public struct RootView: View {
     @Bindable private var store: TabStore
     @Bindable private var downloads: DownloadsStore
+    /// The extension host, present only when the extensions flag is on (M7,
+    /// 7.5b). Threaded to the sidebar header for the toolbar-action buttons.
+    private let extensionHost: (any ExtensionHost)?
     /// Opens the command bar, optionally pre-filled with a query. Injected
     /// because the controller is owned by the app delegate — the panel outlives
     /// any view, and Store must not depend on UI to reach it.
@@ -31,10 +35,12 @@ public struct RootView: View {
     public init(
         store: TabStore,
         downloads: DownloadsStore,
+        extensionHost: (any ExtensionHost)? = nil,
         openCommandBar: @escaping (CommandBarMode, String?) -> Void = { _, _ in }
     ) {
         self.store = store
         self.downloads = downloads
+        self.extensionHost = extensionHost
         self.openCommandBar = openCommandBar
     }
 
@@ -93,7 +99,8 @@ public struct RootView: View {
                     store: store,
                     downloads: downloads,
                     isFloating: store.isSidebarCollapsed,
-                    openCommandBar: openCommandBar
+                    openCommandBar: openCommandBar,
+                    extensionHost: extensionHost
                 )
                 // Slides in from off-screen rather than fading: the sidebar is
                 // arriving from the edge the pointer just touched, and saying

@@ -1,4 +1,5 @@
 import BrowserCore
+import BrowserExtensions
 import BrowserStore
 import SwiftUI
 
@@ -14,6 +15,10 @@ struct SidebarView: View {
     /// Overhanging the page rather than sitting in its own lane.
     var isFloating: Bool = false
     var openCommandBar: (CommandBarMode, String?) -> Void = { _, _ in }
+    /// The extension host, present only when the extensions flag is on (M7,
+    /// 7.5b). Drives the toolbar-action buttons in the header; `nil` means no
+    /// extension UI at all, so the header is unchanged from before M7.
+    var extensionHost: (any ExtensionHost)?
 
     /// The active Space's colour, used to tint the tab highlights and the
     /// address button so they read as part of the Space (items 1 and 4). Cheap
@@ -233,6 +238,10 @@ struct SidebarView: View {
     private var header: some View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
+            if let extensionHost {
+                ExtensionActionsBar(store: store, host: extensionHost)
+                    .padding(.trailing, 4)
+            }
             collapseButton
         }
         .frame(height: Metrics.titlebarInset)

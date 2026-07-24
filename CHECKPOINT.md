@@ -14,8 +14,8 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — 7.1–7.4 done + **7.5a** (WK-free action model + `didUpdate` wiring), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase **7.5b** — popover + sidebar-header action buttons (then 7.5c permission UI, 7.5d worker presence) |
+| **In progress** | **M7 Extensions** — 7.1–7.4 done + **7.5a/7.5b** (action model + `didUpdate` + popover + sidebar-header buttons), behind `FeatureFlags.extensionsEnabled` (default off) |
+| **Next**        | M7 phase **7.5c** — permission-grant UI + schema v5 (then 7.5d worker presence). Live-verify header button + popover here too — needs a loaded dev extension, same scaffold as 7.5c's injection check. |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 270 passing (251 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v4 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`)                          |
@@ -735,6 +735,50 @@ First slice of 7.5. Builds the WebKit-free action surface the sidebar header
 - **No UI, no popover, no live-app check yet.** The header buttons and the
   popover are 7.5b; the `onActionsChanged`→UI path is wired but nothing renders
   it until then.
+
+### Phase 7.5b — popover + sidebar-header buttons (2026-07-24)
+
+The first extension UI. Behind `extensionsEnabled`, so with the flag off the
+sidebar header is byte-for-byte what it was.
+
+- **`ExtensionActionsBar`** (BrowserUI/Sidebar) renders one button per action in
+  the active Space, in the header between the spacer and the collapse button. It
+  reads `store.extensionActionsToken` to observe 7.5a's change signal and
+  `store.activeSpace` to rescope, then queries `host.actions(in:)`. Icons come
+  from the snapshot's PNG bytes (`NSImage(data:)`), falling back to
+  `puzzlepiece.extension.fill`; the badge is a small red capsule.
+- **The popover stays in the host** (ADR 011). Clicking a button calls
+  `host.presentAction(slug:in:)`, which runs `WKWebExtensionContext.performAction`
+  for the Space's active tab — that either fires the extension's click event or
+  asks us to present its popup. The popup arrives at the
+  `presentActionPopup` delegate, where the host shows
+  `WKWebExtension.Action.popupPopover` (a ready-made `NSPopover` wrapping the
+  popup `WKWebView`) relative to a registered anchor. No WebKit type crosses into
+  UI — the button only hands over an `NSView` anchor.
+- **The anchor is a zero-size `NSViewRepresentable`** behind each button
+  (`PopoverAnchorView`), registered **weakly** with the host per (Space, slug) so
+  a removed button clears itself with no explicit unregister. Both a user click
+  and an extension-initiated popup resolve the anchor by `locate(context)` →
+  (Space, slug) → the weak view.
+- **Layering:** `BrowserUI` now depends on `BrowserExtensions` (to name
+  `ExtensionActionSnapshot` and `any ExtensionHost`) — same as `BrowserStore`
+  already does, and `BrowserExtensions`' public surface stays WebKit-free so UI
+  imports no `WK*` type. The `NSView` anchor lives on the `ExtensionHost`
+  protocol; `BrowserStore` is untouched and still imports no AppKit. `RootView`
+  and `SidebarView` gained an `extensionHost` param (default `nil`); `BrowserApp`
+  passes `environment.extensionHost`.
+- **API note:** the click/popup entry point is
+  `context.performAction(for:)` (verified in the SDK header — it triggers an
+  event *or* presents a popup per config, and popup actions require the
+  `presentActionPopup` delegate). There is no per-action "click" method on
+  `WKWebExtension.Action`.
+- **NOT yet live-verified.** With no extension loaded, `actions(in:)` is empty
+  and the header is unchanged, so there is nothing to screenshot until a dev
+  extension with an `action` is loaded — the same scaffold 7.5c needs for its
+  injection check. Fold the header-button + popover live check into 7.5c. Popup
+  pages are the extension's own page and should render without host permissions;
+  content-script injection is the part that waits on 7.5c's grants. Prepush
+  green (270 tests + app build).
 
 ## Next steps, in order
 

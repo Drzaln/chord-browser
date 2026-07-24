@@ -53,7 +53,7 @@ let package = Package(
 
         .target(
             name: "BrowserUI",
-            dependencies: ["BrowserCore", "BrowserEngine", "BrowserStore"],
+            dependencies: ["BrowserCore", "BrowserEngine", "BrowserExtensions", "BrowserStore"],
             swiftSettings: strict
         ),
 

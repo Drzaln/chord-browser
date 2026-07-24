@@ -34,6 +34,11 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// Fired on the main actor when an extension updates its action (7.5a).
     public var onActionsChanged: (@MainActor () -> Void)?
 
+    /// Weakly-held anchor views for popovers (7.5b), keyed by Space then slug.
+    /// Weak so a torn-down sidebar button auto-clears without an unregister call.
+    private final class WeakView { weak var view: NSView?; init(_ v: NSView?) { view = v } }
+    private var actionAnchors: [UUID: [String: WeakView]] = [:]
+
     // MARK: - Tab/window model (7.3b)
 
     /// Injected by `AppEnvironment`. Both are WebKit-free at the seam: the model
@@ -223,6 +228,22 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         return rep.representation(using: .png, properties: [:])
     }
 
+    // MARK: - Popover (7.5b)
+
+    public func registerActionAnchor(_ view: NSView?, forSlug slug: String, in space: Space) {
+        actionAnchors[space.id, default: [:]][slug] = WeakView(view)
+    }
+
+    public func presentAction(slug: String, in space: Space) {
+        guard let loaded = loadedContexts[space.id]?[slug] else { return }
+        // Perform the action for the Space's active tab if there is one, so a
+        // popup opens against the page the user is actually reading and the tab
+        // is marked as having a user gesture. `nil` performs the default action.
+        let activeTab = tabModel?.extensionActiveTab(inSpace: space.id)
+        let adapter = activeTab.map { tabAdapter(for: $0.id, inSpace: space.id) }
+        loaded.context.performAction(for: adapter)
+    }
+
     /// Finds the (Space, slug) a context belongs to. Few extensions load, so a
     /// linear scan is cheaper than maintaining a reverse map.
     private func locate(_ context: WKWebExtensionContext) -> (spaceID: UUID, slug: String)? {
@@ -293,5 +314,29 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         // re-reads. Cheap and keeps a single source of truth.
         guard locate(context) != nil else { return }
         onActionsChanged?()
+    }
+
+    // MARK: - Popup presentation (7.5b)
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        presentActionPopup action: WKWebExtension.Action,
+        for context: WKWebExtensionContext,
+        completionHandler: @escaping (((any Error)?) -> Void)
+    ) {
+        // Both a user click (via `presentAction`) and an extension-initiated
+        // popup land here. We show the ready-made popover — which wraps the
+        // popup `WKWebView` — against the sidebar-header button registered for
+        // this (Space, slug), keeping WebKit inside the host.
+        guard let (spaceID, slug) = locate(context),
+            let anchor = actionAnchors[spaceID]?[slug]?.view,
+            let popover = action.popupPopover
+        else {
+            completionHandler(nil)
+            return
+        }
+        popover.behavior = .transient
+        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+        completionHandler(nil)
     }
 }

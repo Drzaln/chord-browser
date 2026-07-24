@@ -1,3 +1,4 @@
+import AppKit
 import BrowserCore
 import BrowserEngine
 import Foundation
@@ -56,6 +57,25 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// `actions(in:)`. Set by `AppEnvironment`; the host holds it, not a list of
     /// observers.
     var onActionsChanged: (@MainActor () -> Void)? { get set }
+
+    // MARK: - Popover (7.5b)
+
+    /// Records the sidebar-header button `NSView` that anchors an extension's
+    /// popover. The UI calls this as buttons appear; the host holds it **weakly**
+    /// so a removed button needs no explicit unregister. Both a user click and an
+    /// extension-initiated popup show the popover relative to this view.
+    ///
+    /// `NSView` is AppKit, not WebKit — the anchor is the one place the app hands
+    /// the host a view, and the popover (`WKWebExtension.Action.popupPopover`,
+    /// which wraps a `WKWebView`) is shown entirely inside the host so no WebKit
+    /// type crosses into UI (ADR 011).
+    func registerActionAnchor(_ view: NSView?, forSlug slug: String, in space: Space)
+
+    /// Performs an extension's default action for the Space's active tab —
+    /// firing its click event or presenting its popup, per the extension's
+    /// configuration (`WKWebExtensionContext.performAction`). A popup is shown at
+    /// the registered anchor; a no-op if the slug is not loaded in the Space.
+    func presentAction(slug: String, in space: Space)
 
     // MARK: - Tab lifecycle (7.3b)
     //
