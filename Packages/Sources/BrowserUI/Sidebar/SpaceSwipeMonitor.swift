@@ -69,6 +69,11 @@ final class SpaceSwipeMonitor {
             guard engageMaxX > 0, event.locationInWindow.x <= engageMaxX else {
                 return false
             }
+            // Do not intercept horizontal swipes starting in the SpaceSwitcher area
+            // at the bottom of the sidebar, so the user can scroll the spaces list.
+            guard event.locationInWindow.y > 50 else {
+                return false
+            }
             // ...and only in the main window, not a floating panel.
             if let window, let eventWindow = event.window, eventWindow !== window {
                 return false

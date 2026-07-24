@@ -10,8 +10,13 @@ struct SpaceSwitcher: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            ForEach(store.spaces.sorted { $0.sortIndex < $1.sortIndex }) { space in
-                spaceButton(space)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(store.spaces.sorted { $0.sortIndex < $1.sortIndex }) { space in
+                        spaceButton(space)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
 
             Spacer(minLength: 0)
