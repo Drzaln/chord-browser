@@ -89,7 +89,14 @@ public struct RootView: View {
         // clearance for the traffic lights.
         .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 720, minHeight: 480)
-        .background(.background)
+        // The active Space's colour tints the window, which shows as the border
+        // around the inset content card (and follows a swipe's blend). The card
+        // itself is opaque, so the tint reads only in the inset — the coloured
+        // frame around the page, not under it. `.ignoresSafeArea()` so it reaches
+        // the top edge too: without it the tint stops at the titlebar safe-area
+        // line and the card's top inset shows raw window chrome, leaving every
+        // edge but the top coloured.
+        .background { spaceBorderTint.ignoresSafeArea() }
         .background { WindowAccessor { window = $0 } }
         .animation(
             Motion.respectingReduceMotion(Motion.sidebarCollapse, reduceMotion: reduceMotion),
@@ -119,6 +126,26 @@ public struct RootView: View {
         .onDisappear {
             swipeMonitor?.stop()
             swipeMonitor = nil
+        }
+    }
+
+    /// The Space-tinted window background. Uses the cached per-Space gradient at
+    /// rest and the blended one during a swipe, over the system window colour so
+    /// it degrades to plain chrome when there is no Space.
+    @ViewBuilder
+    private var spaceBorderTint: some View {
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+            if let space = store.activeSpace {
+                Group {
+                    if store.spaceSwipeProgress == 0 {
+                        SpaceTheme.gradient(for: space)
+                    } else {
+                        SpaceTheme.gradient(stops: store.swipeBlendedGradient)
+                    }
+                }
+                .opacity(0.55)
+            }
         }
     }
 

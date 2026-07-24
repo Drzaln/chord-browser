@@ -429,8 +429,21 @@ the window's left edge brings it back over the page.
 - **Store:** `setSpaceAppearance(_:icon:gradient:)` persists both; an empty icon
   is ignored rather than blanking the Space, and an empty gradient falls back to
   the default. `SpaceTheme`'s cache invalidates on a stops change by itself.
-  Covered by `SpaceTests`; the emoji render and edit flow were verified live
-  (Personal Space set to 🚀 from the editor, rendered on the switcher pill).
+  Covered by `SpaceTests`; the emoji render and edit flow were verified live.
+- **The emoji picker is the native macOS Character Viewer**, not a hardcoded
+  preset list: the editor's emoji button focuses the icon field and calls
+  `NSApp.orderFrontCharacterPalette(_:)`, whose selection inserts into the first
+  responder. An `onChange` keeps the field to a single glyph (it only fires for a
+  non-ASCII value, so an SF Symbol name is left intact). Verified live — the
+  Character Viewer opened and picking 😎 replaced the icon.
+- **The Space colour also tints the window border** — the inset frame around the
+  content card — not just the sidebar (`RootView.spaceBorderTint`, following the
+  swipe blend). It **must** be `.background { spaceBorderTint.ignoresSafeArea() }`:
+  without `ignoresSafeArea` the tint stops at the titlebar safe-area line and the
+  card's *top* inset shows raw window chrome, so every edge but the top is
+  coloured. Found and fixed by driving the app — the top strip was visibly
+  untinted until the tint was told to bleed to the top edge. Verified live: the
+  border turns blue for one Space and green for another, top edge included.
 
 ### The User-Agent
 

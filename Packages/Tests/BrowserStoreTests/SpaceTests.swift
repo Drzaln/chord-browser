@@ -294,9 +294,15 @@ struct SpaceStoreTests {
         #expect(store.spaces[0].iconSymbol == "🚀")
         #expect(store.spaces[0].isEmojiIcon)
         #expect(store.spaces[0].gradient == ["#112233", "#0A1119"])
-        // Persisted, not just in memory.
-        try? await Task.sleep(for: .milliseconds(50))
-        let stored = await repository.storedSpaces.first { $0.id == id }
+
+        // Persisted, not just in memory. The save is a detached Task, so poll
+        // rather than sleep a fixed interval — a fixed sleep races and flakes.
+        var stored: Space?
+        for _ in 0..<100 {
+            stored = await repository.storedSpaces.first { $0.id == id }
+            if stored?.iconSymbol == "🚀" { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
         #expect(stored?.iconSymbol == "🚀")
     }
 

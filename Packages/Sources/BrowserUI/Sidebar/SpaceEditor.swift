@@ -18,10 +18,7 @@ struct SpaceEditor: View {
     @State private var name: String
     @State private var icon: String
     @State private var color: Color
-
-    /// A handful of emoji for a one-click pick; the field also takes any emoji
-    /// via the system picker (Ctrl+Cmd+Space) or paste.
-    private let presets = ["🏠", "💼", "🧪", "🎮", "📚", "🎨", "🛒", "💬", "🌿", "🔥", "⭐️", "🚀"]
+    @FocusState private var iconFocused: Bool
 
     init(store: TabStore, space: Space) {
         self.store = store
@@ -45,6 +42,28 @@ struct SpaceEditor: View {
                         TextField("Icon", text: $icon)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
+                            .focused($iconFocused)
+                            // The macOS emoji picker appends into the focused
+                            // field; keep a single glyph so an icon is one emoji.
+                            // Only fires for a custom glyph — an ASCII SF Symbol
+                            // name is left alone.
+                            .onChange(of: icon) { _, new in
+                                if isEmoji(new), new.count > 1 {
+                                    icon = String(new.suffix(1))
+                                }
+                            }
+                        Button {
+                            // Focus the field, then open the system Character
+                            // Viewer — its selection inserts into the first
+                            // responder, which is now the icon field.
+                            iconFocused = true
+                            DispatchQueue.main.async {
+                                NSApp.orderFrontCharacterPalette(nil)
+                            }
+                        } label: {
+                            Image(systemName: "face.smiling")
+                        }
+                        .help("Choose Emoji…")
                         ColorPicker("Colour", selection: $color, supportsOpacity: false)
                             .labelsHidden()
                         Text("Emoji or SF Symbol name")
@@ -53,8 +72,6 @@ struct SpaceEditor: View {
                     }
                 }
             }
-
-            emojiPresets
 
             HStack {
                 Spacer()
@@ -85,26 +102,6 @@ struct SpaceEditor: View {
             }
         }
         .frame(width: 48, height: 48)
-    }
-
-    private var emojiPresets: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 12), spacing: 6) {
-            ForEach(presets, id: \.self) { emoji in
-                Button {
-                    icon = emoji
-                } label: {
-                    Text(emoji)
-                        .font(.system(size: 18))
-                        .frame(width: 26, height: 26)
-                        .background {
-                            if icon == emoji {
-                                RoundedRectangle(cornerRadius: 6).fill(.selection)
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-            }
-        }
     }
 
     private var gradient: LinearGradient {
