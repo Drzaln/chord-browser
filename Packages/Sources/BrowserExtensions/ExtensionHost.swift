@@ -77,6 +77,20 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// the registered anchor; a no-op if the slug is not loaded in the Space.
     func presentAction(slug: String, in space: Space)
 
+    // MARK: - Permissions (7.5c)
+
+    /// Called on the main actor when an extension asks for a permission, a URL,
+    /// or host match patterns. `AppEnvironment` wires this to enqueue the request
+    /// on the Store so the UI can present a grant/deny sheet. The WebKit
+    /// completion handler is held inside the host until `resolvePermission` is
+    /// called with the id.
+    var onPermissionRequest: (@MainActor (PermissionRequest) -> Void)? { get set }
+
+    /// Resolves a pending prompt (from `onPermissionRequest`). On `allow` the
+    /// requested items are granted to WebKit and persisted; on deny nothing is
+    /// granted. A no-op for an unknown or already-resolved id.
+    func resolvePermission(id: UUID, allow: Bool)
+
     // MARK: - Tab lifecycle (7.3b)
     //
     // The Store calls these as tabs open, activate, and close, so each Space's

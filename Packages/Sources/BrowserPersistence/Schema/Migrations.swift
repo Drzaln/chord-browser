@@ -17,11 +17,12 @@ enum Migrations {
         migrator.registerMigration("v2_add_spaces", migrate: v2AddSpaces)
         migrator.registerMigration("v3_history_and_archive", migrate: v3HistoryAndArchive)
         migrator.registerMigration("v4_extension_enablement", migrate: v4ExtensionEnablement)
+        migrator.registerMigration("v5_granted_permissions", migrate: v5GrantedPermissions)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 4
+    static let currentVersion = 5
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -145,6 +146,21 @@ enum Migrations {
                 .references("space", onDelete: .cascade)
             t.column("slug", .text).notNull()
             t.primaryKey(["spaceId", "slug"])
+        }
+    }
+
+    /// M7 7.5c: per-(Space, extension) permission grants. Additive, like v4 —
+    /// nothing existing is touched. `spaceId` cascades from `space` so deleting a
+    /// Space reclaims its grants, matching `extensionEnablement`. The full tuple
+    /// is the primary key, so re-granting the same thing is idempotent.
+    private static func v5GrantedPermissions(_ db: Database) throws {
+        try db.create(table: "grantedPermission") { t in
+            t.column("spaceId", .text).notNull()
+                .references("space", onDelete: .cascade)
+            t.column("slug", .text).notNull()
+            t.column("kind", .text).notNull()
+            t.column("value", .text).notNull()
+            t.primaryKey(["spaceId", "slug", "kind", "value"])
         }
     }
 }

@@ -183,6 +183,18 @@ public struct RootView: View {
         )) { space in
             SpaceEditor(store: store, space: space)
         }
+        // Extension permission prompts, one at a time (7.5c). A dismiss without
+        // a decision (Esc / swipe) is treated as a denial by the setter.
+        .sheet(item: Binding(
+            get: { store.pendingPermissionRequests.first },
+            set: { newValue in
+                if newValue == nil, let current = store.pendingPermissionRequests.first {
+                    store.resolvePermissionRequest(current.id, allow: false)
+                }
+            }
+        )) { request in
+            ExtensionPermissionSheet(request: request, store: store)
+        }
         .confirmationDialog(
             "Delete “\(store.spaces.first { $0.id == store.deletingSpaceID }?.name ?? "")”?",
             isPresented: Binding(

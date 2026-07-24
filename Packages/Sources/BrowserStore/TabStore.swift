@@ -116,6 +116,18 @@ public final class TabStore {
     /// service.
     public internal(set) var extensionActionsToken: Int = 0
 
+    /// Extension permission prompts awaiting the user's decision (M7, 7.5c),
+    /// presented one at a time by the UI as a sheet. `AppEnvironment` appends to
+    /// this when the host surfaces a request; the values are WebKit-free.
+    public internal(set) var pendingPermissionRequests: [PermissionRequest] = []
+
+    /// Answers a pending permission prompt (7.5c). Forwards the decision to the
+    /// host — which grants and persists on allow — and drops it from the queue.
+    public func resolvePermissionRequest(_ id: UUID, allow: Bool) {
+        extensionHost?.resolvePermission(id: id, allow: allow)
+        pendingPermissionRequests.removeAll { $0.id == id }
+    }
+
     /// Runs once at the end of `restore()`, after Spaces and tabs are loaded.
     /// `AppEnvironment` uses it to re-load enabled extensions (7.4), which needs
     /// the restored Spaces to exist first.

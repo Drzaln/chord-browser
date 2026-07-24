@@ -39,6 +39,29 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     private final class WeakView { weak var view: NSView?; init(_ v: NSView?) { view = v } }
     private var actionAnchors: [UUID: [String: WeakView]] = [:]
 
+    // MARK: - Permissions (7.5c)
+
+    /// Persists grants and reads them back at load. Injected by `AppEnvironment`;
+    /// `nil` leaves grants live-only (they still work for the session, just are
+    /// not re-applied next launch).
+    public var permissionsRepository: (any GrantedPermissionsRepository)?
+
+    /// Fired on the main actor when an extension asks for a permission (7.5c).
+    public var onPermissionRequest: (@MainActor (PermissionRequest) -> Void)?
+
+    /// A prompt awaiting the user's decision: how to answer WebKit, and what to
+    /// persist if the answer is "allow".
+    private struct PendingPermission {
+        let spaceID: UUID
+        let slug: String
+        let kind: GrantedPermissionKind
+        let values: [String]
+        /// Calls the WebKit completion handler — the full set on allow, empty on
+        /// deny.
+        let respond: (_ allow: Bool) -> Void
+    }
+    private var pendingPermissions: [UUID: PendingPermission] = [:]
+
     // MARK: - Tab/window model (7.3b)
 
     /// Injected by `AppEnvironment`. Both are WebKit-free at the seam: the model
@@ -150,6 +173,16 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // storage across launches.
         context.uniqueIdentifier = installed.slug
 
+        // Re-apply permissions the user granted in a previous session (7.5c),
+        // before the extension starts, so content scripts and host access work
+        // without re-prompting. Best-effort: a repo read failure just means the
+        // user may be prompted again.
+        if let grants = try? await permissionsRepository?.granted(
+            slug: installed.slug, spaceID: space.id
+        ) {
+            reapply(grants, to: context)
+        }
+
         do {
             try controller.load(context)
         } catch {
@@ -242,6 +275,71 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         let activeTab = tabModel?.extensionActiveTab(inSpace: space.id)
         let adapter = activeTab.map { tabAdapter(for: $0.id, inSpace: space.id) }
         loaded.context.performAction(for: adapter)
+    }
+
+    // MARK: - Permissions (7.5c)
+
+    public func resolvePermission(id: UUID, allow: Bool) {
+        guard let pending = pendingPermissions.removeValue(forKey: id) else { return }
+        pending.respond(allow)
+        guard allow else { return }
+        let records = pending.values.map {
+            GrantedPermissionRecord(
+                spaceID: pending.spaceID, slug: pending.slug, kind: pending.kind, value: $0
+            )
+        }
+        // Fire-and-forget persistence; the live grant already took effect via
+        // `respond`. A weak repo capture keeps the host from outliving a write.
+        if let repo = permissionsRepository {
+            Task { try? await repo.grant(records) }
+        }
+    }
+
+    /// Re-applies persisted grants to a freshly created context (7.5c). Only
+    /// `.grantedExplicitly` is set here — Denied/Unknown are the WebKit defaults
+    /// and we never persist a denial.
+    private func reapply(_ grants: [GrantedPermissionRecord], to context: WKWebExtensionContext) {
+        for grant in grants {
+            switch grant.kind {
+            case .permission:
+                context.setPermissionStatus(
+                    .grantedExplicitly, for: WKWebExtension.Permission(rawValue: grant.value)
+                )
+            case .url:
+                guard let url = URL(string: grant.value) else { continue }
+                context.setPermissionStatus(.grantedExplicitly, for: url)
+            case .matchPattern:
+                guard let pattern = try? WKWebExtension.MatchPattern(string: grant.value)
+                else { continue }
+                context.setPermissionStatus(.grantedExplicitly, for: pattern)
+            }
+        }
+    }
+
+    /// Records a prompt and either surfaces it to the UI or, if no observer is
+    /// wired, denies it (so the completion handler is never dropped).
+    private func enqueuePermission(
+        spaceID: UUID,
+        slug: String,
+        kind: GrantedPermissionKind,
+        values: [String],
+        displayName: String?,
+        respond: @escaping (_ allow: Bool) -> Void
+    ) {
+        let id = UUID()
+        pendingPermissions[id] = PendingPermission(
+            spaceID: spaceID, slug: slug, kind: kind, values: values, respond: respond
+        )
+        guard let onPermissionRequest else {
+            resolvePermission(id: id, allow: false)
+            return
+        }
+        onPermissionRequest(
+            PermissionRequest(
+                id: id, slug: slug, spaceID: spaceID, kind: kind,
+                items: values, displayName: displayName
+            )
+        )
     }
 
     /// Finds the (Space, slug) a context belongs to. Few extensions load, so a
@@ -338,5 +436,61 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         popover.behavior = .transient
         popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
         completionHandler(nil)
+    }
+
+    // MARK: - Permission prompts (7.5c)
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        promptForPermissions permissions: Set<WKWebExtension.Permission>,
+        in tab: (any WKWebExtensionTab)?,
+        for context: WKWebExtensionContext,
+        completionHandler: @escaping (Set<WKWebExtension.Permission>, Date?) -> Void
+    ) {
+        guard let (spaceID, slug) = locate(context) else {
+            completionHandler([], nil)
+            return
+        }
+        enqueuePermission(
+            spaceID: spaceID, slug: slug, kind: .permission,
+            values: permissions.map(\.rawValue),
+            displayName: context.webExtension.displayName
+        ) { allow in completionHandler(allow ? permissions : [], nil) }
+    }
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        promptForPermissionToAccess urls: Set<URL>,
+        in tab: (any WKWebExtensionTab)?,
+        for context: WKWebExtensionContext,
+        completionHandler: @escaping (Set<URL>, Date?) -> Void
+    ) {
+        guard let (spaceID, slug) = locate(context) else {
+            completionHandler([], nil)
+            return
+        }
+        enqueuePermission(
+            spaceID: spaceID, slug: slug, kind: .url,
+            values: urls.map(\.absoluteString),
+            displayName: context.webExtension.displayName
+        ) { allow in completionHandler(allow ? urls : [], nil) }
+    }
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        promptForPermissionMatchPatterns matchPatterns: Set<WKWebExtension.MatchPattern>,
+        in tab: (any WKWebExtensionTab)?,
+        for context: WKWebExtensionContext,
+        completionHandler: @escaping (Set<WKWebExtension.MatchPattern>, Date?) -> Void
+    ) {
+        guard let (spaceID, slug) = locate(context) else {
+            completionHandler([], nil)
+            return
+        }
+        enqueuePermission(
+            spaceID: spaceID, slug: slug, kind: .matchPattern,
+            values: matchPatterns.map(\.string),
+            displayName: context.webExtension.displayName
+        ) { allow in completionHandler(allow ? matchPatterns : [], nil) }
     }
 }

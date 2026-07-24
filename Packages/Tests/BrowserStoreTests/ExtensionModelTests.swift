@@ -16,6 +16,7 @@ private final class RecordingExtensionHost: ExtensionHost {
     var opened: [(UUID, UUID)] = []
     var activated: [(UUID, UUID?, UUID)] = []
     var closed: [(UUID, UUID)] = []
+    var resolved: [(UUID, Bool)] = []
 
     func extensionTabDidOpen(_ tabID: UUID, inSpace spaceID: UUID) {
         opened.append((tabID, spaceID))
@@ -42,6 +43,8 @@ private final class RecordingExtensionHost: ExtensionHost {
     var onActionsChanged: (@MainActor () -> Void)?
     func registerActionAnchor(_ view: NSView?, forSlug slug: String, in space: Space) {}
     func presentAction(slug: String, in space: Space) {}
+    var onPermissionRequest: (@MainActor (PermissionRequest) -> Void)?
+    func resolvePermission(id: UUID, allow: Bool) { resolved.append((id, allow)) }
 }
 
 @MainActor
@@ -105,6 +108,20 @@ struct ExtensionModelTests {
         // it arrive.
         #expect(host.closed.contains { $0.0 == id && $0.1 == fromSpace })
         #expect(host.opened.contains { $0.0 == id && $0.1 == toSpace.id })
+    }
+
+    @Test func resolvingAPermissionForwardsToHostAndClearsTheQueue() async {
+        let (store, host) = await makeStore()
+        let req = PermissionRequest(
+            id: UUID(), slug: "ext", spaceID: store.activeSpaceID!,
+            kind: .matchPattern, items: ["*://*/*"], displayName: "Ext"
+        )
+        store.pendingPermissionRequests.append(req)
+
+        store.resolvePermissionRequest(req.id, allow: true)
+
+        #expect(host.resolved.contains { $0.0 == req.id && $0.1 == true })
+        #expect(store.pendingPermissionRequests.isEmpty)
     }
 
     @Test func modelListsTabsInTheSpaceInOrder() async {

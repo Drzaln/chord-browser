@@ -90,6 +90,14 @@ public struct AppEnvironment {
             // (7.5a). No action data flows through here — just the trigger.
             host.onActionsChanged = { [weak store] in store?.extensionActionsToken &+= 1 }
 
+            // Permission prompts (7.5c): the host surfaces a WebKit-free request,
+            // which the store queues for the UI's grant/deny sheet. The grants
+            // repository lets the host persist a grant and re-apply it next launch.
+            host.permissionsRepository = SQLiteGrantedPermissionsRepository(database: database)
+            host.onPermissionRequest = { [weak store] request in
+                store?.pendingPermissionRequests.append(request)
+            }
+
             // The library, the host, and the enablement store, coordinated (7.4).
             let service = ExtensionsService(
                 installer: ExtensionInstaller(

@@ -14,11 +14,11 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — 7.1–7.4 done + **7.5a/7.5b** (action model + `didUpdate` + popover + sidebar-header buttons), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase **7.5c** — permission-grant UI + schema v5 (then 7.5d worker presence). Live-verify header button + popover here too — needs a loaded dev extension, same scaffold as 7.5c's injection check. |
+| **In progress** | **M7 Extensions** — 7.1–7.4 + **7.5a–7.5c** done in code (action model, popover + header buttons, permission-grant UI + schema v5), behind `FeatureFlags.extensionsEnabled` (default off). **Live injection check for 7.5b/7.5c still owed.** |
+| **Next**        | Live-verify 7.5b popover + 7.5c permission→inject (recipe below), then **7.5d** worker presence |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 270 passing (251 unit + 19 end-to-end)                                                                          |
-| **Schema**      | v4 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`)                          |
+| **Tests**       | 276 passing (257 unit + 19 end-to-end)                                                                          |
+| **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
 | **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 
 **The §6.1 performance gate passes** — re-run for M6 on 2026-07-24 with the
@@ -779,6 +779,85 @@ sidebar header is byte-for-byte what it was.
   pages are the extension's own page and should render without host permissions;
   content-script injection is the part that waits on 7.5c's grants. Prepush
   green (270 tests + app build).
+
+### Phase 7.5c — permission-grant UI + schema v5 (2026-07-24)
+
+The load-bearing slice: content scripts stay inert until host permissions are
+granted (the 7.3b finding), so this is what makes an ad-blocker or dark-mode
+extension actually do anything.
+
+- **Schema v5, `grantedPermission` table** (migration `v5_granted_permissions`):
+  `(spaceId, slug, kind, value)`, all four the primary key so a repeat grant is
+  idempotent; `spaceId` cascades from `space` like `extensionEnablement`.
+  `kind ∈ {permission, url, matchPattern}` — WebKit's three prompt kinds. We
+  persist grants **ourselves** and re-apply them on load, rather than trusting
+  WebKit's own storage (the decision recorded for 7.5).
+- **`GrantedPermissionsRepository`** (Core, WebKit-free) +
+  `SQLiteGrantedPermissionsRepository` (Persistence): `granted` / `grant` /
+  `revokeAll`. `GrantedPermissionKind` + `GrantedPermissionRecord` are the value
+  types.
+- **The three prompt delegates** on the host map one-to-one to the kinds:
+  `promptForPermissions` (named API permissions), `promptForPermissionToAccess`
+  (URLs), `promptForPermissionMatchPatterns` (host patterns). Each turns the
+  WebKit set into strings (`permission.rawValue` / `url.absoluteString` /
+  `pattern.string`), stashes the WebKit completion handler keyed by a fresh id,
+  and surfaces a **WK-free `PermissionRequest`** through `onPermissionRequest`.
+- **The flow is all-or-nothing per request** (how browsers present these). The
+  Store queues requests in `pendingPermissionRequests`; `RootView` shows
+  `ExtensionPermissionSheet` (Allow / Don't Allow) for the first one; the button
+  calls `store.resolvePermissionRequest(id, allow:)` → `host.resolvePermission`,
+  which answers WebKit (`respond(allow)` → full set or empty) and, on allow,
+  persists the grant. An Esc / swipe dismiss is treated as a denial by the sheet
+  binding's setter, so the completion handler is never dropped.
+- **Re-apply on load:** `host.load` reads the Space+slug's grants and calls
+  `context.setPermissionStatus(.grantedExplicitly, for:)` for each — permission,
+  URL, or `WKWebExtension.MatchPattern(string:)` — **before** `controller.load`,
+  so the extension starts with its permissions in place and does not re-prompt.
+  Only `.grantedExplicitly` is ever set; denials are the WebKit default and are
+  never persisted.
+- **API notes (SDK-verified):** the Swift permission type is
+  `WKWebExtension.Permission` (a String `rawValue` typed enum);
+  `WKWebExtension.MatchPattern(string:)` is a **throwing** init (there is also a
+  failable `matchPatternWithString:`); `context.webExtension.displayName` names
+  the extension for the sheet. `setPermissionStatus(_:for:)` has three overloads
+  (permission / URL / matchPattern) disambiguated by argument type.
+- **Wiring:** `AppEnvironment` sets `host.permissionsRepository =
+  SQLiteGrantedPermissionsRepository(...)` and
+  `host.onPermissionRequest = { store.pendingPermissionRequests.append($0) }`.
+  `BrowserStore` still imports no AppKit/WebKit — the whole surface is WK-free
+  values.
+- **Tests:** 5 persistence (v5 migration, round-trip across all three kinds,
+  idempotency, `revokeAll` scoping, per-Space) + 1 Store (resolve forwards to
+  host and clears the queue). 276 total, prepush green.
+- **NOT live-verified — this is the owed check (see recipe below).** Unit tests
+  cannot drive a real WebKit prompt or observe content-script injection; the
+  prompt fires from WebKit and needs a real extension requesting host access.
+  Whether WebKit *proactively* prompts for a fresh `<all_urls>` content-script
+  extension (vs. only on an action click / activeTab) is exactly what the live
+  drive must confirm. Ordering of `setPermissionStatus` vs `controller.load` is
+  also a live-check point.
+
+### Verifying 7.5b/7.5c live (owed — recipe)
+
+1. Make a dev MV3 dir under a temp path: `manifest.json` with
+   `manifest_version: 3`, an `action` (`default_title`, optionally
+   `default_popup: "popup.html"` for the 7.5b popover), `host_permissions:
+   ["<all_urls>"]`, and a `content_scripts` entry injecting a visible banner.
+2. Temporary DEBUG hook in `AppDelegate`: build the env with
+   `FeatureFlags(extensionsEnabled: true)`, and after `store.restore()` call
+   `extensions.install(from: devDirZippedOrDir)` then `enable(slug:in:)` for the
+   first Space. (An unpacked dir works as `resourceBaseURL`.)
+3. Build + run the sandboxed app. Screenshot the sidebar header — the action
+   button should appear (7.5b). Click it: a `default_popup` shows the popover;
+   no popup fires the click event.
+4. Open a **fresh** tab to a normal page. If the permission sheet appears, click
+   Allow; then open another fresh tab — the content-script banner should appear
+   (7.5c). Absent in another Space = per-Space isolation holds. Content scripts
+   only inject on load, so a already-loaded page won't get them retroactively.
+5. Relaunch: the banner should appear **without** re-prompting (persisted grant
+   re-applied). Revert the DEBUG scaffold after.
+6. `os.Logger` logs are NOT retrievable via `log show`/`log stream` on this host
+   — `screencapture -x -o out.png` + Read the image is the reliable signal.
 
 ## Next steps, in order
 

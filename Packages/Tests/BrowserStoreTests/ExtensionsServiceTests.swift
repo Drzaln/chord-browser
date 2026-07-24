@@ -42,6 +42,8 @@ private final class FakeHost: ExtensionHost {
     var onActionsChanged: (@MainActor () -> Void)?
     func registerActionAnchor(_ view: NSView?, forSlug slug: String, in space: Space) {}
     func presentAction(slug: String, in space: Space) {}
+    var onPermissionRequest: (@MainActor (PermissionRequest) -> Void)?
+    func resolvePermission(id: UUID, allow: Bool) {}
 }
 
 private actor FakeEnablement: ExtensionEnablementRepository {
