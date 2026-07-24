@@ -14,8 +14,9 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — 7.1–7.4 + **7.5 (a–d)** + **7.6 soak** all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off). **Ready for review.** |
-| **Next**        | **M7 review** (stop point). Then: flip `extensionsEnabled` on for real use, or content blocking (§4.8, its own milestone) |
+| **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off) |
+| **In progress** | **Content blocking (§4.8)** — **C1** done (pure ABP→JSON converter in Core). Next C2 compile/cache/attach, C3 weekly refresh, C4 soak. |
+| **Next**        | C2 — `ContentBlocker` in `BrowserEngine`: compile off-main, store-as-cache, attach to each view |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
@@ -943,6 +944,57 @@ the M7 stop point (§8: stop after each milestone and wait for review).
   toggle prominent.
 - No extension-management surface beyond the header (install/remove is
   `ExtensionsService`-only, no UI); fine for personal use, a candidate follow-up.
+
+## How content blocking works (so far)
+
+### Milestone plan (§4.8, agreed 2026-07-25)
+
+Native content blocking via `WKContentRuleList` — its own milestone (deferred out
+of M7). Phases, one commit each: **C1** pure ABP→JSON converter · **C2**
+`ContentBlocker` compile/cache/attach off-main + bundled seed list · **C3** weekly
+refresh + fetch · **C4** soak/measure, then review. Flag-gated
+(`FeatureFlags.contentBlockingEnabled`, added in C2, default off).
+
+**The spec item is infeasible as literally written, and the plan says so.** §4.8
+says "compile EasyList + EasyPrivacy into `WKContentRuleList`", but
+`compileContentRuleList` takes **Apple's content-blocker JSON**
+(`[{trigger,action}]`), not ABP filter syntax — so there is a conversion step,
+and `WKContentRuleList` cannot express all of ABP (no scriptlets, limited
+cosmetics, ~150k-rule cap that EasyList+EasyPrivacy exceed). v1 is a deliberate
+**subset**. Decision (user, 2026-07-25): an **in-house Swift converter**, not a
+bundled pre-converted list or a third-party Safari-format feed — it keeps the
+logic pure/testable in Core, adds no dependency, and the weekly refresh just
+re-runs our own code over the real lists (fits §2/§3.6 and the solo-tool mandate).
+
+### Phase C1 — pure ABP→JSON converter (2026-07-25)
+
+- **`ContentBlockRule`** (Core) is the `Encodable` model of one Apple rule —
+  `trigger` (`url-filter`, `if/unless-domain`, `resource-type`, `load-type`,
+  `url-filter-is-case-sensitive`) + `action` (`block` / `ignore-previous-rules`
+  / `css-display-none`), with hyphenated `CodingKeys`. `[ContentBlockRule]
+  .contentRuleListJSON()` serialises with `.withoutEscapingSlashes`.
+- **`ContentBlockConverter`** (Core, Foundation-only) turns a filter list into
+  rules + counts (`parsedLines`, `skipped`). Supports: network rules (`||host^`,
+  `|`/`|` anchors, `*`, `^`, substrings), exceptions (`@@` →
+  `ignore-previous-rules`), options (`$third-party`/`~third-party`/`first-party`
+  → `load-type`; `$domain=a|~b` → `if/unless-domain` with a `*` subdomain
+  prefix; resource types via a map; `$match-case`), and element hiding
+  (`##`/`###`, domain-scoped) → `css-display-none`. **Drops and counts** regex
+  literals, scriptlet/extended-CSS cosmetics (`#%#`/`#$#`/`#?#`/`#@#`,
+  `:has()`/`:-abp-`), negated resource types, and any unmapped modifier
+  (`redirect`, `csp`, `removeparam`, …) — dropping beats blocking wrong.
+- **VERIFIED the JSON compiles in real WebKit** (throwaway
+  `WKContentRuleListStore.default().compileContentRuleList`, since removed).
+  This caught a real bug: **Apple's `url-filter` engine rejects disjunctions** —
+  the natural `^`-separator translation `(?:[^…]|$)` failed with "Disjunctions
+  are not supported yet." Fixed to the character class alone (`[^a-zA-Z0-9_.%-]`);
+  a resource URL's trailing `/`/`:`/`?` satisfies it. Also learned for C2: the
+  compile completion handler runs on the **main queue**, so a semaphore-blocked
+  main thread deadlocks — C2's off-main compile must use async/await or a
+  non-main wait.
+- **14 tests** (url-filter translation, network/exception/options/resource-type
+  mapping, element hiding, dropped-rule table, JSON shape + round-trip). 291
+  total, prepush green. No WebKit imported by C1 — the whole converter is pure.
 
 ## Next steps, in order
 
