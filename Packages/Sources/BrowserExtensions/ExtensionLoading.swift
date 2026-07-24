@@ -12,12 +12,28 @@ public struct LoadedExtension: Sendable, Equatable, Identifiable {
     public let spaceID: UUID
     public let displayName: String?
     public let manifestVersion: Double
+    /// Whether the extension has background content (a service worker) that can
+    /// run when needed (M7, 7.5d, §6.6). A background worker costs one process
+    /// *per Space it is enabled in*, which the extensions UI surfaces.
+    public let hasBackgroundContent: Bool
+    /// Whether that background content stays resident as long as the extension
+    /// is loaded (macOS-only persistence), versus being spun up on demand.
+    public let hasPersistentBackgroundContent: Bool
 
-    public init(slug: String, spaceID: UUID, displayName: String?, manifestVersion: Double) {
+    public init(
+        slug: String,
+        spaceID: UUID,
+        displayName: String?,
+        manifestVersion: Double,
+        hasBackgroundContent: Bool = false,
+        hasPersistentBackgroundContent: Bool = false
+    ) {
         self.slug = slug
         self.spaceID = spaceID
         self.displayName = displayName
         self.manifestVersion = manifestVersion
+        self.hasBackgroundContent = hasBackgroundContent
+        self.hasPersistentBackgroundContent = hasPersistentBackgroundContent
     }
 }
 

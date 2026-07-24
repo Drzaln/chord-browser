@@ -14,10 +14,10 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — 7.1–7.4 + **7.5a–7.5c** done and **VERIFIED LIVE** (action model, popover + header buttons, permission-grant UI + schema v5), behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Next**        | M7 phase **7.5d** — per-Space background-worker presence |
+| **In progress** | **M7 Extensions** — 7.1–7.4 + **7.5 complete (a–d)**, all **VERIFIED LIVE** (action model, popover + header buttons, permission-grant UI + schema v5, background-worker presence + host-access toggle), behind `FeatureFlags.extensionsEnabled` (default off) |
+| **Next**        | M7 phase **7.6** — soak with N extensions across 3 Spaces, then stop for review |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 276 passing (257 unit + 19 end-to-end)                                                                          |
+| **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
 | **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 
@@ -864,17 +864,55 @@ extension actually do anything.
   `log show`/`log stream`; `screencapture -x -o out.png` + Read the image was the
   reliable signal, exactly as in 7.3b.
 
+### Phase 7.5d — background-worker presence + host-access toggle (2026-07-24)
+
+Completes 7.5. Surfaces §6.6's per-Space cost and folds in the host-access
+affordance the 7.5c live finding showed was needed.
+
+- **Background-worker presence.** `LoadedExtension` gained
+  `hasBackgroundContent` + `hasPersistentBackgroundContent`, read from
+  `WKWebExtension.hasBackgroundContent` / `hasPersistentBackgroundContent` at
+  load. A background service worker costs one process **per Space it is enabled
+  in** (ADR 011), which the panel makes visible. **Memory itself stays deferred**
+  — no `WKWebExtension*` API exposes per-process memory (re-checked); proc
+  sampling is SPI-adjacent and was explicitly ruled out.
+- **`ExtensionsPanel`** (BrowserUI) is a SwiftUI `.popover` off a new
+  `ellipsis.circle` "Manage Extensions" button in the header (shown whenever any
+  extension is loaded — an extension may have no toolbar action of its own). Per
+  extension it shows the name, a ⚡ background-worker chip
+  ("Persistent" vs "on demand"), and an "Access on all sites" toggle; a footer
+  counts workers ("N of M run a background worker in this Space").
+- **Host-access toggle — the 7.5c-finding fix.** WebKit does not prompt for a
+  *required* `host_permissions` extension, so the toggle calls
+  `host.setAllHostsAccess(_:slug:in:)` →
+  `context.setPermissionStatus(.grantedExplicitly/.deniedExplicitly, for:
+  WKWebExtension.MatchPattern.allHostsAndSchemes())`, persisting the grant (or
+  dropping the extension's grants on off). `hasAllHostsAccess` reads
+  `context.hasAccessToAllHosts`. This is the analogue of Safari's per-site
+  toolbar menu, all-sites at once.
+- **VERIFIED LIVE (2026-07-24)** with a required-`host_permissions` +
+  service-worker dev extension (scaffold since reverted): the panel showed the
+  ⚡ "Background worker (on demand)" chip and "1 of 1 run a background worker in
+  this Space"; the banner was **inert** on load (no prompt for required host
+  perms, as expected); toggling **Access on all sites** on then reloading
+  **injected** the banner; the grant persisted (`devbanner | matchPattern |
+  *://*/*`). This closes the 7.5c finding end-to-end.
+- **Tests:** +1 (`reportsBackgroundWorkerPresence` — a `service_worker` manifest
+  reports `hasBackgroundContent`, a content-script-only one does not; against
+  real WebKit). 277 total, prepush green.
+
 ## Next steps, in order
 
-**M7 is in progress.** 7.1–7.4 landed; 7.3b is **verified live** (above).
-Continue with **7.5**, then 7.6 (soak, then stop for review). Content blocking
-(§4.8) was deferred to its own later milestone.
+**M7 is in progress.** 7.1–7.4 landed; 7.3b, **and now all of 7.5, are verified
+live** (above). Next is **7.6** (soak with N extensions across 3 Spaces, then
+stop for review). Content blocking (§4.8) was deferred to its own later
+milestone.
 
-### M7 phase 7.5 — action popover + permission UI (PLANNED, not started)
+### M7 phase 7.5 — action popover + permission UI (DONE, verified live 2026-07-24)
 
-Split into four atomic sub-phases (one commit each, M7 discipline). **No UI for
-extensions exists yet** — `ExtensionsService` is the only user-facing layer, so
-7.5 builds the first surface. Two design decisions were made 2026-07-24:
+The original four-sub-phase plan is kept below for the record; all four shipped
+(see the 7.5a–7.5d sections above), one commit each. Two design decisions made
+2026-07-24 held up:
 
 - **§6.6 memory: defer.** No WKWebExtension API exposes process/memory (checked
   every `WKWebExtension*.h` on the macOS 26.5 SDK). 7.5d surfaces *presence/count*

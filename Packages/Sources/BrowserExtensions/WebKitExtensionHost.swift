@@ -193,7 +193,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             slug: installed.slug,
             spaceID: space.id,
             displayName: webExtension.displayName,
-            manifestVersion: webExtension.manifestVersion
+            manifestVersion: webExtension.manifestVersion,
+            hasBackgroundContent: webExtension.hasBackgroundContent,
+            hasPersistentBackgroundContent: webExtension.hasPersistentBackgroundContent
         )
         loadedContexts[space.id, default: [:]][installed.slug] = Loaded(
             context: context, descriptor: descriptor
@@ -292,6 +294,33 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // `respond`. A weak repo capture keeps the host from outliving a write.
         if let repo = permissionsRepository {
             Task { try? await repo.grant(records) }
+        }
+    }
+
+    // MARK: - Host access (7.5d)
+
+    public func hasAllHostsAccess(slug: String, in space: Space) -> Bool {
+        loadedContexts[space.id]?[slug]?.context.hasAccessToAllHosts ?? false
+    }
+
+    public func setAllHostsAccess(_ granted: Bool, slug: String, in space: Space) {
+        guard let context = loadedContexts[space.id]?[slug]?.context else { return }
+        // WebKit does not prompt for a *required* `host_permissions` extension
+        // (verified live, 7.5c), so this is the direct "grant host access"
+        // affordance — the analogue of Safari's per-site toolbar menu, for all
+        // sites at once.
+        let pattern = WKWebExtension.MatchPattern.allHostsAndSchemes()
+        context.setPermissionStatus(granted ? .grantedExplicitly : .deniedExplicitly, for: pattern)
+        guard let repo = permissionsRepository else { return }
+        if granted {
+            let record = GrantedPermissionRecord(
+                spaceID: space.id, slug: slug, kind: .matchPattern, value: pattern.string
+            )
+            Task { try? await repo.grant([record]) }
+        } else {
+            // Turning access off drops the extension's persisted grants, so it is
+            // not re-granted on the next launch. A denial is not persisted.
+            Task { try? await repo.revokeAll(slug: slug, spaceID: space.id) }
         }
     }
 

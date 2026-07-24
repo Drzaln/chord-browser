@@ -91,6 +91,17 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// granted. A no-op for an unknown or already-resolved id.
     func resolvePermission(id: UUID, allow: Bool)
 
+    // MARK: - Host access (7.5d)
+
+    /// Whether the extension currently has access to all hosts in the Space.
+    func hasAllHostsAccess(slug: String, in space: Space) -> Bool
+
+    /// Grants or revokes all-hosts access directly (the affordance a *required*
+    /// `host_permissions` extension needs, since WebKit does not prompt for it —
+    /// verified live in 7.5c). Persists a grant; a revoke drops the extension's
+    /// persisted grants so nothing is re-applied next launch.
+    func setAllHostsAccess(_ granted: Bool, slug: String, in space: Space)
+
     // MARK: - Tab lifecycle (7.3b)
     //
     // The Store calls these as tabs open, activate, and close, so each Space's

@@ -22,11 +22,32 @@ struct ExtensionActionsBar: View {
         return content
     }
 
+    @State private var showingPanel = false
+
     @ViewBuilder private var content: some View {
         if let space = store.activeSpace {
+            let loaded = host.loadedExtensions(in: space)
             HStack(spacing: 2) {
                 ForEach(host.actions(in: space)) { action in
                     ExtensionActionButton(action: action, space: space, host: host)
+                }
+                // A manage button opens the per-Space panel (background-worker
+                // presence + host access, 7.5d). Shown whenever anything is
+                // loaded — an extension may have no toolbar action of its own.
+                if !loaded.isEmpty {
+                    Button { showingPanel = true } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Manage Extensions")
+                    .accessibilityLabel("Manage Extensions")
+                    .popover(isPresented: $showingPanel, arrowEdge: .bottom) {
+                        ExtensionsPanel(store: store, host: host)
+                    }
                 }
             }
         }

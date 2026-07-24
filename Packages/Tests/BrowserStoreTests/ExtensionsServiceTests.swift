@@ -44,6 +44,8 @@ private final class FakeHost: ExtensionHost {
     func presentAction(slug: String, in space: Space) {}
     var onPermissionRequest: (@MainActor (PermissionRequest) -> Void)?
     func resolvePermission(id: UUID, allow: Bool) {}
+    func hasAllHostsAccess(slug: String, in space: Space) -> Bool { false }
+    func setAllHostsAccess(_ granted: Bool, slug: String, in space: Space) {}
 }
 
 private actor FakeEnablement: ExtensionEnablementRepository {

@@ -149,6 +149,35 @@ struct ExtensionLoadingTests {
         #expect(host.actions(in: space()).isEmpty)
     }
 
+    // MARK: - Background-worker presence (7.5d)
+
+    private static let mv3WithWorker = """
+        {
+          "manifest_version": 3, "name": "Worker Ext", "version": "1.0",
+          "background": { "service_worker": "bg.js" }
+        }
+        """
+
+    @Test func reportsBackgroundWorkerPresence() async throws {
+        let host = WebKitExtensionHost()
+        let (worker, c1) = try installedExtension(slug: "worker", manifest: Self.mv3WithWorker)
+        // A content-script-only extension (no background key) has no worker.
+        let (plain, c2) = try installedExtension(slug: "plain", manifest: Self.mv3)
+        // The worker bundle needs the referenced file to exist to load.
+        try Data("//bg".utf8).write(to: worker.resourceURL.appending(path: "bg.js"))
+        defer { c1(); c2() }
+        let s = space()
+
+        try await host.load(worker, in: s)
+        try await host.load(plain, in: s)
+
+        let byslug = Dictionary(
+            uniqueKeysWithValues: host.loadedExtensions(in: s).map { ($0.slug, $0) }
+        )
+        #expect(byslug["worker"]?.hasBackgroundContent == true)
+        #expect(byslug["plain"]?.hasBackgroundContent == false)
+    }
+
     @Test func anUnreadableBundleThrows() async throws {
         let host = WebKitExtensionHost()
         // A directory with no manifest.json is not a readable extension.
