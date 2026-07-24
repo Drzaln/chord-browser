@@ -15,8 +15,8 @@ only the current position within it.
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
 | **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off) |
-| **In progress** | **Content blocking (§4.8)** — **C1 + C2** done (converter + compile/cache/attach off-main, bundled seed, flag-gated). Next C3 weekly refresh, C4 soak + live "it blocks" check. |
-| **Next**        | C3 — weekly refresh + fetch of the full EasyList/EasyPrivacy |
+| **In progress** | **Content blocking (§4.8)** — **C1–C3** done (converter + compile/cache/attach + weekly fetch/refresh). Next C4 soak + live "it blocks" check. |
+| **Next**        | C4 — soak with blocking on real ad-heavy sites + measure, then review |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
@@ -1036,6 +1036,42 @@ re-runs our own code over the real lists (fits §2/§3.6 and the solo-tool manda
 ("not a recognised extension archive") and passed in isolation and on retry —
 a test-isolation race in the installer's temp-dir handling, worth a fixture
 fix sometime.
+
+### Phase C3 — weekly refresh + fetch (2026-07-25)
+
+- **`ContentBlockRefresh.isDue`** (Core, pure) is the schedule: due when never
+  refreshed or a week elapsed. Unit-tested without a clock.
+- **`ContentBlocker.refreshIfDue()`** fetches EasyList + EasyPrivacy
+  (`network.client` is already entitled), converts, compiles under a
+  **content-hashed identifier** (`blocklist-<sha256 prefix>`), swaps it in, and
+  records the date in `UserDefaults`. The hash makes an unchanged list a cache
+  hit; old `blocklist-` identifiers are pruned from the store. A **fetch failure
+  leaves the date untouched**, so it retries next launch rather than waiting a
+  week. All of fetch / defaults / clock / list-URLs are injectable, so the logic
+  is tested with canned lists — no live network in the suite.
+- `AppEnvironment` runs seed→attach first (fast, offline), then
+  `refreshIfDue()`→attach in the same `Task` (off-main). On first launch the
+  refresh is immediately due, so the full lists load in the background shortly
+  after the seed.
+- **VERIFIED against the real lists** (throwaway test, since removed): EasyList
+  (2.1 MB) + EasyPrivacy (1.5 MB) fetched and converted to **137,687 rules from
+  138,632 lines — only 945 skipped, 99.3% coverage**. That is the payoff of the
+  in-house converter: nearly the whole of both lists is expressible.
+- **Bug the C2 test caught:** the C3 refactor extracted the compile into helpers
+  and dropped `compiledList = list` from `prepare()`, so the public property went
+  nil (the app still worked off the return value). Fixed; the surviving C2 test
+  is why it surfaced.
+- **The rule cap is load-bearing, learned the hard way.** A first pass compiled
+  the full 137k-rule set at a 50k cap **inside a diagnostic that fetched and
+  converted twice** and the process **aborted (signal 6)** — a hard,
+  *uncatchable* abort under transient memory pressure, not an `NSError`. Isolated
+  compiles of 25k/40k/**50k all succeed** in ~1.3–1.4 s, and the real
+  **single-pass `refreshIfDue()` flow at 50k is stable**. So the abort was the
+  diagnostic's redundant double-work, not the compile — but it proves the app
+  must **never** attempt the whole set: `maxRules = 50_000`, EasyList being
+  roughly most-important-first. Chunking into several lists to capture the tail
+  is a possible later enhancement; measure memory in C4 first.
+- 6 new tests (3 refresh behaviour, 3 schedule). 301 total, prepush green.
 
 ## Next steps, in order
 

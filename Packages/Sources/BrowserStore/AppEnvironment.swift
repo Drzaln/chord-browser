@@ -77,7 +77,14 @@ public struct AppEnvironment {
         if flags.contentBlockingEnabled {
             let blocker = ContentBlocker()
             contentBlocker = blocker
-            Task { engine.applyContentRuleList(await blocker.prepare()) }
+            Task {
+                // Seed first (fast, offline), attach it, then let the weekly
+                // refresh fetch the full lists and swap in when ready (C3).
+                engine.applyContentRuleList(await blocker.prepare())
+                if let refreshed = await blocker.refreshIfDue() {
+                    engine.applyContentRuleList(refreshed)
+                }
+            }
         } else {
             contentBlocker = nil
         }
