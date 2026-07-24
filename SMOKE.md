@@ -157,6 +157,47 @@ idle reading is not available with this fixture. 0.63% is comfortably under the
 Samples in `/tmp/soak-220853.tsv` at the time of the run. Instruments
 Allocations/Leaks (§6.7) still not run — carried debt, same as M1/M3/M6.
 
+### 30-minute soak — content blocking (C4), measured 2026-07-25
+
+The §8/§4.8 gate for the content-blocking milestone: a soak with **blocking on**.
+Same mainstream-SPA fixture as the M7 soak (3 Spaces / 21 tabs / 32 panes over
+Google/YouTube/X/Instagram/Reddit/Wikipedia/GitHub/Amazon), with
+`FeatureFlags.contentBlockingEnabled` on via a temporary `AppDelegate` scaffold
+(reverted). On launch the seed compiles instantly and the weekly refresh fetches
+the full EasyList + EasyPrivacy and compiles ~50k rules off-main. 30 minutes of
+Cmd+1…3 Space switches.
+
+| | Start (min 0) | Settled (min ~10) | End (min 30) | |
+|---|---|---|---|---|
+| App process footprint | 32 MB | 60 MB | **58 MB** | flat, no growth |
+| Total (app + WebKit helpers) | 297 MB | ~465 MB | **464 MB** | flat |
+
+| §6.1 budget | measured | target | ceiling | |
+|---|---|---|---|---|
+| App process RSS | **58–60 MB** | < 150 MB | 250 MB | pass (wide) |
+| Total footprint | **464 MB** | < 1.2 GB | 1.8 GB | pass (wide) |
+| Idle CPU, window visible | **0.56%** | < 0.5% | 1% | under ceiling¹ |
+
+**No leak, and content blocking adds no measurable steady-state cost.** The
+numbers are within noise of the M7 soak (64 MB app / 485 MB total) — the compiled
+rule list is a shared, immutable object, so attaching it to every view costs
+almost nothing, and the compile is a one-time transient. **The compile spike is
+transient and off-main:** the app process read ~103 MB *during* the full 50k-rule
+compile at launch, then released to **32 MB** once done (well under budget), and
+the window was interactive at t+3 s — the compile never blocked launch (§6.6).
+
+**Content blocking verified live (A/B, 2026-07-25):** with blocking **on**,
+navigating to a blocked tracker (`googletagmanager.com/gtm.js`) was stopped
+before the network (the page stayed on the previously loaded `example.com`);
+with blocking **off** the identical navigation reached the server (Google's own
+404). `example.com` loaded normally with blocking on, so ordinary browsing is
+unaffected. This is the decisive proof the attached list is enforced at runtime.
+
+¹ Same caveat as the M7 soak: measured with mainstream SPAs still live, whose
+background timers keep the app just over the no-animation 0.5% target but under
+the 1% ceiling. Content blocking is passive rule-matching in WebKit — it adds no
+timers and no idle CPU. Samples in `/tmp/soak-052928.tsv`.
+
 ## M2 — Spaces
 
 ### Switching

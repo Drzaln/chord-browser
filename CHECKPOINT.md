@@ -15,8 +15,8 @@ only the current position within it.
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
 | **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off) |
-| **In progress** | **Content blocking (§4.8)** — **C1–C3** done (converter + compile/cache/attach + weekly fetch/refresh). Next C4 soak + live "it blocks" check. |
-| **Next**        | C4 — soak with blocking on real ad-heavy sites + measure, then review |
+| **Content blocking** | **§4.8 — C1–C4 complete and VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, soak). Behind `FeatureFlags.contentBlockingEnabled` (default off). **Ready for review.** |
+| **Next**        | Review. Then: flip `contentBlockingEnabled` (and/or `extensionsEnabled`) on for daily use; optional follow-ups below |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
@@ -1072,6 +1072,47 @@ fix sometime.
   roughly most-important-first. Chunking into several lists to capture the tail
   is a possible later enhancement; measure memory in C4 first.
 - 6 new tests (3 refresh behaviour, 3 schedule). 301 total, prepush green.
+
+### Phase C4 — soak + live verification (2026-07-25)
+
+The §8/§4.8 gate. Ran the mainstream-SPA soak with `contentBlockingEnabled` on
+(temporary scaffold, reverted).
+
+- **Verified live, decisively (A/B).** Blocking **on**: navigating to a blocked
+  tracker (`googletagmanager.com/gtm.js`) was stopped before the network — the
+  page stayed on the previously loaded `example.com`. Blocking **off** (a rebuild
+  with the flag reverted): the identical navigation reached the server (Google's
+  own 404). `example.com` loaded fine with blocking on. So the attached list is
+  enforced at runtime, and normal browsing is unaffected.
+- **Soak: pass, no leak, no added steady-state cost.** App process
+  **32→58–60 MB, flat** (≪ 150 MB); total peaked ~747 MB then settled to
+  **~464–487 MB and held** (≪ 1.2 GB); idle CPU 0.56% (under the 1% ceiling).
+  Within noise of the M7 soak — the compiled list is shared/immutable, so
+  attaching it costs almost nothing.
+- **Compile spike is transient and off-main (§6.6).** ~103 MB *during* the
+  launch-time full 50k-rule compile, released to **32 MB** once done; the window
+  was interactive at t+3 s, so the compile never blocked launch.
+- **`Bundle.module` resolves the seed in the packaged app** (blocking worked from
+  first launch before the refresh landed), closing the C2 open question.
+- Numbers/method in [SMOKE.md](SMOKE.md) ("30-minute soak — content blocking");
+  samples in `/tmp/soak-052928.tsv`.
+
+## Content blocking is complete — ready for review
+
+C1–C4 have landed on `main` behind `FeatureFlags.contentBlockingEnabled`
+(default **off**). Verified live, `./scripts/prepush.sh` green, and the §6.1
+budgets pass with the blocker on. This is the milestone stop point (§8).
+
+**Optional follow-ups (none blocking):**
+- **Chunk the rule list to capture EasyList's tail.** The 50k cap keeps the
+  high-value head (EasyList is roughly most-important-first); WebKit supports
+  multiple attached lists, so several ≤50k lists would raise coverage. Measure
+  memory first (the compile is the heavy part).
+- **A settings toggle** for the flag, instead of the launch-time constant.
+- **Whitelist / per-site disable** (an `ignore-previous-rules` rule keyed to the
+  current host) — the machinery is already there.
+- Instruments Allocations/Leaks pass (§6.7), still never run.
+- Pre-existing `ExtensionArchiveTests.reinstallOverwritesInPlace` parallel flake.
 
 ## Next steps, in order
 
