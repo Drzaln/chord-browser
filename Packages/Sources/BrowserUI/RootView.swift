@@ -14,6 +14,10 @@ public struct RootView: View {
     @State private var isRevealed = false
     @State private var collapseTask: Task<Void, Never>?
     @State private var window: NSWindow?
+    /// Native fullscreen. The traffic lights must stay put there even with the
+    /// sidebar collapsed — they are the only way out, and in fullscreen AppKit
+    /// shows them in the auto-revealing top overlay, not over the page.
+    @State private var isFullscreen = false
     /// The two-finger Space-switch swipe (4.2). Held here so its local event
     /// monitor lives exactly as long as the view is on screen.
     @State private var swipeMonitor: SpaceSwipeMonitor?
@@ -38,6 +42,14 @@ public struct RootView: View {
     /// what Arc does and what makes the reveal worth having.
     private var isHidden: Bool {
         store.isSidebarCollapsed && !isRevealed
+    }
+
+    /// Hide the traffic lights only while the sidebar is off screen *and* the
+    /// window is not fullscreen. In fullscreen they must remain — hiding them
+    /// leaves no way to exit but the keyboard, which is the bug this guards
+    /// against.
+    private var shouldHideTrafficLights: Bool {
+        isHidden && !isFullscreen
     }
 
     /// What the sidebar reserves in the layout, which is not what it draws.
@@ -118,12 +130,21 @@ public struct RootView: View {
         // The traffic lights sit at a fixed offset from the window's top-left
         // whatever is under them, so with no sidebar there they land on the
         // page — see `TrafficLights`.
-        .onChange(of: isHidden, initial: true) { _, hidden in
-            window?.setTrafficLightsHidden(hidden)
+        .onChange(of: shouldHideTrafficLights, initial: true) { _, hide in
+            window?.setTrafficLightsHidden(hide)
         }
         .onChange(of: window == nil) { _, _ in
-            window?.setTrafficLightsHidden(isHidden)
+            window?.setTrafficLightsHidden(shouldHideTrafficLights)
         }
+        // Fullscreen enter/exit must re-evaluate the traffic lights: entering
+        // with the sidebar collapsed would otherwise leave them hidden and the
+        // window inescapable but by keyboard.
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)
+        ) { _ in isFullscreen = true }
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)
+        ) { _ in isFullscreen = false }
         .onChange(of: store.isSidebarCollapsed) { _, collapsed in
             // Showing the sidebar by menu while the pointer sits at the edge
             // would otherwise leave the reveal flag set, and the sidebar would

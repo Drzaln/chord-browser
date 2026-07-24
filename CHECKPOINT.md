@@ -279,7 +279,12 @@ the window's left edge brings it back over the page.
   straight through.
 - **The traffic lights are hidden while the sidebar is** (`TrafficLights`).
   AppKit puts them at a fixed offset from the window's top-left regardless of
-  what is underneath, so with no sidebar they land on the page.
+  what is underneath, so with no sidebar they land on the page. **Except in
+  fullscreen:** hiding them there left no way out but the keyboard, so
+  `RootView.shouldHideTrafficLights` is `isHidden && !isFullscreen` and the
+  fullscreen enter/exit notifications re-evaluate it. In fullscreen AppKit shows
+  the lights in the auto-revealing top overlay, not over the page, so the
+  land-on-content reason does not apply.
 - **Hide-on-exit is delayed and cancellable** (`Motion.sidebarCollapseDelay`).
   Zero delay makes the sidebar snap shut while the pointer travels toward a row
   near its edge.
