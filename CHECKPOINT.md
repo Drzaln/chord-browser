@@ -444,6 +444,13 @@ the window's left edge brings it back over the page.
   is ignored rather than blanking the Space, and an empty gradient falls back to
   the default. `SpaceTheme`'s cache invalidates on a stops change by itself.
   Covered by `SpaceTests`; the emoji render and edit flow were verified live.
+- **The editor sheet is presented from `RootView`, not the sidebar.** The
+  trigger (`store.editingSpaceID`, ephemeral UI state) is in the store so the
+  `.sheet` can live on `RootView`. Presenting it from `SpaceSwitcher` — inside
+  `SidebarView` — meant the sheet vanished the moment the sidebar collapsed or
+  auto-hid, since the sidebar is pulled out of the view hierarchy then. Reported
+  by the user (edit modal gone in collapsed mode); verified live: opened from a
+  revealed sidebar, the modal stays centred on the window.
 - **The emoji picker is the native macOS Character Viewer**, not a hardcoded
   preset list: the editor's emoji button focuses the icon field and calls
   `NSApp.orderFrontCharacterPalette(_:)`, whose selection inserts into the first

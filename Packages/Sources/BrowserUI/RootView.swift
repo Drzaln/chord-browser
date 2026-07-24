@@ -151,6 +151,14 @@ public struct RootView: View {
             // hide itself the moment the pointer moved away.
             if !collapsed { cancelPendingHide(); isRevealed = false }
         }
+        // Presented here rather than in the sidebar so it survives the sidebar
+        // collapsing (and auto-hiding) beneath it — the bug being fixed.
+        .sheet(item: Binding(
+            get: { store.spaces.first { $0.id == store.editingSpaceID } },
+            set: { if $0 == nil { store.editingSpaceID = nil } }
+        )) { space in
+            SpaceEditor(store: store, space: space)
+        }
         .task { await store.restore() }
         .onAppear {
             let monitor = SpaceSwipeMonitor(store: store)

@@ -8,7 +8,6 @@ struct SpaceSwitcher: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pendingDeletion: Space?
-    @State private var editing: Space?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -50,9 +49,9 @@ struct SpaceSwitcher: View {
             // 3.3: reclaiming the data store is irreversible, so say so plainly.
             Text("Its tabs, cookies, and cached data are removed permanently.")
         }
-        .sheet(item: $editing) { space in
-            SpaceEditor(store: store, space: space)
-        }
+        // The editor sheet is presented by `RootView`, not here: the sidebar is
+        // torn out of the hierarchy when it collapses/auto-hides, and a sheet
+        // attached to it would vanish with it.
     }
 
     private func spaceButton(_ space: Space) -> some View {
@@ -91,7 +90,7 @@ struct SpaceSwitcher: View {
         .accessibilityLabel(space.name)
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
         .contextMenu {
-            Button("Edit Space…") { editing = space }
+            Button("Edit Space…") { store.editingSpaceID = space.id }
             Divider()
             Button("Delete Space…", role: .destructive) { pendingDeletion = space }
                 .disabled(store.spaces.count <= 1)

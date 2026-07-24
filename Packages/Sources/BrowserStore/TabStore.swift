@@ -40,6 +40,12 @@ public final class TabStore {
         didSet { UserDefaults.standard.set(isSidebarCollapsed, forKey: "sidebar.collapsed") }
     }
 
+    /// The Space whose appearance is being edited, if any. Ephemeral UI state
+    /// kept here — not in the sidebar — so its editor sheet is presented from
+    /// `RootView` and survives the sidebar collapsing (and auto-hiding) beneath
+    /// it. Not persisted.
+    public var editingSpaceID: UUID?
+
     /// Find-in-page (M6). See `TabStore+Find`.
     public var isFindBarVisible = false
     public var findText = ""
