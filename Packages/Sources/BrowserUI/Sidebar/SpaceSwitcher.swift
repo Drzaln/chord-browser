@@ -7,7 +7,6 @@ struct SpaceSwitcher: View {
     @Bindable var store: TabStore
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pendingDeletion: Space?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -31,27 +30,6 @@ struct SpaceSwitcher: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .confirmationDialog(
-            "Delete “\(pendingDeletion?.name ?? "")”?",
-            isPresented: .init(
-                get: { pendingDeletion != nil },
-                set: { if !$0 { pendingDeletion = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Delete Space and Its Data", role: .destructive) {
-                guard let space = pendingDeletion else { return }
-                pendingDeletion = nil
-                Task { await store.deleteSpace(space.id) }
-            }
-            Button("Cancel", role: .cancel) { pendingDeletion = nil }
-        } message: {
-            // 3.3: reclaiming the data store is irreversible, so say so plainly.
-            Text("Its tabs, cookies, and cached data are removed permanently.")
-        }
-        // The editor sheet is presented by `RootView`, not here: the sidebar is
-        // torn out of the hierarchy when it collapses/auto-hides, and a sheet
-        // attached to it would vanish with it.
     }
 
     private func spaceButton(_ space: Space) -> some View {
@@ -92,7 +70,7 @@ struct SpaceSwitcher: View {
         .contextMenu {
             Button("Edit Space…") { store.editingSpaceID = space.id }
             Divider()
-            Button("Delete Space…", role: .destructive) { pendingDeletion = space }
+            Button("Delete Space…", role: .destructive) { store.deletingSpaceID = space.id }
                 .disabled(store.spaces.count <= 1)
         }
     }

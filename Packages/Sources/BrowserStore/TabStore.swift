@@ -41,11 +41,29 @@ public final class TabStore {
         didSet { UserDefaults.standard.set(isSidebarCollapsed, forKey: "sidebar.collapsed") }
     }
 
+    /// The user-configured width of the sidebar, persisted in UserDefaults.
+    public var sidebarWidth: CGFloat = {
+        let saved = UserDefaults.standard.double(forKey: "sidebar.width")
+        return saved > 0 ? CGFloat(saved) : 240
+    }() {
+        didSet {
+            UserDefaults.standard.set(Double(sidebarWidth), forKey: "sidebar.width")
+        }
+    }
+
+    /// Whether the user is actively dragging to resize the sidebar.
+    public var isSidebarResizing: Bool = false
+
     /// The Space whose appearance is being edited, if any. Ephemeral UI state
     /// kept here — not in the sidebar — so its editor sheet is presented from
     /// `RootView` and survives the sidebar collapsing (and auto-hiding) beneath
     /// it. Not persisted.
     public var editingSpaceID: UUID?
+
+    /// The Space being deleted, if any. Ephemeral UI state kept here so its
+    /// confirmation dialog is presented from RootView and survives the sidebar
+    /// collapsing (and auto-hiding) beneath it. Not persisted.
+    public var deletingSpaceID: UUID?
 
     /// Find-in-page (M6). See `TabStore+Find`.
     public var isFindBarVisible = false

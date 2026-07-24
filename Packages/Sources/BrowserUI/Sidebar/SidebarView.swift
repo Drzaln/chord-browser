@@ -25,6 +25,7 @@ struct SidebarView: View {
     /// While a tab is being dragged, the row slot the ephemeral list would drop
     /// it into (4.1). Nil at rest and whenever the pointer is not over the list.
     @State private var ephemeralDropIndex: Int?
+    @State private var dragStartWidth: CGFloat?
 
     /// One row plus the `LazyVStack`'s inter-row spacing — the height of a slot
     /// the drop maps a cursor Y onto.
@@ -68,18 +69,20 @@ struct SidebarView: View {
             Divider().opacity(0.5)
             SpaceSwitcher(store: store)
         }
-        .frame(width: Metrics.sidebarWidth)
+        .frame(width: store.sidebarWidth)
         .background {
             // The active Space's gradient, under a material overlay (4.1).
             // While a swipe is in flight it blends toward the neighbour's stops
             // (4.2); at rest it uses the cached per-Space gradient so an idle
             // sidebar does not rebuild one every frame (6.4).
+            // When in collapsed mode (floating), we use a thinner material and
+            // lower gradient opacity to create a premium frosted glass effect.
             if let space = store.activeSpace {
                 gradient(for: space)
-                    .opacity(0.35)
-                    .overlay(.regularMaterial)
+                    .opacity(isFloating ? 0.1 : 0.35)
+                    .overlay(isFloating ? .ultraThinMaterial : .regularMaterial)
             } else {
-                Color.clear.overlay(.regularMaterial)
+                Color.clear.overlay(isFloating ? .ultraThinMaterial : .regularMaterial)
             }
         }
         .clipShape(
@@ -99,6 +102,31 @@ struct SidebarView: View {
         //.padding(.leading, isFloating ? Metrics.contentInset : 0)
         //.padding(.bottom, isFloating ? Metrics.contentInset : 0)
         //.padding(.trailing, isFloating ? Metrics.contentInset : 0)
+        .overlay(alignment: .trailing) {
+            Color.clear
+                .frame(width: 6)
+                .contentShape(Rectangle())
+                .onHover { inside in
+                    if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                        .onChanged { value in
+                            if dragStartWidth == nil {
+                                dragStartWidth = store.sidebarWidth
+                                store.isSidebarResizing = true
+                            }
+                            if let startWidth = dragStartWidth {
+                                let newWidth = startWidth + value.translation.width
+                                store.sidebarWidth = min(max(newWidth, 160), 400)
+                            }
+                        }
+                        .onEnded { _ in
+                            dragStartWidth = nil
+                            store.isSidebarResizing = false
+                        }
+                )
+        }
     }
 
     // MARK: - Ephemeral list and drops

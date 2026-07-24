@@ -12,6 +12,7 @@ public struct RootView: View {
     /// The sidebar is hidden but the pointer has reached the left edge, so it
     /// is showing on top of the page (4.1).
     @State private var isRevealed = false
+    @State private var isSidebarHovered = false
     @State private var collapseTask: Task<Void, Never>?
     @State private var window: NSWindow?
     /// Native fullscreen. The traffic lights must stay put there even with the
@@ -57,7 +58,7 @@ public struct RootView: View {
     /// explicit that revealing must not shift web content, and shifting it
     /// would relayout every web view for as long as the pointer sat there.
     private var laneWidth: CGFloat {
-        store.isSidebarCollapsed ? 0 : Metrics.sidebarWidth
+        store.isSidebarCollapsed ? 0 : store.sidebarWidth
     }
 
     /// The x below which a swipe is over the sidebar and may switch Spaces (4.2).
@@ -67,7 +68,7 @@ public struct RootView: View {
     /// web view's back/forward gesture.
     private var sidebarEngageWidth: CGFloat {
         guard !isHidden else { return 0 }
-        return Metrics.sidebarWidth + (store.isSidebarCollapsed ? Metrics.contentInset : 0)
+        return store.sidebarWidth + (store.isSidebarCollapsed ? Metrics.contentInset : 0)
     }
 
     public var body: some View {
@@ -103,6 +104,7 @@ public struct RootView: View {
                 // Leaving the sidebar is an ordinary hover exit — the view is
                 // on screen by then, so no tracking strip is involved.
                 .onHover { isInside in
+                    isSidebarHovered = isInside
                     if isInside { cancelPendingHide() } else { scheduleHide() }
                 }
                 .zIndex(1)
@@ -151,6 +153,21 @@ public struct RootView: View {
             // hide itself the moment the pointer moved away.
             if !collapsed { cancelPendingHide(); isRevealed = false }
         }
+        .onChange(of: store.isSidebarResizing) { _, resizing in
+            if !resizing && !isSidebarHovered {
+                scheduleHide()
+            }
+        }
+        .onChange(of: store.deletingSpaceID) { _, deletingID in
+            if deletingID == nil && !isSidebarHovered {
+                scheduleHide()
+            }
+        }
+        .onChange(of: store.editingSpaceID) { _, editingID in
+            if editingID == nil && !isSidebarHovered {
+                scheduleHide()
+            }
+        }
         // Presented here rather than in the sidebar so it survives the sidebar
         // collapsing (and auto-hiding) beneath it — the bug being fixed.
         .sheet(item: Binding(
@@ -158,6 +175,24 @@ public struct RootView: View {
             set: { if $0 == nil { store.editingSpaceID = nil } }
         )) { space in
             SpaceEditor(store: store, space: space)
+        }
+        .confirmationDialog(
+            "Delete “\(store.spaces.first { $0.id == store.deletingSpaceID }?.name ?? "")”?",
+            isPresented: Binding(
+                get: { store.deletingSpaceID != nil },
+                set: { if !$0 { store.deletingSpaceID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete Space and Its Data", role: .destructive) {
+                guard let spaceID = store.deletingSpaceID else { return }
+                store.deletingSpaceID = nil
+                Task { await store.deleteSpace(spaceID) }
+            }
+            Button("Cancel", role: .cancel) { store.deletingSpaceID = nil }
+        } message: {
+            // 3.3: reclaiming the data store is irreversible, so say so plainly.
+            Text("Its tabs, cookies, and cached data are removed permanently.")
         }
         .task { await store.restore() }
         .onAppear {
@@ -221,6 +256,9 @@ public struct RootView: View {
     private func scheduleHide() {
         cancelPendingHide()
         guard isRevealed else { return }
+        guard !store.isSidebarResizing else { return }
+        guard store.editingSpaceID == nil else { return }
+        guard store.deletingSpaceID == nil else { return }
         collapseTask = Task { @MainActor in
             try? await Task.sleep(for: Motion.sidebarCollapseDelay)
             guard !Task.isCancelled else { return }
