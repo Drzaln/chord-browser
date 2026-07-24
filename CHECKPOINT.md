@@ -14,8 +14,8 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **In progress** | **M7 Extensions** — 7.1–7.4 + **7.5a–7.5c** done in code (action model, popover + header buttons, permission-grant UI + schema v5), behind `FeatureFlags.extensionsEnabled` (default off). **Live injection check for 7.5b/7.5c still owed.** |
-| **Next**        | Live-verify 7.5b popover + 7.5c permission→inject (recipe below), then **7.5d** worker presence |
+| **In progress** | **M7 Extensions** — 7.1–7.4 + **7.5a–7.5c** done and **VERIFIED LIVE** (action model, popover + header buttons, permission-grant UI + schema v5), behind `FeatureFlags.extensionsEnabled` (default off) |
+| **Next**        | M7 phase **7.5d** — per-Space background-worker presence |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 276 passing (257 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
@@ -829,35 +829,40 @@ extension actually do anything.
 - **Tests:** 5 persistence (v5 migration, round-trip across all three kinds,
   idempotency, `revokeAll` scoping, per-Space) + 1 Store (resolve forwards to
   host and clears the queue). 276 total, prepush green.
-- **NOT live-verified — this is the owed check (see recipe below).** Unit tests
-  cannot drive a real WebKit prompt or observe content-script injection; the
-  prompt fires from WebKit and needs a real extension requesting host access.
-  Whether WebKit *proactively* prompts for a fresh `<all_urls>` content-script
-  extension (vs. only on an action click / activeTab) is exactly what the live
-  drive must confirm. Ordering of `setPermissionStatus` vs `controller.load` is
-  also a live-check point.
-
-### Verifying 7.5b/7.5c live (owed — recipe)
-
-1. Make a dev MV3 dir under a temp path: `manifest.json` with
-   `manifest_version: 3`, an `action` (`default_title`, optionally
-   `default_popup: "popup.html"` for the 7.5b popover), `host_permissions:
-   ["<all_urls>"]`, and a `content_scripts` entry injecting a visible banner.
-2. Temporary DEBUG hook in `AppDelegate`: build the env with
-   `FeatureFlags(extensionsEnabled: true)`, and after `store.restore()` call
-   `extensions.install(from: devDirZippedOrDir)` then `enable(slug:in:)` for the
-   first Space. (An unpacked dir works as `resourceBaseURL`.)
-3. Build + run the sandboxed app. Screenshot the sidebar header — the action
-   button should appear (7.5b). Click it: a `default_popup` shows the popover;
-   no popup fires the click event.
-4. Open a **fresh** tab to a normal page. If the permission sheet appears, click
-   Allow; then open another fresh tab — the content-script banner should appear
-   (7.5c). Absent in another Space = per-Space isolation holds. Content scripts
-   only inject on load, so a already-loaded page won't get them retroactively.
-5. Relaunch: the banner should appear **without** re-prompting (persisted grant
-   re-applied). Revert the DEBUG scaffold after.
-6. `os.Logger` logs are NOT retrievable via `log show`/`log stream` on this host
-   — `screencapture -x -o out.png` + Read the image is the reliable signal.
+- **VERIFIED LIVE (2026-07-24)** with a throwaway `devbanner` MV3 extension
+  (action + `default_popup`, `optional_host_permissions: ["*://*/*"]`, an
+  `<all_urls>` content script injecting a red banner), loaded into a Space via a
+  temporary `AppDelegate` DEBUG hook (since reverted). All five behaviours held,
+  each screenshot-confirmed:
+  1. **Action button** appears in the sidebar header (the `puzzlepiece`
+     fallback, since the dev extension ships no action icon) — 7.5b.
+  2. **Popover** — clicking the button rendered the extension's own popup page
+     ("DEV POPUP OK") in an `NSPopover` anchored under the button — 7.5b.
+  3. **Permission sheet** — the popup calling `chrome.permissions.request(
+     {origins:["*://*/*"]})` surfaced our `ExtensionPermissionSheet`
+     ("'Dev Banner' wants to read and change your data on: `*://*/*`") — 7.5c.
+  4. **Grant → inject** — clicking Allow granted the match pattern and, after a
+     reload, the content-script banner injected. The grant landed in
+     `grantedPermission` (`devbanner | matchPattern | *://*/*`).
+  5. **Persistence** — after a full quit + relaunch + reload, the banner injected
+     **with no re-prompt**, so the persisted grant was re-applied via
+     `setPermissionStatus` at load. `setPermissionStatus` **before**
+     `controller.load` is correct — no ordering problem observed.
+- **KEY FINDING — WebKit does not proactively prompt.** A fresh content-script
+  extension with declared `host_permissions` stayed inert with **no** prompt on
+  page load; the runtime prompt delegate only fired when the extension called
+  `permissions.request` for an origin in **`optional_host_permissions`**
+  (a declared `host_permissions` request did *not* trigger a runtime prompt).
+  Implication for a real ad-blocker/dark-mode extension whose manifest uses
+  required `host_permissions`: our three prompt delegates will not fire on their
+  own, so **7.5d (or a follow-up) should add a UI affordance to grant host access
+  directly** (e.g. an "Enable on all sites" control that calls
+  `setPermissionStatus(.grantedExplicitly, for: .allHostsAndSchemes())`), mirroring
+  Safari's per-site toolbar menu. The prompt path is proven; the *trigger* for
+  required host permissions is the gap.
+- **Tooling note (still true):** `os.Logger` logs were not retrievable via
+  `log show`/`log stream`; `screencapture -x -o out.png` + Read the image was the
+  reliable signal, exactly as in 7.3b.
 
 ## Next steps, in order
 
