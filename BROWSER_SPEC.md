@@ -344,6 +344,13 @@ protocol ExtensionHost { ... }
   design, so first-party-served video ads (e.g. YouTube's) are _not_ blockable
   through this path. That would require a separate JS-injection engine, which is
   out of scope for the native approach.
+- **Extension ad blockers do not substitute.** AdBlock/uBlock Origin block via
+  `declarativeNetRequest`; their rule sets (~63k) exceed WebKit's ~50k limit and
+  are rejected, and Apple's `WKWebExtension` offers no request-blocking or
+  scriptlet injection. Chromium browsers (Arc/Brave/Chrome) and Orion (WebKit +
+  its own extension runtime) can run them; this native-WebKit stack cannot. See
+  CHECKPOINT "Ad-blocking & YouTube" for the full analysis and the two (large,
+  out-of-scope) future options.
 
 ---
 

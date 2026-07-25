@@ -183,6 +183,27 @@ injection (scriptlets) — how Brave and uBlock Origin do it — which Apple's
 setting you can flip. See the [README](../README.md#content-blocking) and
 [BROWSER_SPEC §4.8](../BROWSER_SPEC.md) for the full explanation.
 
+### "But Arc / Brave / Orion block YouTube ads with the same extension!"
+
+True — and the reason is the **browser engine**, never the extension:
+
+- **Arc, Brave, Edge, Chrome** are **Chromium** browsers. They run the full Chrome
+  extension engine — high rule limits, request-blocking `webRequest`, and
+  scriptlet injection — so AdBlock/uBlock Origin block YouTube ads there.
+- **Orion** is WebKit like this browser, but Kagi **rebuilt the extension runtime
+  themselves** to add those same capabilities. That custom engine — not WebKit
+  itself — is what lets it run real uBlock Origin.
+- **This browser** is WebKit + Apple's `WKWebExtension`, which caps blocking rules
+  (~50k) and offers no request-blocking or scriptlet injection. So a Chrome ad
+  blocker's rules are rejected and YouTube ads can't be touched. It's inherent to
+  the native-WebKit, low-memory design — not a bug, and not fixable with a
+  setting.
+
+**Bottom line:** for everyday blocking, rely on the **built-in content blocker**
+above (it's fed the same EasyList/EasyPrivacy data an ad blocker uses). Installing
+AdBlock or uBlock Origin Lite won't add YouTube blocking, and classic uBlock
+Origin won't even enable (it's Manifest V2; this browser is MV3-only).
+
 There is currently **no in-app toggle** to disable blocking or whitelist a
 specific site; both are noted as possible future additions.
 
@@ -236,11 +257,16 @@ Open **Settings** (`Cmd+,`) → **Extensions**:
 4. The **trash** button uninstalls an extension: it's unloaded from every Space
    and deleted from the library.
 
-> **Ad blockers (e.g. AdBlock):** these rely on `declarativeNetRequest`. WebKit
-> supports it, but less completely than Chrome, so a Chrome ad blocker may block
-> less than you're used to. For everyday blocking, the browser's **built-in
-> content blocking** (on by default) is the more reliable path — and remember no
-> extension can block YouTube's own video ads here (see Content blocking).
+> **Ad blockers (AdBlock, uBlock Origin) don't really work here — by design.** A
+> Chrome ad blocker blocks via `declarativeNetRequest`, and its rule set (AdBlock
+> ships ~63k rules) is far larger than WebKit's ~50k limit, so the rules are
+> rejected and it blocks nothing. Classic **uBlock Origin won't even enable**
+> (it's Manifest V2; this browser is MV3-only), and uBlock Origin **Lite** hits
+> the same rule wall. This is the WebKit + Apple-extension-API limit, not a bug —
+> see ["But Arc / Brave / Orion block YouTube ads…"](#but-arc--brave--orion-block-youtube-ads-with-the-same-extension)
+> under Content blocking. **Use the built-in content blocker instead** (on by
+> default, fed the same filter lists). No extension can block YouTube video ads
+> here.
 
 Once enabled, an extension also appears in the sidebar and behaves like this:
 
@@ -275,6 +301,7 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | In-app extension install / enable / uninstall (Settings) | ✅ |
 | Settings: clear cache / cookies / storage / history | ✅ |
 | Per-site blocking whitelist / disable toggle | ⚠️ not implemented |
+| Chrome ad blockers (AdBlock / uBlock Origin) blocking ads | ❌ WebKit rule limits + no scriptlets |
 | YouTube / first-party video-ad blocking | ❌ not possible via `WKContentRuleList` |
 
 Default search engine is **Google**. Deployment target is **macOS 15.4+**.

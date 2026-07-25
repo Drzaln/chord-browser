@@ -57,6 +57,16 @@ a different engine entirely (this is how Brave and uBlock Origin do it) and is
 out of scope for the native approach. Proprietary procedural cosmetic filters
 (`:upward`, `:xpath`, `:-abp-`, …) are likewise dropped rather than mis-applied.
 
+**Why a Chrome ad blocker (AdBlock, uBlock Origin) can't stand in for this:**
+Chromium browsers (Arc, Brave, Chrome) and Orion (WebKit, but with a custom
+extension runtime Kagi built) can run those extensions with full request-blocking
+and scriptlet injection. This browser uses WebKit + Apple's `WKWebExtension`,
+which caps blocking rules (~50k, below AdBlock's ~63k) and offers no
+request-blocking or scriptlet injection — so those extensions can't block here.
+The built-in blocker above is the intended path. Full analysis and future options
+are in [CHECKPOINT.md](CHECKPOINT.md) ("Ad-blocking & YouTube") and the
+[User Guide](docs/USER_GUIDE.md#content-blocking).
+
 ---
 
 ## Requirements

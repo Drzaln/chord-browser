@@ -38,9 +38,50 @@ fixable bug** — it is a WebKit platform limit:
   which is fed the same EasyList/EasyPrivacy data, uses native `WKContentRuleList`
   (not DNR), and chunks at 50k so it loads the full ~137k rules. AdBlock the
   extension is redundant here and can be uninstalled.
-- UI note (not a bug): the extension toolbar buttons render only when the sidebar
-  is **collapsed/floating** (`ExtensionActionsBar` lives in the floating header).
-  Worth surfacing them in the docked sidebar too — a real follow-up.
+- UI note (fixed 2026-07-25 in commit `5455c7e`): toolbar buttons used to render
+  only after a sidebar collapse/re-expand — `load`/`unload` now fire
+  `onActionsChanged` so the header refreshes on launch. (Was: `ExtensionActionsBar`
+  in the header only re-read `actions(in:)` on a token bump that never happened at
+  load time.)
+
+**Ad-blocking & YouTube: why it works elsewhere but not here (design note,
+durable).** Recurring user question — "Brave/Arc/Orion block YouTube ads with the
+same extension, why can't mine?" The answer is always the **engine + extension
+runtime**, never the extension or the filter lists:
+
+- **The mechanism YouTube blocking needs:** YouTube serves video ads from the same
+  domain and player as the video, so there is no ad URL to match. Defeating them
+  needs **scriptlet injection** — arbitrary JS patched into YouTube's own page
+  (null the ad objects, prune the ad data from the player response, fake
+  ad-finished events). It also needs blocking `webRequest` for the general case.
+- **Arc = Chromium.** Runs the *full* Chrome extension engine for free: high DNR
+  limits (hundreds of thousands of rules), blocking `webRequest`, content scripts,
+  scriptlet injection. So AdBlock/uBO block YouTube ads there. Also true of Brave,
+  Edge, Chrome.
+- **Orion = WebKit, but Kagi *rebuilt* the WebExtensions runtime** (~70% of the
+  APIs, incl. `webRequest` blocking + scriptlets). That is why a WebKit browser
+  *can* run real uBlock Origin and block YouTube — it bypasses Apple's APIs.
+- **Ours = WebKit + Apple's `WKWebExtension`.** DNR rule cap ~50k/list (same limit
+  `ContentBlocker` chunks around), **no blocking `webRequest`, no scriptlet
+  injection**. So AdBlock's rules are rejected and YouTube ads cannot be touched.
+  This is inherent to the spec's WebKit-native, low-memory bet, not a bug.
+- **uBlock Origin here:** classic uBO is **MV2 → rejected** by our MV3-only load
+  guard (`WebKitExtensionHost.load`). uBO **Lite** (MV3) would install but is
+  DNR-based → same rule-limit wall, and cannot block YouTube even when fully
+  working. So "install uBO" does not help.
+
+**Two (large) future options if Arc-level blocking is ever wanted — NOT started,
+NOT in scope without an explicit ask (§11):**
+1. **Chromium engine** — abandons the WebKit-native design that is the whole point
+   of `BROWSER_SPEC`. Effectively a different browser.
+2. **Custom WebExtensions/scriptlet engine on WebKit (the Orion route)** — a
+   `webRequest`-style blocking layer + a `WKUserScript` main-world scriptlet/
+   content-script injection system. A major new subsystem and a permanent
+   cat-and-mouse with YouTube. A *minimal* first slice would be `WKUserScript`
+   main-world scriptlet injection for a **curated** site list — enough to prove the
+   mechanism, far short of running uBO.
+- **Server-side YouTube ads** (ad stitched into the video stream) can't be blocked
+  by *anyone* client-side, Orion/uBO included — worth remembering before promising.
 
 **Extensions-still-not-working, 2nd fix (2026-07-25).** After the host-access
 fix, AdBlock's popup showed "the AdBlock menu had trouble loading" and Enhancer
