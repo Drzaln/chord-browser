@@ -121,6 +121,19 @@ swift test  --package-path Packages
 > (data-store isolation, downloads to protected locations) must be verified
 > against the real app, not the package tests.
 
+### Resetting to a clean profile
+
+The app is sandboxed, so all user state (cookies, Spaces, tabs, history,
+extensions, caches, preferences) lives in one container. To wipe it and start
+fresh — e.g. before using a Release build daily:
+
+```bash
+scripts/reset-data.sh
+```
+
+It quits the app and prompts before deleting. Flags: `--yes` skips the prompt,
+`--build` also clears `DerivedData`/`Packages/.build`. Irreversible.
+
 ---
 
 ## Project layout
