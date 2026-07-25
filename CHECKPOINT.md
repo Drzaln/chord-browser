@@ -17,7 +17,7 @@ only the current position within it.
 | **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off) |
 | **Content blocking** | **§4.8 — C1–C4 complete and VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, soak). |
 | **Shipped** | **Extensions (M7) and content blocking are now ON by default — `FeatureFlags` deleted (§7.4).** Both are always wired in `AppEnvironment.live()`. |
-| **Next**        | Review. Optional follow-ups below (rule-list chunking, settings toggle, per-site whitelist, Instruments pass). |
+| **Next**        | Review. Remaining optional follow-ups are the two non-spec UI features (per-site whitelist, settings toggle) — **ask before building** (§11). |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
@@ -1136,7 +1136,13 @@ budgets pass with the blocker on. This is the milestone stop point (§8).
 - **A settings toggle** for the flag, instead of the launch-time constant.
 - **Whitelist / per-site disable** (an `ignore-previous-rules` rule keyed to the
   current host) — the machinery is already there.
-- Instruments Allocations/Leaks pass (§6.7), still never run.
+- **Leaks pass (§6.7) — done 2026-07-25, clean.** `leaks <pid>` on the running
+  app after browsing reported 282 leaks / 14 KB, **all macOS framework noise**
+  (AppIntents / Shortcuts `linkd` XPC cycles that every app gets) — **none of our
+  types, and none of §6.7's WebKit delegate/script-handler leaks**. Combined with
+  the flat soak footprint (Allocations-growth proxy), the app is leak-clean. The
+  full Instruments GUI trace (SwiftUI body counts, Energy Log) is not automatable
+  here and remains the only untouched part.
 - ~~Pre-existing `ExtensionArchiveTests.reinstallOverwritesInPlace` parallel
   flake.~~ **Fixed 2026-07-25:** `writeTemp` wrote sources to a fixed name in the
   shared temp dir, and three tests used `ext.xpi`; Swift Testing runs them in
