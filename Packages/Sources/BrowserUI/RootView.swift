@@ -149,6 +149,7 @@ public struct RootView: View {
         }
         .onChange(of: window == nil) { _, _ in
             window?.setTrafficLightsHidden(shouldHideTrafficLights)
+            configureWindow()
         }
         // Fullscreen enter/exit must re-evaluate the traffic lights: entering
         // with the sidebar collapsed would otherwise leave them hidden and the
@@ -254,13 +255,14 @@ public struct RootView: View {
         }
     }
 
-    /// The Space-tinted window background. Uses the cached per-Space gradient at
-    /// rest and the blended one during a swipe, over the system window colour so
-    /// it degrades to plain chrome when there is no Space.
+    /// The Space-tinted window background — the frosted-glass frame around the
+    /// web card. A `.ultraThinMaterial` base (which, with the window non-opaque,
+    /// samples and blurs the desktop behind it) tinted by the per-Space gradient,
+    /// blended during a swipe. Degrades to plain glass when there is no Space.
     @ViewBuilder
     private var spaceBorderTint: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            Rectangle().fill(.ultraThinMaterial)
             if let space = store.activeSpace {
                 Group {
                     if store.spaceSwipeProgress == 0 {
@@ -269,9 +271,19 @@ public struct RootView: View {
                         SpaceTheme.gradient(stops: store.swipeBlendedGradient)
                     }
                 }
-                .opacity(0.55)
+                .opacity(0.4)
             }
         }
+    }
+
+    /// Makes the window non-opaque so the frosted-glass materials (sidebar +
+    /// border) sample and blur the desktop behind the window rather than a flat
+    /// fill. The web content card stays opaque, so pages are unaffected.
+    /// Idempotent — safe to call whenever the window reference resolves.
+    private func configureWindow() {
+        guard let window else { return }
+        window.isOpaque = false
+        window.backgroundColor = .clear
     }
 
     private func reveal() {

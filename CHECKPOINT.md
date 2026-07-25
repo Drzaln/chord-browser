@@ -45,6 +45,21 @@ fixable bug** — it is a WebKit platform limit:
   in the header only re-read `actions(in:)` on a token bump that never happened at
   load time.)
 
+**Frosted-glass chrome (2026-07-25).** The docked sidebar and the border frame
+now use the same `.ultraThinMaterial` frosting the collapsed sidebar had. Three
+coordinated changes (verified live):
+- `SidebarView` background: `.ultraThinMaterial` in **both** modes (was
+  `.regularMaterial` when docked); Space-gradient tint at 0.1 floating / 0.28
+  docked.
+- `RootView.spaceBorderTint`: base is now `.ultraThinMaterial` (was opaque
+  `windowBackgroundColor`) + gradient tint at 0.4.
+- `RootView.configureWindow()` sets `window.isOpaque = false` /
+  `backgroundColor = .clear` (called from the existing `onChange(of: window ==
+  nil)` — **not** inline in `body`, which is already at the SwiftUI type-checker's
+  complexity limit; adding a multi-line closure there triggered "unable to
+  type-check in reasonable time"). The material only reads as glass because the
+  window is non-opaque; the web content card stays opaque so pages are unaffected.
+
 **Rebrand → "Chord" (2026-07-25).** User-facing name is now **Chord
 Browser** (icon: a white chord across a coral→magenta gradient circle,
 `#FF512F`→`#DD2476`). Applied **display-only** to avoid data loss:

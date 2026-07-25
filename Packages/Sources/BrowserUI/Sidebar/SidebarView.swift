@@ -80,14 +80,17 @@ struct SidebarView: View {
             // While a swipe is in flight it blends toward the neighbour's stops
             // (4.2); at rest it uses the cached per-Space gradient so an idle
             // sidebar does not rebuild one every frame (6.4).
-            // When in collapsed mode (floating), we use a thinner material and
-            // lower gradient opacity to create a premium frosted glass effect.
+            // Frosted glass in both modes: `.ultraThinMaterial` over the Space
+            // gradient. Floating uses a lower tint so the page reads through it;
+            // docked keeps more tint so the Space colour still carries, but the
+            // material is the same thin glass either way (the window is
+            // non-opaque, so the material samples the desktop behind it).
             if let space = store.activeSpace {
                 gradient(for: space)
-                    .opacity(isFloating ? 0.1 : 0.35)
-                    .overlay(isFloating ? .ultraThinMaterial : .regularMaterial)
+                    .opacity(isFloating ? 0.1 : 0.28)
+                    .overlay(.ultraThinMaterial)
             } else {
-                Color.clear.overlay(isFloating ? .ultraThinMaterial : .regularMaterial)
+                Color.clear.overlay(.ultraThinMaterial)
             }
         }
         .clipShape(
