@@ -53,6 +53,25 @@ struct ExtensionLoadingTests {
         #expect(host.loadedExtensions(in: s).map(\.slug) == ["test-mv3"])
     }
 
+    @Test func loadAndUnloadFireOnActionsChanged() async throws {
+        // The sidebar header re-reads `actions(in:)` only when this fires. WebKit
+        // does not emit `didUpdate action:` for a statically-declared default
+        // action on first load, so load/unload must fire it themselves — else the
+        // toolbar buttons stay hidden until an unrelated re-render (the reported
+        // "collapse the sidebar to make them appear" bug).
+        let host = WebKitExtensionHost()
+        var fires = 0
+        host.onActionsChanged = { fires += 1 }
+        let (installed, cleanup) = try installedExtension(slug: "test-mv3", manifest: Self.mv3)
+        defer { cleanup() }
+        let s = space()
+
+        try await host.load(installed, in: s)
+        #expect(fires == 1)  // header refreshes when the extension appears
+        try host.unload(slug: "test-mv3", in: s)
+        #expect(fires == 2)  // and again when it goes away
+    }
+
     @Test func rejectsAnMV2Extension() async throws {
         let host = WebKitExtensionHost()
         let (installed, cleanup) = try installedExtension(slug: "test-mv2", manifest: Self.mv2)

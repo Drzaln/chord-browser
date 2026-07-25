@@ -228,6 +228,12 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         Log.extensions.notice(
             "loaded extension \(installed.slug, privacy: .public) in space \(space.id, privacy: .public)"
         )
+        // Tell the UI to re-read `actions(in:)`. WebKit's `didUpdate action:`
+        // does not fire for an extension's statically-declared default action on
+        // first load, so without this the sidebar header — rendered before
+        // restore finished — never refreshes and its toolbar buttons stay hidden
+        // until an unrelated re-render (e.g. collapsing the sidebar). See 7.5a.
+        onActionsChanged?()
         return descriptor
     }
 
@@ -244,6 +250,8 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         Log.extensions.notice(
             "unloaded extension \(slug, privacy: .public) in space \(space.id, privacy: .public)"
         )
+        // Same reason as `load`: refresh the header so the removed button clears.
+        onActionsChanged?()
     }
 
     public func loadedExtensions(in space: Space) -> [LoadedExtension] {
