@@ -1,7 +1,8 @@
 # Chord Browser — Brand
 
-The project's user-facing name is **Chord**. (Internal target,
-product name, and bundle id stay `Browser` / `com.rizal.browser` — see below.)
+The project's user-facing name is **Chord**. The built app is `Chord.app` with a
+`Chord` executable (`PRODUCT_NAME = Chord`). The Xcode **target/scheme** name and
+the **bundle id** stay `Browser` / `com.rizal.browser` — see below.
 
 ## Icon
 
@@ -21,15 +22,18 @@ the circle, the geometric "chord" the name plays on. Source of truth:
 
 ## How the name is applied
 
-- **Visible name** — `CFBundleDisplayName = "Chord"` in
-  `BrowserApp/Info.plist`, and the window title in `BrowserApp/BrowserApp.swift`.
+- **App name / filename** — `PRODUCT_NAME = Chord` (project.pbxproj) → the bundle
+  is `Chord.app` and the executable/process is `Chord`.
+- **Display name** — `CFBundleName` / `CFBundleDisplayName = "Chord"` in
+  `BrowserApp/Info.plist` (menu bar, Finder, Dock), and the window title in
+  `BrowserApp/BrowserApp.swift`.
 - **Not changed on purpose:**
   - **Bundle identifier** stays `com.rizal.browser`. It keys the on-disk profile
     (cookies, Spaces, extensions, granted permissions). Changing it orphans all
-    existing user data, so the rebrand is display-only.
-  - **Xcode target / `PRODUCT_NAME`** stays `Browser` (renaming touches the
-    project file, which this repo excludes from commits, and gains nothing users
-    see once `CFBundleDisplayName` is set).
+    existing user data.
+  - **Xcode target and scheme** stay named `Browser` — the scheme is referenced
+    by `scripts/prepush.sh` (`-scheme Browser`) and renaming it is invasive for
+    no user-visible gain (`PRODUCT_NAME` already controls the app's name).
 
 ## App icon — wiring (one manual Xcode step)
 

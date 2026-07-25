@@ -219,13 +219,14 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BrowserApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Chord;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rizal.browser;
-				PRODUCT_NAME = Browser;
+				PRODUCT_NAME = Chord;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Debug;
@@ -242,13 +243,14 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BrowserApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Chord;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rizal.browser;
-				PRODUCT_NAME = Browser;
+				PRODUCT_NAME = Chord;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Release;
