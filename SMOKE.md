@@ -14,6 +14,7 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 ## M1 — Browse
 
 ### Navigation
+
 - [ ] App launches to a single window with a sidebar and one tab
 - [ ] Typing a full URL (`https://example.com`) navigates
 - [ ] Typing a bare host (`example.com`) navigates over https
@@ -23,6 +24,7 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 - [x] Progress bar appears during load (disappearance on completion unchecked)
 
 ### Tabs
+
 - [ ] `Cmd+T` opens a new tab and selects it
 - [ ] `Cmd+W` closes the current tab and selects a neighbour
 - [ ] Closing the last tab opens a fresh one rather than an empty window
@@ -32,6 +34,7 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
 - [ ] `target="_blank"` links open a new tab rather than being swallowed
 
 ### Persistence
+
 - [ ] Quit and relaunch: tabs come back with titles and favicons
 - [ ] After relaunch, no tab has loaded until it is clicked (check the debug
       overlay: live web views should be 1, not the tab count)
@@ -40,11 +43,13 @@ Builds all packages, runs all tests, and builds the app — warnings as errors.
       app still launches
 
 ### Crash recovery
+
 - [ ] Kill a content process (`pkill -f "com.apple.WebKit.WebContent"` with the
       app in front): the page reloads itself and the app stays responsive
 - [ ] Repeat while a second tab is open: the other tab is unaffected
 
 ### Performance (6.1 gate)
+
 - [x] Cold launch to first interactive frame < 400 ms
 - [x] Idle CPU with the window visible and nothing loading < 0.5%
 - [x] Idle CPU with the window minimised ~0%
@@ -62,16 +67,16 @@ Conditions: Apple Silicon, Debug build, 3 Spaces, 22 tabs, 12 live web views
 (more than the 5 the budget assumes, so the footprint rows are measured under
 heavier load than required).
 
-| Metric | Target | Ceiling | Measured | |
-|---|---|---|---|---|
-| App process footprint | < 150 MB | 250 MB | **59–72 MB** | pass |
-| Total footprint | < 1.2 GB | 1.8 GB | **654–775 MB** | pass |
-| Idle CPU, visible | < 0.5% | 1% | **0.36%** app | pass |
-| Idle CPU, occluded | ~0% | 0.2% | **0.01%** app | pass |
-| Cold launch | < 400 ms | 800 ms | **< 308 ms** | pass |
-| Space switch | < 100 ms | 200 ms | **< 1 ms** | pass |
-| Command bar open | < 50 ms | 100 ms | **6–27 ms** | pass |
-| Sidebar scroll | 120 fps | no drops at 60 | not measurable | — |
+| Metric                | Target   | Ceiling        | Measured       |      |
+| --------------------- | -------- | -------------- | -------------- | ---- |
+| App process footprint | < 150 MB | 250 MB         | **59–72 MB**   | pass |
+| Total footprint       | < 1.2 GB | 1.8 GB         | **654–775 MB** | pass |
+| Idle CPU, visible     | < 0.5%   | 1%             | **0.36%** app  | pass |
+| Idle CPU, occluded    | ~0%      | 0.2%           | **0.01%** app  | pass |
+| Cold launch           | < 400 ms | 800 ms         | **< 308 ms**   | pass |
+| Space switch          | < 100 ms | 200 ms         | **< 1 ms**     | pass |
+| Command bar open      | < 50 ms  | 100 ms         | **6–27 ms**    | pass |
+| Sidebar scroll        | 120 fps  | no drops at 60 | not measurable | —    |
 
 Read the CPU rows as the **app process alone**, consistent with the footprint
 row that says "excl. content processes". Whole-tree idle CPU (app + WebContent +
@@ -79,6 +84,7 @@ GPU + Networking) was 1.17% visible and 0.11% occluded; the difference is live
 pages animating, which is not an app-layer cost.
 
 Caveats worth keeping honest:
+
 - Cold launch is an upper bound. It is `open` → accessibility reports a window,
   and each accessibility probe alone costs ~144 ms, so the real number is well
   under 308 ms. In-app work is far smaller: the `launch` signpost (environment
@@ -97,10 +103,10 @@ Cmd+1…3 Space switches every 4 s for 30 minutes. M6 adds a permanent scroll
 event monitor (swipe switching), a live-only sidebar drop layer, and a find
 bar holding a cancellable task — none had been measured over a soak.
 
-| | Start (settled, min 5) | End (min 30) | |
-|---|---|---|---|
-| App process footprint | 50 MB | **43 MB** | no growth — fell |
-| Total (app + WebKit helpers) | 426 MB | **410 MB** | flat-to-declining |
+|                              | Start (settled, min 5) | End (min 30) |                   |
+| ---------------------------- | ---------------------- | ------------ | ----------------- |
+| App process footprint        | 50 MB                  | **43 MB**    | no growth — fell  |
+| Total (app + WebKit helpers) | 426 MB                 | **410 MB**   | flat-to-declining |
 
 No leak: the app process is flat at 40–50 MB across the run and 43 MB at the
 end, and the total settles to ~410–418 MB from minute 5 and stays there. Both
@@ -124,16 +130,16 @@ launch through `restoreEnabled` and ran a per-Space worker (§6.6). Content-scri
 injection was confirmed on the live pages ("SOAK EXT ACTIVE" banner). Driven with
 Cmd+1…3 Space switches every 4 s for 30 minutes.
 
-| | Start (min 0) | Settled (min ~9) | End (min 30) | |
-|---|---|---|---|---|
-| App process footprint | 55 MB | 64 MB | **64 MB** | flat, no growth |
-| Total (app + WebKit helpers) | 317 MB | ~470 MB | **485 MB** | flat |
+|                              | Start (min 0) | Settled (min ~9) | End (min 30) |                 |
+| ---------------------------- | ------------- | ---------------- | ------------ | --------------- |
+| App process footprint        | 55 MB         | 64 MB            | **64 MB**    | flat, no growth |
+| Total (app + WebKit helpers) | 317 MB        | ~470 MB          | **485 MB**   | flat            |
 
-| §6.1 budget | measured | target | ceiling | |
-|---|---|---|---|---|
-| App process RSS | **64 MB** | < 150 MB | 250 MB | pass (wide) |
-| Total footprint | **485 MB** | < 1.2 GB | 1.8 GB | pass (wide) |
-| Idle CPU, window visible | **0.63%** | < 0.5% | 1% | under ceiling¹ |
+| §6.1 budget              | measured   | target   | ceiling |                |
+| ------------------------ | ---------- | -------- | ------- | -------------- |
+| App process RSS          | **64 MB**  | < 150 MB | 250 MB  | pass (wide)    |
+| Total footprint          | **485 MB** | < 1.2 GB | 1.8 GB  | pass (wide)    |
+| Idle CPU, window visible | **0.63%**  | < 0.5%   | 1%      | under ceiling¹ |
 
 **No leak.** The app process rises 55→64 MB in the first ~9 minutes (warm-up as
 per-Space workers and initial pages load) and is then **flat at 64 MB** for the
@@ -167,22 +173,22 @@ Google/YouTube/X/Instagram/Reddit/Wikipedia/GitHub/Amazon), with
 the full EasyList + EasyPrivacy and compiles ~50k rules off-main. 30 minutes of
 Cmd+1…3 Space switches.
 
-| | Start (min 0) | Settled (min ~10) | End (min 30) | |
-|---|---|---|---|---|
-| App process footprint | 32 MB | 60 MB | **58 MB** | flat, no growth |
-| Total (app + WebKit helpers) | 297 MB | ~465 MB | **464 MB** | flat |
+|                              | Start (min 0) | Settled (min ~10) | End (min 30) |                 |
+| ---------------------------- | ------------- | ----------------- | ------------ | --------------- |
+| App process footprint        | 32 MB         | 60 MB             | **58 MB**    | flat, no growth |
+| Total (app + WebKit helpers) | 297 MB        | ~465 MB           | **464 MB**   | flat            |
 
-| §6.1 budget | measured | target | ceiling | |
-|---|---|---|---|---|
-| App process RSS | **58–60 MB** | < 150 MB | 250 MB | pass (wide) |
-| Total footprint | **464 MB** | < 1.2 GB | 1.8 GB | pass (wide) |
-| Idle CPU, window visible | **0.56%** | < 0.5% | 1% | under ceiling¹ |
+| §6.1 budget              | measured     | target   | ceiling |                |
+| ------------------------ | ------------ | -------- | ------- | -------------- |
+| App process RSS          | **58–60 MB** | < 150 MB | 250 MB  | pass (wide)    |
+| Total footprint          | **464 MB**   | < 1.2 GB | 1.8 GB  | pass (wide)    |
+| Idle CPU, window visible | **0.56%**    | < 0.5%   | 1%      | under ceiling¹ |
 
 **No leak, and content blocking adds no measurable steady-state cost.** The
 numbers are within noise of the M7 soak (64 MB app / 485 MB total) — the compiled
 rule list is a shared, immutable object, so attaching it to every view costs
 almost nothing, and the compile is a one-time transient. **The compile spike is
-transient and off-main:** the app process read ~103 MB *during* the full 50k-rule
+transient and off-main:** the app process read ~103 MB _during_ the full 50k-rule
 compile at launch, then released to **32 MB** once done (well under budget), and
 the window was interactive at t+3 s — the compile never blocked launch (§6.6).
 
@@ -201,24 +207,27 @@ timers and no idle CPU. Samples in `/tmp/soak-052928.tsv`.
 ## M2 — Spaces
 
 ### Switching
+
 - [ ] The Space strip appears at the top of the sidebar
 - [ ] Clicking a Space switches the tab list to that Space's tabs
 - [ ] `Cmd+1`…`Cmd+9` select Spaces by position
 - [ ] A shortcut for a Space that does not exist does nothing
 - [ ] Switching back to a Space returns to the tab you were last on
 - [ ] Switching to an empty Space opens a new tab in it
-- [x] The sidebar gradient changes with the active Space (the *animation*
+- [x] The sidebar gradient changes with the active Space (the _animation_
       itself still needs an eye — stills cannot show it)
 - [ ] Reduce Motion collapses the animation without breaking the switch
 
 ### Isolation — the M2 done-when
+
 - [ ] Log into Google in Space A
 - [ ] Switch to Space B, open the same site: **you are logged out there**
-- [ ] Log into a *second* Google account in Space B
+- [ ] Log into a _second_ Google account in Space B
 - [ ] Switch back to Space A: still the first account, no re-auth
 - [ ] Quit and relaunch: both sessions survive independently
 
 ### Managing Spaces
+
 - [ ] "+" adds a Space with a distinct gradient, and activates it
 - [ ] Right-click a Space → Delete asks for confirmation first
 - [ ] Deleting removes its tabs and its cookies (log in, delete, recreate a
@@ -228,12 +237,14 @@ timers and no idle CPU. Samples in `/tmp/soak-052928.tsv`.
       (it must not carry the old Space's session)
 
 ### Migration from v1
+
 - [ ] A profile created before M2 opens with all its tabs in a "Personal" Space
 - [ ] A pre-migration backup exists in `Backups/`
 
 ## M3 — Command bar + ephemeral tabs
 
 ### Command bar
+
 > Verified live via accessibility automation: open, focus, type, Enter,
 > Cmd+Enter, and Esc all confirmed against the running app. The unticked items
 > below still need a human eye.
@@ -250,12 +261,13 @@ timers and no idle CPU. Samples in `/tmp/soak-052928.tsv`.
 - [x] The app behind it does not visibly activate or lose its selection
 - [ ] Typing filters with no perceptible lag
 - [x] Up/down arrows move the highlight and wrap at the ends
-- [x] An open tab in *another* Space is findable, and its row names the Space
+- [x] An open tab in _another_ Space is findable, and its row names the Space
 - [x] Commands ("new space", "close tab") are reachable by name
 
 ## M5 — Split view + Little Arc
 
 ### Split view
+
 - [x] `Cmd+Shift+D` splits the focused tab into two panes of equal width
 - [x] The focused pane is visibly marked; the ring only appears when split
 - [x] **Dragging a divider tracks the cursor smoothly** and resizes the two
@@ -285,7 +297,7 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
 - [x] **Ending a drag does not select the row that was dragged.** Found here,
       not in tests: the drag source cleared its own flag when the session ended,
       so the mouse-up that sometimes arrives afterwards read as a plain click
-- [x] Clicking an unfocused pane focuses it *and* the click still reaches the
+- [x] Clicking an unfocused pane focuses it _and_ the click still reaches the
       page (a link under the cursor should follow)
 - [x] Splitting four times stops at four panes
 - [x] `Cmd+Shift+Opt+D` closes the focused pane; down to one converts the tab
@@ -294,6 +306,7 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
       and lazily — no web view until it was shown)
 
 ### Little Arc (§4.6)
+
 - [x] A web link from another app opens the floating panel, not a tab
 - [x] The panel appears at the cursor, borderless, over the main window
 - [x] `Cmd+O` promotes it into a real tab in the active Space, and the panel
@@ -304,9 +317,10 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
 - [ ] A link arrives already logged in to the active Space's session
 - [ ] Opening a second link replaces the first panel rather than stacking
 - [ ] The scale-and-fade entry reads well, and Reduce Motion skips it
-- [ ] Browsing inside the panel and *then* promoting keeps where you got to
+- [ ] Browsing inside the panel and _then_ promoting keeps where you got to
 
 ### Window chrome
+
 - [x] No dead band above the web content — the card starts at the top inset,
       not below a reserved titlebar strip
 - [x] Traffic lights clear the Space switcher without overlapping it
@@ -320,7 +334,7 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
 
 Screen recording is granted, so these were checked by screenshot rather than
 left to a human eye. It is how the clipped result list was found; everything
-below had passed its *behavioural* check for two milestones while never once
+below had passed its _behavioural_ check for two milestones while never once
 being looked at.
 
 Two things the sweep turned up, neither fixed:
@@ -334,11 +348,12 @@ Two things the sweep turned up, neither fixed:
   history with its challenge URL. `recordVisit` skips blank and error pages but
   has no notion of a challenge page.
 
-Still not covered, and still needing a human: the gradient *animation* and
+Still not covered, and still needing a human: the gradient _animation_ and
 sidebar scroll smoothness (stills cannot show motion), Reduce Motion (a system
 setting this sweep did not change), and whether typing "feels" lag-free.
 
 ### Cmd+T vs Cmd+L (§4.4, changed after M4 review)
+
 - [x] `Cmd+T` + Enter opens the result in a **new** tab, leaving the current one
 - [x] `Cmd+L` + Enter navigates the **current** tab, opening nothing new
 - [ ] `Cmd+Enter` forces a new tab from either mode
@@ -347,9 +362,10 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 - [x] Typing a word (`github`) still highlights the open tab, with the search
       fallback last
 - [x] Every row shows what Return will do — a cross-Space result reads
-      "Switch to Tab" *before* you press it
+      "Switch to Tab" _before_ you press it
 
 ### Ephemeral sweep
+
 - [ ] A tab left idle past the window is closed automatically
 - [ ] The tab you are looking at is never closed
 - [ ] A pinned tab is never closed
@@ -360,12 +376,14 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 - [ ] Minimise the window: no sweeping happens while it is hidden
 
 ### Migration from v2
+
 - [ ] An existing profile opens with history and archive tables added, tabs intact
 
 ## M4 — Session restore + downloads
 
 ### Restore
-> `interactionState` is written on tab *deactivation*, on occlusion, and on
+
+> `interactionState` is written on tab _deactivation_, on occlusion, and on
 > quit. A force-quit still loses whatever happened since the last switch — there
 > is no way around that, which is exactly why capture is not left to quit alone.
 
@@ -377,42 +395,45 @@ setting this sweep did not change), and whether typing "feels" lag-free.
       check with `sqlite3 browser.sqlite "select count(*) from paneInteractionState"`)
 - [ ] Scroll position comes back on a long page
 - [ ] Text typed into a form comes back
-- [ ] Switch tabs, then force-quit: the tab you switched *away* from restores,
+- [ ] Switch tabs, then force-quit: the tab you switched _away_ from restores,
       the one you were looking at may not
 - [ ] Closing a tab drops its stored state (count above goes down after a save)
 
 ### Downloads
+
 - [x] A link to a non-renderable file downloads instead of doing nothing
 - [x] The file lands in ~/Downloads and is byte-for-byte correct (verified in the
       real sandboxed app — `swift test` runs unsandboxed and cannot prove this)
 - [x] A second download of the same name becomes `name-1`, it does not overwrite
-- [ ] The progress bar advances on a large, slow download
+- [x] The progress bar advances on a large, slow download
 - [ ] A download with no `Content-Length` shows an indeterminate bar, not 0%
-- [ ] Cancel actually stops the transfer
+- [x] Cancel actually stops the transfer
 - [ ] Clearing a finished row leaves the file on disk
-- [ ] The downloads button is hidden until there is something to show
+- [x] The downloads button is hidden until there is something to show
 
 ## M6 — Polish
 
 ### Find-in-page (§8, M6)
+
 - [x] `Cmd+F` opens the bar with focus in the field
 - [x] Typing searches as you go; `Cmd+G` / `Cmd+Shift+G` step matches
-- [x] A miss says "Not found" and outlines the bar; an *emptied* field says
+- [x] A miss says "Not found" and outlines the bar; an _emptied_ field says
       nothing rather than flashing "Not found" on every backspace
 - [x] Esc and the close button dismiss it and clear the page's highlight
-- [ ] In a split, Cmd+F searches only the focused pane (unit-tested; confirm by
+- [x] In a split, Cmd+F searches only the focused pane (unit-tested; confirm by
       hand that the other pane does not scroll)
 
 ### Command bar as the way in (§4.4)
+
 - [x] The sidebar's **New Tab** button opens the command bar, not a blank tab
 - [x] **`Cmd+Shift+D`** opens the command bar, and Return puts the result in a
-      new *pane* — the tab count does not change
+      new _pane_ — the tab count does not change
 - [x] In split mode the rows read "Move to Split" / "Open in Split", not
       "Switch to Tab"
 - [x] `Cmd+N` still opens a plain blank tab
 - [ ] `Cmd+Enter` from split mode forces a new tab rather than a pane
       (unit-tested; confirm by hand)
-- [ ] `Cmd+Shift+D` on a tab that already has 4 panes — the store declines, so
+- [x] `Cmd+Shift+D` on a tab that already has 4 panes — the store declines, so
       check the bar does not leave you with a dismissed panel and no feedback
 
 ### Sidebar: hide and reveal (§4.1)
@@ -435,6 +456,7 @@ screenshot — a 6-point strip does not survive a guess.
       in practice — it will matter if the inset ever goes away
 
 ### Favourites (§4.1)
+
 - [x] "Pin to Favourites" moves a tab from the list into the grid
 - [x] The grid is 4 tiles per row, favicon only, and selection is visible
 - [x] Unpin returns it to the ephemeral list
@@ -442,22 +464,23 @@ screenshot — a 6-point strip does not survive a guess.
 - [ ] Favourites survive relaunch (the placement is persisted from M1; confirm)
 
 ### 30-minute soak
+
 - [x] 20 tabs open, cycle through them repeatedly for 30 minutes
 - [x] Record footprint at start and end (debug overlay, `Cmd+Ctrl+P`)
 - [x] Growth over the soak means a leak — investigate before moving on
 
-Start: **70** MB   End: **62** MB
+Start: **70** MB End: **62** MB
 
 Run 2026-07-23 on Apple Silicon: 3 Spaces, 22 tabs, 12 live web views (the pool
 cap), Space switched every 4 s for 30 minutes, sampled every 60 s.
 
-| | start | end | range |
-|---|---|---|---|
-| App `phys_footprint` | 70 MB | 62 MB | 59–72 MB |
-| App + all WebKit helpers | 720 MB | 727 MB | 654–775 MB |
-| Live web views | 12 | 12 | 12 throughout |
+|                          | start  | end    | range         |
+| ------------------------ | ------ | ------ | ------------- |
+| App `phys_footprint`     | 70 MB  | 62 MB  | 59–72 MB      |
+| App + all WebKit helpers | 720 MB | 727 MB | 654–775 MB    |
+| Live web views           | 12     | 12     | 12 throughout |
 
-No growth over 30 minutes — the app process finished *lower* than it started,
+No growth over 30 minutes — the app process finished _lower_ than it started,
 and the total oscillates around a flat mean. No leak signal.
 
 #### M5 re-run, 2026-07-23
@@ -469,22 +492,22 @@ had been run exactly once: `seed` writes the fixture, `run` drives and samples.
 
 3 Spaces, 21 tabs (one per Space is a 4-pane split), 12 live web views, Space
 switched every 4 s for 30 minutes, sampled every 60 s. Started from a
-*restored* session, so lazy restore is on the path.
+_restored_ session, so lazy restore is on the path.
 
-| | start | end | range |
-|---|---|---|---|
-| App `phys_footprint` | 60 MB | 58 MB | 58–60 MB |
-| App + all WebKit helpers | 555 MB | 498 MB | 497–555 MB |
-| Live web views | 12 | 12 | 12 throughout |
+|                          | start  | end    | range         |
+| ------------------------ | ------ | ------ | ------------- |
+| App `phys_footprint`     | 60 MB  | 58 MB  | 58–60 MB      |
+| App + all WebKit helpers | 555 MB | 498 MB | 497–555 MB    |
+| Live web views           | 12     | 12     | 12 throughout |
 
-| §6.1 budget | measured | target | ceiling |
-|---|---|---|---|
-| App RSS | 58 MB | < 150 MB | 250 MB |
-| Total footprint | 498 MB | < 1.2 GB | 1.8 GB |
-| Idle CPU, visible | 0.083% | < 0.5% | 1% |
-| Idle CPU, occluded | 0.006% | ~0% | 0.2% |
+| §6.1 budget        | measured | target   | ceiling |
+| ------------------ | -------- | -------- | ------- |
+| App RSS            | 58 MB    | < 150 MB | 250 MB  |
+| Total footprint    | 498 MB   | < 1.2 GB | 1.8 GB  |
+| Idle CPU, visible  | 0.083%   | < 0.5%   | 1%      |
+| Idle CPU, occluded | 0.006%   | ~0%      | 0.2%    |
 
-No leak: both figures end *below* where they started, the total declining
+No leak: both figures end _below_ where they started, the total declining
 monotonically as WebKit reclaims. Split view costs nothing structural — a
 4-pane tab is four panes against the same 12-view cap, not four extra.
 
