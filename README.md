@@ -134,6 +134,11 @@ scripts/reset-data.sh
 It quits the app and prompts before deleting. Flags: `--yes` skips the prompt,
 `--build` also clears `DerivedData`/`Packages/.build`. Irreversible.
 
+It clears the profile *inside* the container's `Data/` folder — it deliberately
+leaves the container shell and its `.com.apple.containermanagerd.metadata.plist`,
+which macOS manages and won't let you delete without Full Disk Access. That's
+harmless: the app recreates a fresh `Data/Library` on next launch.
+
 ---
 
 ## Project layout

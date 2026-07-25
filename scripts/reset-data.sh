@@ -28,10 +28,10 @@ for arg in "$@"; do
     esac
 done
 
-echo "This will PERMANENTLY delete all of $APP_NAME's data:"
-echo "  $CONTAINER"
-if [ ! -d "$CONTAINER" ]; then
-    echo "  (already gone — nothing to delete)"
+echo "This will PERMANENTLY delete all of $APP_NAME's data under:"
+echo "  $CONTAINER/Data"
+if [ ! -d "$CONTAINER/Data" ] || [ -z "$(ls -A "$CONTAINER/Data" 2>/dev/null)" ]; then
+    echo "  (already empty — nothing to delete)"
 fi
 [ "$CLEAN_BUILD" -eq 1 ] && echo "  + build artifacts (DerivedData/Browser-*, Packages/.build)"
 
@@ -47,8 +47,19 @@ pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 pkill -x Browser     >/dev/null 2>&1 || true   # in case it launched as the target name
 sleep 1
 
-rm -rf "$CONTAINER"
-echo "Deleted $CONTAINER"
+# Delete everything *inside* Data/ (the profile: Library/, symlinks, dotfiles).
+# We do NOT remove the container root or its
+# .com.apple.containermanagerd.metadata.plist — those are managed by macOS's
+# containermanagerd and refuse deletion without Full Disk Access. Leaving the
+# empty shell is harmless: the sandbox recreates Data/Library on next launch, so
+# targeting Data's contents gives a clean profile without the "Operation not
+# permitted" noise.
+if [ -d "$CONTAINER/Data" ]; then
+    find "$CONTAINER/Data" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+    echo "Cleared $CONTAINER/Data"
+else
+    echo "Nothing to clear."
+fi
 
 if [ "$CLEAN_BUILD" -eq 1 ]; then
     rm -rf "$HOME/Library/Developer/Xcode/DerivedData/"Browser-*
