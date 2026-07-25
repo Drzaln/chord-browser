@@ -14,12 +14,12 @@ only the current position within it.
 |                 |                                                                                                                 |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**, behind `FeatureFlags.extensionsEnabled` (default off) |
-| **Content blocking** | **§4.8 — C1–C4 complete and VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, soak). |
-| **Shipped** | **Extensions (M7) and content blocking are now ON by default — `FeatureFlags` deleted (§7.4).** Both are always wired in `AppEnvironment.live()`. |
-| **Next**        | Review. Remaining optional follow-ups are the two non-spec UI features (per-site whitelist, settings toggle) — **ask before building** (§11). |
+| **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE** |
+| **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak). |
+| **Shipped** | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
+| **Next**        | Review. The only remaining follow-ups are **non-spec UI features** (per-site whitelist, settings toggle) — **ask the user before building** (§11). |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 277 passing (258 unit + 19 end-to-end)                                                                          |
+| **Tests**       | 302 passing (283 unit + 19 end-to-end)                                                                          |
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
 | **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 
@@ -29,8 +29,9 @@ task all in play. App process flat at 40–50 MB (43 MB at end), total settled a
 ~410 MB, no leak over 30 minutes. Every budget clear by a wide margin. Numbers
 and method in [SMOKE.md](SMOKE.md); the runner is `scripts/soak.sh` (`seed` then
 `run`, `restore` to put the real session back). Two gaps remain, neither
-blocking: no Instruments pass, and sidebar scroll is still unmeasured. See
-Carried debt.
+blocking: the full Instruments GUI trace (SwiftUI body counts, Energy Log) and
+sidebar scroll are still unmeasured — but the §6.7 **Leaks** pass is now done and
+clean (2026-07-25, framework noise only). See Carried debt.
 
 ## Kickoff prompt for the next session
 
@@ -40,16 +41,33 @@ one of them has already cost a session here.
 ```
 Read BROWSER_SPEC.md and CHECKPOINT.md in full before writing any code.
 
-M1-M6 are done. M7 (Extensions) is in progress: 7.1-7.4 landed, 7.3b verified
-live, all behind `FeatureFlags.extensionsEnabled` (default off). Single `main`
-branch, 268 tests passing, `./scripts/prepush.sh` green, schema v4.
+**Every spec milestone is done.** M1–M7 (Extensions) and the content-blocking
+milestone (§4.8) have all shipped on `main`, verified live. Both extensions and
+content blocking are ON by default — the `FeatureFlags` struct was deleted (§7.4).
+Single `main` branch, 302 tests passing, `./scripts/prepush.sh` green, schema v5.
 
-Your job is **7.5** (action popover + permission UI). The full plan, the two
-decisions already made, and the SDK-verified WKWebExtension symbols are under
-"Next steps, in order" → "M7 phase 7.5" in CHECKPOINT.md. Implement 7.5a→7.5d in
-order, one commit per sub-phase, staging with
-`git add -A ':!Browser.xcodeproj/project.pbxproj'` and committing ONLY when the
-user asks. Live-verify 7.5c injection with the recipe under "Verifying 7.5 live".
+There is **no assigned next task** — wait for the user to pick one. The only
+follow-ups on the board are two NON-SPEC UI features, so do NOT start either
+without the user asking (§11 forbids adding out-of-scope features):
+  - **Per-site whitelist / disable** — the machinery exists: add an
+    `ignore-previous-rules` `WKContentRuleList` keyed to the current host, or clear
+    lists on that host. See `ContentBlocker` / `WebKitEngine.applyContentRuleLists`.
+  - **Runtime settings toggle** for content blocking (and/or extensions) — a small
+    settings surface that re-attaches or clears the lists via
+    `engine.applyContentRuleLists`.
+Also open, both non-blocking: the full Instruments GUI trace (SwiftUI body counts,
+Energy Log — not automatable here; the §6.7 Leaks pass is done and clean), and
+sidebar-scroll fps. Content blocking's tail-coverage is already handled (the full
+~137k rules are chunked in, not capped at 50k).
+
+If the user does pick up content-blocking work, the design and live findings are
+under "How content blocking works" in this file — especially: WebKit's url-filter
+rejects disjunctions, compiling the whole list at once can hit an uncatchable
+signal-6 abort (hence 50k chunks), and the compile completion handler is on the
+main queue (a main-thread-blocking wait deadlocks — use await).
+
+Stage with `git add -A ':!Browser.xcodeproj/project.pbxproj'` and commit/push
+ONLY when the user asks.
 
 Follow Section 11 strictly. In particular:
 
