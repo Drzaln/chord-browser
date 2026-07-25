@@ -71,6 +71,9 @@ public struct CommandBarInput: Sendable {
     public var history: [HistoryEntry]
     public var archived: [ArchivedTab]
     public var now: Date
+    /// The configured search engine's query template (`%s` placeholder). Carried
+    /// as a value so the ranker stays pure and the engine choice is testable.
+    public var searchTemplate: String
 
     public init(
         query: String,
@@ -78,7 +81,8 @@ public struct CommandBarInput: Sendable {
         spaceNames: [UUID: String] = [:],
         history: [HistoryEntry] = [],
         archived: [ArchivedTab] = [],
-        now: Date
+        now: Date,
+        searchTemplate: String = URLInput.defaultSearchTemplate
     ) {
         self.query = query
         self.tabs = tabs
@@ -86,6 +90,7 @@ public struct CommandBarInput: Sendable {
         self.history = history
         self.archived = archived
         self.now = now
+        self.searchTemplate = searchTemplate
     }
 }
 
@@ -129,7 +134,7 @@ public enum CommandBarRanking {
         // fuzzy-matched the text won the highlight and Return jumped Spaces
         // instead of navigating. A search query still sorts last, because there
         // an open tab or a history hit really is the better guess.
-        if let fallback = fallback(query: query) {
+        if let fallback = fallback(query: query, input: input) {
             switch fallback.kind {
             case .navigate: results.insert(fallback, at: 0)
             default: results.append(fallback)
@@ -215,10 +220,12 @@ public enum CommandBarRanking {
         }
     }
 
-    private static func fallback(query: String) -> Suggestion? {
-        guard !query.isEmpty, let url = URLInput.resolve(query) else { return nil }
+    private static func fallback(query: String, input: CommandBarInput) -> Suggestion? {
+        guard !query.isEmpty,
+              let url = URLInput.resolve(query, searchTemplate: input.searchTemplate)
+        else { return nil }
 
-        let isSearch = url.absoluteString.hasPrefix(URLInput.searchTemplate)
+        let isSearch = URLInput.isSearch(query)
         return Suggestion(
             id: isSearch ? "search" : "navigate",
             kind: isSearch ? .search(query: query, url: url) : .navigate(url: url),

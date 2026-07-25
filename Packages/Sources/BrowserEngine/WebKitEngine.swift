@@ -64,6 +64,10 @@ public final class WebKitEngine: WebEngine {
     /// Last known URL per pane, for reload-after-crash.
     private var lastKnownURL: [UUID: URL] = [:]
 
+    /// The URL of the most recently right-clicked link per pane, fed by
+    /// `ContextLinkMonitor` and read when "Open in Little Chord" is chosen.
+    private var contextLinkURL: [UUID: URL] = [:]
+
     public init(
         configuration: EngineConfiguration,
         downloads: DownloadCoordinator = DownloadCoordinator()
@@ -178,8 +182,10 @@ public final class WebKitEngine: WebEngine {
         // NSInvalidArgumentException and takes the app down on the second tab.
         let controller = WKUserContentController()
         controller.addUserScript(MediaActivityMonitor.makeUserScript())
+        controller.addUserScript(ContextLinkMonitor.makeUserScript())
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
+            controller.add(coordinator, name: ContextLinkMonitor.messageName)
         }
         // Native content blocking (§4.8, C2). The compiled list is shared and
         // immutable; adding it to each view's controller is what actually
@@ -190,13 +196,24 @@ public final class WebKitEngine: WebEngine {
         }
         config.userContentController = controller
 
-        let webView = WKWebView(frame: .zero, configuration: config)
+        let webView = ChordWebView(frame: .zero, configuration: config)
         webView.allowsBackForwardNavigationGestures = true
         webView.configuration.preferences.setValue(true, forKey: "fullScreenEnabled")
         webView.allowsMagnification = true
         webView.customUserAgent = nil
         webView.navigationDelegate = coordinator
         webView.uiDelegate = coordinator
+
+        // "Open in Little Chord" on a link's context menu. The URL is resolved at
+        // click time from the pane's last reported link, and routed out through
+        // the engine's delegate to the app's Little Arc panel.
+        webView.contextLinkURL = { [weak self, weak webView] in
+            guard let self, let webView, let paneID = self.paneID(for: webView) else { return nil }
+            return self.contextLinkURL[paneID]
+        }
+        webView.onOpenInLittleArc = { [weak self] url in
+            self?.delegate?.paneRequestedLittleArc(url: url)
+        }
         return webView
     }
 
@@ -250,6 +267,12 @@ public final class WebKitEngine: WebEngine {
         guard let live = pool.view(for: paneID), live.isPlayingAudio != playing else { return }
         live.isPlayingAudio = playing
         handleSnapshot(live.snapshot, for: paneID)
+    }
+
+    /// Records (or clears) the link the pane's page reported under the last
+    /// right-click. `nil` when the click was not over a link.
+    func setContextLinkURL(_ url: URL?, for paneID: UUID) {
+        contextLinkURL[paneID] = url
     }
 
     // MARK: - Navigation

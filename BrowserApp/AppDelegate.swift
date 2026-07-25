@@ -75,6 +75,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         disableWindowTabbing()
 
+        // "Open in Little Chord" from a link's context menu routes here: the engine
+        // asks the store, the store forwards to this presenter, which owns the
+        // panel. Set once — the closure holds the controller lazily.
+        launch.store?.littleArcPresenter = { [weak self] url in
+            self?.littleArc?.present(url: url)
+        }
+
         // Windows created later (and SwiftUI recreating one) must get the same
         // treatment, or the shortcut breaks again the next time.
         NotificationCenter.default.addObserver(

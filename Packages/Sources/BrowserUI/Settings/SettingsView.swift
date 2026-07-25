@@ -14,11 +14,12 @@ public struct SettingsView: View {
     let extensions: ExtensionsService?
 
     private enum Section: String, CaseIterable, Identifiable {
+        case general = "General"
         case privacy = "Privacy & Data"
         case extensions = "Extensions"
         var id: String { rawValue }
     }
-    @State private var section: Section = .privacy
+    @State private var section: Section = .general
 
     public init(store: TabStore, extensions: ExtensionsService?) {
         self.store = store
@@ -49,6 +50,9 @@ public struct SettingsView: View {
 
             ScrollView {
                 switch section {
+                case .general:
+                    GeneralSettings(store: store)
+                        .padding(20)
                 case .privacy:
                     PrivacyDataSettings(store: store)
                         .padding(20)

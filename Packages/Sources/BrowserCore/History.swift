@@ -74,11 +74,28 @@ public struct ArchivedTab: Identifiable, Codable, Hashable, Sendable {
 }
 
 public protocol HistoryRepository: Sendable {
-    /// Upserts by URL, bumping `visitCount` and `lastVisitedAt`.
-    func recordVisit(url: URL, title: String, at date: Date) async throws
-    func recentHistory(limit: Int) async throws -> [HistoryEntry]
-    /// Removes every recorded visit. Irreversible; the caller prompts.
+    /// Upserts by `(url, spaceID)`, bumping `visitCount` and `lastVisitedAt`.
+    /// History is scoped to a Space, matching the per-Space isolation of cookies
+    /// and logins, so the same page visited in two Spaces is two rows.
+    func recordVisit(url: URL, title: String, spaceID: UUID, at date: Date) async throws
+    /// The recent history of one Space only.
+    func recentHistory(inSpace spaceID: UUID, limit: Int) async throws -> [HistoryEntry]
+    /// Removes every recorded visit in **every** Space — the global "clear
+    /// browsing data" in Settings. Irreversible; the caller prompts.
     func deleteAllHistory() async throws
+    /// Removes every recorded visit in **one** Space — the History window's
+    /// "Clear All History", which is scoped to the active Space.
+    func deleteAllHistory(inSpace spaceID: UUID) async throws
+    /// Removes specific entries by id — the History window's per-row and
+    /// multi-select delete. Irreversible.
+    func deleteHistory(ids: [UUID]) async throws
+}
+
+extension HistoryRepository {
+    /// Defaults so test doubles need not implement the scoped deletes unless
+    /// they exercise them.
+    public func deleteAllHistory(inSpace spaceID: UUID) async throws {}
+    public func deleteHistory(ids: [UUID]) async throws {}
 }
 
 public protocol ArchiveRepository: Sendable {

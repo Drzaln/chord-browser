@@ -18,11 +18,12 @@ enum Migrations {
         migrator.registerMigration("v3_history_and_archive", migrate: v3HistoryAndArchive)
         migrator.registerMigration("v4_extension_enablement", migrate: v4ExtensionEnablement)
         migrator.registerMigration("v5_granted_permissions", migrate: v5GrantedPermissions)
+        migrator.registerMigration("v6_history_per_space", migrate: v6HistoryPerSpace)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 5
+    static let currentVersion = 6
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -162,5 +163,45 @@ enum Migrations {
             t.column("value", .text).notNull()
             t.primaryKey(["spaceId", "slug", "kind", "value"])
         }
+    }
+
+    /// Scopes history to a Space, matching the per-Space isolation the data
+    /// stores already give cookies and logins (non-spec: user-requested).
+    ///
+    /// The v3 table keyed uniqueness on `url` alone, so a page could exist only
+    /// once across the whole profile; per-Space needs uniqueness on
+    /// `(url, spaceId)`. SQLite can't drop a column's UNIQUE in place, so the
+    /// table is rebuilt. Existing rows are adopted into the first Space (lowest
+    /// `sortIndex`) rather than dropped — no history is deleted (7.2). A profile
+    /// with no Space yet keeps them under the empty sentinel, which the store
+    /// never queries, so they are orphaned-not-lost per the migration rules.
+    private static func v6HistoryPerSpace(_ db: Database) throws {
+        let defaultSpaceID = try String.fetchOne(
+            db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1"
+        ) ?? ""
+
+        try db.create(table: "historyEntry_new") { t in
+            t.primaryKey("id", .text).notNull()
+            t.column("url", .text).notNull()
+            t.column("spaceId", .text).notNull().defaults(to: "")
+            t.column("title", .text).notNull()
+            t.column("lastVisitedAt", .double).notNull()
+            t.column("visitCount", .integer).notNull().defaults(to: 1)
+            // One row per page *per Space*: a visit is an upsert within a Space.
+            t.uniqueKey(["url", "spaceId"])
+        }
+
+        try db.execute(
+            sql: """
+                INSERT INTO historyEntry_new
+                    (id, url, spaceId, title, lastVisitedAt, visitCount)
+                SELECT id, url, ?, title, lastVisitedAt, visitCount FROM historyEntry
+                """,
+            arguments: [defaultSpaceID]
+        )
+
+        try db.drop(table: "historyEntry")
+        try db.rename(table: "historyEntry_new", to: "historyEntry")
+        try db.create(indexOn: "historyEntry", columns: ["spaceId", "lastVisitedAt"])
     }
 }

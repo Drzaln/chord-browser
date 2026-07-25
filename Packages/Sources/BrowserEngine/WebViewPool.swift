@@ -86,6 +86,8 @@ final class LiveWebView {
         // one of the two classic leak sources named in 6.7.
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: MediaActivityMonitor.messageName)
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: ContextLinkMonitor.messageName)
         webView.stopLoading()
         container.removeContent()
     }

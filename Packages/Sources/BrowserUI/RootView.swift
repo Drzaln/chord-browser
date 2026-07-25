@@ -207,6 +207,11 @@ public struct RootView: View {
         .sheet(isPresented: $store.isSettingsPresented) {
             SettingsView(store: store, extensions: extensions)
         }
+        // History window, presented here for the same reason as Settings: it
+        // must survive the sidebar collapsing (and auto-hiding) beneath it.
+        .sheet(isPresented: $store.isHistoryPresented) {
+            HistoryView(store: store)
+        }
         .confirmationDialog(
             "Delete “\(store.spaces.first { $0.id == store.deletingSpaceID }?.name ?? "")”?",
             isPresented: Binding(

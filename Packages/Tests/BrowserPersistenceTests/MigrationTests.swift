@@ -152,6 +152,69 @@ struct MigrationTests {
         #expect(remaining == 0)
     }
 
+    @Test("v6 adopts existing global history into the first Space, deleting nothing")
+    func v6AdoptsHistoryIntoFirstSpace() throws {
+        let queue = try DatabaseQueue()
+        let migrator = Migrations.makeMigrator()
+        // Stop at v5, where historyEntry is still the global (url-unique) shape.
+        try migrator.migrate(queue, upTo: "v5_granted_permissions")
+
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO historyEntry (id, url, title, lastVisitedAt, visitCount)
+                    VALUES (?, 'https://kept.example', 'Kept', 123, 2)
+                    """,
+                arguments: [UUID().uuidString]
+            )
+        }
+
+        // Finish migrating to v6.
+        try migrator.migrate(queue)
+
+        let (firstSpaceID, rowSpaceID, count, visitCount) = try queue.read { db in
+            (
+                try String.fetchOne(db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1"),
+                try String.fetchOne(
+                    db, sql: "SELECT spaceId FROM historyEntry WHERE url = 'https://kept.example'"
+                ),
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM historyEntry") ?? 0,
+                try Int.fetchOne(
+                    db, sql: "SELECT visitCount FROM historyEntry WHERE url = 'https://kept.example'"
+                ) ?? 0
+            )
+        }
+
+        #expect(count == 1, "history is not deleted by the migration (7.2)")
+        #expect(rowSpaceID == firstSpaceID, "adopted into the first Space")
+        #expect(visitCount == 2, "the visit count is carried across")
+    }
+
+    @Test("After v6 the same URL can live in two Spaces")
+    func v6AllowsSameURLPerSpace() throws {
+        let queue = try DatabaseQueue()
+        try Migrations.makeMigrator().migrate(queue)
+
+        try queue.write { db in
+            for space in ["space-a", "space-b"] {
+                try db.execute(
+                    sql: """
+                        INSERT INTO historyEntry (id, url, spaceId, title, lastVisitedAt, visitCount)
+                        VALUES (?, 'https://dup.example', ?, 'Dup', 0, 1)
+                        """,
+                    arguments: [UUID().uuidString, space]
+                )
+            }
+        }
+
+        let count = try queue.read { db in
+            try Int.fetchOne(
+                db, sql: "SELECT COUNT(*) FROM historyEntry WHERE url = 'https://dup.example'"
+            ) ?? 0
+        }
+        #expect(count == 2)
+    }
+
     @Test("A fresh database reports the current schema version")
     func versionRecorded() throws {
         let queue = try DatabaseQueue()

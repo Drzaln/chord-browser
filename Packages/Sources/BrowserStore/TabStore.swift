@@ -70,6 +70,30 @@ public final class TabStore {
     /// collapsing beneath it. Not persisted. See `TabStore+Settings`.
     public var isSettingsPresented = false
 
+    /// Whether the History window is showing. Ephemeral UI state kept here so the
+    /// sheet is presented from `RootView` and survives the sidebar collapsing
+    /// beneath it. Not persisted. See `TabStore+History`.
+    public var isHistoryPresented = false
+
+    /// The search engine free-text queries go to (non-spec: user-requested).
+    /// Persisted to `UserDefaults` as JSON, like the other window preferences —
+    /// it is a user choice, not schema-bound user data.
+    public var searchEngine: SearchEngine = Preferences.loadSearchEngine() {
+        didSet { Preferences.save(searchEngine) }
+    }
+
+    /// What a brand-new tab opens to (non-spec: user-requested). Persisted
+    /// alongside `searchEngine`.
+    public var newTabBehavior: NewTabBehavior = Preferences.loadNewTabBehavior() {
+        didSet { Preferences.save(newTabBehavior) }
+    }
+
+    /// The URL a `newTab()` with no explicit destination lands on, derived from
+    /// `newTabBehavior` and (for the search-engine case) `searchEngine`.
+    public var resolvedNewTabURL: URL {
+        newTabBehavior.resolvedURL(searchEngine: searchEngine)
+    }
+
     /// Find-in-page (M6). See `TabStore+Find`.
     public var isFindBarVisible = false
     public var findText = ""
@@ -101,6 +125,20 @@ public final class TabStore {
     /// Refreshed when the command bar opens, so keystrokes never hit the disk.
     @ObservationIgnored var cachedHistory: [HistoryEntry] = []
     @ObservationIgnored var cachedArchive: [ArchivedTab] = []
+
+    /// Tabs closed by hand (Cmd+W), newest last, for Cmd+Shift+T. Distinct from
+    /// the sweep's archive: the sweep never hard-closes and has its own recovery
+    /// path (4.3), whereas a deliberate close needs an immediate one-key undo.
+    /// In memory only — a reopen is a "just now" affordance, not session state.
+    @ObservationIgnored var recentlyClosed: [Tab] = []
+    /// Bound so a long session cannot grow this without limit.
+    @ObservationIgnored static let recentlyClosedLimit = 25
+
+    /// Per-pane URL awaiting a history record — set when a navigation starts (or
+    /// its URL changes) and cleared once the settled title is written. Lets
+    /// history recording survive the title and `isLoading` arriving in separate
+    /// snapshots. See `recordVisitIfSettled`.
+    @ObservationIgnored private var pendingHistoryURL: [UUID: URL] = [:]
     @ObservationIgnored var runtimes: [UUID: PaneRuntime] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
@@ -137,6 +175,11 @@ public final class TabStore {
     /// `AppEnvironment` uses it to re-load enabled extensions (7.4), which needs
     /// the restored Spaces to exist first.
     @ObservationIgnored public var afterRestore: (@MainActor () async -> Void)?
+
+    /// Opens a URL in the Little Arc floating panel. Injected by the app layer,
+    /// which owns the panel; `nil` (and inert) until then. Used by the link
+    /// context-menu action "Open in Little Chord" (non-spec: user-requested).
+    @ObservationIgnored public var littleArcPresenter: (@MainActor (URL) -> Void)?
 
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
@@ -198,7 +241,7 @@ public final class TabStore {
         adoptOrphanedTabs()
 
         if visibleTabs.isEmpty {
-            newTab(url: Self.defaultNewTabURL)
+            newTab()
         } else {
             // Restored tabs are lazy: no web view exists until one is activated.
             selectedTabID = visibleTabs.max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
@@ -232,14 +275,17 @@ public final class TabStore {
 
     // MARK: - Commands
 
-    public func newTab(url: URL = TabStore.defaultNewTabURL) {
+    /// - Parameter url: the destination, or `nil` to use the user's configured
+    ///   new-tab behaviour (`resolvedNewTabURL`).
+    public func newTab(url: URL? = nil) {
         guard let spaceID = activeSpace?.id else { return }
+        let target = url ?? resolvedNewTabURL
 
         // Order is per-Space, so a new tab in one Space does not push another
         // Space's tabs down the list.
         let order = (visibleTabs.map(\.placement.order).max() ?? -1) + 1
         let tab = Tab(
-            url: url, spaceID: spaceID, placement: .ephemeral(order: order), now: clock.now
+            url: target, spaceID: spaceID, placement: .ephemeral(order: order), now: clock.now
         )
         tabs.append(tab)
         // A brand-new pane definitionally has nothing stored, so mark it
@@ -285,6 +331,11 @@ public final class TabStore {
 
     public func closeTab(_ tabID: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+
+        // Remember it for Cmd+Shift+T before the panes are torn down, so the
+        // reopened tab carries its URLs, title, favicon, and pinned placement.
+        recentlyClosed.append(tabs[index])
+        if recentlyClosed.count > Self.recentlyClosedLimit { recentlyClosed.removeFirst() }
 
         for pane in tabs[index].panes {
             engine.evict(paneID: pane.id)
@@ -514,10 +565,12 @@ extension TabStore: WebEngineDelegate {
         else { return }
 
         var didChange = false
+        var urlChanged = false
         tabs[index].updatePane(paneID) { pane in
             if let url = snapshot.url, url != pane.url {
                 pane.url = url
                 didChange = true
+                urlChanged = true
             }
             if !snapshot.title.isEmpty, snapshot.title != pane.title {
                 pane.title = snapshot.title
@@ -526,11 +579,44 @@ extension TabStore: WebEngineDelegate {
         }
         if didChange { scheduleSave() }
 
-        // Record the visit once the page has a title and has stopped loading,
-        // so history holds the settled title rather than an intermediate one.
-        if didChange, !snapshot.isLoading, let url = snapshot.url, !snapshot.title.isEmpty {
-            recordVisit(url: url, title: snapshot.title)
+        recordVisitIfSettled(
+            paneID, snapshot: snapshot, urlChanged: urlChanged, spaceID: tabs[index].spaceID
+        )
+    }
+
+    /// Records a history visit when a navigation settles, decoupled from the
+    /// per-field `didChange` above.
+    ///
+    /// The engine publishes a fresh snapshot on every KVO change, so the title
+    /// usually arrives while the page is still loading and `isLoading` flips to
+    /// false in a *later* snapshot whose title already matches the model. Gating
+    /// the record on "this snapshot changed something" therefore missed almost
+    /// every real page load. Instead this tracks the load transition per pane and
+    /// records once the page is idle and has a title — recording the pending URL
+    /// when the title lands after the load finishes, and deduping so repeat idle
+    /// snapshots do not inflate the visit count.
+    private func recordVisitIfSettled(
+        _ paneID: UUID, snapshot: PaneSnapshot, urlChanged: Bool, spaceID: UUID
+    ) {
+        guard let url = snapshot.url,
+              let scheme = url.scheme, scheme == "http" || scheme == "https"
+        else { return }
+
+        // A new URL (fresh load or in-page navigation) reopens the record window
+        // for this pane, so a settled title is written even when WebKit never
+        // flipped `isLoading` for the navigation.
+        if urlChanged { pendingHistoryURL[paneID] = url }
+
+        if snapshot.isLoading {
+            pendingHistoryURL[paneID] = url
+            return
         }
+
+        // Idle. Record only against the URL still awaiting one, so steady-state
+        // snapshots (progress, focus) do not re-record the same page.
+        guard pendingHistoryURL[paneID] == url, !snapshot.title.isEmpty else { return }
+        recordVisit(url: url, title: snapshot.title, spaceID: spaceID)
+        pendingHistoryURL[paneID] = nil
     }
 
     public func paneDidLoadFavicon(_ paneID: UUID, data: Data?) {
@@ -551,6 +637,13 @@ extension TabStore: WebEngineDelegate {
 
     public func paneRequestedNewTab(url: URL) {
         newTab(url: url)
+    }
+
+    public func paneRequestedLittleArc(url: URL) {
+        // The Little Arc panel is owned by the app layer (AppDelegate), so the
+        // store forwards through an injected presenter rather than depending on
+        // UI. No-op until it is wired — the same shape as `afterRestore`.
+        littleArcPresenter?(url)
     }
 
     public func paneContentProcessDidTerminate(_ paneID: UUID) {

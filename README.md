@@ -41,8 +41,15 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   card stays opaque.
 - **Extensions** — a `WKWebExtension` host with a `.crx`/`.xpi` unpack helper and
   popover surfacing. Install, enable per Space, and uninstall from **Settings**.
-- **Settings** (`Cmd+,`) — clear browsing data (cache, cookies, site storage,
-  history) across every Space, and manage extensions.
+- **History** (`Cmd+Y`) — a searchable, **per-Space** window of visited pages
+  grouped by day, with per-entry and multi-select delete, open-in-new-tab, and
+  clear. Each Space keeps its own history, matching its isolated data store.
+- **Configurable search & new tab** — pick the search engine (Google,
+  DuckDuckGo, Bing, Brave, or a custom `%s` template) and what a new tab opens
+  to (blank, the search engine's home, or a specific page), from **Settings →
+  General**.
+- **Settings** (`Cmd+,`) — General preferences, clear browsing data (cache,
+  cookies, site storage, history) across every Space, and manage extensions.
 - **Native content blocking** — see below.
 
 ### Content blocking

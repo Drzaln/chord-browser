@@ -108,13 +108,17 @@ extension NavigationCoordinator: WKScriptMessageHandler {
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
     ) {
-        guard message.name == MediaActivityMonitor.messageName,
-              let webView = message.webView,
-              let paneID = paneID(for: webView),
-              let playing = MediaActivityMonitor.isPlayingAudio(from: message.body)
-        else { return }
+        guard let webView = message.webView, let paneID = paneID(for: webView) else { return }
 
-        engine?.setPlayingAudio(playing, for: paneID)
+        switch message.name {
+        case MediaActivityMonitor.messageName:
+            guard let playing = MediaActivityMonitor.isPlayingAudio(from: message.body) else { return }
+            engine?.setPlayingAudio(playing, for: paneID)
+        case ContextLinkMonitor.messageName:
+            engine?.setContextLinkURL(ContextLinkMonitor.linkURL(from: message.body), for: paneID)
+        default:
+            break
+        }
     }
 }
 

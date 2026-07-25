@@ -28,20 +28,27 @@ struct URLInputTests {
     @Test("Anything with a space is a search")
     func multiWordIsSearch() {
         let resolved = URLInput.resolve("swift concurrency guide")
-        #expect(resolved?.absoluteString.hasPrefix(URLInput.searchTemplate) == true)
+        #expect(URLInput.isSearch("swift concurrency guide"))
         #expect(resolved?.absoluteString.contains("swift%20concurrency%20guide") == true)
     }
 
     @Test("A single word with no dot is a search, not a DNS error")
     func singleWordIsSearch() {
-        let resolved = URLInput.resolve("swift")
-        #expect(resolved?.absoluteString.hasPrefix(URLInput.searchTemplate) == true)
+        #expect(URLInput.isSearch("swift"))
     }
 
     @Test("A trailing numeric segment is a search, not a host")
     func numericTLDIsSearch() {
-        let resolved = URLInput.resolve("version.2")
-        #expect(resolved?.absoluteString.hasPrefix(URLInput.searchTemplate) == true)
+        #expect(URLInput.isSearch("version.2"))
+    }
+
+    @Test("A custom template substitutes the encoded query into %s")
+    func customTemplateSubstitutes() {
+        let template = "https://example.com/find?query=%s&lang=en"
+        let resolved = URLInput.resolve("hello world", searchTemplate: template)
+        #expect(
+            resolved?.absoluteString == "https://example.com/find?query=hello%20world&lang=en"
+        )
     }
 
     @Test("Empty and whitespace input resolve to nothing")

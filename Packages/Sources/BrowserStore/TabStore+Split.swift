@@ -25,7 +25,7 @@ extension TabStore {
         let insertAfter = tabs[index].panes.firstIndex { $0.id == tabs[index].focusedPaneID }
             ?? tabs[index].panes.count - 1
 
-        let pane = Pane(url: url ?? Self.defaultNewTabURL)
+        let pane = Pane(url: url ?? resolvedNewTabURL)
         tabs[index].panes.insert(pane, at: insertAfter + 1)
 
         // A new pane starts life resolved: nothing is stored for it, so a disk

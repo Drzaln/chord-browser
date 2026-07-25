@@ -7,6 +7,7 @@ struct HistoryRow: Codable, FetchableRecord, PersistableRecord, Sendable {
 
     var id: String
     var url: String
+    var spaceId: String
     var title: String
     var lastVisitedAt: Double
     var visitCount: Int
@@ -35,10 +36,14 @@ public struct SQLiteHistoryRepository: HistoryRepository, ArchiveRepository {
     /// One row per URL: revisiting bumps the count and the timestamp rather
     /// than growing the table. History writes go through the database's own
     /// serial queue, never the main thread (6.5).
-    public func recordVisit(url: URL, title: String, at date: Date) async throws {
+    public func recordVisit(url: URL, title: String, spaceID: UUID, at date: Date) async throws {
         let key = url.absoluteString
+        let space = spaceID.uuidString
         try await database.writer.write { db in
-            if var existing = try HistoryRow.filter(Column("url") == key).fetchOne(db) {
+            if var existing = try HistoryRow
+                .filter(Column("url") == key && Column("spaceId") == space)
+                .fetchOne(db)
+            {
                 existing.visitCount += 1
                 existing.lastVisitedAt = date.timeIntervalSince1970
                 if !title.isEmpty { existing.title = title }
@@ -47,6 +52,7 @@ public struct SQLiteHistoryRepository: HistoryRepository, ArchiveRepository {
                 try HistoryRow(
                     id: UUID().uuidString,
                     url: key,
+                    spaceId: space,
                     title: title,
                     lastVisitedAt: date.timeIntervalSince1970,
                     visitCount: 1
@@ -55,17 +61,37 @@ public struct SQLiteHistoryRepository: HistoryRepository, ArchiveRepository {
         }
     }
 
-    /// Deletes every history row. Runs on the database's serial queue, off the
-    /// main thread (6.5), like every other write here.
+    /// Deletes every history row in every Space. Runs on the database's serial
+    /// queue, off the main thread (6.5), like every other write here.
     public func deleteAllHistory() async throws {
         try await database.writer.write { db in
             _ = try HistoryRow.deleteAll(db)
         }
     }
 
-    public func recentHistory(limit: Int) async throws -> [HistoryEntry] {
-        try await database.writer.read { db in
+    /// Deletes every history row in one Space.
+    public func deleteAllHistory(inSpace spaceID: UUID) async throws {
+        let space = spaceID.uuidString
+        try await database.writer.write { db in
+            _ = try HistoryRow.filter(Column("spaceId") == space).deleteAll(db)
+        }
+    }
+
+    /// Deletes the rows with the given ids. Runs on the database's serial queue,
+    /// off the main thread (6.5). A no-op for an empty list.
+    public func deleteHistory(ids: [UUID]) async throws {
+        guard !ids.isEmpty else { return }
+        let keys = ids.map(\.uuidString)
+        try await database.writer.write { db in
+            _ = try HistoryRow.filter(keys.contains(Column("id"))).deleteAll(db)
+        }
+    }
+
+    public func recentHistory(inSpace spaceID: UUID, limit: Int) async throws -> [HistoryEntry] {
+        let space = spaceID.uuidString
+        return try await database.writer.read { db in
             let rows = try HistoryRow
+                .filter(Column("spaceId") == space)
                 .order(Column("lastVisitedAt").desc)
                 .limit(limit)
                 .fetchAll(db)

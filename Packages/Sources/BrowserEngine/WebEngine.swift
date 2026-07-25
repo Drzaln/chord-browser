@@ -40,8 +40,17 @@ public protocol WebEngineDelegate: AnyObject {
     func paneDidUpdate(_ paneID: UUID, snapshot: PaneSnapshot)
     func paneDidLoadFavicon(_ paneID: UUID, data: Data?)
     func paneRequestedNewTab(url: URL)
+    /// A link's context menu asked to open it in the Little Arc panel (non-spec:
+    /// user-requested).
+    func paneRequestedLittleArc(url: URL)
     /// The content process died. The pane's model is intact; the view is gone.
     func paneContentProcessDidTerminate(_ paneID: UUID)
+}
+
+extension WebEngineDelegate {
+    /// Default so delegates that predate the feature (and test doubles) need not
+    /// implement it.
+    public func paneRequestedLittleArc(url: URL) {}
 }
 
 /// The seam between the app and WebKit.

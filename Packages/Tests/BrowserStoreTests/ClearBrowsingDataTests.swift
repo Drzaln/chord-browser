@@ -9,8 +9,8 @@ import Testing
 /// A history repository that records whether `deleteAllHistory` was called.
 private actor SpyHistory: HistoryRepository {
     private(set) var deletedCount = 0
-    func recordVisit(url: URL, title: String, at date: Date) async throws {}
-    func recentHistory(limit: Int) async throws -> [HistoryEntry] { [] }
+    func recordVisit(url: URL, title: String, spaceID: UUID, at date: Date) async throws {}
+    func recentHistory(inSpace spaceID: UUID, limit: Int) async throws -> [HistoryEntry] { [] }
     func deleteAllHistory() async throws { deletedCount += 1 }
 }
 

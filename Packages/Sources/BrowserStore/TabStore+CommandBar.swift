@@ -16,8 +16,11 @@ extension TabStore {
     }
 
     private func loadHistory() async -> [HistoryEntry] {
+        // Scoped to the active Space: history is per-Space, so the command bar
+        // never surfaces a page you visited in a different Space.
+        guard let spaceID = activeSpaceID else { return [] }
         do {
-            return try await historyRepository?.recentHistory(limit: 500) ?? []
+            return try await historyRepository?.recentHistory(inSpace: spaceID, limit: 500) ?? []
         } catch {
             Log.store.error("history load failed: \(String(describing: error))")
             return []
@@ -47,7 +50,8 @@ extension TabStore {
                 ),
                 history: cachedHistory,
                 archived: cachedArchive,
-                now: clock.now
+                now: clock.now,
+                searchTemplate: searchEngine.queryTemplate
             )
         )
     }
@@ -106,14 +110,17 @@ extension TabStore {
     // MARK: - History recording
 
     /// Called when a navigation settles. Skipped for blank and error pages so
-    /// the command bar does not learn junk.
-    func recordVisit(url: URL, title: String) {
+    /// the command bar does not learn junk. Recorded against the tab's Space so
+    /// history stays per-Space.
+    func recordVisit(url: URL, title: String, spaceID: UUID) {
         guard let scheme = url.scheme, scheme == "http" || scheme == "https" else { return }
 
         let now = clock.now
         Task { [historyRepository] in
             do {
-                try await historyRepository?.recordVisit(url: url, title: title, at: now)
+                try await historyRepository?.recordVisit(
+                    url: url, title: title, spaceID: spaceID, at: now
+                )
             } catch {
                 Log.store.error("history write failed: \(String(describing: error))")
             }

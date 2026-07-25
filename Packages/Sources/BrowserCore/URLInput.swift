@@ -5,9 +5,14 @@ import Foundation
 /// Pure and dependency-free so it is unit-testable, and so the command bar (M3)
 /// can reuse it unchanged.
 public enum URLInput {
-    public static let searchTemplate = "https://www.google.com/search?q="
+    /// The template used when a caller does not pass one. `%s` is where the
+    /// percent-encoded query goes. Configurable per user via `SearchEngine`;
+    /// this default keeps the pure API usable without a settings dependency.
+    public static let defaultSearchTemplate = SearchEngine.default.queryTemplate
 
-    public static func resolve(_ raw: String) -> URL? {
+    public static func resolve(
+        _ raw: String, searchTemplate: String = defaultSearchTemplate
+    ) -> URL? {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
 
@@ -19,14 +24,29 @@ public enum URLInput {
             return url
         }
 
-        return search(for: text)
+        return search(for: text, template: searchTemplate)
     }
 
-    public static func search(for query: String) -> URL? {
+    /// Whether `raw` will be treated as a search query rather than a direct
+    /// navigation. Mirrors the branch `resolve` takes, so the command bar can
+    /// label a row without re-parsing the resulting URL — which was impossible
+    /// once the search template stopped being a fixed prefix.
+    public static func isSearch(_ raw: String) -> Bool {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        if let url = URL(string: text), let scheme = url.scheme, !scheme.isEmpty {
+            return false
+        }
+        return !looksLikeHost(text)
+    }
+
+    public static func search(
+        for query: String, template: String = defaultSearchTemplate
+    ) -> URL? {
         let encoded = query.addingPercentEncoding(
             withAllowedCharacters: .urlQueryAllowed
         ) ?? query
-        return URL(string: searchTemplate + encoded)
+        return URL(string: template.replacingOccurrences(of: "%s", with: encoded))
     }
 
     /// A single token with a dot and no spaces is a host; anything else is a

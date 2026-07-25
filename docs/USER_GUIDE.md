@@ -30,63 +30,102 @@ color, blurring your desktop behind the window (the web page itself stays opaque
 
 ### Tabs & navigation
 
-| Shortcut | Action |
-| --- | --- |
-| `Cmd+T` | Open the command bar to open a **new tab** (type a destination, Enter) |
-| `Cmd+L` | Open the command bar aimed at the **current tab** (edit the address) |
-| `Cmd+N` | New **blank** tab (no command bar) |
-| `Cmd+W` | Close the current tab |
-| `Cmd+R` | Reload the page |
-| `Cmd+[` | Back |
-| `Cmd+]` | Forward |
+| Shortcut         | Action                                                                        |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `Cmd+T`          | Open the command bar to open a **new tab** (type a destination, Enter)        |
+| `Cmd+L`          | Open the command bar aimed at the **current tab** (edit the address)          |
+| `Cmd+N`          | New **blank** tab (no command bar)                                            |
+| `Cmd+W`          | Close the current tab                                                         |
+| `Cmd+Shift+T`    | **Reopen** the last closed tab (repeat to walk back further)                  |
+| `Ctrl+Tab`       | **Next** tab (wraps around)                                                   |
+| `Ctrl+Shift+Tab` | **Previous** tab (wraps around)                                               |
+| `Cmd+D`          | **Pin or unpin** the current tab (Arc-style favourites in place of bookmarks) |
+| `Cmd+R`          | Reload the page                                                               |
+| `Cmd+.`          | Stop loading                                                                  |
+| `Cmd+[`          | Back                                                                          |
+| `Cmd+]`          | Forward                                                                       |
+
+Tab cycling walks the active Space's tabs in sidebar order — favourites first,
+then the ephemeral list. `Cmd+Shift+T` restores a closed tab with its URL,
+title, favicon, and pinned state, in its original Space when it still exists.
 
 ### Split view (panes)
 
-| Shortcut | Action |
-| --- | --- |
-| `Cmd+Shift+D` | Open the command bar to **split** the current tab into a new pane |
-| `Cmd+Shift+Option+D` | Close the focused pane |
+| Shortcut             | Action                                                            |
+| -------------------- | ----------------------------------------------------------------- |
+| `Cmd+Shift+D`        | Open the command bar to **split** the current tab into a new pane |
+| `Cmd+Shift+Option+D` | Close the focused pane                                            |
 
 A tab holds up to **four panes**. Asking to split beyond four is declined rather
 than replacing an existing pane.
 
 ### Spaces
 
-| Shortcut | Action |
-| --- | --- |
+| Shortcut          | Action                               |
+| ----------------- | ------------------------------------ |
 | `Cmd+1` … `Cmd+9` | Switch to the Space in that position |
 
 `Cmd+1…9` are always bound, even for positions that don't have a Space yet — an
 index that doesn't exist is simply ignored, so the shortcuts don't shift around
-as you add or remove Spaces. Create a Space from the **Spaces** menu → *New
-Space*.
+as you add or remove Spaces. Create a Space from the **Spaces** menu → _New
+Space_.
 
 ### Find, print, layout
 
-| Shortcut | Action |
-| --- | --- |
-| `Cmd+F` | Show the find bar |
-| `Cmd+G` | Find next |
-| `Cmd+Shift+G` | Find previous |
-| `Cmd+P` | Print the focused pane |
-| `Cmd+S` | Toggle the sidebar |
-| `Cmd+,` | Open **Settings** (clear browsing data + extensions) |
+| Shortcut      | Action                                                       |
+| ------------- | ------------------------------------------------------------ |
+| `Cmd+F`       | Show the find bar                                            |
+| `Cmd+G`       | Find next                                                    |
+| `Cmd+Shift+G` | Find previous                                                |
+| `Cmd+P`       | Print the focused pane                                       |
+| `Cmd+S`       | Toggle the sidebar                                           |
+| `Cmd+Y`       | Open the **History** window                                  |
+| `Cmd+,`       | Open **Settings** (General, clear browsing data, extensions) |
 
 Find works whether or not the find field has focus, so you can find, click into
 the page, and keep stepping through matches with `Cmd+G`.
 
+## General settings
+
+Open **Settings** with `Cmd+,` and pick **General** to choose:
+
+- **Search engine** — Google, DuckDuckGo, Bing, Brave Search, or a **custom**
+  provider (paste a query URL with `%s` where the query goes, e.g.
+  `https://example.com/search?q=%s`). This is where the address bar and command
+  bar send anything that isn't a URL.
+- **New tab opens** — a **blank page**, the **search engine's home page**, or a
+  **specific page** you choose. Applies to `Cmd+N`, the first tab on launch, and
+  new split panes.
+
+## History
+
+Press `Cmd+Y` to open the History window. History is **per-Space** — the window
+shows only the pages you visited **in the active Space**, matching how cookies
+and logins are already isolated per Space. The window's subtitle names the Space
+it's showing.
+
+It lists visits grouped by day, with a search box. Select rows and press
+**Delete** (or use the right-click menu) to remove individual entries, open one
+in a new tab, or copy its link. **Clear History…** at the bottom wipes the
+**active Space's** history only; other Spaces are untouched. (To clear history
+across _every_ Space at once, use **Settings → Privacy & Data**.)
+
+The command bar (`Cmd+T` / `Cmd+L`) likewise ranks history from the active Space
+only.
+
 ### Little Arc
 
-| Shortcut | Action |
-| --- | --- |
-| `Cmd+O` | **Promote** the Little Arc page into a full tab (while the panel is up) |
+| Shortcut | Action                                                                  |
+| -------- | ----------------------------------------------------------------------- |
+| `Cmd+O`  | **Promote** the Little Arc page into a full tab (while the panel is up) |
+| `Esc`    | Dismiss the Little Arc panel                                            |
 
-See [Little Arc](#little-arc) below.
+See [Little Arc](#little-arc-1) below.
 
 ### Debug (debug builds only)
 
-| Shortcut | Action |
-| --- | --- |
+| Shortcut     | Action                               |
+| ------------ | ------------------------------------ |
 | `Cmd+Ctrl+P` | Toggle the performance/debug overlay |
 
 ---
@@ -137,14 +176,31 @@ Close the focused pane with `Cmd+Shift+Option+D`. Up to four panes per tab.
 
 ## Little Arc
 
-When you click a link in **another app**, it opens in a floating **Little Arc**
-panel rather than stealing focus into the main window. From the panel:
+Little Arc is a floating panel for a **quick peek** at a page — glance, then
+toss it, without adding a tab. There are two ways to open one:
 
-- Read the page in place, or
-- press `Cmd+O` to **promote** it into a full tab in the browser.
+1. **Right-click any link in a page → “Open in Little Chord.”** The link opens in
+   the floating panel, using the active Space's session (so it's already logged
+   in to whatever that Space is).
+2. **Click a link in another app** (Mail, Messages, Notes…) while Chord is your
+   default browser — it opens in Little Arc instead of stealing focus into the
+   main window.
+
+From the panel:
+
+- Read the page in place, follow links, then
+- press `Cmd+O` to **promote** it into a full tab in the active Space, or
+- press `Esc` (or click away) to dismiss it — nothing is kept.
+
+> **Testing it without setting a default browser:** from Terminal, run
+> `open -a Chord https://example.com` — this routes a URL to Chord exactly like
+> an external link and pops a Little Arc panel.
 
 The Little Arc panel can be the only window open, so the app stays alive to
 handle these even when the main window is closed.
+
+Little Arc is distinct from Peek (Arc's inline preview of a pinned tab's links);
+Chord implements Little Arc, not Peek.
 
 ---
 
@@ -175,7 +231,7 @@ two things:
 - **Network filtering** — drops ad/tracker requests before they hit the network.
 - **Cosmetic filtering** — hides ad elements on the page (`css-display-none`),
   including standard CSS `:has()` container-hiding rules (hide the wrapper that
-  *contains* an ad).
+  _contains_ an ad).
 
 **What it can't block:** YouTube (and other first-party-served) **video ads**.
 Those are served from the same domain and player as the video itself, so there's
@@ -213,7 +269,7 @@ specific site; both are noted as possible future additions.
 
 ## Settings
 
-Open Settings with `Cmd+,` (or the app menu → *Settings…*). It's a sheet with two
+Open Settings with `Cmd+,` (or the app menu → _Settings…_). It's a sheet with two
 sections:
 
 ### Privacy & Data — clear browsing data
@@ -287,23 +343,23 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 
 ## Capability summary
 
-| Capability | Status |
-| --- | --- |
-| Tabbed browsing, favicons, titles | ✅ |
-| Command bar (fuzzy tabs + history + URL/search) | ✅ |
-| Spaces with isolated cookie stores | ✅ |
-| Ephemeral tabs with auto-sweep + archive | ✅ |
-| Split view (up to 4 panes) | ✅ |
-| Little Arc (external-link panel) | ✅ |
-| Session restore after force-quit | ✅ |
-| Downloads with progress | ✅ |
-| Find-in-page, print, PDF viewing | ✅ |
-| Native content blocking (network + cosmetic, `:has()`) | ✅ (on by default) |
-| Extension hosting (buttons, panel, permissions, restore) | ✅ |
-| In-app extension install / enable / uninstall (Settings) | ✅ |
-| Settings: clear cache / cookies / storage / history | ✅ |
-| Per-site blocking whitelist / disable toggle | ⚠️ not implemented |
-| Chrome ad blockers (AdBlock / uBlock Origin) blocking ads | ❌ WebKit rule limits + no scriptlets |
-| YouTube / first-party video-ad blocking | ❌ not possible via `WKContentRuleList` |
+| Capability                                                | Status                                  |
+| --------------------------------------------------------- | --------------------------------------- |
+| Tabbed browsing, favicons, titles                         | ✅                                      |
+| Command bar (fuzzy tabs + history + URL/search)           | ✅                                      |
+| Spaces with isolated cookie stores                        | ✅                                      |
+| Ephemeral tabs with auto-sweep + archive                  | ✅                                      |
+| Split view (up to 4 panes)                                | ✅                                      |
+| Little Arc (external-link panel)                          | ✅                                      |
+| Session restore after force-quit                          | ✅                                      |
+| Downloads with progress                                   | ✅                                      |
+| Find-in-page, print, PDF viewing                          | ✅                                      |
+| Native content blocking (network + cosmetic, `:has()`)    | ✅ (on by default)                      |
+| Extension hosting (buttons, panel, permissions, restore)  | ✅                                      |
+| In-app extension install / enable / uninstall (Settings)  | ✅                                      |
+| Settings: clear cache / cookies / storage / history       | ✅                                      |
+| Per-site blocking whitelist / disable toggle              | ⚠️ not implemented                      |
+| Chrome ad blockers (AdBlock / uBlock Origin) blocking ads | ❌ WebKit rule limits + no scriptlets   |
+| YouTube / first-party video-ad blocking                   | ❌ not possible via `WKContentRuleList` |
 
 Default search engine is **Google**. Deployment target is **macOS 15.4+**.

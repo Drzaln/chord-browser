@@ -128,6 +128,29 @@ struct BrowserCommands: Commands {
             }
             .keyboardShortcut("w", modifiers: .command)
 
+            // Cmd+Shift+T — the platform-wide "reopen the tab I just closed".
+            Button("Reopen Closed Tab") { launch.store?.reopenLastClosedTab() }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+
+            Divider()
+
+            // Cycle the selection through the active Space's tabs. Ctrl+Tab /
+            // Ctrl+Shift+Tab are what every browser binds; Cmd+1…9 is taken by
+            // Spaces here, so this is the only keyboard way to step through tabs.
+            Button("Next Tab") { launch.store?.selectNextTab() }
+                .keyboardShortcut(.tab, modifiers: .control)
+
+            Button("Previous Tab") { launch.store?.selectPreviousTab() }
+                .keyboardShortcut(.tab, modifiers: [.control, .shift])
+
+            // Cmd+D — Arc uses pinned tabs where other browsers bookmark, so the
+            // bookmark key pins instead. Toggles, so the same key un-pins.
+            Button("Pin or Unpin Tab") {
+                guard let store = launch.store, let tab = store.selectedTab else { return }
+                store.setPinned(!tab.placement.isPinned, tabID: tab.id)
+            }
+            .keyboardShortcut("d", modifiers: .command)
+
             Divider()
 
             // Split view (4.5). Opens the command bar to say *what* goes in the
@@ -149,6 +172,11 @@ struct BrowserCommands: Commands {
 
             Button("Reload") { launch.store?.reload() }
                 .keyboardShortcut("r", modifiers: .command)
+
+            // Cmd+. — the platform's "stop". The reload button also becomes a
+            // stop button while a page loads; this is the keyboard equivalent.
+            Button("Stop Loading") { launch.store?.stopLoading() }
+                .keyboardShortcut(".", modifiers: .command)
         }
 
         // Print the page (M6). Cmd+P, the platform's, replacing the default
@@ -180,6 +208,13 @@ struct BrowserCommands: Commands {
                 store.isSidebarCollapsed.toggle()
             }
             .keyboardShortcut("s", modifiers: .command)
+        }
+
+        // Cmd+Y — the platform's "Show All History" (Safari/Chrome both use it),
+        // so it needs no learning. Opens the History window.
+        CommandMenu("History") {
+            Button("Show History") { launch.store?.isHistoryPresented = true }
+                .keyboardShortcut("y", modifiers: .command)
         }
 
         CommandMenu("Spaces") {
