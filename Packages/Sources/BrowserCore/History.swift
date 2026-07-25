@@ -77,6 +77,8 @@ public protocol HistoryRepository: Sendable {
     /// Upserts by URL, bumping `visitCount` and `lastVisitedAt`.
     func recordVisit(url: URL, title: String, at date: Date) async throws
     func recentHistory(limit: Int) async throws -> [HistoryEntry]
+    /// Removes every recorded visit. Irreversible; the caller prompts.
+    func deleteAllHistory() async throws
 }
 
 public protocol ArchiveRepository: Sendable {

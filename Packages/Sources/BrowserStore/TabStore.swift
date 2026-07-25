@@ -65,6 +65,11 @@ public final class TabStore {
     /// collapsing (and auto-hiding) beneath it. Not persisted.
     public var deletingSpaceID: UUID?
 
+    /// Whether the settings sheet is showing. Ephemeral UI state kept here so
+    /// the sheet is presented from `RootView` and survives the sidebar
+    /// collapsing beneath it. Not persisted. See `TabStore+Settings`.
+    public var isSettingsPresented = false
+
     /// Find-in-page (M6). See `TabStore+Find`.
     public var isFindBarVisible = false
     public var findText = ""

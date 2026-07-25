@@ -8,6 +8,9 @@ public struct RootView: View {
     /// The extension host, present only when the extensions flag is on (M7,
     /// 7.5b). Threaded to the sidebar header for the toolbar-action buttons.
     private let extensionHost: (any ExtensionHost)?
+    /// The extension install/enable/remove coordinator, present only when the
+    /// subsystem is wired. Threaded to the settings sheet's Extensions section.
+    private let extensions: ExtensionsService?
     /// Opens the command bar, optionally pre-filled with a query. Injected
     /// because the controller is owned by the app delegate — the panel outlives
     /// any view, and Store must not depend on UI to reach it.
@@ -36,11 +39,13 @@ public struct RootView: View {
         store: TabStore,
         downloads: DownloadsStore,
         extensionHost: (any ExtensionHost)? = nil,
+        extensions: ExtensionsService? = nil,
         openCommandBar: @escaping (CommandBarMode, String?) -> Void = { _, _ in }
     ) {
         self.store = store
         self.downloads = downloads
         self.extensionHost = extensionHost
+        self.extensions = extensions
         self.openCommandBar = openCommandBar
     }
 
@@ -194,6 +199,12 @@ public struct RootView: View {
             }
         )) { request in
             ExtensionPermissionSheet(request: request, store: store)
+        }
+        // Settings (clear browsing data + extensions). Presented here for the
+        // same reason as the other sheets: it must survive the sidebar
+        // collapsing beneath it.
+        .sheet(isPresented: $store.isSettingsPresented) {
+            SettingsView(store: store, extensions: extensions)
         }
         .confirmationDialog(
             "Delete “\(store.spaces.first { $0.id == store.deletingSpaceID }?.name ?? "")”?",

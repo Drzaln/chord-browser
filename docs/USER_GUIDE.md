@@ -68,6 +68,7 @@ Space*.
 | `Cmd+Shift+G` | Find previous |
 | `Cmd+P` | Print the focused pane |
 | `Cmd+S` | Toggle the sidebar |
+| `Cmd+,` | Open **Settings** (clear browsing data + extensions) |
 
 Find works whether or not the find field has focus, so you can find, click into
 the page, and keep stepping through matches with `Cmd+G`.
@@ -187,41 +188,61 @@ specific site; both are noted as possible future additions.
 
 ---
 
+## Settings
+
+Open Settings with `Cmd+,` (or the app menu → *Settings…*). It's a sheet with two
+sections:
+
+### Privacy & Data — clear browsing data
+
+Tick what you want to remove and click **Clear Data** (you'll be asked to
+confirm — it can't be undone):
+
+- **Cached files and images** — frees disk space, doesn't sign you out.
+- **Cookies and other site data** — signs you out of sites, **in every Space**.
+- **Local & session storage** — localStorage, IndexedDB, service workers.
+- **Browsing history** — the list of pages you've visited.
+
+Website data (cache/cookies/storage) is cleared across **every Space** at once;
+history is cleared from the app's own database. Each Space's store is cleared
+independently, so isolation is preserved.
+
+### Extensions
+
+See below.
+
+---
+
 ## Extensions
 
 The browser hosts WebKit web extensions (`WKWebExtension`). Extensions run
 **per Space** — each Space that enables an extension gets its own background
 worker process, which is why the management panel shows you how many are running.
 
-What's wired in the UI today:
+### Installing and managing extensions
+
+Open **Settings** (`Cmd+,`) → **Extensions**:
+
+1. Click **Add Extension…** and pick a **Chrome `.crx`** or **Firefox `.xpi`**
+   file. It's unpacked and normalised into an on-disk library.
+2. Each installed extension shows a row with an **Enabled** switch — turning it on
+   loads the extension into the **active Space** (extensions are per-Space, so
+   enable it in each Space where you want it).
+3. The **trash** button uninstalls an extension: it's unloaded from every Space
+   and deleted from the library.
+
+Once enabled, an extension also appears in the sidebar and behaves like this:
 
 - **Toolbar action buttons** — each enabled extension in the active Space shows a
   button in the sidebar header; clicking it fires the extension's action or shows
   its popup.
-- **Manage panel** — the `…` (ellipsis) button opens a per-Space panel listing
-  loaded extensions, whether each runs a background worker, and an **"Access on
-  all sites"** toggle for host permissions.
+- **Manage panel** — the `…` (ellipsis) button in the sidebar opens a per-Space
+  panel listing loaded extensions, whether each runs a background worker, and an
+  **"Access on all sites"** toggle for host permissions.
 - **Permission prompts** — when an extension requests access, a grant/deny sheet
   appears; grants are remembered across launches.
 - **Restore on launch** — extensions you had enabled are re-loaded into their
   Spaces after session restore.
-
-### Installing an extension — current limitation
-
-The engine can install and normalise both **Chrome `.crx`** and **Firefox
-`.xpi`** bundles into an on-disk library and enable them per Space
-(`ExtensionsService.install(from:)` → `enable(slug:in:)`). **However, there is no
-user-facing "Add Extension" button or file picker wired into the shipping UI
-yet.** In practice that means:
-
-- Extensions already installed and enabled will **restore and appear** on launch
-  (buttons + manage panel + host-access controls all work), but
-- there is currently no in-app way to pick a new `.crx`/`.xpi` from disk and
-  install it. That control is a known gap, not a hidden menu.
-
-If you're building/running from source and want to load one, drive the
-`ExtensionsService` API directly (see
-`Packages/Sources/BrowserStore/ExtensionsService.swift`).
 
 ---
 
@@ -240,7 +261,8 @@ If you're building/running from source and want to load one, drive the
 | Find-in-page, print, PDF viewing | ✅ |
 | Native content blocking (network + cosmetic, `:has()`) | ✅ (on by default) |
 | Extension hosting (buttons, panel, permissions, restore) | ✅ |
-| In-app extension install / file picker | ⚠️ not wired yet |
+| In-app extension install / enable / uninstall (Settings) | ✅ |
+| Settings: clear cache / cookies / storage / history | ✅ |
 | Per-site blocking whitelist / disable toggle | ⚠️ not implemented |
 | YouTube / first-party video-ad blocking | ❌ not possible via `WKContentRuleList` |
 

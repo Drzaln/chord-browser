@@ -65,6 +65,13 @@ public protocol WebEngine: AnyObject {
     /// Deletes a Space's website data. Irreversible; prompt first (3.3).
     func removeData(for space: Space) async throws
 
+    /// Clears the given website-data types (cache, cookies, site storage) from
+    /// each Space's `WKWebsiteDataStore`, without deleting the stores themselves
+    /// — the Spaces and their tabs stay, they just lose the selected data. Used
+    /// by the settings "clear browsing data" surface. `history` is not a website
+    /// data type and is ignored here; the Store clears it separately.
+    func clearWebsiteData(_ types: BrowsingDataType, forSpaces spaces: [Space]) async
+
     func load(_ url: URL, in paneID: UUID)
     func goBack(in paneID: UUID)
     func goForward(in paneID: UUID)

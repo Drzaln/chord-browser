@@ -127,6 +127,22 @@ struct ExtensionsServiceTests {
         #expect(try await enablement.enabledSlugs(spaceID: s.id).isEmpty)
     }
 
+    @Test func removeUnloadsFromAllSpacesAndDeletesFromDisk() async throws {
+        let (service, host, enablement, cleanup) = makeService(installed: ["ublock"])
+        defer { cleanup() }
+        let a = Space(name: "A", sortIndex: 0)
+        let b = Space(name: "B", sortIndex: 1)
+        try await service.enable(slug: "ublock", in: a)
+        try await service.enable(slug: "ublock", in: b)
+
+        try await service.remove(slug: "ublock", from: [a, b])
+
+        // Unloaded from both Spaces, unmarked everywhere, and gone from the library.
+        #expect(Set(host.unloaded.map(\.space)) == [a.id, b.id])
+        #expect(try await enablement.allEnabled().isEmpty)
+        #expect(try service.installedExtensions().isEmpty)
+    }
+
     @Test func restoreLoadsEnabledExtensionsForExistingSpaces() async throws {
         let (service, host, enablement, cleanup) = makeService(installed: ["ublock", "dark"])
         defer { cleanup() }

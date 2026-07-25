@@ -55,6 +55,14 @@ public struct SQLiteHistoryRepository: HistoryRepository, ArchiveRepository {
         }
     }
 
+    /// Deletes every history row. Runs on the database's serial queue, off the
+    /// main thread (6.5), like every other write here.
+    public func deleteAllHistory() async throws {
+        try await database.writer.write { db in
+            _ = try HistoryRow.deleteAll(db)
+        }
+    }
+
     public func recentHistory(limit: Int) async throws -> [HistoryEntry] {
         try await database.writer.read { db in
             let rows = try HistoryRow

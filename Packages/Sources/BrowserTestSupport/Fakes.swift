@@ -45,6 +45,11 @@ public final class FakeWebEngine: WebEngine {
         removedDataForSpaces.append(space.id)
     }
 
+    public private(set) var clearedData: [(types: BrowsingDataType, spaceIDs: [UUID])] = []
+    public func clearWebsiteData(_ types: BrowsingDataType, forSpaces spaces: [Space]) async {
+        clearedData.append((types, spaces.map(\.id)))
+    }
+
     public func load(_ url: URL, in paneID: UUID) { loadedURLs.append((paneID, url)) }
     public func goBack(in paneID: UUID) { backCount += 1 }
     public func goForward(in paneID: UUID) { forwardCount += 1 }

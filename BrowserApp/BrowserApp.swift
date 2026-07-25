@@ -51,6 +51,7 @@ struct AppRootView: View {
                 store: environment.store,
                 downloads: environment.downloads,
                 extensionHost: environment.extensionHost,
+                extensions: environment.extensions,
                 openCommandBar: { mode, query in
                     commandBar?.present(
                         over: NSApp.mainWindow, mode: mode, initialQuery: query ?? ""
@@ -94,6 +95,13 @@ struct BrowserCommands: Commands {
     let commandBar: CommandBarController?
 
     var body: some Commands {
+        // The standard app "Settings…" item — Cmd+, — opens the settings sheet
+        // (clear browsing data + extensions) rather than a separate window, so
+        // it lives inside the single browser window like the other sheets.
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") { launch.store?.isSettingsPresented = true }
+                .keyboardShortcut(",", modifiers: .command)
+        }
         CommandGroup(replacing: .newItem) {
             // Cmd+T opens the command bar, not a blank tab (4.4). A new tab is
             // one Enter away, and usually you wanted a destination anyway.

@@ -223,6 +223,38 @@ background timers keep the app just over the no-animation 0.5% target but under
 the 1% ceiling. Content blocking is passive rule-matching in WebKit — it adds no
 timers and no idle CPU. Samples in `/tmp/soak-052928.tsv`.
 
+## Settings (clear browsing data + extensions), added 2026-07-25
+
+User-requested non-spec features. Sheet opens with `Cmd+,` or app menu →
+*Settings…*.
+
+**Verified live 2026-07-25:** launched the built app, `Cmd+,` opened the sheet;
+the **Privacy & Data** section renders the four toggles (cache, cookies, local &
+session storage, history), the **Clear Data** button, and the "cleared for every
+Space… cannot be undone" copy. Screenshot captured. (The Extensions tab's own
+screenshot was blocked by a macOS screen-recording permission dialog, which was
+**not** actioned — it's a system prompt; the tab is the same `SettingsView` and
+its service actions are unit-tested.)
+
+### Privacy & Data
+- [x] `Cmd+,` opens the settings sheet
+- [x] Privacy & Data shows cache / cookies / storage / history toggles
+- [ ] Clearing **cache** frees disk without signing out (manual A/B)
+- [ ] Clearing **cookies** signs you out of a logged-in site, in every Space
+- [ ] Clearing **history** empties the command-bar history suggestions
+- [x] Clear Data asks for confirmation before acting (irreversible)
+
+### Extensions
+- [ ] **Add Extension…** opens a file picker; a `.crx`/`.xpi` installs and lists
+- [ ] The **Enabled** switch loads/unloads the extension in the active Space
+- [ ] Enabling in Space A does not enable it in Space B (per-Space)
+- [ ] The trash button uninstalls (gone from every Space + the library)
+- [ ] An enabled extension's toolbar button appears in the sidebar header
+
+Automated coverage: `ClearBrowsingDataTests` (Store fan-out), `BrowsingDataType`
++ `WebsiteDataTypeMapping` (type mapping), `HistoryClearTests` (deleteAll),
+`ExtensionsServiceTests.removeUnloadsFromAllSpacesAndDeletesFromDisk`.
+
 ## M2 — Spaces
 
 ### Switching

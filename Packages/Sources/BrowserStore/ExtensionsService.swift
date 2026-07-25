@@ -71,6 +71,17 @@ public final class ExtensionsService {
         try await enablement.setEnabled(false, slug: slug, spaceID: space.id)
     }
 
+    /// Uninstalls an extension: disables it in every Space it might be loaded in
+    /// (best-effort — a Space where it was never on simply no-ops), then deletes
+    /// the bundle from the on-disk library. After this the slug is gone
+    /// everywhere, including from the enablement records.
+    public func remove(slug: String, from spaces: [Space]) async throws {
+        for space in spaces {
+            try? await disable(slug: slug, in: space)
+        }
+        try installer.remove(slug: slug)
+    }
+
     /// Re-loads every enabled extension after the store has restored its Spaces.
     /// Best-effort: a bundle that was uninstalled on disk, or a Space that no
     /// longer exists, is skipped and logged rather than failing the launch.

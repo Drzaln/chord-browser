@@ -17,9 +17,29 @@ only the current position within it.
 | **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE** |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak). |
 | **Shipped** | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**        | Review. The only remaining follow-ups are **non-spec UI features** (per-site whitelist, settings toggle) — **ask the user before building** (§11). |
+| **Next**        | Review. The remaining non-spec follow-up is a **per-site content-blocking whitelist / disable toggle** — **ask the user before building** (§11). |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 302 passing (283 unit + 19 end-to-end)                                                                          |
+| **Tests**       | 317 passing (298 unit + 19 end-to-end)                                                                          |
+
+**User-requested non-spec features shipped (2026-07-25):**
+- **Settings sheet** (`Cmd+,`, app-menu *Settings…*), presented from `RootView`
+  like the other sheets. Two sections behind a segmented picker.
+- **Privacy & Data — clear browsing data.** `BrowsingDataType` OptionSet
+  (WebKit-free, in Core) → `TabStore.clearBrowsingData` fans website types
+  (cache/cookies/site-storage) to `WebEngine.clearWebsiteData` (clears each
+  Space's `WKWebsiteDataStore` via `removeData(ofTypes:modifiedSince:.distantPast)`
+  — data-type constants verified against SDK headers) and `history` to
+  `HistoryRepository.deleteAllHistory` (new). Global across all Spaces;
+  confirmation dialog; irreversible.
+- **Extensions UI** — install a `.crx`/`.xpi` via `.fileImporter`
+  (security-scoped access), per-Space enable/disable switch, uninstall (trash).
+  New `ExtensionsService.remove(slug:from:)` unloads from every Space then deletes
+  from the library. This closes the "no in-app extension install" gap.
+- **Verified live:** launched the built app, `Cmd+,` opened the sheet, Privacy &
+  Data section renders all four toggles + Clear Data + confirmation copy. (The
+  Extensions-tab screenshot was blocked by a macOS screen-recording permission
+  dialog — not clicked, being a system prompt — but the tab is the same
+  `SettingsView` switch and its actions are unit-tested.)
 | **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
 | **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
 

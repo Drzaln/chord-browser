@@ -93,6 +93,41 @@ public final class WebKitEngine: WebEngine {
         try await dataStores.removePersistentStore(dataStoreID: space.dataStoreID)
     }
 
+    public func clearWebsiteData(_ types: BrowsingDataType, forSpaces spaces: [Space]) async {
+        let wkTypes = Self.websiteDataTypes(for: types)
+        guard !wkTypes.isEmpty else { return }
+        // `modifiedSince: .distantPast` == everything. Each Space's store is
+        // cleared independently so isolation is preserved: one Space losing its
+        // cookies never touches another's.
+        for space in spaces {
+            let store = dataStores.store(for: space)
+            await store.removeData(ofTypes: wkTypes, modifiedSince: .distantPast)
+        }
+    }
+
+    /// Maps the WebKit-free `BrowsingDataType` onto the concrete
+    /// `WKWebsiteDataType*` constants (verified against the SDK headers).
+    nonisolated static func websiteDataTypes(for types: BrowsingDataType) -> Set<String> {
+        var result: Set<String> = []
+        if types.contains(.cache) {
+            result.formUnion([
+                WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache,
+                WKWebsiteDataTypeFetchCache, WKWebsiteDataTypeOfflineWebApplicationCache,
+            ])
+        }
+        if types.contains(.cookies) {
+            result.insert(WKWebsiteDataTypeCookies)
+        }
+        if types.contains(.siteStorage) {
+            result.formUnion([
+                WKWebsiteDataTypeLocalStorage, WKWebsiteDataTypeSessionStorage,
+                WKWebsiteDataTypeIndexedDBDatabases, WKWebsiteDataTypeServiceWorkerRegistrations,
+                WKWebsiteDataTypeWebSQLDatabases, WKWebsiteDataTypeFileSystem,
+            ])
+        }
+        return result
+    }
+
     private func liveView(for pane: Pane, in space: Space) -> LiveWebView {
         if let existing = pool.view(for: pane.id) { return existing }
 

@@ -7,7 +7,7 @@ Chromium. The goal is a personal, fast, memory-disciplined Arc replacement that
 stays on the platform's rails.
 
 > **Status:** all spec milestones (M1–M7) plus native content blocking are
-> shipped on `main` and verified live. 304 tests pass; `./scripts/prepush.sh` is
+> shipped on `main` and verified live. 317 tests pass; `./scripts/prepush.sh` is
 > green. See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
@@ -31,8 +31,10 @@ stays on the platform's rails.
 - **Split view + Little Arc** — multi-pane tabs and a floating quick-open panel.
 - **Polish** — swipe-driven Space switching, cross-section drag-and-drop,
   find-in-page, print, and PDF viewing.
-- **Extensions** — a `WKWebExtension` host with a `.crx` unpack helper and
-  popover surfacing.
+- **Extensions** — a `WKWebExtension` host with a `.crx`/`.xpi` unpack helper and
+  popover surfacing. Install, enable per Space, and uninstall from **Settings**.
+- **Settings** (`Cmd+,`) — clear browsing data (cache, cookies, site storage,
+  history) across every Space, and manage extensions.
 - **Native content blocking** — see below.
 
 ### Content blocking
