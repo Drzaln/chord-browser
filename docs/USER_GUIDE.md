@@ -96,6 +96,30 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
 - **New tab opens** — a **blank page**, the **search engine's home page**, or a
   **specific page** you choose. Applies to `Cmd+N`, the first tab on launch, and
   new split panes.
+- **Archive inactive tabs** — how long an unpinned, non-folder tab may sit idle
+  before it's auto-archived (Never / 1h / 6h / 12h / 24h). Tabs playing audio and
+  tabs in a folder are never archived.
+
+## Folders
+
+Group tabs in the sidebar. Click the **folder+** button next to **New Tab** to
+create one, then drop tabs in via a tab's right-click menu → **Move to Folder**.
+A folder header toggles collapse on click; right-click it to rename or delete
+(deleting keeps its tabs, now loose). Tabs inside a folder are **never
+auto-archived**, so a folder is a safe place to keep things.
+
+## Muting tabs
+
+A tab making noise shows a speaker button in its sidebar row — click it to mute,
+click again to unmute. Mute is also on the right-click menu, and it sticks across
+reloads. Muting a split silences every pane.
+
+## Peek (⌘-hover preview)
+
+Hold **⌘** and hover any link in a page to pop up a small live preview of where
+it goes, using the active Space's session. Move off the link or release ⌘ to
+dismiss it — it's a glance, and never steals focus. (This is distinct from Little
+Chord, which opens a link in a full floating window.)
 
 ## History
 

@@ -8,6 +8,7 @@ import Foundation
 enum Preferences {
     private static let searchEngineKey = "prefs.searchEngine"
     private static let newTabBehaviorKey = "prefs.newTabBehavior"
+    private static let idleWindowKey = "prefs.idleWindow"
 
     static func loadSearchEngine(
         _ defaults: UserDefaults = .standard
@@ -31,6 +32,18 @@ enum Preferences {
         _ behavior: NewTabBehavior, to defaults: UserDefaults = .standard
     ) {
         encode(behavior, forKey: newTabBehaviorKey, to: defaults)
+    }
+
+    static func loadIdleWindow(
+        _ defaults: UserDefaults = .standard
+    ) -> IdleWindow {
+        decode(IdleWindow.self, forKey: idleWindowKey, from: defaults) ?? .default
+    }
+
+    static func save(
+        _ idleWindow: IdleWindow, to defaults: UserDefaults = .standard
+    ) {
+        encode(idleWindow, forKey: idleWindowKey, to: defaults)
     }
 
     // MARK: - JSON helpers

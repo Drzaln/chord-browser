@@ -87,6 +87,7 @@ public struct AppEnvironment {
             spaceRepository: repository,
             historyRepository: history,
             archiveRepository: history,
+            folderRepository: repository,
             clock: SystemClock()
         )
 

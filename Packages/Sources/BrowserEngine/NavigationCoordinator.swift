@@ -32,6 +32,9 @@ extension NavigationCoordinator: WKNavigationDelegate {
         guard let paneID = paneID(for: webView) else { return }
         engine?.publishSnapshot(for: paneID)
         engine?.fetchFavicon(for: paneID)
+        // A reload built a fresh JS context, so re-assert mute if this pane is
+        // muted (non-spec: user-requested).
+        engine?.reapplyMute(paneID: paneID)
     }
 
     func webView(
@@ -116,6 +119,9 @@ extension NavigationCoordinator: WKScriptMessageHandler {
             engine?.setPlayingAudio(playing, for: paneID)
         case ContextLinkMonitor.messageName:
             engine?.setContextLinkURL(ContextLinkMonitor.linkURL(from: message.body), for: paneID)
+        case PeekLinkMonitor.messageName:
+            // Only the frontmost pane's hovers should drive the shared preview.
+            engine?.delegate?.paneRequestedPeek(url: PeekLinkMonitor.linkURL(from: message.body))
         default:
             break
         }

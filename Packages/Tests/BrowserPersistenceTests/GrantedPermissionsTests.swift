@@ -20,7 +20,7 @@ struct GrantedPermissionsTests {
         try Migrations.makeMigrator().migrate(queue)
         let exists = try queue.read { try $0.tableExists("grantedPermission") }
         #expect(exists)
-        #expect(Migrations.currentVersion == 6)
+        #expect(Migrations.currentVersion == 7)
     }
 
     @Test("Granting then reading round-trips, across all three kinds")

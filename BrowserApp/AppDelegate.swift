@@ -26,6 +26,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return LittleArcController(store: store)
     }()
 
+    /// ⌘-hover Peek preview (non-spec: user-requested). Lazy, like the others.
+    private(set) lazy var peek: PeekController? = {
+        guard let store = launch.store else { return nil }
+        return PeekController(store: store)
+    }()
+
     override init() {
         let state = Self.signposter.beginInterval("launch")
         do {
@@ -80,6 +86,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // panel. Set once — the closure holds the controller lazily.
         launch.store?.littleArcPresenter = { [weak self] url in
             self?.littleArc?.present(url: url)
+        }
+
+        // ⌘-hover Peek preview routes engine → store → this presenter.
+        launch.store?.peekPresenter = { [weak self] url in
+            self?.peek?.present(url: url)
         }
 
         // Windows created later (and SwiftUI recreating one) must get the same

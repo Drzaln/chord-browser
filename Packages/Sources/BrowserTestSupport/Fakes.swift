@@ -56,6 +56,11 @@ public final class FakeWebEngine: WebEngine {
     public func reload(paneID: UUID) { reloadCount += 1 }
     public func stopLoading(paneID: UUID) { stopCount += 1 }
 
+    public private(set) var mutedPanes: Set<UUID> = []
+    public func setMuted(_ muted: Bool, paneID: UUID) {
+        if muted { mutedPanes.insert(paneID) } else { mutedPanes.remove(paneID) }
+    }
+
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
     public private(set) var printedPanes: [UUID] = []

@@ -11,6 +11,25 @@ public enum IdleWindow: Codable, Hashable, Sendable {
         if case .after(let value) = self { return value }
         return nil
     }
+
+    /// The presets offered in Settings, in menu order.
+    public static let presets: [IdleWindow] = [
+        .never,
+        .after(1 * 60 * 60),
+        .after(6 * 60 * 60),
+        .after(12 * 60 * 60),
+        .after(24 * 60 * 60),
+    ]
+
+    /// A short label for the picker.
+    public var displayName: String {
+        switch self {
+        case .never: return "Never"
+        case .after(let value):
+            let hours = Int((value / 3600).rounded())
+            return hours == 1 ? "After 1 hour" : "After \(hours) hours"
+        }
+    }
 }
 
 /// Decides which tabs the ephemeral sweep may close.

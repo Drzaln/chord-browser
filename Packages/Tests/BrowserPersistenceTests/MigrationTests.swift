@@ -215,6 +215,43 @@ struct MigrationTests {
         #expect(count == 2)
     }
 
+    @Test("v7 adds the folder table and a nullable folderId, deleting nothing")
+    func v7AddsFolders() throws {
+        let queue = try DatabaseQueue()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(queue, upTo: "v6_history_per_space")
+
+        // A pre-v7 tab, to prove the additive column leaves it untouched.
+        let tabID = UUID().uuidString
+        let spaceID = try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1")
+        } ?? UUID().uuidString
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO tab
+                        (id, spaceId, placementKind, placementOrder, focusedPaneID,
+                         lastAccessedAt, createdAt)
+                    VALUES (?, ?, 'ephemeral', 0, ?, 0, 0)
+                    """,
+                arguments: [tabID, spaceID, UUID().uuidString]
+            )
+        }
+
+        try migrator.migrate(queue)
+
+        let (hasFolder, tabCount, folderId) = try queue.read { db in
+            (
+                try db.tableExists("folder"),
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM tab") ?? 0,
+                try String.fetchOne(db, sql: "SELECT folderId FROM tab WHERE id = ?", arguments: [tabID])
+            )
+        }
+        #expect(hasFolder)
+        #expect(tabCount == 1, "the existing tab is not deleted")
+        #expect(folderId == nil, "existing tabs default to no folder")
+    }
+
     @Test("A fresh database reports the current schema version")
     func versionRecorded() throws {
         let queue = try DatabaseQueue()

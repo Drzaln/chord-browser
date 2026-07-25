@@ -35,6 +35,8 @@ struct GeneralSettings: View {
             searchEngineSection
             Divider()
             newTabSection
+            Divider()
+            hibernationSection
             Spacer(minLength: 0)
         }
         .onAppear(perform: syncFromStore)
@@ -129,6 +131,40 @@ struct GeneralSettings: View {
                 case .custom: commitCustomURL()
                 }
             }
+        )
+    }
+
+    // MARK: - Hibernation / auto-archive
+
+    @ViewBuilder
+    private var hibernationSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Archive Inactive Tabs").font(.system(size: 13, weight: .semibold))
+            Text(
+                "Unpinned tabs you haven't touched for this long are moved to the "
+                    + "archive, reachable from the command bar. Pinned tabs and tabs "
+                    + "playing audio are never archived."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Picker("", selection: idleWindowBinding) {
+                ForEach(IdleWindow.presets, id: \.self) { window in
+                    Text(window.displayName).tag(window)
+                }
+            }
+            .labelsHidden()
+            .frame(maxWidth: 200)
+        }
+    }
+
+    private var idleWindowBinding: Binding<IdleWindow> {
+        Binding(
+            get: {
+                // Snap an off-preset stored value (older builds) to the closest tag.
+                IdleWindow.presets.contains(store.idleWindow) ? store.idleWindow : .default
+            },
+            set: { store.idleWindow = $0 }
         )
     }
 

@@ -22,7 +22,7 @@ struct ExtensionEnablementTests {
         try Migrations.makeMigrator().migrate(queue)
         let exists = try queue.read { try $0.tableExists("extensionEnablement") }
         #expect(exists)
-        #expect(Migrations.currentVersion == 6)
+        #expect(Migrations.currentVersion == 7)
     }
 
     @Test("Enabling then reading round-trips per Space")

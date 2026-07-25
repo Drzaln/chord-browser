@@ -5,6 +5,10 @@ public struct Tab: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public var spaceID: UUID
     public var placement: TabPlacement
+    /// The folder this tab belongs to, if any (non-spec: user-requested). A
+    /// foldered tab is grouped under its folder in the sidebar and exempt from
+    /// the ephemeral sweep.
+    public var folderID: UUID?
     public var panes: [Pane]
     public var focusedPaneID: UUID
     public var lastAccessedAt: Date
@@ -14,6 +18,7 @@ public struct Tab: Identifiable, Codable, Hashable, Sendable {
         id: UUID = UUID(),
         spaceID: UUID,
         placement: TabPlacement,
+        folderID: UUID? = nil,
         panes: [Pane],
         focusedPaneID: UUID? = nil,
         lastAccessedAt: Date,
@@ -23,6 +28,7 @@ public struct Tab: Identifiable, Codable, Hashable, Sendable {
         self.id = id
         self.spaceID = spaceID
         self.placement = placement
+        self.folderID = folderID
         self.panes = panes
         self.focusedPaneID = focusedPaneID ?? panes[0].id
         self.lastAccessedAt = lastAccessedAt

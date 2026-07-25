@@ -23,3 +23,10 @@ public protocol SpaceRepository: Sendable {
     func loadSpaces() async throws -> [Space]
     func saveSpaces(_ spaces: [Space]) async throws
 }
+
+/// Persistence for sidebar folders (non-spec: user-requested). Separate seam so
+/// fakes and tests need no SQLite.
+public protocol FolderRepository: Sendable {
+    func loadFolders() async throws -> [Folder]
+    func saveFolders(_ folders: [Folder]) async throws
+}

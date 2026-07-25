@@ -17,6 +17,8 @@ public final class PaneRuntime {
     public var currentURL: URL?
     /// Exempts the tab from the ephemeral sweep (4.3).
     public var isPlayingAudio: Bool = false
+    /// Whether the user has muted this pane (non-spec: user-requested).
+    public var isMuted: Bool = false
 
     init(paneID: UUID) {
         self.paneID = paneID
@@ -29,5 +31,6 @@ public final class PaneRuntime {
         canGoForward = snapshot.canGoForward
         currentURL = snapshot.url
         isPlayingAudio = snapshot.isPlayingAudio
+        isMuted = snapshot.isMuted
     }
 }

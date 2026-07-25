@@ -21,6 +21,11 @@ final class LiveWebView {
         didSet { refreshSnapshot() }
     }
 
+    /// User-set mute state, enforced in-page; see `AudioMuteController`.
+    var isMuted = false {
+        didSet { refreshSnapshot() }
+    }
+
     init(paneID: UUID, webView: WKWebView, cornerRadius: CGFloat) {
         self.paneID = paneID
         self.webView = webView
@@ -61,7 +66,8 @@ final class LiveWebView {
             estimatedProgress: webView.estimatedProgress,
             canGoBack: webView.canGoBack,
             canGoForward: webView.canGoForward,
-            isPlayingAudio: isPlayingAudio
+            isPlayingAudio: isPlayingAudio,
+            isMuted: isMuted
         )
     }
 
@@ -88,6 +94,8 @@ final class LiveWebView {
             .removeScriptMessageHandler(forName: MediaActivityMonitor.messageName)
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: ContextLinkMonitor.messageName)
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: PeekLinkMonitor.messageName)
         webView.stopLoading()
         container.removeContent()
     }

@@ -31,6 +31,8 @@ struct SidebarView: View {
     /// it into (4.1). Nil at rest and whenever the pointer is not over the list.
     @State private var ephemeralDropIndex: Int?
     @State private var dragStartWidth: CGFloat?
+    /// The folder whose name is being edited inline, if any.
+    @State private var renamingFolderID: UUID?
 
     /// One row plus the `LazyVStack`'s inter-row spacing — the height of a slot
     /// the drop maps a cursor Y onto.
@@ -146,13 +148,18 @@ struct SidebarView: View {
         // Lazy so a large tab list does not build every row up front (6.4).
         ScrollView {
             LazyVStack(spacing: 2) {
+                foldersSection
+
                 ForEach(store.unpinnedTabs) { tab in
                     TabRowView(
                         tab: tab,
                         isSelected: tab.id == store.selectedTabID,
                         tint: spaceTint,
+                        isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
+                        isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
                         select: { store.select(tab.id) },
                         close: { store.closeTab(tab.id) },
+                        toggleMute: { store.toggleMute(tab.id) },
                         beginDrag: { store.beginTabDrag(tab.id) },
                         endDrag: { store.endTabDrag() }
                     )
@@ -269,9 +276,71 @@ struct SidebarView: View {
         // same key — that is how Cmd+T was stolen from the command bar in M3.
     }
 
+    // MARK: - Folders
+
+    /// The active Space's folders, each a collapsible header with its tabs
+    /// nested beneath (non-spec: user-requested).
+    @ViewBuilder
+    private var foldersSection: some View {
+        ForEach(store.activeSpaceFolders) { folder in
+            FolderRowView(
+                folder: folder,
+                isRenaming: renamingFolderID == folder.id,
+                toggleCollapsed: { store.toggleFolderCollapsed(folder.id) },
+                rename: { store.renameFolder(folder.id, to: $0); renamingFolderID = nil },
+                beginRename: { renamingFolderID = folder.id },
+                delete: { store.deleteFolder(folder.id) }
+            )
+
+            if !folder.isCollapsed {
+                ForEach(store.tabs(inFolder: folder.id)) { tab in
+                    TabRowView(
+                        tab: tab,
+                        isSelected: tab.id == store.selectedTabID,
+                        tint: spaceTint,
+                        isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
+                        isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
+                        select: { store.select(tab.id) },
+                        close: { store.closeTab(tab.id) },
+                        toggleMute: { store.toggleMute(tab.id) },
+                        beginDrag: { store.beginTabDrag(tab.id) },
+                        endDrag: { store.endTabDrag() }
+                    )
+                    .padding(.leading, 14)  // nested under the folder
+                    .id(tab.id)
+                    .contextMenu { rowMenu(for: tab) }
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private func rowMenu(for tab: BrowserCore.Tab) -> some View {
         Button("Pin to Favourites") { store.setPinned(true, tabID: tab.id) }
+
+        Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") {
+            store.toggleMute(tab.id)
+        }
+
+        // Move to / out of a folder (non-spec: user-requested).
+        Menu("Move to Folder") {
+            Button("New Folder…") {
+                if let id = store.addFolder() {
+                    store.moveTab(tab.id, toFolder: id)
+                    renamingFolderID = id
+                }
+            }
+            if !store.activeSpaceFolders.isEmpty {
+                Divider()
+                ForEach(store.activeSpaceFolders) { folder in
+                    Button(folder.displayName) { store.moveTab(tab.id, toFolder: folder.id) }
+                }
+            }
+            if tab.folderID != nil {
+                Divider()
+                Button("Remove from Folder") { store.moveTab(tab.id, toFolder: nil) }
+            }
+        }
 
         // Cross-Space drag-and-drop is still to come; the menu is the M2
         // affordance.
@@ -287,21 +356,35 @@ struct SidebarView: View {
     /// (4.4). A new tab is one Return away, and you almost always wanted a
     /// destination rather than an empty page.
     private var newTabButton: some View {
-        Button {
-            openCommandBar(.newTab, nil)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.system(size: 10, weight: .semibold))
-                Text("New Tab")
-                    .font(.system(size: 12))
-                Spacer()
+        HStack(spacing: 4) {
+            Button {
+                openCommandBar(.newTab, nil)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("New Tab")
+                        .font(.system(size: 12))
+                    Spacer()
+                }
+                .padding(.horizontal, 8)
+                .frame(height: Metrics.sidebarRowHeight)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 8)
-            .frame(height: Metrics.sidebarRowHeight)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+
+            // New Folder — creates a folder in the active Space, ready to rename.
+            Button {
+                if let id = store.addFolder() { renamingFolderID = id }
+            } label: {
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 11))
+                    .frame(width: Metrics.sidebarRowHeight, height: Metrics.sidebarRowHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("New Folder")
         }
-        .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .padding(.horizontal, 8)
         .padding(.bottom, 4)

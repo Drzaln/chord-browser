@@ -68,6 +68,10 @@ public final class WebKitEngine: WebEngine {
     /// `ContextLinkMonitor` and read when "Open in Little Chord" is chosen.
     private var contextLinkURL: [UUID: URL] = [:]
 
+    /// Panes the user has muted (non-spec: user-requested). Kept here, not on the
+    /// view, so a muted pane stays muted across eviction and reload.
+    private var mutedPanes: Set<UUID> = []
+
     public init(
         configuration: EngineConfiguration,
         downloads: DownloadCoordinator = DownloadCoordinator()
@@ -142,6 +146,9 @@ public final class WebKitEngine: WebEngine {
         live.startObserving { [weak self] paneID, snapshot in
             self?.handleSnapshot(snapshot, for: paneID)
         }
+        // A revived pane that was muted stays muted — the JS is (re)applied on
+        // didFinish; this seeds the snapshot so the UI is right immediately.
+        live.isMuted = mutedPanes.contains(pane.id)
         pool.insert(live)
 
         // Prefer restoring over reloading: interactionState brings back scroll
@@ -183,9 +190,12 @@ public final class WebKitEngine: WebEngine {
         let controller = WKUserContentController()
         controller.addUserScript(MediaActivityMonitor.makeUserScript())
         controller.addUserScript(ContextLinkMonitor.makeUserScript())
+        controller.addUserScript(AudioMuteController.makeUserScript())
+        controller.addUserScript(PeekLinkMonitor.makeUserScript())
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
+            controller.add(coordinator, name: PeekLinkMonitor.messageName)
         }
         // Native content blocking (§4.8, C2). The compiled list is shared and
         // immutable; adding it to each view's controller is what actually
@@ -273,6 +283,30 @@ public final class WebKitEngine: WebEngine {
     /// right-click. `nil` when the click was not over a link.
     func setContextLinkURL(_ url: URL?, for paneID: UUID) {
         contextLinkURL[paneID] = url
+    }
+
+    // MARK: - Mute
+
+    public func setMuted(_ muted: Bool, paneID: UUID) {
+        if muted { mutedPanes.insert(paneID) } else { mutedPanes.remove(paneID) }
+        guard let live = pool.peek(paneID) else { return }
+        live.isMuted = muted
+        applyMuteJS(muted, to: live.webView)
+        handleSnapshot(live.snapshot, for: paneID)
+    }
+
+    /// Re-asserts a pane's mute state into a freshly-built JS context — called
+    /// after each navigation, since a reload wipes the injected function's state.
+    func reapplyMute(paneID: UUID) {
+        guard mutedPanes.contains(paneID), let live = pool.peek(paneID) else { return }
+        live.isMuted = true
+        applyMuteJS(true, to: live.webView)
+    }
+
+    private func applyMuteJS(_ muted: Bool, to webView: WKWebView) {
+        webView.evaluateJavaScript(
+            "\(AudioMuteController.setMutedFunction)(\(muted));", completionHandler: nil
+        )
     }
 
     // MARK: - Navigation

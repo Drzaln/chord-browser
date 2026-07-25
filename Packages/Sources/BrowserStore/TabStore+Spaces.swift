@@ -24,17 +24,19 @@ extension TabStore {
             .sorted { $0.placement.order < $1.placement.order }
     }
 
-    /// The active Space's pinned tabs — its favourites (4.1).
+    /// The active Space's pinned tabs — its favourites (4.1). Tabs inside a
+    /// folder are shown under the folder instead, so they are excluded here.
     ///
     /// Per-Space for free: `visibleTabs` is already filtered by the active
     /// Space, so a Space's favourites cannot leak into another's.
     public var pinnedTabs: [Tab] {
-        visibleTabs.filter { $0.placement.isPinned }
+        visibleTabs.filter { $0.placement.isPinned && $0.folderID == nil }
     }
 
-    /// Everything else: the ephemeral tabs the sweep may eventually close.
+    /// The loose ephemeral tabs the sweep may eventually close — not pinned and
+    /// not in a folder.
     public var unpinnedTabs: [Tab] {
-        visibleTabs.filter { !$0.placement.isPinned }
+        visibleTabs.filter { !$0.placement.isPinned && $0.folderID == nil }
     }
 
     public func selectSpace(_ spaceID: UUID) {
@@ -123,6 +125,10 @@ extension TabStore {
             }
         }
         tabs.removeAll { $0.spaceID == spaceID }
+        // The DB cascades folder rows on space delete; keep the in-memory list in
+        // step so the sidebar does not show a folder from a Space that is gone.
+        folders.removeAll { $0.spaceID == spaceID }
+        persistFolders()
         spaces.remove(at: index)
         lastSelectedTabBySpace[spaceID] = nil
 

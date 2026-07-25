@@ -10,6 +10,8 @@ struct TabRow: Codable, FetchableRecord, PersistableRecord, Sendable {
     var spaceId: String
     var placementKind: String
     var placementOrder: Int
+    /// The folder this tab belongs to, or nil (non-spec: user-requested).
+    var folderId: String?
     var focusedPaneID: String
     var lastAccessedAt: Double
     var createdAt: Double

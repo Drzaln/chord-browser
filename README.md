@@ -44,10 +44,15 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **History** (`Cmd+Y`) — a searchable, **per-Space** window of visited pages
   grouped by day, with per-entry and multi-select delete, open-in-new-tab, and
   clear. Each Space keeps its own history, matching its isolated data store.
-- **Configurable search & new tab** — pick the search engine (Google,
-  DuckDuckGo, Bing, Brave, or a custom `%s` template) and what a new tab opens
-  to (blank, the search engine's home, or a specific page), from **Settings →
-  General**.
+- **Folders** — group tabs in the sidebar into collapsible, renamable folders;
+  foldered tabs are exempt from the auto-archive sweep.
+- **Peek** — hold `⌘` and hover a link for a small live preview popover.
+- **Per-tab mute** — a speaker toggle on any tab making noise; sticks across
+  reloads and silences every pane of a split.
+- **Configurable search, new tab & archive time** — pick the search engine
+  (Google, DuckDuckGo, Bing, Brave, or a custom `%s` template), what a new tab
+  opens to (blank, the search engine's home, or a specific page), and how long
+  before idle tabs are archived — all from **Settings → General**.
 - **Settings** (`Cmd+,`) — General preferences, clear browsing data (cache,
   cookies, site storage, history) across every Space, and manage extensions.
 - **Native content blocking** — see below.

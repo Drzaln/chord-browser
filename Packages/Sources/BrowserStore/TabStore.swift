@@ -107,16 +107,24 @@ public final class TabStore {
     /// the content view and lets its surface be built.
     var stateResolution: [UUID: StateResolution] = [:]
 
+    /// Sidebar folders across every Space; partitioned in memory by the active
+    /// Space, like tabs (non-spec: user-requested). See `TabStore+Folders`.
+    public internal(set) var folders: [Folder] = []
+
     @ObservationIgnored let engine: any WebEngine
     @ObservationIgnored let repository: any TabRepository
     @ObservationIgnored let spaceRepository: (any SpaceRepository)?
     @ObservationIgnored let historyRepository: (any HistoryRepository)?
     @ObservationIgnored let archiveRepository: (any ArchiveRepository)?
+    @ObservationIgnored let folderRepository: (any FolderRepository)?
     @ObservationIgnored let clock: any Clock
 
-    /// How long an unpinned tab may sit idle. User-configurable; "never" is
-    /// allowed and disables the sweep (4.3).
-    public var idleWindow: IdleWindow = .default
+    /// How long an unpinned tab may sit idle before it is auto-archived. "Never"
+    /// disables the sweep (4.3). Persisted to `UserDefaults` like the other
+    /// preferences; the next sweep pass picks up a change.
+    public var idleWindow: IdleWindow = Preferences.loadIdleWindow() {
+        didSet { Preferences.save(idleWindow) }
+    }
 
     @ObservationIgnored private var hasRestored = false
     @ObservationIgnored var sweepTask: Task<Void, Never>?
@@ -181,6 +189,10 @@ public final class TabStore {
     /// context-menu action "Open in Little Chord" (non-spec: user-requested).
     @ObservationIgnored public var littleArcPresenter: (@MainActor (URL) -> Void)?
 
+    /// Shows (non-nil) or dismisses (nil) the ⌘-hover Peek preview. Injected by
+    /// the app layer, which owns the preview panel; inert until then.
+    @ObservationIgnored public var peekPresenter: (@MainActor (URL?) -> Void)?
+
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
 
@@ -192,6 +204,7 @@ public final class TabStore {
         spaceRepository: (any SpaceRepository)? = nil,
         historyRepository: (any HistoryRepository)? = nil,
         archiveRepository: (any ArchiveRepository)? = nil,
+        folderRepository: (any FolderRepository)? = nil,
         clock: any Clock
     ) {
         self.engine = engine
@@ -199,6 +212,7 @@ public final class TabStore {
         self.spaceRepository = spaceRepository
         self.historyRepository = historyRepository
         self.archiveRepository = archiveRepository
+        self.folderRepository = folderRepository
         self.clock = clock
         self.engine.delegate = self
     }
@@ -229,6 +243,17 @@ public final class TabStore {
             await persistSpaces()
         }
         activeSpaceID = spaces[0].id
+
+        do {
+            // Only folders whose Space still exists — a stray one would render
+            // nowhere and orphan its tabs.
+            let known = Set(spaces.map(\.id))
+            folders = (try await folderRepository?.loadFolders() ?? [])
+                .filter { known.contains($0.spaceID) }
+        } catch {
+            Log.store.error("folder restore failed: \(String(describing: error))")
+            folders = []
+        }
 
         do {
             tabs = try await repository.loadAll()
@@ -421,6 +446,25 @@ public final class TabStore {
     /// (4.1): in a split, Cmd+P prints the pane you are reading.
     public func printSelectedPane() {
         selectedTab.map { engine.printPane(paneID: $0.focusedPaneID) }
+    }
+
+    /// Whether the tab's focused pane is muted (non-spec: user-requested).
+    public func isMuted(_ tabID: UUID) -> Bool {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return false }
+        return runtime(for: tab.focusedPaneID).isMuted
+    }
+
+    /// Toggles mute for every pane in the tab, so a split's audio is silenced as
+    /// one. The engine keeps the state, surviving reload and eviction.
+    public func toggleMute(_ tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        let target = !isMuted(tabID)
+        for pane in tab.panes {
+            engine.setMuted(target, paneID: pane.id)
+            // Immediate UI feedback even when the pane has no live view to echo a
+            // snapshot back; a live pane's snapshot confirms the same value.
+            runtime(for: pane.id).isMuted = target
+        }
     }
 
     public func goBack() { selectedTab.map { engine.goBack(in: $0.focusedPaneID) } }
@@ -644,6 +688,10 @@ extension TabStore: WebEngineDelegate {
         // store forwards through an injected presenter rather than depending on
         // UI. No-op until it is wired — the same shape as `afterRestore`.
         littleArcPresenter?(url)
+    }
+
+    public func paneRequestedPeek(url: URL?) {
+        peekPresenter?(url)
     }
 
     public func paneContentProcessDidTerminate(_ paneID: UUID) {

@@ -10,8 +10,12 @@ struct TabRowView: View {
     /// The active Space's colour, so a tab's highlight reads as part of the
     /// Space rather than the generic system selection (item 1).
     var tint: Color = .accentColor
+    /// Live audio state for the mute affordance (non-spec: user-requested).
+    var isPlayingAudio: Bool = false
+    var isMuted: Bool = false
     let select: () -> Void
     let close: () -> Void
+    var toggleMute: () -> Void = {}
     let beginDrag: () -> Void
     let endDrag: () -> Void
 
@@ -29,6 +33,19 @@ struct TabRowView: View {
                 .font(.system(size: 12))
 
             Spacer(minLength: 0)
+
+            // Mute toggle — shown whenever the tab is making noise or is muted,
+            // so a muted tab still offers the way back (non-spec: user-requested).
+            if isPlayingAudio || isMuted {
+                Button(action: toggleMute) {
+                    Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(isMuted ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
+                }
+                .buttonStyle(.plain)
+                .help(isMuted ? "Unmute tab" : "Mute tab")
+                .accessibilityLabel(isMuted ? "Unmute tab" : "Mute tab")
+            }
 
             if isHovering {
                 Button(action: close) {
@@ -59,8 +76,11 @@ struct TabRowView: View {
                 onDragEnded: endDrag,
                 onClick: select
             )
-            // The gap keeps the close button clickable.
-            .padding(.trailing, Metrics.sidebarRowHeight)
+            // The gap keeps the trailing buttons clickable — wider when the mute
+            // button shares the row with the close button.
+            .padding(.trailing, (isPlayingAudio || isMuted)
+                ? Metrics.sidebarRowHeight + 20
+                : Metrics.sidebarRowHeight)
         }
         .onHover { hovering in
             withAnimation(Motion.respectingReduceMotion(

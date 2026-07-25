@@ -2,7 +2,7 @@ import BrowserCore
 import Foundation
 import GRDB
 
-public struct SQLiteTabRepository: TabRepository, SpaceRepository {
+public struct SQLiteTabRepository: TabRepository, SpaceRepository, FolderRepository {
     private let database: BrowserDatabase
 
     public init(database: BrowserDatabase) {
@@ -62,6 +62,44 @@ public struct SQLiteTabRepository: TabRepository, SpaceRepository {
             try SpaceRow.deleteAll(db)
             for space in spaces {
                 try SpaceMapping.row(for: space).insert(db)
+            }
+        }
+    }
+
+    // MARK: - Folders
+
+    public func loadFolders() async throws -> [Folder] {
+        try await database.writer.read { db in
+            let rows = try FolderRow.order(Column("sortIndex")).fetchAll(db)
+            return rows.compactMap { row -> Folder? in
+                guard let id = UUID(uuidString: row.id),
+                      let spaceID = UUID(uuidString: row.spaceId)
+                else {
+                    Log.db.error("skipping unparseable folder row")
+                    return nil
+                }
+                return Folder(
+                    id: id,
+                    spaceID: spaceID,
+                    name: row.name,
+                    sortIndex: row.sortIndex,
+                    isCollapsed: row.isCollapsed
+                )
+            }
+        }
+    }
+
+    public func saveFolders(_ folders: [Folder]) async throws {
+        try await database.writer.write { db in
+            try FolderRow.deleteAll(db)
+            for folder in folders {
+                try FolderRow(
+                    id: folder.id.uuidString,
+                    spaceId: folder.spaceID.uuidString,
+                    name: folder.name,
+                    sortIndex: folder.sortIndex,
+                    isCollapsed: folder.isCollapsed
+                ).insert(db)
             }
         }
     }

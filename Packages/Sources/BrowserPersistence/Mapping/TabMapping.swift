@@ -22,6 +22,7 @@ enum TabMapping {
             spaceId: tab.spaceID.uuidString,
             placementKind: kind,
             placementOrder: tab.placement.order,
+            folderId: tab.folderID?.uuidString,
             focusedPaneID: tab.focusedPaneID.uuidString,
             lastAccessedAt: tab.lastAccessedAt.timeIntervalSince1970,
             createdAt: tab.createdAt.timeIntervalSince1970
@@ -77,10 +78,15 @@ enum TabMapping {
         let storedFocus = UUID(uuidString: tabRow.focusedPaneID)
         let focus = panes.contains { $0.id == storedFocus } ? storedFocus : panes[0].id
 
+        // A folderId that is unparseable or points at a folder that no longer
+        // exists is treated as "no folder" — the tab is never lost over it.
+        let folderID = tabRow.folderId.flatMap(UUID.init(uuidString:))
+
         return Tab(
             id: id,
             spaceID: spaceID,
             placement: placement,
+            folderID: folderID,
             panes: panes,
             focusedPaneID: focus,
             lastAccessedAt: Date(timeIntervalSince1970: tabRow.lastAccessedAt),

@@ -38,7 +38,9 @@ extension TabStore {
         guard !isOccluded else { return }
 
         let now = clock.now
-        let candidates = tabs.map { tab in
+        // Foldered tabs are exempt — a folder is a place to keep tabs, so the
+        // sweep never touches them (non-spec: user-requested).
+        let candidates = tabs.filter { $0.folderID == nil }.map { tab in
             SweepPolicy.Candidate(
                 tabID: tab.id,
                 placement: tab.placement,

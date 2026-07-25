@@ -77,6 +77,9 @@ struct PinnedGrid: View {
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .contextMenu {
             Button("Unpin") { store.setPinned(false, tabID: tab.id) }
+            Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") {
+                store.toggleMute(tab.id)
+            }
             Button("Close Tab") { store.closeTab(tab.id) }
         }
     }

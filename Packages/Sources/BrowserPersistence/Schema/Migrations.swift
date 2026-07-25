@@ -19,11 +19,12 @@ enum Migrations {
         migrator.registerMigration("v4_extension_enablement", migrate: v4ExtensionEnablement)
         migrator.registerMigration("v5_granted_permissions", migrate: v5GrantedPermissions)
         migrator.registerMigration("v6_history_per_space", migrate: v6HistoryPerSpace)
+        migrator.registerMigration("v7_folders", migrate: v7Folders)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 6
+    static let currentVersion = 7
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -203,5 +204,26 @@ enum Migrations {
         try db.drop(table: "historyEntry")
         try db.rename(table: "historyEntry_new", to: "historyEntry")
         try db.create(indexOn: "historyEntry", columns: ["spaceId", "lastVisitedAt"])
+    }
+
+    /// Sidebar folders (non-spec: user-requested). Purely additive — a new table
+    /// plus a nullable `folderId` on `tab`, defaulting to NULL so every existing
+    /// tab is simply "not in a folder" (7.2). Deleting a Space cascades its
+    /// folders; the tab's own `folderId` has no FK so a deleted folder just
+    /// leaves its tabs loose (the store nulls them).
+    private static func v7Folders(_ db: Database) throws {
+        try db.create(table: "folder") { t in
+            t.primaryKey("id", .text).notNull()
+            t.column("spaceId", .text).notNull()
+                .references("space", onDelete: .cascade)
+            t.column("name", .text).notNull()
+            t.column("sortIndex", .integer).notNull()
+            t.column("isCollapsed", .boolean).notNull().defaults(to: false)
+        }
+        try db.create(indexOn: "folder", columns: ["spaceId", "sortIndex"])
+
+        try db.alter(table: "tab") { t in
+            t.add(column: "folderId", .text)
+        }
     }
 }
