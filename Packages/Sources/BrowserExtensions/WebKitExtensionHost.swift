@@ -189,10 +189,29 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             reapply(grants, to: context)
         }
 
+        // A real browser grants an MV3 extension's declared *API* permissions
+        // (tabs, storage, scripting, declarativeNetRequest, webNavigation, …) at
+        // install without a prompt — only host access is gated behind consent.
+        // WebKit leaves them in a "requested" state, and a background service
+        // worker that cannot use its declared APIs fails to start: that is the
+        // "the menu had trouble loading" symptom seen with AdBlock. Grant the
+        // declared API permissions up front so the background actually runs.
+        for permission in webExtension.requestedPermissions {
+            context.setPermissionStatus(.grantedExplicitly, for: permission)
+        }
+
         do {
             try controller.load(context)
         } catch {
             throw ExtensionLoadError.controllerRejected(error)
+        }
+
+        // Parse/load errors surface here; log them so a broken bundle is
+        // diagnosable rather than silently inert.
+        if !context.errors.isEmpty {
+            Log.extensions.error(
+                "extension \(installed.slug, privacy: .public) reported errors: \(String(describing: context.errors))"
+            )
         }
 
         let descriptor = LoadedExtension(

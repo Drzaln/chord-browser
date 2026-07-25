@@ -21,6 +21,25 @@ only the current position within it.
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 318 passing (299 unit + 19 end-to-end)                                                                          |
 
+**Extensions-still-not-working, 2nd fix (2026-07-25).** After the host-access
+fix, AdBlock's popup showed "the AdBlock menu had trouble loading" and Enhancer
+still did nothing. Root cause: an MV3 extension's declared **API permissions**
+(`tabs`, `storage`, `scripting`, `declarativeNetRequestWithHostAccess`,
+`webNavigation`, …) start in WebKit's "requested" state, not granted — a real
+browser grants these at install without a prompt. A background service worker
+that cannot use its declared APIs fails to start, which is the "menu had trouble
+loading" symptom. Fix: in `WebKitExtensionHost.load`, after re-applying persisted
+grants, `setPermissionStatus(.grantedExplicitly)` for every
+`webExtension.requestedPermissions` (host access still gated behind the enable
+prompt). Also log `context.errors` after load so a broken bundle is diagnosable.
+**Not yet live-verified** — the test session had the real Arc browser open
+alongside, our app's toolbar buttons were not rendering, and sandboxed-app logs
+did not surface via `log show`; builds + 318 tests pass. AdBlock's actual
+blocking still depends on WebKit's *partial* `declarativeNetRequest`, so expect
+limited blocking even with the popup fixed. Next agent: verify live (enable →
+Allow → open a fresh page; click the AdBlock toolbar button and confirm its popup
+renders) and check `context.errors` in Console.
+
 **Extensions-not-working fix (2026-07-25).** User installed AdBlock + Enhancer
 for YouTube (both MV3, unpacked fine) and neither worked. Root causes, both
 fixed:
