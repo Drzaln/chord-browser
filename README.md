@@ -11,6 +11,9 @@ stays on the platform's rails.
 > green. See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
+> 📖 **New here? Read the [User Guide](docs/USER_GUIDE.md)** — keyboard shortcuts,
+> the command bar, Spaces, split view, extensions, and content blocking.
+
 ---
 
 ## Features
