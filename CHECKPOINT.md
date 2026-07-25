@@ -21,6 +21,27 @@ only the current position within it.
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
 | **Tests**       | 318 passing (299 unit + 19 end-to-end)                                                                          |
 
+**AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
+After the two fixes below, **Enhancer for YouTube works** (content script) and
+AdBlock's popup loads, but AdBlock still does not block ads. This is **not a
+fixable bug** — it is a WebKit platform limit:
+- AdBlock is fully wired: DB confirms `<all_urls>` + all declared API permissions
+  granted for its slug. Host access is not the problem.
+- AdBlock blocks via `declarativeNetRequest` with **63,466 enabled static rules**
+  across its default rulesets — one single ruleset is **53,575 rules**.
+- WebKit rejects DNR rulesets over its ceiling. This is the *same* limit our own
+  content blocker chunks around: `ContentBlocker.maxRulesPerList = 50_000`
+  because `WKContentRuleList` compilation caps ~50k/list. A 53k-rule ruleset is
+  over it, so AdBlock's rules never load and it blocks nothing.
+- **No code fix.** We cannot repackage a third-party extension's rulesets. The
+  right answer for the user is the **built-in content blocker** (on by default),
+  which is fed the same EasyList/EasyPrivacy data, uses native `WKContentRuleList`
+  (not DNR), and chunks at 50k so it loads the full ~137k rules. AdBlock the
+  extension is redundant here and can be uninstalled.
+- UI note (not a bug): the extension toolbar buttons render only when the sidebar
+  is **collapsed/floating** (`ExtensionActionsBar` lives in the floating header).
+  Worth surfacing them in the docked sidebar too — a real follow-up.
+
 **Extensions-still-not-working, 2nd fix (2026-07-25).** After the host-access
 fix, AdBlock's popup showed "the AdBlock menu had trouble loading" and Enhancer
 still did nothing. Root cause: an MV3 extension's declared **API permissions**
