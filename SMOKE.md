@@ -223,6 +223,23 @@ background timers keep the app just over the no-animation 0.5% target but under
 the 1% ceiling. Content blocking is passive rule-matching in WebKit — it adds no
 timers and no idle CPU. Samples in `/tmp/soak-052928.tsv`.
 
+## Frosted-glass chrome, added 2026-07-25
+
+The docked sidebar and the border frame use `.ultraThinMaterial` (same as the
+collapsed sidebar); the window is non-opaque so the material blurs the desktop.
+
+**Verified live 2026-07-25:** launched the app; the docked sidebar and the frame
+around the web card render as frosted glass with the Space tint, the web page
+stays opaque, and the extension buttons sit on the glass. Screenshot captured.
+
+- [x] Docked sidebar is translucent frosted glass (not a flat fill)
+- [x] The border frame around the web card is frosted too
+- [x] The web content card stays opaque (no desktop bleed through the page)
+- [ ] Collapsed/floating sidebar still frosts correctly (unchanged path)
+- [ ] Space swipe still blends the tint under the glass
+- [ ] No compositor/perf regression over a soak (re-run §6.1 if in doubt — the
+      non-opaque window + behind-window blur is new GPU work for the chrome)
+
 ## Settings (clear browsing data + extensions), added 2026-07-25
 
 User-requested non-spec features. Sheet opens with `Cmd+,` or app menu →

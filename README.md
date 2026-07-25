@@ -36,6 +36,9 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **Split view + Little Arc** — multi-pane tabs and a floating quick-open panel.
 - **Polish** — swipe-driven Space switching, cross-section drag-and-drop,
   find-in-page, print, and PDF viewing.
+- **Frosted-glass chrome** — the sidebar and border frame are `.ultraThinMaterial`
+  over the Space tint, blurring the desktop behind a non-opaque window; the web
+  card stays opaque.
 - **Extensions** — a `WKWebExtension` host with a `.crx`/`.xpi` unpack helper and
   popover surfacing. Install, enable per Space, and uninstall from **Settings**.
 - **Settings** (`Cmd+,`) — clear browsing data (cache, cookies, site storage,

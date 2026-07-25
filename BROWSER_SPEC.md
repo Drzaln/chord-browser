@@ -364,6 +364,11 @@ for assets.
   **Known trap:** `layer.cornerRadius` + `masksToBounds` directly on a
   `WKWebView` causes artifacts and can drop the compositor fast path. Use a
   container `NSView` for clipping and draw the shadow on a sibling layer.
+- **Frosted-glass chrome.** The sidebar (docked and floating) and the border
+  frame around the card use `.ultraThinMaterial` over the Space-gradient tint.
+  The window is non-opaque (`isOpaque = false`, clear background) so the material
+  blurs the desktop behind it rather than a flat fill; the web content card stays
+  opaque so pages are unaffected.
 - Icons: SF Symbols only. Type: system font. Do not extract or reuse any Arc
   asset.
 - Animations: SwiftUI springs. Expose all durations and spring parameters as
