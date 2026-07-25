@@ -47,6 +47,8 @@ private final class RecordingExtensionHost: ExtensionHost {
     func resolvePermission(id: UUID, allow: Bool) { resolved.append((id, allow)) }
     func hasAllHostsAccess(slug: String, in space: Space) -> Bool { false }
     func setAllHostsAccess(_ granted: Bool, slug: String, in space: Space) {}
+    var onHostAccessChanged: (@MainActor (UUID) -> Void)?
+    func promptForHostAccess(slug: String, in space: Space) {}
 }
 
 @MainActor

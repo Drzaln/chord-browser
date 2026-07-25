@@ -46,6 +46,11 @@ private final class FakeHost: ExtensionHost {
     func resolvePermission(id: UUID, allow: Bool) {}
     func hasAllHostsAccess(slug: String, in space: Space) -> Bool { false }
     func setAllHostsAccess(_ granted: Bool, slug: String, in space: Space) {}
+    var onHostAccessChanged: (@MainActor (UUID) -> Void)?
+    private(set) var hostAccessPrompts: [(slug: String, space: UUID)] = []
+    func promptForHostAccess(slug: String, in space: Space) {
+        hostAccessPrompts.append((slug, space.id))
+    }
 }
 
 private actor FakeEnablement: ExtensionEnablementRepository {
@@ -125,6 +130,18 @@ struct ExtensionsServiceTests {
         try await service.disable(slug: "ublock", in: s)
         #expect(host.unloaded.map(\.slug) == ["ublock"])
         #expect(try await enablement.enabledSlugs(spaceID: s.id).isEmpty)
+    }
+
+    @Test func enablePromptsForHostAccess() async throws {
+        let (service, host, _, cleanup) = makeService(installed: ["ublock"])
+        defer { cleanup() }
+        let s = space()
+
+        try await service.enable(slug: "ublock", in: s)
+
+        // Enable prompts for host access (WebKit does not auto-prompt); restore
+        // must not (it re-applies persisted grants silently).
+        #expect(host.hostAccessPrompts.map(\.slug) == ["ublock"])
     }
 
     @Test func removeUnloadsFromAllSpacesAndDeletesFromDisk() async throws {

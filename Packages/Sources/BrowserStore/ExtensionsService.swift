@@ -64,6 +64,11 @@ public final class ExtensionsService {
         else { throw ExtensionsServiceError.notInstalled(slug) }
         try await host.load(installed, in: space)
         try await enablement.setEnabled(true, slug: slug, spaceID: space.id)
+        // A freshly enabled extension has no host access yet — WebKit does not
+        // prompt for a required `host_permissions` extension — so it would sit
+        // inert. Prompt now (user-initiated enable only; restore re-applies
+        // persisted grants without a prompt).
+        host.promptForHostAccess(slug: slug, in: space)
     }
 
     public func disable(slug: String, in space: Space) async throws {

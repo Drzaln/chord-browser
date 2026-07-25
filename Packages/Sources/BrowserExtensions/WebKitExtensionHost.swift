@@ -49,6 +49,12 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// Fired on the main actor when an extension asks for a permission (7.5c).
     public var onPermissionRequest: (@MainActor (PermissionRequest) -> Void)?
 
+    /// Fired on the main actor after the user grants an extension host access on
+    /// enable, so the app can reload the affected Space's tabs — content scripts
+    /// only inject on a fresh load, so an already-open page needs a reload before
+    /// a just-enabled extension takes effect on it.
+    public var onHostAccessChanged: (@MainActor (_ spaceID: UUID) -> Void)?
+
     /// A prompt awaiting the user's decision: how to answer WebKit, and what to
     /// persist if the answer is "allow".
     private struct PendingPermission {
@@ -303,6 +309,35 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         loadedContexts[space.id]?[slug]?.context.hasAccessToAllHosts ?? false
     }
 
+    public func promptForHostAccess(slug: String, in space: Space) {
+        guard let loaded = loadedContexts[space.id]?[slug] else { return }
+        let context = loaded.context
+        // What the manifest asks for (host_permissions + content-script matches).
+        // Nothing to do if it wants no hosts, or already has what it needs.
+        let patterns = Array(context.webExtension.allRequestedMatchPatterns)
+        guard !patterns.isEmpty, !context.hasAccessToAllHosts else { return }
+
+        enqueuePermission(
+            spaceID: space.id, slug: slug, kind: .matchPattern,
+            values: patterns.map(\.string), displayName: loaded.descriptor.displayName
+        ) { [weak self] allow in
+            guard let self, allow else { return }
+            for pattern in patterns {
+                context.setPermissionStatus(.grantedExplicitly, for: pattern)
+            }
+            if let repo = self.permissionsRepository {
+                let records = patterns.map {
+                    GrantedPermissionRecord(
+                        spaceID: space.id, slug: slug, kind: .matchPattern, value: $0.string
+                    )
+                }
+                Task { try? await repo.grant(records) }
+            }
+            // Reload so content scripts inject into the already-open page.
+            self.onHostAccessChanged?(space.id)
+        }
+    }
+
     public func setAllHostsAccess(_ granted: Bool, slug: String, in space: Space) {
         guard let context = loadedContexts[space.id]?[slug]?.context else { return }
         // WebKit does not prompt for a *required* `host_permissions` extension
@@ -385,7 +420,14 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     // MARK: - ExtensionControllerProviding
 
     public func extensionControllerHandle(for space: Space) -> ExtensionControllerHandle? {
-        controllers[space.id].map(ExtensionControllerHandle.init)
+        // Attach a controller to *every* web view at creation, even when the
+        // Space has no extensions yet. `WKWebViewConfiguration.webExtensionController`
+        // can only be set at creation and never added afterward, so without this
+        // a tab opened before an extension is enabled could never run it. An
+        // empty controller is cheap; this is the model Safari uses. Enabling an
+        // extension later loads it into the controller the live views already
+        // reference, so a reload is enough to activate it on existing tabs.
+        prepare(space)
     }
 
     // MARK: -

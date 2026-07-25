@@ -228,8 +228,19 @@ Open **Settings** (`Cmd+,`) → **Extensions**:
 2. Each installed extension shows a row with an **Enabled** switch — turning it on
    loads the extension into the **active Space** (extensions are per-Space, so
    enable it in each Space where you want it).
-3. The **trash** button uninstalls an extension: it's unloaded from every Space
+3. **Grant host access when prompted.** On enable, a sheet lists the sites the
+   extension wants to read and change (e.g. all sites for an ad blocker, just
+   `youtube.com` for a YouTube tweaker). Click **Allow** — **without this the
+   extension is loaded but inert**, because WebKit does not auto-grant host
+   access. After you allow, open tabs reload so the extension takes effect.
+4. The **trash** button uninstalls an extension: it's unloaded from every Space
    and deleted from the library.
+
+> **Ad blockers (e.g. AdBlock):** these rely on `declarativeNetRequest`. WebKit
+> supports it, but less completely than Chrome, so a Chrome ad blocker may block
+> less than you're used to. For everyday blocking, the browser's **built-in
+> content blocking** (on by default) is the more reliable path — and remember no
+> extension can block YouTube's own video ads here (see Content blocking).
 
 Once enabled, an extension also appears in the sidebar and behaves like this:
 

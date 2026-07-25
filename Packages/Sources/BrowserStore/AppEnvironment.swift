@@ -109,6 +109,11 @@ public struct AppEnvironment {
         host.onPermissionRequest = { [weak store] request in
             store?.pendingPermissionRequests.append(request)
         }
+        // After host access is granted on enable, reload so content scripts
+        // inject into the page that is already open.
+        host.onHostAccessChanged = { [weak store] spaceID in
+            store?.reloadTabs(inSpace: spaceID)
+        }
 
         // The library, the host, and the enablement store, coordinated (7.4).
         let extensionsService = ExtensionsService(

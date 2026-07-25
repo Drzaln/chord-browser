@@ -19,7 +19,33 @@ only the current position within it.
 | **Shipped** | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**        | Review. The remaining non-spec follow-up is a **per-site content-blocking whitelist / disable toggle** — **ask the user before building** (§11). |
 | **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 317 passing (298 unit + 19 end-to-end)                                                                          |
+| **Tests**       | 318 passing (299 unit + 19 end-to-end)                                                                          |
+
+**Extensions-not-working fix (2026-07-25).** User installed AdBlock + Enhancer
+for YouTube (both MV3, unpacked fine) and neither worked. Root causes, both
+fixed:
+- **No host access, no prompt.** WebKit does not prompt for a required
+  `host_permissions` extension, so a freshly enabled extension had no site access
+  and sat inert. Fixed: `WebKitExtensionHost.promptForHostAccess(slug:in:)` reads
+  `webExtension.allRequestedMatchPatterns`, prompts (reusing the 7.5c permission
+  sheet), grants + persists on Allow, then fires `onHostAccessChanged`.
+  `ExtensionsService.enable` calls it (user-initiated enable only; restore stays
+  silent).
+- **Controller not on existing tabs.** `WKWebViewConfiguration.webExtensionController`
+  is set only at view creation, so tabs open before an extension was enabled
+  never ran it. Fixed: `extensionControllerHandle(for:)` now `prepare`s on demand
+  so **every** web view attaches a controller. `onHostAccessChanged` →
+  `TabStore.reloadTabs(inSpace:)` reloads so content scripts inject into
+  already-open pages.
+- **Verified LIVE:** enabling Enhancer for YouTube surfaced a host-access prompt
+  listing its real requested patterns (`*://www.youtube.com/*`, `/embed/`,
+  `/shorts/`, `youtube-nocookie`…) read from the loaded `WKWebExtension`; Allow
+  granted and the tab reloaded. This proves load + pattern-read + grant + reload
+  all work. Enhancer (pure content script) should now function; **AdBlock depends
+  on `declarativeNetRequest`, which WebKit supports but incompletely** — expect
+  partial blocking, and it can never touch YouTube video ads.
+- Updated `PerSpaceControllerTests` (controller now always attaches) and added
+  `ExtensionsServiceTests.enablePromptsForHostAccess`.
 
 **User-requested non-spec features shipped (2026-07-25):**
 - **Settings sheet** (`Cmd+,`, app-menu *Settings…*), presented from `RootView`

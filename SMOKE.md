@@ -245,11 +245,25 @@ its service actions are unit-tested.)
 - [x] Clear Data asks for confirmation before acting (irreversible)
 
 ### Extensions
-- [ ] **Add Extension…** opens a file picker; a `.crx`/`.xpi` installs and lists
-- [ ] The **Enabled** switch loads/unloads the extension in the active Space
+- [x] **Add Extension…** opens a file picker; a `.crx`/`.xpi` installs and lists
+      (verified live: AdBlock + Enhancer for YouTube, both MV3, listed)
+- [x] The **Enabled** switch loads/unloads the extension in the active Space
+- [x] **Enabling prompts for host access** (verified live 2026-07-25: enabling
+      Enhancer for YouTube showed a sheet listing its real requested patterns —
+      `*://www.youtube.com/*`, `/embed/`, `/shorts/`, `youtube-nocookie` — read
+      from the loaded `WKWebExtension`; Allow granted + the tab reloaded)
 - [ ] Enabling in Space A does not enable it in Space B (per-Space)
 - [ ] The trash button uninstalls (gone from every Space + the library)
 - [ ] An enabled extension's toolbar button appears in the sidebar header
+- [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
+      mechanism verified, extension-specific UI not screenshot-confirmed)
+- [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —
+      expect limited blocking; not a full replacement for built-in blocking)
+
+**Note on why they "didn't work" before:** enabling loaded the extension but
+never granted host access (WebKit does not prompt for required `host_permissions`),
+and tabs open before enabling had no controller attached. Both fixed 2026-07-25 —
+see CHECKPOINT "Extensions-not-working fix".
 
 Automated coverage: `ClearBrowsingDataTests` (Store fan-out), `BrowsingDataType`
 + `WebsiteDataTypeMapping` (type mapping), `HistoryClearTests` (deleteAll),

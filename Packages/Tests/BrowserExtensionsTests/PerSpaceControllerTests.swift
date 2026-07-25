@@ -19,9 +19,10 @@ struct PerSpaceControllerTests {
         Space(name: name, sortIndex: 0)
     }
 
-    @Test func unpreparedSpaceHasNoController() {
+    @Test func freshHostHasNoControllersUntilAViewAsksForOne() {
+        // Nothing is prepared until a web view is created for a Space (or an
+        // extension loads). A brand-new host holds none.
         let host = WebKitExtensionHost()
-        #expect(host.extensionControllerHandle(for: space("A")) == nil)
         #expect(host.preparedSpaceIDs.isEmpty)
     }
 
@@ -48,13 +49,20 @@ struct PerSpaceControllerTests {
         #expect(host.preparedSpaceIDs == [a.id, b.id])
     }
 
-    @Test func handleReturnsControllerOnlyAfterPrepare() {
+    @Test func handleAlwaysAttachesAControllerEvenWithoutExtensions() {
+        // Every web view must get a controller at creation, because
+        // `WKWebViewConfiguration.webExtensionController` cannot be added later
+        // — otherwise an extension enabled after a tab is open could never run
+        // in it. So requesting a handle prepares (attaches) one on demand.
         let host = WebKitExtensionHost()
         let s = space("A")
-        #expect(host.extensionControllerHandle(for: s) == nil)
-        host.prepare(s)
         #expect(host.extensionControllerHandle(for: s) != nil)
         #expect(host.preparedSpaceIDs == [s.id])
+        // Idempotent: a second request does not create a second controller.
+        let controller = host.controllers[s.id]
+        _ = host.extensionControllerHandle(for: s)
+        #expect(host.controllers.count == 1)
+        #expect(host.controllers[s.id] === controller)
     }
 
     @Test func persistentSpaceControllerIsKeyedByDataStoreID() {

@@ -30,6 +30,19 @@ extension TabStore: ExtensionTabModel {
         return snapshot(of: tab, index: index)
     }
 
+    /// Reloads every live pane of every tab in a Space. Called after an
+    /// extension is granted host access on enable, so its content scripts inject
+    /// into pages that are already open. `engine.reload` is a no-op for a pane
+    /// with no live view, so unopened tabs cost nothing and pick the extension up
+    /// on their first load.
+    public func reloadTabs(inSpace spaceID: UUID) {
+        for tab in tabsInSpace(spaceID) {
+            for pane in tab.panes {
+                engine.reload(paneID: pane.id)
+            }
+        }
+    }
+
     // MARK: - Actions
 
     public func extensionActivateTab(_ tabID: UUID) { select(tabID) }

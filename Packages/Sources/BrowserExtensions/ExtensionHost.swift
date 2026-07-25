@@ -93,6 +93,19 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
 
     // MARK: - Host access (7.5d)
 
+    /// Fired on the main actor after the user grants host access on enable, so
+    /// the app can reload that Space's tabs (content scripts only inject on a
+    /// fresh load). Set by `AppEnvironment`.
+    var onHostAccessChanged: (@MainActor (_ spaceID: UUID) -> Void)? { get set }
+
+    /// Prompts, once on a user-initiated enable, to grant the extension's
+    /// declared host access if it wants any and does not already have it. On
+    /// grant the requested match patterns are set and persisted, then
+    /// `onHostAccessChanged` fires. A no-op if the extension requests no hosts,
+    /// already has all-hosts access, or is not loaded. Not called on launch
+    /// restore — persisted grants are re-applied there without a prompt.
+    func promptForHostAccess(slug: String, in space: Space)
+
     /// Whether the extension currently has access to all hosts in the Space.
     func hasAllHostsAccess(slug: String, in space: Space) -> Bool
 
