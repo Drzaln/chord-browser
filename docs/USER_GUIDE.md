@@ -1,6 +1,6 @@
-# User Guide
+# Chord Browser — User Guide
 
-How to drive the browser day-to-day: keyboard shortcuts, the command bar, Spaces,
+How to drive Chord Browser day-to-day: keyboard shortcuts, the command bar, Spaces,
 split view, Little Arc, downloads, find-in-page, content blocking, and extensions.
 
 This guide describes what is actually wired in the shipping app. Where a

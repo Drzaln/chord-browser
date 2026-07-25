@@ -44,6 +44,21 @@ fixable bug** — it is a WebKit platform limit:
   in the header only re-read `actions(in:)` on a token bump that never happened at
   load time.)
 
+**Rebrand → "Chord Browser" (2026-07-25).** User-facing name is now **Chord
+Browser** (icon: a white chord across a coral→magenta gradient circle,
+`#FF512F`→`#DD2476`). Applied **display-only** to avoid data loss:
+- `CFBundleDisplayName = "Chord Browser"` (Info.plist) + window title in
+  `BrowserApp.swift`. `PRODUCT_NAME`/target stay `Browser`; **bundle id stays
+  `com.rizal.browser`** — it keys the on-disk profile, so renaming it orphans
+  cookies/Spaces/extensions.
+- Brand assets + rationale in `docs/branding/` (`chord-icon.svg`,
+  `chord-icon-1024.png`, `BRANDING.md`). A ready `AppIcon.appiconset` is at
+  `BrowserApp/Assets.xcassets/` but **needs a manual Xcode step** to wire (add
+  the catalog to the target + set the app-icon name — both are `project.pbxproj`
+  changes this repo excludes from commits).
+- Icon is a circle on transparent; macOS masks to a squircle so it floats. A
+  full-bleed variant is a quick follow-up if wanted.
+
 **Ad-blocking & YouTube: why it works elsewhere but not here (design note,
 durable).** Recurring user question — "Brave/Arc/Orion block YouTube ads with the
 same extension, why can't mine?" The answer is always the **engine + extension

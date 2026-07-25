@@ -1,4 +1,6 @@
-# Arc-like WebKit Browser for macOS
+# Chord Browser
+
+<img src="docs/branding/chord-icon-1024.png" alt="Chord Browser icon" width="120" align="right" />
 
 A native macOS browser built in Swift on top of `WKWebView`. It borrows **Arc's
 interaction model** — Spaces, a fuzzy command bar, ephemeral tabs, a sidebar tab
@@ -6,8 +8,11 @@ list — while running on **Apple's own WebKit engine** rather than a bundled
 Chromium. The goal is a personal, fast, memory-disciplined Arc replacement that
 stays on the platform's rails.
 
+The name plays on the geometry in the icon: a straight **chord** cutting across a
+circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.md).
+
 > **Status:** all spec milestones (M1–M7) plus native content blocking are
-> shipped on `main` and verified live. 317 tests pass; `./scripts/prepush.sh` is
+> shipped on `main` and verified live. 319 tests pass; `./scripts/prepush.sh` is
 > green. See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
