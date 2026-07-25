@@ -1,6 +1,6 @@
 # Chord Browser — Brand
 
-The project's user-facing name is **Chord Browser**. (Internal target,
+The project's user-facing name is **Chord**. (Internal target,
 product name, and bundle id stay `Browser` / `com.rizal.browser` — see below.)
 
 ## Icon
@@ -12,16 +12,16 @@ the circle, the geometric "chord" the name plays on. Source of truth:
 
 ## Colors
 
-| Token | Hex | Use |
-| --- | --- | --- |
-| Coral | `#FF512F` | gradient start (top-left) |
-| Magenta | `#DD2476` | gradient end (bottom-right) |
-| Gradient | `linear-gradient(135deg, #FF512F → #DD2476)` | primary brand fill |
-| Chord | `#FFFFFF` | the dividing line / accent on the gradient |
+| Token    | Hex                                          | Use                                        |
+| -------- | -------------------------------------------- | ------------------------------------------ |
+| Coral    | `#FF512F`                                    | gradient start (top-left)                  |
+| Magenta  | `#DD2476`                                    | gradient end (bottom-right)                |
+| Gradient | `linear-gradient(135deg, #FF512F → #DD2476)` | primary brand fill                         |
+| Chord    | `#FFFFFF`                                    | the dividing line / accent on the gradient |
 
 ## How the name is applied
 
-- **Visible name** — `CFBundleDisplayName = "Chord Browser"` in
+- **Visible name** — `CFBundleDisplayName = "Chord"` in
   `BrowserApp/Info.plist`, and the window title in `BrowserApp/BrowserApp.swift`.
 - **Not changed on purpose:**
   - **Bundle identifier** stays `com.rizal.browser`. It keys the on-disk profile

@@ -11,25 +11,26 @@ only the current position within it.
 
 ## Status
 
-|                 |                                                                                                                 |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Completed**   | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish     |
-| **Completed (M7)** | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE** |
-| **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak). |
-| **Shipped** | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**        | Review. The remaining non-spec follow-up is a **per-site content-blocking whitelist / disable toggle** — **ask the user before building** (§11). |
-| **Branch**      | `main` — single branch, linear history, one commit per milestone                                                |
-| **Tests**       | 318 passing (299 unit + 19 end-to-end)                                                                          |
+|                                  |                                                                                                                                                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Completed**                    | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish                                                                                       |
+| **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
+| **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
+| **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
+| **Next**                         | Review. The remaining non-spec follow-up is a **per-site content-blocking whitelist / disable toggle** — **ask the user before building** (§11).                                                  |
+| **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
+| **Tests**                        | 318 passing (299 unit + 19 end-to-end)                                                                                                                                                            |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
 After the two fixes below, **Enhancer for YouTube works** (content script) and
 AdBlock's popup loads, but AdBlock still does not block ads. This is **not a
 fixable bug** — it is a WebKit platform limit:
+
 - AdBlock is fully wired: DB confirms `<all_urls>` + all declared API permissions
   granted for its slug. Host access is not the problem.
 - AdBlock blocks via `declarativeNetRequest` with **63,466 enabled static rules**
   across its default rulesets — one single ruleset is **53,575 rules**.
-- WebKit rejects DNR rulesets over its ceiling. This is the *same* limit our own
+- WebKit rejects DNR rulesets over its ceiling. This is the _same_ limit our own
   content blocker chunks around: `ContentBlocker.maxRulesPerList = 50_000`
   because `WKContentRuleList` compilation caps ~50k/list. A 53k-rule ruleset is
   over it, so AdBlock's rules never load and it blocks nothing.
@@ -44,10 +45,11 @@ fixable bug** — it is a WebKit platform limit:
   in the header only re-read `actions(in:)` on a token bump that never happened at
   load time.)
 
-**Rebrand → "Chord Browser" (2026-07-25).** User-facing name is now **Chord
+**Rebrand → "Chord" (2026-07-25).** User-facing name is now **Chord
 Browser** (icon: a white chord across a coral→magenta gradient circle,
 `#FF512F`→`#DD2476`). Applied **display-only** to avoid data loss:
-- `CFBundleDisplayName = "Chord Browser"` (Info.plist) + window title in
+
+- `CFBundleDisplayName = "Chord"` (Info.plist) + window title in
   `BrowserApp.swift`. `PRODUCT_NAME`/target stay `Browser`; **bundle id stays
   `com.rizal.browser`** — it keys the on-disk profile, so renaming it orphans
   cookies/Spaces/extensions.
@@ -69,13 +71,13 @@ runtime**, never the extension or the filter lists:
   needs **scriptlet injection** — arbitrary JS patched into YouTube's own page
   (null the ad objects, prune the ad data from the player response, fake
   ad-finished events). It also needs blocking `webRequest` for the general case.
-- **Arc = Chromium.** Runs the *full* Chrome extension engine for free: high DNR
+- **Arc = Chromium.** Runs the _full_ Chrome extension engine for free: high DNR
   limits (hundreds of thousands of rules), blocking `webRequest`, content scripts,
   scriptlet injection. So AdBlock/uBO block YouTube ads there. Also true of Brave,
   Edge, Chrome.
-- **Orion = WebKit, but Kagi *rebuilt* the WebExtensions runtime** (~70% of the
+- **Orion = WebKit, but Kagi _rebuilt_ the WebExtensions runtime** (~70% of the
   APIs, incl. `webRequest` blocking + scriptlets). That is why a WebKit browser
-  *can* run real uBlock Origin and block YouTube — it bypasses Apple's APIs.
+  _can_ run real uBlock Origin and block YouTube — it bypasses Apple's APIs.
 - **Ours = WebKit + Apple's `WKWebExtension`.** DNR rule cap ~50k/list (same limit
   `ContentBlocker` chunks around), **no blocking `webRequest`, no scriptlet
   injection**. So AdBlock's rules are rejected and YouTube ads cannot be touched.
@@ -87,16 +89,18 @@ runtime**, never the extension or the filter lists:
 
 **Two (large) future options if Arc-level blocking is ever wanted — NOT started,
 NOT in scope without an explicit ask (§11):**
+
 1. **Chromium engine** — abandons the WebKit-native design that is the whole point
    of `BROWSER_SPEC`. Effectively a different browser.
 2. **Custom WebExtensions/scriptlet engine on WebKit (the Orion route)** — a
    `webRequest`-style blocking layer + a `WKUserScript` main-world scriptlet/
    content-script injection system. A major new subsystem and a permanent
-   cat-and-mouse with YouTube. A *minimal* first slice would be `WKUserScript`
+   cat-and-mouse with YouTube. A _minimal_ first slice would be `WKUserScript`
    main-world scriptlet injection for a **curated** site list — enough to prove the
    mechanism, far short of running uBO.
+
 - **Server-side YouTube ads** (ad stitched into the video stream) can't be blocked
-  by *anyone* client-side, Orion/uBO included — worth remembering before promising.
+  by _anyone_ client-side, Orion/uBO included — worth remembering before promising.
 
 **Extensions-still-not-working, 2nd fix (2026-07-25).** After the host-access
 fix, AdBlock's popup showed "the AdBlock menu had trouble loading" and Enhancer
@@ -112,7 +116,7 @@ prompt). Also log `context.errors` after load so a broken bundle is diagnosable.
 **Not yet live-verified** — the test session had the real Arc browser open
 alongside, our app's toolbar buttons were not rendering, and sandboxed-app logs
 did not surface via `log show`; builds + 318 tests pass. AdBlock's actual
-blocking still depends on WebKit's *partial* `declarativeNetRequest`, so expect
+blocking still depends on WebKit's _partial_ `declarativeNetRequest`, so expect
 limited blocking even with the popup fixed. Next agent: verify live (enable →
 Allow → open a fresh page; click the AdBlock toolbar button and confirm its popup
 renders) and check `context.errors` in Console.
@@ -120,6 +124,7 @@ renders) and check `context.errors` in Console.
 **Extensions-not-working fix (2026-07-25).** User installed AdBlock + Enhancer
 for YouTube (both MV3, unpacked fine) and neither worked. Root causes, both
 fixed:
+
 - **No host access, no prompt.** WebKit does not prompt for a required
   `host_permissions` extension, so a freshly enabled extension had no site access
   and sat inert. Fixed: `WebKitExtensionHost.promptForHostAccess(slug:in:)` reads
@@ -144,7 +149,8 @@ fixed:
   `ExtensionsServiceTests.enablePromptsForHostAccess`.
 
 **User-requested non-spec features shipped (2026-07-25):**
-- **Settings sheet** (`Cmd+,`, app-menu *Settings…*), presented from `RootView`
+
+- **Settings sheet** (`Cmd+,`, app-menu _Settings…_), presented from `RootView`
   like the other sheets. Two sections behind a segmented picker.
 - **Privacy & Data — clear browsing data.** `BrowsingDataType` OptionSet
   (WebKit-free, in Core) → `TabStore.clearBrowsingData` fans website types
@@ -162,8 +168,8 @@ fixed:
   Extensions-tab screenshot was blocked by a macOS screen-recording permission
   dialog — not clicked, being a system prompt — but the tab is the same
   `SettingsView` switch and its actions are unit-tested.)
-| **Schema**      | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
-| **Toolchain**   | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7)       |
+  | **Schema** | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
+  | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7) |
 
 **The §6.1 performance gate passes** — re-run for M6 on 2026-07-24 with the
 swipe scroll monitor, the sidebar drop layer, and the find bar's cancellable
@@ -683,18 +689,18 @@ Two things worth knowing:
   `dataStoreID` (`WKWebExtensionController.Configuration(identifier:)`, verified
   in the SDK headers) and its `defaultWebsiteDataStore` set to the same
   identifier — the storage isolation lives on the controller's config, so
-  per-Space *contexts* on a shared controller would not isolate. A private Space
+  per-Space _contexts_ on a shared controller would not isolate. A private Space
   gets `.nonPersistent()`.
 - **The engine layer is the WebKit boundary now, not just `BrowserEngine`.**
-  §7.1 was amended: the extension host is a *second* WebKit importer,
+  §7.1 was amended: the extension host is a _second_ WebKit importer,
   `BrowserExtensions` (imports Core + Engine), rather than bloating the engine
   with an unrelated job. The two engine-layer packages share `WK*` types with
   each other; nothing WebKit-shaped crosses into Store or UI.
 - **The seam is the `AnyWebSurface` trick.** `BrowserEngine` declares
   `ExtensionControllerHandle` (opaque; its `WKWebExtensionController` is
-  *internal* to the engine) and a WebKit-free `ExtensionControllerProviding`
+  _internal_ to the engine) and a WebKit-free `ExtensionControllerProviding`
   protocol. `WebKitEngine.makeWebView` sets `config.webExtensionController =
-  handle.controller` when the provider has one for the Space, unwrapping on its
+handle.controller` when the provider has one for the Space, unwrapping on its
   own side. `WebKitExtensionHost` (in `BrowserExtensions`) builds the
   controllers and conforms to the provider.
 - **`AppEnvironment` wires it without importing WebKit** — provider and host are
@@ -716,7 +722,7 @@ Two things worth knowing:
 - **Not yet done in 7.1** (by design): no `.crx` unpack, no
   `WKWebExtensionContext` load, no tab/window model. Those are 7.2–7.5.
 - **Not verified against the real app.** `swift test` runs unsandboxed;
-  extension *processes* may need entitlement additions that only show against
+  extension _processes_ may need entitlement additions that only show against
   the sandboxed app, and 7.1 loads no context anyway. First live check is owed
   once a context actually loads (7.3).
 
@@ -724,7 +730,7 @@ Two things worth knowing:
 
 - **Deviation from the plan, verified against the header: store a ZIP, not an
   unpacked directory.** `WKWebExtension.extension(resourceBaseURL:)` reads "a
-  directory … *or a ZIP archive* containing a `manifest.json`" (SDK header). So
+  directory … _or a ZIP archive_ containing a `manifest.json`" (SDK header). So
   `ExtensionInstaller` normalises each bundle to a ZIP and stores
   `Extensions/<slug>.zip` — no hand-rolled ZIP extractor (no central-directory
   parse, no deflate, no zip-slip surface) for a tree WebKit re-reads anyway. See
@@ -753,7 +759,7 @@ Two things worth knowing:
 split is deliberate: **the whole `WKWebExtensionControllerDelegate` is
 `@optional`** (verified in the header), so `controller.load(context)` succeeds
 with no delegate — the extension just sees an empty browser. That makes the
-loading path buildable and unit-testable *now*, while the tab/window model needs
+loading path buildable and unit-testable _now_, while the tab/window model needs
 `TabStore` injection and a hands-on check with a real extension (§11), so it is
 its own slice.
 
@@ -774,7 +780,7 @@ its own slice.
   `unreadableBundle`; loads are per-Space isolated. 7 tests; the MV3 gate was
   confirmed red against a `>= 2` weakening.
 - **Not yet driven in the real app.** `swift test` is unsandboxed; extension
-  *processes* (background service workers) may need entitlement additions that
+  _processes_ (background service workers) may need entitlement additions that
   only surface against the sandboxed app, and a synthetic inert extension
   exercises no worker. First real-app check comes with 7.3b, when a loaded
   extension has tabs to see.
@@ -789,7 +795,7 @@ see and drive tabs.
   Space's controller sees exactly its Space's tabs. In a split, the extension
   sees the focused pane — the one the user is reading, like find (§4.1).
 - **The seam runs three ways.** (1) A WebKit-free `ExtensionTabModel` protocol is
-  defined *in* `BrowserExtensions` and `TabStore` conforms
+  defined _in_ `BrowserExtensions` and `TabStore` conforms
   (`TabStore+Extensions.swift`) — the adapters sit below the Store, so tab state
   is injected downward (§3.5). (2) `webView(for:)` must return a pane's live
   `WKWebView`, which the engine holds privately, so `BrowserEngine` gained a
@@ -822,14 +828,14 @@ see and drive tabs.
   work end-to-end. No extra entitlement was needed for content scripts. Two
   findings came out of the drive, both expected and folded into later phases:
   - **Restored tabs never fire `extensionTabDidOpen`**, so the extension only
-    saw *freshly opened* tabs, not restored ones (the lifecycle debt above).
+    saw _freshly opened_ tabs, not restored ones (the lifecycle debt above).
     Fold into 7.4: also notify on restore/split/adopt/promotion.
   - **Content scripts do not inject until host permissions are granted.** MV3
     `<all_urls>` is silently inert until `context.setPermissionStatus(
-    .grantedExplicitly, for: .allHostsAndSchemes())` (or the delegate prompt).
+.grantedExplicitly, for: .allHostsAndSchemes())` (or the delegate prompt).
     That granting is **7.5** (permission UI); the check used a throwaway
     `grantAllHostsForTesting` to prove the pipe.
-  - **Tooling note:** `os.Logger` notice/info logs were *not* retrievable via
+  - **Tooling note:** `os.Logger` notice/info logs were _not_ retrievable via
     `log show`/`log stream` on this machine — the reliable signal was a
     `screencapture` of the injected banner. Prefer screenshots over logs here.
 
@@ -850,7 +856,7 @@ see and drive tabs.
   is not left marked on); `disable` = unload then unpersist; `restoreEnabled`
   re-loads everything that was on, best-effort (a since-uninstalled bundle or a
   vanished Space is skipped and logged, never a launch failure).
-- **Launch reload** runs *after* `store.restore()` via a new `afterRestore`
+- **Launch reload** runs _after_ `store.restore()` via a new `afterRestore`
   hook, because extensions load into Spaces and the Spaces must exist first.
   `AppEnvironment` wires it when the flag is on.
 - **Lifecycle gap closed.** The only runtime tab create/remove path that did not
@@ -931,7 +937,7 @@ sidebar header is byte-for-byte what it was.
   passes `environment.extensionHost`.
 - **API note:** the click/popup entry point is
   `context.performAction(for:)` (verified in the SDK header — it triggers an
-  event *or* presents a popup per config, and popup actions require the
+  event _or_ presents a popup per config, and popup actions require the
   `presentActionPopup` delegate). There is no per-action "click" method on
   `WKWebExtension.Action`.
 - **NOT yet live-verified.** With no extension loaded, `actions(in:)` is empty
@@ -984,7 +990,7 @@ extension actually do anything.
   the extension for the sheet. `setPermissionStatus(_:for:)` has three overloads
   (permission / URL / matchPattern) disambiguated by argument type.
 - **Wiring:** `AppEnvironment` sets `host.permissionsRepository =
-  SQLiteGrantedPermissionsRepository(...)` and
+SQLiteGrantedPermissionsRepository(...)` and
   `host.onPermissionRequest = { store.pendingPermissionRequests.append($0) }`.
   `BrowserStore` still imports no AppKit/WebKit — the whole surface is WK-free
   values.
@@ -1001,7 +1007,7 @@ extension actually do anything.
   2. **Popover** — clicking the button rendered the extension's own popup page
      ("DEV POPUP OK") in an `NSPopover` anchored under the button — 7.5b.
   3. **Permission sheet** — the popup calling `chrome.permissions.request(
-     {origins:["*://*/*"]})` surfaced our `ExtensionPermissionSheet`
+{origins:["*://*/*"]})` surfaced our `ExtensionPermissionSheet`
      ("'Dev Banner' wants to read and change your data on: `*://*/*`") — 7.5c.
   4. **Grant → inject** — clicking Allow granted the match pattern and, after a
      reload, the content-script banner injected. The grant landed in
@@ -1014,13 +1020,13 @@ extension actually do anything.
   extension with declared `host_permissions` stayed inert with **no** prompt on
   page load; the runtime prompt delegate only fired when the extension called
   `permissions.request` for an origin in **`optional_host_permissions`**
-  (a declared `host_permissions` request did *not* trigger a runtime prompt).
+  (a declared `host_permissions` request did _not_ trigger a runtime prompt).
   Implication for a real ad-blocker/dark-mode extension whose manifest uses
   required `host_permissions`: our three prompt delegates will not fire on their
   own, so **7.5d (or a follow-up) should add a UI affordance to grant host access
   directly** (e.g. an "Enable on all sites" control that calls
   `setPermissionStatus(.grantedExplicitly, for: .allHostsAndSchemes())`), mirroring
-  Safari's per-site toolbar menu. The prompt path is proven; the *trigger* for
+  Safari's per-site toolbar menu. The prompt path is proven; the _trigger_ for
   required host permissions is the gap.
 - **Tooling note (still true):** `os.Logger` logs were not retrievable via
   `log show`/`log stream`; `screencapture -x -o out.png` + Read the image was the
@@ -1045,10 +1051,10 @@ affordance the 7.5c live finding showed was needed.
   ("Persistent" vs "on demand"), and an "Access on all sites" toggle; a footer
   counts workers ("N of M run a background worker in this Space").
 - **Host-access toggle — the 7.5c-finding fix.** WebKit does not prompt for a
-  *required* `host_permissions` extension, so the toggle calls
+  _required_ `host_permissions` extension, so the toggle calls
   `host.setAllHostsAccess(_:slug:in:)` →
   `context.setPermissionStatus(.grantedExplicitly/.deniedExplicitly, for:
-  WKWebExtension.MatchPattern.allHostsAndSchemes())`, persisting the grant (or
+WKWebExtension.MatchPattern.allHostsAndSchemes())`, persisting the grant (or
   dropping the extension's grants on off). `hasAllHostsAccess` reads
   `context.hasAccessToAllHosts`. This is the analogue of Safari's per-site
   toolbar menu, all-sites at once.
@@ -1058,7 +1064,7 @@ affordance the 7.5c live finding showed was needed.
   this Space"; the banner was **inert** on load (no prompt for required host
   perms, as expected); toggling **Access on all sites** on then reloading
   **injected** the banner; the grant persisted (`devbanner | matchPattern |
-  *://*/*`). This closes the 7.5c finding end-to-end.
+*://*/*`). This closes the 7.5c finding end-to-end.
 - **Tests:** +1 (`reportsBackgroundWorkerPresence` — a `service_worker` manifest
   reports `hasBackgroundContent`, a content-script-only one does not; against
   real WebKit). 277 total, prepush green.
@@ -1098,6 +1104,7 @@ tests), schema is v5, and the §6.1 budgets pass with the extension soak. This i
 the M7 stop point (§8: stop after each milestone and wait for review).
 
 **Owed / carried into the review, none blocking:**
+
 - Instruments Allocations/Leaks pass (§6.7) — never run, same as M1/M3/M6.
 - `optional_host_permissions` is the only path that triggers WebKit's runtime
   permission prompt; required `host_permissions` needs the 7.5d "Access on all
@@ -1133,7 +1140,7 @@ re-runs our own code over the real lists (fits §2/§3.6 and the solo-tool manda
   `trigger` (`url-filter`, `if/unless-domain`, `resource-type`, `load-type`,
   `url-filter-is-case-sensitive`) + `action` (`block` / `ignore-previous-rules`
   / `css-display-none`), with hyphenated `CodingKeys`. `[ContentBlockRule]
-  .contentRuleListJSON()` serialises with `.withoutEscapingSlashes`.
+.contentRuleListJSON()` serialises with `.withoutEscapingSlashes`.
 - **`ContentBlockConverter`** (Core, Foundation-only) turns a filter list into
   rules + counts (`parsedLines`, `skipped`). Supports: network rules (`||host^`,
   `|`/`|` anchors, `*`, `^`, substrings), exceptions (`@@` →
@@ -1145,8 +1152,8 @@ re-runs our own code over the real lists (fits §2/§3.6 and the solo-tool manda
   against `WKContentRuleListStore` + a live `WKWebView`: `div:has(> a.ad)` →
   `display:none`, control stays `block`). Recovers ~595 container-hiding rules
   from EasyList alone. **Drops and counts** regex literals, scriptlets, cosmetic
-  exceptions/extended markers (`#%#`/`#$#`/`#?#`/`#@#`), and *proprietary
-  procedural* cosmetics only (`:-abp-`, `:upward`, `:xpath`, `:has-text`,
+  exceptions/extended markers (`#%#`/`#$#`/`#?#`/`#@#`), and _proprietary
+  procedural_ cosmetics only (`:-abp-`, `:upward`, `:xpath`, `:has-text`,
   `:matches-css`, …), negated resource types, and any unmapped modifier
   (`redirect`, `csp`, `removeparam`, …) — dropping beats blocking wrong. An
   unsupported `##` selector is now dropped outright, never re-parsed as a network
@@ -1232,7 +1239,7 @@ fix sometime.
 - **The rule cap is load-bearing, learned the hard way.** A first pass compiled
   the full 137k-rule set at a 50k cap **inside a diagnostic that fetched and
   converted twice** and the process **aborted (signal 6)** — a hard,
-  *uncatchable* abort under transient memory pressure, not an `NSError`. Isolated
+  _uncatchable_ abort under transient memory pressure, not an `NSError`. Isolated
   compiles of 25k/40k/**50k all succeed** in ~1.3–1.4 s, and the real
   **single-pass `refreshIfDue()` flow at 50k is stable**. So the abort was the
   diagnostic's redundant double-work, not the compile — but it proves the app
@@ -1257,7 +1264,7 @@ The §8/§4.8 gate. Ran the mainstream-SPA soak with `contentBlockingEnabled` on
   **~464–487 MB and held** (≪ 1.2 GB); idle CPU 0.56% (under the 1% ceiling).
   Within noise of the M7 soak — the compiled list is shared/immutable, so
   attaching it costs almost nothing.
-- **Compile spike is transient and off-main (§6.6).** ~103 MB *during* the
+- **Compile spike is transient and off-main (§6.6).** ~103 MB _during_ the
   launch-time full 50k-rule compile, released to **32 MB** once done; the window
   was interactive at t+3 s, so the compile never blocked launch.
 - **`Bundle.module` resolves the seed in the packaged app** (blocking worked from
@@ -1278,7 +1285,7 @@ while doing it.
   **all ~137k rules compile as 3 chunks in ~3.7 s**, off-main, no abort — so
   coverage went from the 50k head to the whole of EasyList + EasyPrivacy.
 - **Bug fixed: blocking silently shrank to the seed between weekly refreshes.**
-  C3 only attached the refresh result when a refresh was *due*; on any launch
+  C3 only attached the refresh result when a refresh was _due_; on any launch
   within the week `refreshIfDue()` returned nothing, so only the tiny bundled
   seed stayed attached and the full cached list was ignored. New `activeLists()`
   re-attaches the cached full set every launch (keyed by a persisted
@@ -1296,6 +1303,7 @@ C1–C4 have landed on `main` behind `FeatureFlags.contentBlockingEnabled`
 budgets pass with the blocker on. This is the milestone stop point (§8).
 
 **Optional follow-ups (none blocking):**
+
 - **Chunk the rule list to capture EasyList's tail.** The 50k cap keeps the
   high-value head (EasyList is roughly most-important-first); WebKit supports
   multiple attached lists, so several ≤50k lists would raise coverage. Measure
@@ -1331,7 +1339,7 @@ The original four-sub-phase plan is kept below for the record; all four shipped
 2026-07-24 held up:
 
 - **§6.6 memory: defer.** No WKWebExtension API exposes process/memory (checked
-  every `WKWebExtension*.h` on the macOS 26.5 SDK). 7.5d surfaces *presence/count*
+  every `WKWebExtension*.h` on the macOS 26.5 SDK). 7.5d surfaces _presence/count_
   of background-worker extensions per Space; real memory is a later follow-up —
   proc sampling is fragile/SPI-adjacent, do NOT reach for it.
 - **Permission grants persist in a new SQLite table, schema v5.** Not left to
@@ -1358,12 +1366,13 @@ The original four-sub-phase plan is kept below for the record; all four shipped
   SwiftUI grant/deny sheet; the completion handler returns the allowed set.
   Persist grants in a new `grantedPermissions` table (migration **v5**); on
   `load`, re-apply via `context.setPermissionStatus(.grantedExplicitly,
-  for: matchPattern)`. All permission API is `macos(15.4)` — clears our floor.
-  Only Denied/Unknown/GrantedExplicitly may be *set*.
+for: matchPattern)`. All permission API is `macos(15.4)` — clears our floor.
+  Only Denied/Unknown/GrantedExplicitly may be _set_.
 - **7.5d — per-Space background-worker presence (§6.6).** Count/flag extensions
   with a background worker per Space in the extensions UI. Memory deferred.
 
 **Verified API (checked against the SDK headers 2026-07-24 — safe to use):**
+
 - `WKWebExtensionAction`: `.popupPopover` (`NSPopover?`, macOS), `.popupWebView`,
   `.presentsPopup`, `.label`, `.badgeText`, `.isEnabled`, `iconForSize(_:)`
   (`NSImage?`), `closePopup()`.

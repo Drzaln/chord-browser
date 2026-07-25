@@ -11,7 +11,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<!--
-		The user-facing app name is "Chord Browser". Set here (not via
+		The user-facing app name is "Chord". Set here (not via
 		PRODUCT_NAME) so the visible brand changes without renaming the Xcode
 		target/product or the bundle identifier — the latter keys the on-disk
 		profile (cookies, Spaces, extensions), so it must stay `com.rizal.browser`.
@@ -19,9 +19,9 @@
 		drives Finder/Dock/Launchpad.
 	-->
 	<key>CFBundleName</key>
-	<string>Chord Browser</string>
+	<string>Chord</string>
 	<key>CFBundleDisplayName</key>
-	<string>Chord Browser</string>
+	<string>Chord</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

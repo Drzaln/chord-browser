@@ -52,11 +52,11 @@ it to every view costs almost nothing and adds no measurable idle CPU.
 Both **network** filtering (drop tracker/ad requests) and **cosmetic** filtering
 (hide ad elements via `css-display-none`) are supported. Standard CSS `:has()`
 container-hiding rules are honoured — verified end-to-end against WebKit — which
-recovers hundreds of EasyList element-hiding rules that hide the wrapper *around*
+recovers hundreds of EasyList element-hiding rules that hide the wrapper _around_
 an ad.
 
 **What it cannot do (by design):** `WKContentRuleList` cannot run scriptlets, so
-first-party-served video ads — most notably **YouTube's** — are *not* blockable
+first-party-served video ads — most notably **YouTube's** — are _not_ blockable
 through this path. Defeating those requires runtime JavaScript injection, which is
 a different engine entirely (this is how Brave and uBlock Origin do it) and is
 out of scope for the native approach. Proprietary procedural cosmetic filters

@@ -11,7 +11,7 @@ struct BrowserApp: App {
         // `Window`, not `WindowGroup`: this is a single-window browser (1), and
         // a group spawns a *second* window when a URL is handed to the app —
         // whose RootView then runs `store.restore()` again on the same store.
-        Window("Chord Browser", id: "main") {
+        Window("Chord", id: "main") {
             AppRootView(launch: appDelegate.launch, commandBar: appDelegate.commandBar)
                 .onAppear { appDelegate.attachOcclusionObserver() }
         }
