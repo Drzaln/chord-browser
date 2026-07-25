@@ -333,6 +333,17 @@ protocol ExtensionHost { ... }
 - Compile EasyList + EasyPrivacy into `WKContentRuleList` at first launch, cache
   the compiled list, recompile weekly.
 - This is native, fast, and often removes the need for a blocking extension.
+- **Network + cosmetic filtering.** Network rules (`||host^`, options, `@@`
+  exceptions) drop requests; element-hiding rules (`##`/`###`, domain-scoped)
+  become `css-display-none`. Standard CSS `:has()` is honoured — WebKit's
+  selector engine compiles it, verified end-to-end — so container-hiding rules
+  (hide the wrapper that _contains_ an ad) work. Proprietary procedural cosmetics
+  (`:upward`, `:xpath`, `:-abp-`, scriptlets, …) are outside the declarative API
+  and are dropped-and-counted, never mis-applied.
+- **Scope limit (honest):** `WKContentRuleList` cannot run scriptlets by Apple's
+  design, so first-party-served video ads (e.g. YouTube's) are _not_ blockable
+  through this path. That would require a separate JS-injection engine, which is
+  out of scope for the native approach.
 
 ---
 

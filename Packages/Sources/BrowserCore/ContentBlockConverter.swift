@@ -4,7 +4,8 @@ import Foundation
 /// `WKContentRuleList` JSON WebKit compiles (content-blocking milestone C1).
 ///
 /// **This is a subset, on purpose.** `WKContentRuleList` cannot express all of
-/// ABP — no scriptlets, no `:has()`/extended cosmetics, no request redirection —
+/// ABP — no scriptlets, no proprietary procedural cosmetics (`:upward`,
+/// `:xpath`, …; standard `:has()` *is* supported), no request redirection —
 /// and Apple caps a compiled list at ~150k rules. So the converter handles the
 /// high-value majority and *drops and counts* what it cannot represent, rather
 /// than emitting something subtly wrong. See ADR (content-blocking) for why the
@@ -67,8 +68,12 @@ public enum ContentBlockConverter {
         // Element hiding and its cousins all carry a `#` marker. Detect the
         // cosmetic variants first so a `#` inside a network pattern is not
         // mistaken for one.
-        if let cosmetic = cosmeticRule(line) {
-            return cosmetic
+        // A `##` marker means an element-hiding rule: it is handled *only* by the
+        // cosmetic path. If that path returns nil (unsupported selector, e.g. a
+        // procedural pseudo), the line is dropped — it must never fall through to
+        // network parsing, which would mis-read `##…` as a URL substring.
+        if line.contains("##") {
+            return cosmeticRule(line)
         }
         if isCosmeticButUnsupported(line) {
             return nil
@@ -88,10 +93,15 @@ public enum ContentBlockConverter {
         let domainPart = String(line[line.startIndex..<range.lowerBound])
         let selector = String(line[range.upperBound...]).trimmingCharacters(in: .whitespaces)
         guard !selector.isEmpty else { return nil }
-        // Extended-CSS selectors WebKit can't compile.
-        if selector.contains(":has(") || selector.contains(":-abp-")
-            || selector.contains(":contains(") || selector.contains(":matches-css")
-        {
+        // Standard CSS `:has()` compiles and hides correctly in WebKit's
+        // content-blocking engine (verified end-to-end against
+        // WKContentRuleListStore + a live WKWebView), so it is *not* dropped —
+        // it recovers EasyList's large body of container-hiding rules.
+        // What stays dropped is the genuinely proprietary procedural cosmetic
+        // syntax WebKit's selector engine cannot compile. A selector mixing
+        // `:has()` with any of these (e.g. `div:has(.ad):upward(2)`) is still
+        // caught here and dropped as a whole.
+        for pseudo in unsupportedCosmeticPseudos where selector.contains(pseudo) {
             return nil
         }
 
@@ -115,6 +125,16 @@ public enum ContentBlockConverter {
             action: ContentBlockRule.Action(type: .cssDisplayNone, selector: selector)
         )
     }
+
+    /// Proprietary procedural cosmetic pseudo-classes (ABP/uBO extended CSS)
+    /// that WebKit's `css-display-none` selector engine cannot compile. Standard
+    /// `:has()` is deliberately absent — WebKit supports it. `:matches-css`
+    /// is a prefix so it also covers `:matches-css-before/after`.
+    private static let unsupportedCosmeticPseudos = [
+        ":-abp-", ":contains(", ":has-text(", ":matches-css", ":matches-path(",
+        ":upward(", ":xpath(", ":nth-ancestor(", ":remove(", ":style(",
+        ":watch-attr(", ":min-text-length(",
+    ]
 
     private static func isCosmeticButUnsupported(_ line: String) -> Bool {
         line.contains("#@#") || line.contains("#?#") || line.contains("#$#")

@@ -163,6 +163,25 @@ idle reading is not available with this fixture. 0.63% is comfortably under the
 Samples in `/tmp/soak-220853.tsv` at the time of the run. Instruments
 Allocations/Leaks (§6.7) still not run — carried debt, same as M1/M3/M6.
 
+### Cosmetic `:has()` filtering, verified 2026-07-25
+
+`:has()` element-hiding rules were previously dropped on the assumption WebKit
+could not compile them. Verified end-to-end that it can:
+
+- **Compile:** `WKContentRuleListStore.default().compileContentRuleList` accepts
+  `css-display-none` with selector `div.wrap:has(> a.ad)` (throwaway probe).
+- **Runtime hide:** attaching that list to a live `WKWebView` and loading a page
+  with `<div class=wrap><a class=ad>` gave `getComputedStyle(.wrap).display ==
+  "none"` while a control `.wrap2` stayed `"block"`.
+- **Impact:** recovers ~595 container-hiding rules from EasyList alone (more from
+  EasyPrivacy / regional lists) that were dropped before.
+- **Still dropped:** proprietary procedural cosmetics (`:upward`, `:xpath`,
+  `:-abp-`, `:has-text`, `:matches-css`) and any selector mixing `:has()` with
+  them — see `ContentBlockConverterTests`.
+
+- [x] A `##…:has(…)` rule is kept and hides the matching container
+- [x] A `##…:upward(…)` / `:xpath(…)` rule is dropped, not mis-parsed as a URL
+
 ### 30-minute soak — content blocking (C4), measured 2026-07-25
 
 The §8/§4.8 gate for the content-blocking milestone: a soak with **blocking on**.

@@ -84,6 +84,28 @@ struct ContentBlockConverterTests {
         #expect(rule?.trigger.unlessDomain == ["*sub.example.com"])
     }
 
+    @Test("A standard :has() element-hiding rule is kept (WebKit compiles it)")
+    func hasSelectorKept() {
+        let rule = ContentBlockConverter.convertLine("example.com##div.wrap:has(> a.ad)")
+        #expect(rule?.action.type == .cssDisplayNone)
+        #expect(rule?.action.selector == "div.wrap:has(> a.ad)")
+        #expect(rule?.trigger.ifDomain == ["*example.com"])
+    }
+
+    @Test(
+        "A ## rule using a proprietary procedural pseudo is dropped",
+        arguments: [
+            "##div:has(.ad):upward(2)",  // :has mixed with procedural :upward
+            "##.item:-abp-has(.sponsored)",
+            "##.box:has-text(Sponsored)",
+            "##div:xpath(//ad)",
+            "##.c:matches-css-before(content: ad)",
+        ]
+    )
+    func proceduralCosmeticDropped(line: String) {
+        #expect(ContentBlockConverter.convertLine(line) == nil)
+    }
+
     // MARK: - Dropped rules
 
     @Test(

@@ -998,10 +998,17 @@ re-runs our own code over the real lists (fits §2/§3.6 and the solo-tool manda
   `ignore-previous-rules`), options (`$third-party`/`~third-party`/`first-party`
   → `load-type`; `$domain=a|~b` → `if/unless-domain` with a `*` subdomain
   prefix; resource types via a map; `$match-case`), and element hiding
-  (`##`/`###`, domain-scoped) → `css-display-none`. **Drops and counts** regex
-  literals, scriptlet/extended-CSS cosmetics (`#%#`/`#$#`/`#?#`/`#@#`,
-  `:has()`/`:-abp-`), negated resource types, and any unmapped modifier
-  (`redirect`, `csp`, `removeparam`, …) — dropping beats blocking wrong.
+  (`##`/`###`, domain-scoped) → `css-display-none`. Standard **`:has()` is
+  KEPT** — WebKit's selector engine compiles and hides it (verified end-to-end
+  against `WKContentRuleListStore` + a live `WKWebView`: `div:has(> a.ad)` →
+  `display:none`, control stays `block`). Recovers ~595 container-hiding rules
+  from EasyList alone. **Drops and counts** regex literals, scriptlets, cosmetic
+  exceptions/extended markers (`#%#`/`#$#`/`#?#`/`#@#`), and *proprietary
+  procedural* cosmetics only (`:-abp-`, `:upward`, `:xpath`, `:has-text`,
+  `:matches-css`, …), negated resource types, and any unmapped modifier
+  (`redirect`, `csp`, `removeparam`, …) — dropping beats blocking wrong. An
+  unsupported `##` selector is now dropped outright, never re-parsed as a network
+  URL (`convertLine` routes every `##` line through the cosmetic path only).
 - **VERIFIED the JSON compiles in real WebKit** (throwaway
   `WKContentRuleListStore.default().compileContentRuleList`, since removed).
   This caught a real bug: **Apple's `url-filter` engine rejects disjunctions** —
