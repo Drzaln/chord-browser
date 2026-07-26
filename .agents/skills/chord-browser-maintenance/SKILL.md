@@ -1,0 +1,285 @@
+---
+name: chord-browser-maintenance
+description: Maintenance procedures, health checks, and upgrade workflows for the Chord Browser project. Covers prepush verification, WebKit SDK updates, content blocker refresh, schema migrations, dependency updates, performance soak testing, and known debt items.
+---
+
+# Chord Browser Maintenance Guide
+
+Practical procedures for keeping the Chord Browser healthy. Use this skill when performing routine maintenance, upgrading dependencies, preparing a release, or diagnosing regressions.
+
+---
+
+## Quick Health Check
+
+Run this whenever you pick up the project after time away:
+
+```bash
+# 1. Build all packages + run all tests + build the app (warnings = errors)
+./scripts/prepush.sh
+
+# 2. Verify test count hasn't regressed (expect 371+)
+swift test --package-path Packages 2>&1 | tail -5
+
+# 3. Check current schema version (should be v8)
+sqlite3 ~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/browser.sqlite \
+  "SELECT * FROM grdb_migrations ORDER BY identifier;"
+```
+
+If `prepush.sh` fails, fix before doing anything else. The project must compile at every commit.
+
+---
+
+## Routine Maintenance Tasks
+
+### 1. Safari User-Agent String (quarterly)
+
+The hard-coded Safari version in `WebKitEngine.safariUserAgentSuffix` goes stale. Check the current Safari version and update:
+
+```bash
+# Find the current value
+grep -n "safariUserAgentSuffix\|applicationNameForUserAgent" \
+  Packages/Sources/BrowserEngine/*.swift
+```
+
+Compare against the Safari version shipping with the current macOS. The UA should look like `Version/XX.Y Safari/605.1.15`. A stale-but-plausible version degrades far better than no token.
+
+### 2. Content Blocker Lists (automatic, verify weekly)
+
+The blocker auto-refreshes EasyList + EasyPrivacy weekly. Verify it's working:
+
+```bash
+# Check last refresh date
+defaults read com.rizal.browser 2>/dev/null | grep -i block
+```
+
+If the upstream URLs change or the ABP format evolves, update `ContentBlocker`'s fetch URLs in `BrowserEngine`. The in-house converter (`ContentBlockConverter` in `BrowserCore`) handles the ABP→JSON conversion — if new ABP syntax appears, add support there.
+
+**Key numbers to remember:**
+- ~137k rules from EasyList + EasyPrivacy combined
+- Chunked at 50k per `WKContentRuleList` (3 chunks)
+- 99.3% coverage (only ~945 lines skipped)
+- Compile takes ~3.7s off-main, ~103 MB transient spike
+
+### 3. GRDB Dependency Update (as needed)
+
+GRDB is the only third-party runtime dependency. Pinned to an exact version.
+
+```bash
+# Check current pin
+cat Packages/Package.resolved | grep -A2 GRDB
+
+# After updating, run full suite
+swift test --package-path Packages
+./scripts/prepush.sh
+```
+
+Never float the version. Review changelogs deliberately before bumping.
+
+---
+
+## Xcode / macOS SDK Upgrade Procedure
+
+When Apple ships a new Xcode or macOS:
+
+### Step 1 — Verify WebKit API
+
+Every `WK*` symbol used in `BrowserEngine` and `BrowserExtensions` must be checked against the new SDK headers:
+
+```bash
+SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
+HEADERS="$SDK_PATH/System/Library/Frameworks/WebKit.framework/Headers"
+
+# List all WK* types we reference
+grep -rh "WK[A-Z]" Packages/Sources/BrowserEngine/ Packages/Sources/BrowserExtensions/ \
+  | grep -oE 'WK[A-Za-z]+' | sort -u
+
+# Then spot-check each against headers
+grep "WKWebExtensionController" "$HEADERS"/*.h
+```
+
+Watch for:
+- **Deprecated symbols** — adopt replacements before they're removed
+- **Signature changes** — especially delegate methods
+- **New capabilities** — gate behind `Capabilities.swift` if the deployment floor stays at 15.4
+
+### Step 2 — Build and Test
+
+```bash
+./scripts/prepush.sh
+```
+
+### Step 3 — Verify Entitlement-Dependent Features
+
+These **cannot** be tested by `swift test` (runs unsandboxed). Must verify against the real app:
+
+| Feature | How to verify |
+|---|---|
+| **Downloads** | Download a file → appears in `~/Downloads` |
+| **Print** | `Cmd+P` → print panel with live preview |
+| **PDF viewing** | Navigate to a `.pdf` URL → renders inline |
+| **Data store isolation** | Log into different accounts in two Spaces |
+| **Content blocking** | Navigate to a known tracker URL → blocked |
+| **Extensions** | Enable an extension → content script injects |
+
+### Step 4 — Performance Soak
+
+```bash
+# Seed the soak profile, run 30 minutes, then restore your real session
+./scripts/soak.sh seed
+./scripts/soak.sh run
+./scripts/soak.sh restore
+```
+
+Budgets (Apple Silicon, 20 tabs, 3 Spaces, 5 live):
+
+| Metric | Target | Hard ceiling |
+|---|---|---|
+| App RSS (excl. content) | < 150 MB | 250 MB |
+| Total footprint | < 1.2 GB | 1.8 GB |
+| Idle CPU (visible) | < 0.5% | 1% |
+| Idle CPU (occluded) | ~0% | 0.2% |
+
+---
+
+## Adding a Schema Migration
+
+Current: **v8**. Every migration is forward-only, named, never edited once shipped.
+
+### Procedure
+
+1. **Create the migration** in `BrowserPersistence` — a named function (`v9_description`)
+2. **Add a fixture test** using the prior version's database (`Migrations.v8ForTesting`)
+3. **Update row types and mappers** — never persist `Codable` app models directly
+4. **Make decoding defensive** — a corrupt row costs one tab, never a launch
+5. **Never delete user data** in a migration — orphan it and log
+6. **Update CHECKPOINT.md** with the new schema version in the same commit
+
+```bash
+# Verify migration
+swift test --package-path Packages --filter Migration
+```
+
+---
+
+## Adding a New Feature
+
+Before writing any code:
+
+1. **Check scope** — §11 forbids adding features not in the current scope. Ask the user first
+2. **Check the module boundary** — which package does this belong in?
+   - Pure logic → `BrowserCore` (Foundation only)
+   - WebKit interaction → `BrowserEngine` (the ONLY WebKit importer, with `BrowserExtensions`)
+   - State management → `BrowserStore`
+   - UI → `BrowserUI` (NO WebKit imports)
+3. **Check for WebKit API** — verify symbols exist in SDK headers before using them
+4. **Check performance** — flag anything that costs memory or main-thread time
+5. **Write tests** — unit tests in the matching `Tests/` target, e2e if it touches the full stack
+
+### Module Import Rules (compiler-enforced)
+
+```
+BrowserCore          ← Foundation ONLY
+BrowserPersistence   ← Core + GRDB
+BrowserEngine        ← Core + WebKit
+BrowserExtensions    ← Core + Engine + WebKit
+BrowserStore         ← Core + Engine + Persistence + Extensions (NO WebKit, NO AppKit)
+BrowserUI            ← Core + Engine + Store + Extensions (NO WebKit)
+```
+
+If you need an upward call, define a protocol in the lower target and inject.
+
+---
+
+## Debugging Common Issues
+
+### App won't launch / corrupt profile
+
+```bash
+# Nuclear reset — wipes ALL user data (cookies, Spaces, tabs, extensions)
+scripts/reset-data.sh
+# Add --yes to skip prompt, --build to also clear DerivedData
+```
+
+### Database corruption
+
+**Never `cp` the database.** GRDB runs in WAL mode — a copy of the main file alone is stale.
+
+```bash
+# Correct way to snapshot
+sqlite3 ~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/browser.sqlite ".backup /tmp/browser-backup.sqlite"
+
+# If corrupted, attempt recovery
+sqlite3 ~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/browser.sqlite ".recover" | sqlite3 /tmp/recovered.sqlite
+```
+
+### Content processes crashing
+
+This is **normal** — `WKWebView` content processes die routinely. The app handles this via `webViewWebContentProcessDidTerminate`. If it's happening excessively, check:
+- Memory pressure (too many live web views — cap is 12)
+- A specific site triggering the crash (check Console for WebContent crash logs)
+
+### Extension not working
+
+1. Check if it's MV3 (MV2 is rejected by the load guard)
+2. Check if host permissions are granted (the "Access on all sites" toggle in the extensions panel)
+3. Check rule count — `declarativeNetRequest` extensions with >50k rules in a single ruleset are rejected by WebKit
+4. Content scripts only inject on page load — reload the tab after enabling
+
+### Visual verification
+
+`os.Logger` logs are NOT retrievable on this machine. Use screenshots:
+
+```bash
+screencapture -x -o /tmp/chord-check.png
+# For a specific region:
+screencapture -x -R<x>,<y>,<w>,<h> /tmp/chord-region.png
+```
+
+---
+
+## Carried Debt Tracker
+
+Items owed but not blocking. Check off as completed:
+
+- [ ] **Full Instruments GUI trace** — SwiftUI body counts + Energy Log (§6.7). Leaks pass is clean
+- [ ] **Sidebar scroll fps** measurement — screen recording available, never measured
+- [ ] **Swipe gesture on real trackpad** — only logic tested, needs hands-on verification
+- [ ] **Reduce Motion toggle** live check — code is auditable, never toggled in System Settings
+- [ ] **Panel sizing** test coverage — bit twice (command bar + Little Arc), still uncovered in tests
+
+---
+
+## Git Workflow
+
+```bash
+# Stage everything except the Xcode project file
+git add -A ':!Browser.xcodeproj/project.pbxproj'
+
+# Commit/push ONLY when the user asks
+# Always update CHECKPOINT.md in the same commit as the work it describes
+```
+
+Single `main` branch, linear history. No feature branches.
+
+---
+
+## Key File Locations
+
+| What | Where |
+|---|---|
+| App entrypoint | `BrowserApp/BrowserApp.swift` |
+| AppDelegate | `BrowserApp/AppDelegate.swift` |
+| Entitlements | `BrowserApp/Browser.entitlements` |
+| Package manifest | `Packages/Package.swift` |
+| Migrations | `Packages/Sources/BrowserPersistence/Migrations/` |
+| Content blocker | `Packages/Sources/BrowserEngine/ContentBlocker.swift` |
+| ABP converter | `Packages/Sources/BrowserCore/ContentBlockConverter.swift` |
+| Sweep policy | `Packages/Sources/BrowserCore/SweepPolicy.swift` |
+| Fuzzy ranking | `Packages/Sources/BrowserCore/FuzzyRanking.swift` |
+| ADRs | `docs/adr/` |
+| Smoke tests | `SMOKE.md` |
+| Soak harness | `scripts/soak.sh` |
+| Seed blocklist | `Packages/Sources/BrowserEngine/Resources/seed-blocklist.txt` |
+| Branding assets | `docs/branding/` |
+| User guide | `docs/USER_GUIDE.md` |
+| Sandboxed data | `~/Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser/` |
