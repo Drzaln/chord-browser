@@ -10,8 +10,7 @@ extension TabStore {
     ///
     /// Capped at `SplitLayout.maxPanes`; beyond that the command does nothing
     /// rather than silently replacing a pane.
-    public func splitSelectedTab(url: URL? = nil, in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func splitSelectedTab(url: URL? = nil, in window: WindowState) {
         guard let tabID = window.selectedTabID else { return }
         split(tabID, url: url)
     }
@@ -64,8 +63,7 @@ extension TabStore {
     /// The dragged tab is *moved*, not copied: it stops being its own row and
     /// becomes a pane. Copying would leave two rows showing the same page with
     /// no way to tell them apart.
-    public func split(_ tabID: UUID, byMoving sourceTabID: UUID, in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func split(_ tabID: UUID, byMoving sourceTabID: UUID, in window: WindowState) {
         guard tabID != sourceTabID,
               tabs.contains(where: { $0.id == tabID }),
               let source = tabs.first(where: { $0.id == sourceTabID })
@@ -92,8 +90,7 @@ extension TabStore {
 
     /// Removes a pane. Closing down to one converts the tab back to a normal
     /// tab (4.5); closing the last pane closes the tab.
-    public func closePane(_ paneID: UUID, in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func closePane(_ paneID: UUID, in window: WindowState) {
         guard let index = tabs.firstIndex(where: { tab in
             tab.panes.contains { $0.id == paneID }
         }) else { return }

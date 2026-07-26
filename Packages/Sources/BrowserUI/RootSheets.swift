@@ -69,7 +69,7 @@ struct RootSheets: ViewModifier {
                 Button("Delete Space and Its Data", role: .destructive) {
                     guard let spaceID = windowState.deletingSpaceID else { return }
                     windowState.deletingSpaceID = nil
-                    Task { await store.deleteSpace(spaceID) }
+                    Task { await store.deleteSpace(spaceID, in: windowState) }
                 }
                 Button("Cancel", role: .cancel) { windowState.deletingSpaceID = nil }
             } message: {

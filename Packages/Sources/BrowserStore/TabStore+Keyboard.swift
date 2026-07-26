@@ -10,8 +10,7 @@ extension TabStore {
     /// title, favicon, and pinned state. Lands in its original Space when that
     /// still exists, otherwise the active one — the same rule the archive
     /// restore uses (4.3).
-    public func reopenLastClosedTab(in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func reopenLastClosedTab(in window: WindowState) {
         guard var tab = recentlyClosed.popLast() else { return }
 
         let spaceID = spaces.contains { $0.id == tab.spaceID }
@@ -54,14 +53,14 @@ extension TabStore {
 
     /// Selects the next tab in the window's Space, wrapping past the end
     /// (Ctrl+Tab / Cmd+Shift+]).
-    public func selectNextTab(in window: WindowState? = nil) {
-        cycleSelection(by: 1, in: window ?? primaryWindow)
+    public func selectNextTab(in window: WindowState) {
+        cycleSelection(by: 1, in: window)
     }
 
     /// Selects the previous tab, wrapping past the start (Ctrl+Shift+Tab /
     /// Cmd+Shift+[).
-    public func selectPreviousTab(in window: WindowState? = nil) {
-        cycleSelection(by: -1, in: window ?? primaryWindow)
+    public func selectPreviousTab(in window: WindowState) {
+        cycleSelection(by: -1, in: window)
     }
 
     private func cycleSelection(by delta: Int, in window: WindowState) {
@@ -77,6 +76,6 @@ extension TabStore {
 
         let next = (index + delta + list.count) % list.count
         guard next != index else { return }
-        select(list[next].id)
+        select(list[next].id, in: window)
     }
 }

@@ -429,7 +429,7 @@ struct SidebarView: View {
         // affordance.
         Menu("Move to Space") {
             ForEach(store.spaces.filter { $0.id != tab.spaceID }) { space in
-                Button(space.name) { store.moveTab(tab.id, toSpace: space.id) }
+                Button(space.name) { store.moveTab(tab.id, toSpace: space.id, in: windowState) }
             }
         }
         .disabled(store.spaces.count <= 1)

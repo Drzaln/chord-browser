@@ -44,7 +44,9 @@ public struct PaneSnapshot: Equatable, Sendable {
 public protocol WebEngineDelegate: AnyObject {
     func paneDidUpdate(_ paneID: UUID, snapshot: PaneSnapshot)
     func paneDidLoadFavicon(_ paneID: UUID, data: Data?)
-    func paneRequestedNewTab(url: URL)
+    /// `target="_blank"` / `window.open()`. Carries the pane that asked so the
+    /// store can open the tab in the window actually showing that page.
+    func paneRequestedNewTab(url: URL, fromPane paneID: UUID?)
     /// A link's context menu asked to open it in the Little Arc panel (non-spec:
     /// user-requested).
     func paneRequestedLittleArc(url: URL)

@@ -116,7 +116,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if webLinks.count > 1 {
             // Several at once is a "open all of these" gesture, not a peek.
-            for extra in webLinks.dropFirst() { launch.store?.newTab(url: extra) }
+            // The primary window: these arrive from another app, so there is no
+            // originating browser window to put them in — the same call
+            // `LittleArcController.promote` makes, for the same reason.
+            for extra in webLinks.dropFirst() {
+                guard let store = launch.store else { break }
+                store.newTab(url: extra, in: store.primaryWindow)
+            }
         }
         littleArc?.present(url: url)
     }

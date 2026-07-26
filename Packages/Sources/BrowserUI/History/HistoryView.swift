@@ -161,12 +161,12 @@ public struct HistoryView: View {
     // MARK: - Actions
 
     private func load() async {
-        entries = await store.loadFullHistory()
+        entries = await store.loadFullHistory(in: windowState)
         isLoading = false
     }
 
     private func open(_ entry: HistoryEntry) {
-        store.openHistoryEntry(entry.url)
+        store.openHistoryEntry(entry.url, in: windowState)
         windowState.isHistoryPresented = false
     }
 
@@ -179,7 +179,7 @@ public struct HistoryView: View {
     private func clearAll() {
         entries.removeAll()
         selection.removeAll()
-        Task { await store.clearActiveSpaceHistory() }
+        Task { await store.clearActiveSpaceHistory(in: windowState) }
     }
 
     private func removeLocally(_ ids: [UUID]) {

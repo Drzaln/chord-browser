@@ -23,7 +23,9 @@ extension TabStore {
     }
 
     public func littleArcSurface(for pane: Pane) -> AnyWebSurface? {
-        guard let space = activeSpace else {
+        // The primary window's Space, matching where `promoteLittleArc` lands
+        // the tab — the panel has no originating browser window of its own.
+        guard let space = activeSpace(in: primaryWindow) else {
             Log.store.error("no active space; refusing to open a Little Arc panel")
             return nil
         }
@@ -36,7 +38,7 @@ extension TabStore {
     /// with: following a couple of links and then promoting should keep where
     /// you got to.
     @discardableResult
-    public func promoteLittleArc(_ pane: Pane) -> UUID? {
+    public func promoteLittleArc(_ pane: Pane, in window: WindowState) -> UUID? {
         let url = runtime(for: pane.id).currentURL ?? pane.url
 
         // The panel's own web view belongs to the panel. The new tab builds its
@@ -44,8 +46,8 @@ extension TabStore {
         // across two window hierarchies.
         discardLittleArc(pane)
 
-        newTab(url: url)
-        return selectedTabID
+        newTab(url: url, in: window)
+        return window.selectedTabID
     }
 
     /// Esc, or the panel closing. Tears the web view down: nothing else refers

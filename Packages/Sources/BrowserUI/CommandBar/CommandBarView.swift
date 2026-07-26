@@ -139,7 +139,7 @@ struct CommandBarView: View {
 
     private func activate(to destination: ActivationDestination) {
         guard results.indices.contains(highlighted) else { return }
-        store.activate(results[highlighted], destination: destination)
+        store.activate(results[highlighted], destination: destination, in: windowState)
         dismiss()
     }
 }

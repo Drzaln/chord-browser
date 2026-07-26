@@ -8,19 +8,14 @@ import Foundation
 @MainActor
 extension TabStore {
 
-    /// The active Space's folders, in sidebar order.
-    public var activeSpaceFolders: [Folder] {
-        guard let spaceID = primaryWindow.activeSpaceID else { return [] }
-        return folders
-            .filter { $0.spaceID == spaceID }
-            .sorted { $0.sortIndex < $1.sortIndex }
-    }
+    // A window's folders are `folders(in:)`, in `TabStore+WindowScoped`.
 
-    /// The tabs inside a folder, in placement order.
+    /// The tabs inside a folder, in placement order. Folder membership is a
+    /// property of the tab, so this needs no window — a folder lives in exactly
+    /// one Space and its tabs come with it.
     public func tabs(inFolder folderID: UUID) -> [Tab] {
-        visibleTabs
-            .filter { $0.folderID == folderID }
-            .sorted { $0.placement.order < $1.placement.order }
+        let inFolder = tabs.filter { $0.folderID == folderID }
+        return inFolder.sorted { $0.placement.order < $1.placement.order }
     }
 
     // MARK: - Mutations

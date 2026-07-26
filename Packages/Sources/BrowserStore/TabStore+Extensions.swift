@@ -15,9 +15,10 @@ extension TabStore: ExtensionTabModel {
     }
 
     public func extensionActiveTab(inSpace spaceID: UUID) -> ExtensionTabSnapshot? {
-        // The selected tab counts as active only when it is in this Space.
-        guard let selectedTabID,
-            let tab = tabs.first(where: { $0.id == selectedTabID }),
+        // WebExtensions treat a Space as a window (ADR 011), so "active" means
+        // whatever the window sitting in this Space has selected.
+        guard let selected = window(inSpace: spaceID)?.selectedTabID,
+            let tab = tabs.first(where: { $0.id == selected }),
             tab.spaceID == spaceID
         else { return nil }
         let index = tabsInSpace(spaceID).firstIndex { $0.id == tab.id } ?? 0
@@ -45,7 +46,12 @@ extension TabStore: ExtensionTabModel {
 
     // MARK: - Actions
 
-    public func extensionActivateTab(_ tabID: UUID) { select(tabID) }
+    public func extensionActivateTab(_ tabID: UUID) {
+        // The window already in that tab's Space, so an extension activating a
+        // tab does not drag an unrelated window along with it.
+        select(tabID, in: tabs.first { $0.id == tabID }
+            .flatMap { window(inSpace: $0.spaceID) } ?? primaryWindow)
+    }
 
     public func extensionLoadURL(_ url: URL, inTab tabID: UUID) {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
@@ -72,7 +78,10 @@ extension TabStore: ExtensionTabModel {
         engine.goForward(in: tab.focusedPaneID)
     }
 
-    public func extensionCloseTab(_ tabID: UUID) { closeTab(tabID) }
+    public func extensionCloseTab(_ tabID: UUID) {
+        closeTab(tabID, in: tabs.first { $0.id == tabID }
+            .flatMap { window(inSpace: $0.spaceID) } ?? primaryWindow)
+    }
 
     // MARK: -
 
@@ -90,7 +99,7 @@ extension TabStore: ExtensionTabModel {
             focusedPaneID: tab.focusedPaneID,
             url: pane.url,
             title: pane.displayTitle,
-            isSelected: tab.id == selectedTabID,
+            isSelected: isSelectedByAnyWindow(tab.id),
             index: index
         )
     }

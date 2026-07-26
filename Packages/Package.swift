@@ -64,7 +64,10 @@ let package = Package(
 
         .target(
             name: "BrowserTestSupport",
-            dependencies: ["BrowserCore", "BrowserEngine"],
+            // Store, for the single-window conveniences in
+            // `TabStore+SingleWindow`. Nothing in Sources depends on this target
+            // — only the test targets do — so this adds no cycle.
+            dependencies: ["BrowserCore", "BrowserEngine", "BrowserStore"],
             swiftSettings: strict
         ),
 

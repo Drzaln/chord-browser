@@ -139,7 +139,9 @@ extension NavigationCoordinator: WKUIDelegate {
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
         if let url = navigationAction.request.url {
-            engine?.delegate?.paneRequestedNewTab(url: url)
+            engine?.delegate?.paneRequestedNewTab(
+                url: url, fromPane: paneID(for: webView)
+            )
         }
         return nil
     }

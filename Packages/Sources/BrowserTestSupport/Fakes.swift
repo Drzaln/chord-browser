@@ -130,8 +130,10 @@ public final class FakeWebEngine: WebEngine {
         delegate?.paneDidLoadFavicon(paneID, data: data)
     }
 
-    public func emitNewTabRequest(url: URL) {
-        delegate?.paneRequestedNewTab(url: url)
+    /// - Parameter paneID: the pane the page called `window.open()` from. Nil
+    ///   models a request whose opener has already been evicted.
+    public func emitNewTabRequest(url: URL, fromPane paneID: UUID? = nil) {
+        delegate?.paneRequestedNewTab(url: url, fromPane: paneID)
     }
 }
 

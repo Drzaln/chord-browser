@@ -28,6 +28,27 @@ extension TabStore {
         windows.contains { $0.selectedTabID == tabID }
     }
 
+    /// The window showing this pane, for engine callbacks that arrive knowing
+    /// only which pane they came from — `window.open()` must put its new tab in
+    /// the window the page is actually displayed in.
+    ///
+    /// Falls back to the primary: a pane with no window is one that was evicted
+    /// mid-callback, and dropping the tab entirely would be worse.
+    func window(showingPane paneID: UUID) -> WindowState {
+        let owner = tabs.first { tab in tab.panes.contains { $0.id == paneID } }
+        guard let owner else { return primaryWindow }
+        return windows.first { $0.selectedTabID == owner.id } ?? primaryWindow
+    }
+
+    /// The window a WebExtension should treat as showing this Space.
+    ///
+    /// WebExtensions model a Space as a window (ADR 011). With two real windows
+    /// in one Space that is ambiguous, so the first one sitting there wins —
+    /// stable, and right whenever only one window is in the Space.
+    func window(inSpace spaceID: UUID) -> WindowState? {
+        windows.first { activeSpace(in: $0)?.id == spaceID }
+    }
+
     /// Re-points any window whose Space or selected tab has gone.
     ///
     /// Called after mutations that *remove* things (closing, sweeping, deleting a

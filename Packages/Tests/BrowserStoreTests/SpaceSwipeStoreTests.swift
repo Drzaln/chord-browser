@@ -36,7 +36,7 @@ struct SpaceSwipeStoreTests {
         #expect(store.canSwipeSpace(direction: 1))
         store.beginSpaceSwipe()
         store.updateSpaceSwipe(offset: SpaceSwipe.fullSwipeDistance * 0.6)
-        #expect(store.swipeShouldCommit())
+        #expect(store.swipeShouldCommit)
 
         store.commitSpaceSwipe(direction: 1)
         #expect(store.activeSpace?.name == "B")
@@ -49,7 +49,7 @@ struct SpaceSwipeStoreTests {
         await store.restore()
 
         store.updateSpaceSwipe(offset: SpaceSwipe.fullSwipeDistance * 0.3)
-        #expect(!store.swipeShouldCommit())
+        #expect(!store.swipeShouldCommit)
         #expect(store.activeSpace?.name == "A")
     }
 
@@ -61,7 +61,7 @@ struct SpaceSwipeStoreTests {
         #expect(!store.canSwipeSpace(direction: -1))
         // A generous backward swipe past the start stays well short of a commit.
         store.updateSpaceSwipe(offset: -SpaceSwipe.fullSwipeDistance * 2)
-        #expect(!store.swipeShouldCommit())
+        #expect(!store.swipeShouldCommit)
         #expect(abs(store.spaceSwipeProgress) < SpaceSwipe.commitThreshold)
     }
 
@@ -70,10 +70,10 @@ struct SpaceSwipeStoreTests {
         let store = makeStore(spaces: threeSpaces())
         await store.restore()  // A: black, neighbour B: white
 
-        #expect(store.swipeBlendedGradient() == ["#000000", "#000000"])  // at rest
+        #expect(store.swipeBlendedGradient == ["#000000", "#000000"])  // at rest
 
         store.updateSpaceSwipe(offset: SpaceSwipe.fullSwipeDistance)  // fully toward B
-        #expect(store.swipeBlendedGradient() == ["#FFFFFF", "#FFFFFF"])
+        #expect(store.swipeBlendedGradient == ["#FFFFFF", "#FFFFFF"])
     }
 
     @Test("Progress resets after commit so the gradient shows the new Space")
@@ -84,9 +84,9 @@ struct SpaceSwipeStoreTests {
         // Drive fully to the neighbour, then commit: the pixels before and after
         // are the same white, so the switch reads as continuous.
         store.updateSpaceSwipe(offset: SpaceSwipe.fullSwipeDistance)
-        let before = store.swipeBlendedGradient()
+        let before = store.swipeBlendedGradient
         store.commitSpaceSwipe(direction: 1)
         #expect(before == ["#FFFFFF", "#FFFFFF"])
-        #expect(store.swipeBlendedGradient() == ["#FFFFFF", "#FFFFFF"])  // B at rest
+        #expect(store.swipeBlendedGradient == ["#FFFFFF", "#FFFFFF"])  // B at rest
     }
 }

@@ -24,7 +24,7 @@ struct SpaceSwitcher: View {
             Spacer(minLength: 0)
 
             Button {
-                store.addSpace()
+                store.addSpace(in: windowState)
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 10, weight: .semibold))
@@ -67,7 +67,7 @@ struct SpaceSwitcher: View {
         .overlay {
             if isDragging {
                 SidebarDropTarget(
-                    onDrop: { tabID, _ in store.moveTab(tabID, toSpace: space.id) }
+                    onDrop: { tabID, _ in store.moveTab(tabID, toSpace: space.id, in: windowState) }
                 )
             }
         }

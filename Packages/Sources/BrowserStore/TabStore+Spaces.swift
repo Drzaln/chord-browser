@@ -9,50 +9,14 @@ extension TabStore {
 
     // MARK: - Spaces
 
-    public var activeSpace: Space? {
-        guard let activeSpaceID else { return spaces.first }
-        return spaces.first { $0.id == activeSpaceID } ?? spaces.first
-    }
-
-    /// The sidebar shows only the active Space's tabs. Partitioning happens in
-    /// memory: the tab set is small, and going to disk on every Space switch
-    /// would blow the 100 ms budget in 6.1.
-    public var visibleTabs: [Tab] {
-        guard let spaceID = activeSpace?.id else { return [] }
-        return tabs
-            .filter { $0.spaceID == spaceID }
-            .sorted { $0.placement.order < $1.placement.order }
-    }
-
-    /// The active Space's pinned tabs — its favourites (4.1). Tabs inside a
-    /// folder are shown under the folder instead, so they are excluded here.
-    ///
-    /// Per-Space for free: `visibleTabs` is already filtered by the active
-    /// Space, so a Space's favourites cannot leak into another's.
-    public var pinnedTabs: [Tab] {
-        visibleTabs.filter { $0.placement.isPinned && $0.folderID == nil }
-    }
-
-    /// The active Space's Arc-style *Pinned* tabs — the list section between the
-    /// favourites grid and the loose tabs (non-spec: user-requested). Foldered
-    /// tabs are shown under their folder instead, so they are excluded here.
-    public var bookmarkedTabs: [Tab] {
-        visibleTabs.filter { $0.placement.isBookmarked && $0.folderID == nil }
-    }
-
-    // The Pinned section's collapse state moved to `WindowState` — it is
-    // per-window, so two windows in one Space can disagree about it.
-
-    /// The loose ephemeral tabs the sweep may eventually close — neither a
-    /// favourite nor a Pinned tab, and not in a folder.
-    public var unpinnedTabs: [Tab] {
-        visibleTabs.filter { $0.placement.isEphemeral && $0.folderID == nil }
-    }
+    // The Space-derived collections live in `TabStore+WindowScoped`, asked per
+    // window: `activeSpace(in:)`, `visibleTabs(in:)`, `pinnedTabs(in:)`, and so
+    // on. There is no "the" active Space any more. The Pinned section's collapse
+    // state is on `WindowState` for the same reason.
 
     /// - Parameter window: the window that switches. Only it moves — Cmd+1…9 in
     ///   Arc switches the focused window and leaves the others where they are.
-    public func selectSpace(_ spaceID: UUID, in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func selectSpace(_ spaceID: UUID, in window: WindowState) {
         guard spaceID != window.activeSpaceID, spaces.contains(where: { $0.id == spaceID })
         else {
             return
@@ -82,14 +46,14 @@ extension TabStore {
 
     /// `Cmd+1...9`. Out-of-range indices are ignored rather than clamped —
     /// Cmd+7 with three Spaces should do nothing, not jump to the last one.
-    public func selectSpace(atIndex index: Int, in window: WindowState? = nil) {
+    public func selectSpace(atIndex index: Int, in window: WindowState) {
         let ordered = spaces.sorted { $0.sortIndex < $1.sortIndex }
         guard ordered.indices.contains(index) else { return }
-        selectSpace(ordered[index].id, in: window ?? primaryWindow)
+        selectSpace(ordered[index].id, in: window)
     }
 
     @discardableResult
-    public func addSpace(name: String? = nil, in window: WindowState? = nil) -> Space {
+    public func addSpace(name: String? = nil, in window: WindowState) -> Space {
         let sortIndex = (spaces.map(\.sortIndex).max() ?? -1) + 1
         let space = Space(
             name: name ?? "Space \(spaces.count + 1)",
@@ -99,7 +63,7 @@ extension TabStore {
         spaces.append(space)
         Task { await persistSpaces() }
         // The window that made it goes there; the others stay put.
-        selectSpace(space.id, in: window ?? primaryWindow)
+        selectSpace(space.id, in: window)
         return space
     }
 
@@ -127,8 +91,7 @@ extension TabStore {
 
     /// Closes the Space's tabs and reclaims its disk. Irreversible — callers
     /// must have confirmed with the user first (3.3).
-    public func deleteSpace(_ spaceID: UUID, in window: WindowState? = nil) async {
-        let window = window ?? primaryWindow
+    public func deleteSpace(_ spaceID: UUID, in window: WindowState) async {
         guard spaces.count > 1, let index = spaces.firstIndex(where: { $0.id == spaceID })
         else { return }  // never leave the user with no Space
 
@@ -174,11 +137,6 @@ extension TabStore {
         } catch {
             Log.store.error("space save failed: \(String(describing: error))")
         }
-    }
-
-    public var selectedTab: Tab? {
-        guard let selectedTabID else { return nil }
-        return tabs.first { $0.id == selectedTabID }
     }
 
 }

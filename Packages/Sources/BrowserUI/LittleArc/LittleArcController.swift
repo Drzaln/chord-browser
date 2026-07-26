@@ -51,7 +51,12 @@ public final class LittleArcController {
         // Clear the pane first: dismiss() would otherwise tear down the web view
         // we are about to hand over.
         self.pane = nil
-        store.promoteLittleArc(pane)
+        // The primary window, deliberately: Little Arc is opened by a URL handed
+        // to the app, so there is no originating browser window to inherit — and
+        // it is the window `NSApp.activate` brings forward below. If a second
+        // window is focused the tab still lands in the first; promoting into the
+        // key window would need the panel to track one, which it does not.
+        store.promoteLittleArc(pane, in: store.primaryWindow)
 
         closePanel()
 

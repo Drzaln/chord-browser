@@ -1816,3 +1816,51 @@ rather than the `Color.clear` shown while `claimWindow()` resolves — clicking
 into it does hit a real element, but no screenshot was taken. Note
 `System Events`' `every window` reports **0** for this app while CoreGraphics
 reports the real count; use the latter, and `AXFocusedWindow` for the former.
+
+### Proxies deleted — the window is now required (2026-07-27)
+
+The `primaryWindow`-backed conveniences on `TabStore` are gone from the shipping
+targets. `in window: WindowState` has no default any more, so "which window did
+you mean" is a compile error rather than a silent answer.
+
+- **The scaffolding moved to `BrowserTestSupport`**
+  (`TabStore+SingleWindow.swift`), which only the *test* targets link. A headless
+  test genuinely has one window, so `store.selectedTab` stays readable there;
+  the same expression in `BrowserUI` or the app does not compile. All 381 tests
+  needed **zero** edits. `BrowserTestSupport` gained a `BrowserStore`
+  dependency — no cycle, because nothing in `Sources` links it.
+- **Verify the enforcement with a concrete type, not `Any`.** A first probe of
+  `-> Any? { s.selectedTab }` compiled and looked like a leak — it was binding
+  the *unapplied method* `(WindowState) -> Tab?`. Only `-> BrowserCore.Tab?`
+  proved the property is genuinely invisible.
+- **Removing the properties was not enough**, which the probe also caught:
+  `closeTab(id)` still compiled because the `in window:` *defaults* were still
+  there. Both had to go.
+- Sites that legitimately have no originating window now say so out loud rather
+  than defaulting: `restore()` and `application(_:open:)` and Little Arc's
+  promote/surface all name `primaryWindow` with the reason. Little Arc promoting
+  into the primary while a second window is focused is a **known limitation**,
+  commented at the call site.
+- Two `WindowState? = nil` remain and are correct:
+  `reconcileWindows(excluding:)` (nil = no acting window, i.e. the sweep) and
+  `TabStore.init(primaryWindow:)` (nil = make one).
+- Engine callbacks now carry their origin: `paneRequestedNewTab` gained
+  `fromPane:`, so `window.open()` opens its tab in the window showing the page
+  that called it rather than the first one. `extensionActiveTab(inSpace:)` and
+  the extension activate/close paths resolve through `window(inSpace:)`.
+- Menu actions funnel through one `withFocusedWindow` helper, so the focused-
+  window question is answered in a single place.
+
+### `prepush.sh` was reporting OK on a failed app build
+
+Found while running the above. The app step was
+`xcodebuild ... | grep -E "error:|warning:|BUILD" || true`: under `set -e` the
+pipeline's status is *grep's*, and `|| true` discarded even that, so a failing
+`xcodebuild` still fell through to `echo "==> OK"`. The package and test steps
+were always fine — only the app build was unguarded, and it is the step most
+likely to break on its own (project file, entitlements, Xcode version).
+
+Now it captures to a temp log and propagates xcodebuild's own status. Verified in
+both directions: a deliberate syntax error in `AppDelegate.swift` exits 1, and a
+clean tree exits 0. Worth knowing if you ever trusted a green prepush that
+predates this.

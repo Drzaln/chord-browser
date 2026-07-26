@@ -17,8 +17,7 @@ import Foundation
 @MainActor
 extension TabStore {
 
-    public func showFindBar(in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func showFindBar(in window: WindowState) {
         window.isFindBarVisible = true
         // Deliberately keeps `findText`. Reopening the bar with the last query
         // still in it is what every other find bar does, and re-typing a long
@@ -26,8 +25,7 @@ extension TabStore {
         window.findFoundMatch = nil
     }
 
-    public func hideFindBar(in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func hideFindBar(in window: WindowState) {
         window.isFindBarVisible = false
         window.findFoundMatch = nil
         if let paneID = focusedPaneIDForFind(in: window) {
@@ -38,12 +36,12 @@ extension TabStore {
     }
 
     /// Runs the current query from the top. Called as the user types.
-    public func findNext(in window: WindowState? = nil) {
-        runFind(backwards: false, in: window ?? primaryWindow)
+    public func findNext(in window: WindowState) {
+        runFind(backwards: false, in: window)
     }
 
-    public func findPrevious(in window: WindowState? = nil) {
-        runFind(backwards: true, in: window ?? primaryWindow)
+    public func findPrevious(in window: WindowState) {
+        runFind(backwards: true, in: window)
     }
 
     private func runFind(backwards: Bool, in window: WindowState) {

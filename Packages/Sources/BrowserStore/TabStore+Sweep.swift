@@ -90,8 +90,7 @@ extension TabStore {
 
     /// Reopens an archived tab in its original Space when that Space still
     /// exists, and in the active one when it does not.
-    public func restoreArchived(_ archived: ArchivedTab, in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func restoreArchived(_ archived: ArchivedTab, in window: WindowState) {
         let spaceID = spaces.contains { $0.id == archived.spaceID }
             ? archived.spaceID
             : activeSpace(in: window)?.id

@@ -61,9 +61,8 @@ extension TabStore {
     public func activate(
         _ suggestion: Suggestion,
         destination: ActivationDestination = .newTab,
-        in window: WindowState? = nil
+        in window: WindowState
     ) {
-        let window = window ?? primaryWindow
         switch suggestion.kind {
         case .openTab(let tabID, let spaceID, _):
             // Choosing an already-open tab always switches to it rather than

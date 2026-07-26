@@ -23,35 +23,34 @@ extension TabStore {
 
     /// The Space one step from the window's. `direction` is +1 for the next
     /// Space (higher `sortIndex`), -1 for the previous.
-    func neighbourSpace(direction: Int, in window: WindowState? = nil) -> Space? {
-        guard let index = activeSpaceIndex(in: window ?? primaryWindow) else { return nil }
+    func neighbourSpace(direction: Int, in window: WindowState) -> Space? {
+        guard let index = activeSpaceIndex(in: window) else { return nil }
         let target = index + direction
         return orderedSpaces.indices.contains(target) ? orderedSpaces[target] : nil
     }
 
     /// Whether a swipe in `direction` has somewhere to go. False at the ends,
     /// which is what makes the swipe rubber-band rather than commit there.
-    public func canSwipeSpace(direction: Int, in window: WindowState? = nil) -> Bool {
-        neighbourSpace(direction: direction, in: window ?? primaryWindow) != nil
+    public func canSwipeSpace(direction: Int, in window: WindowState) -> Bool {
+        neighbourSpace(direction: direction, in: window) != nil
     }
 
     // MARK: - Driving a swipe
 
-    public func beginSpaceSwipe(in window: WindowState? = nil) {
-        (window ?? primaryWindow).spaceSwipeProgress = 0
+    public func beginSpaceSwipe(in window: WindowState) {
+        window.spaceSwipeProgress = 0
     }
 
     /// Sets the progress directly. The release spring lives in the UI's
     /// `SpaceSwipeMonitor`, which drives this inside `withAnimation`.
-    public func setSpaceSwipeProgress(_ value: Double, in window: WindowState? = nil) {
-        (window ?? primaryWindow).spaceSwipeProgress = value
+    public func setSpaceSwipeProgress(_ value: Double, in window: WindowState) {
+        window.spaceSwipeProgress = value
     }
 
     /// `offset` is accumulated horizontal travel in points, positive toward the
     /// next Space. Past the last (or before the first) Space there is no
     /// neighbour, so the progress rubber-bands instead of tracking one-to-one.
-    public func updateSpaceSwipe(offset: Double, in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func updateSpaceSwipe(offset: Double, in window: WindowState) {
         let raw = SpaceSwipe.progress(forOffset: offset)
         let direction = raw >= 0 ? 1 : -1
 
@@ -63,8 +62,7 @@ extension TabStore {
     }
 
     /// The swipe crossed the commit threshold toward an existing neighbour.
-    public func swipeShouldCommit(in window: WindowState? = nil) -> Bool {
-        let window = window ?? primaryWindow
+    public func swipeShouldCommit(in window: WindowState) -> Bool {
         let progress = window.spaceSwipeProgress
         let direction = progress >= 0 ? 1 : -1
         return abs(progress) >= SpaceSwipe.commitThreshold
@@ -75,8 +73,7 @@ extension TabStore {
     /// already animated `spaceSwipeProgress` to `±1`, so the blended gradient
     /// there equals the neighbour's fully — resetting to 0 over the *new* active
     /// Space shows the same pixels, and the transition reads as continuous.
-    public func commitSpaceSwipe(direction: Int, in window: WindowState? = nil) {
-        let window = window ?? primaryWindow
+    public func commitSpaceSwipe(direction: Int, in window: WindowState) {
         if let neighbour = neighbourSpace(direction: direction, in: window) {
             selectSpace(neighbour.id, in: window)
         }
@@ -89,8 +86,7 @@ extension TabStore {
     /// blended toward the neighbour by the current swipe progress. Returns the
     /// active Space's stops unchanged when no swipe is in flight, so the idle
     /// path stays on `SpaceTheme`'s cache rather than blending every frame.
-    public func swipeBlendedGradient(in window: WindowState? = nil) -> [ColorHex] {
-        let window = window ?? primaryWindow
+    public func swipeBlendedGradient(in window: WindowState) -> [ColorHex] {
         guard let active = activeSpace(in: window) else { return Space.defaultGradient }
         let progress = window.spaceSwipeProgress
         guard progress != 0 else { return active.gradient }

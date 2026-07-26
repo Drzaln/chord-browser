@@ -9,6 +9,9 @@ import SwiftUI
 /// no extra container — so the normal case pays nothing for split view existing.
 struct SplitContentView: View {
     @Bindable var store: TabStore
+    /// The window this pane layout is drawn in — a drop that moves a tab into
+    /// the split acts on this window, not whichever one came first.
+    @Bindable var windowState: WindowState
     let tab: BrowserCore.Tab
 
     /// Widths as they were when the current divider drag began. Applying a
@@ -59,6 +62,7 @@ struct SplitContentView: View {
         let position = tab.panes.firstIndex { $0.id == pane.id } ?? 0
         return PaneCard(
             store: store,
+            windowState: windowState,
             tab: tab,
             pane: pane,
             isFocused: pane.id == tab.focusedPaneID,
@@ -73,6 +77,7 @@ struct SplitContentView: View {
 /// One pane's web surface in its rounded card.
 private struct PaneCard: View {
     @Bindable var store: TabStore
+    @Bindable var windowState: WindowState
     let tab: BrowserCore.Tab
     let pane: Pane
     let isFocused: Bool
@@ -129,7 +134,7 @@ private struct PaneCard: View {
                     isTargeted: { isDropTarget = $0 },
                     onDrop: { sourceID in
                         store.endTabDrag()
-                        store.split(tab.id, byMoving: sourceID)
+                        store.split(tab.id, byMoving: sourceID, in: windowState)
                     }
                 )
             }

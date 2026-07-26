@@ -16,7 +16,7 @@ struct WebContentCard: View {
         if let tab = store.selectedTab(in: windowState) {
             // Split view is just a tab with more panes (3.2), so there is one
             // path here rather than a normal case and a split case.
-            SplitContentView(store: store, tab: tab)
+            SplitContentView(store: store, windowState: windowState, tab: tab)
                 .id(tab.id)
                 // Over the content rather than above it: pushing the page down
                 // to make room would relayout every pane for the length of a

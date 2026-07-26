@@ -34,7 +34,7 @@ struct PinnedList: View {
                 )
                 .id(tab.id)
                 .contextMenu {
-                    Button("Return to Pinned URL") { store.returnToPinnedHome(tab.id) }
+                    Button("Return to Pinned URL") { store.returnToPinnedHome(tab.id, in: windowState) }
                         .disabled(tab.placement.homeURL == tab.focusedPane.url)
                     Button("Set Current Page as Pinned URL") { store.updatePinnedHome(tab.id) }
                         .disabled(tab.placement.homeURL == tab.focusedPane.url)
@@ -55,7 +55,7 @@ struct PinnedList: View {
     /// snaps it back to the URL it was pinned at (4.1).
     private func selectOrReturnHome(_ tab: BrowserCore.Tab) {
         if tab.id == windowState.selectedTabID {
-            store.returnToPinnedHome(tab.id)
+            store.returnToPinnedHome(tab.id, in: windowState)
         } else {
             store.select(tab.id, in: windowState)
         }

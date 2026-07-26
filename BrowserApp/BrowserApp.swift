@@ -141,6 +141,15 @@ struct BrowserCommands: Commands {
 
     /// The store, when the app actually started. Every window shares it.
     private var store: TabStore? { launch.store }
+
+    /// Runs `action` against the focused window, or does nothing when no browser
+    /// window has focus. Every window-scoped menu item goes through this, so the
+    /// "which window did the user mean" question is answered in exactly one
+    /// place — it used to be answered by `NSApp.mainWindow`, i.e. guessed.
+    private func withFocusedWindow(_ action: (TabStore, WindowState) -> Void) {
+        guard let store, let windowState else { return }
+        action(store, windowState)
+    }
     /// Lives in the UI package, so it is owned by the delegate rather than by
     /// `AppEnvironment` — Store must not depend on UI.
     let commandBar: CommandBarController?
@@ -176,19 +185,20 @@ struct BrowserCommands: Commands {
             Button("New Window") { openWindow(id: "main") }
                 .keyboardShortcut("n", modifiers: .command)
 
-            Button("New Blank Tab") { store?.newTab(in: windowState) }
+            Button("New Blank Tab") { withFocusedWindow { $0.newTab(in: $1) } }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
         }
         CommandGroup(after: .newItem) {
             Button("Close Tab") {
-                guard let store, let window = windowState,
-                      let id = window.selectedTabID else { return }
-                store.closeTab(id, in: window)
+                withFocusedWindow { store, window in
+                    guard let id = window.selectedTabID else { return }
+                    store.closeTab(id, in: window)
+                }
             }
             .keyboardShortcut("w", modifiers: .command)
 
             // Cmd+Shift+T — the platform-wide "reopen the tab I just closed".
-            Button("Reopen Closed Tab") { store?.reopenLastClosedTab(in: windowState) }
+            Button("Reopen Closed Tab") { withFocusedWindow { $0.reopenLastClosedTab(in: $1) } }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
 
             Divider()
@@ -196,18 +206,19 @@ struct BrowserCommands: Commands {
             // Cycle the selection through the active Space's tabs. Ctrl+Tab /
             // Ctrl+Shift+Tab are what every browser binds; Cmd+1…9 is taken by
             // Spaces here, so this is the only keyboard way to step through tabs.
-            Button("Next Tab") { store?.selectNextTab(in: windowState) }
+            Button("Next Tab") { withFocusedWindow { $0.selectNextTab(in: $1) } }
                 .keyboardShortcut(.tab, modifiers: .control)
 
-            Button("Previous Tab") { store?.selectPreviousTab(in: windowState) }
+            Button("Previous Tab") { withFocusedWindow { $0.selectPreviousTab(in: $1) } }
                 .keyboardShortcut(.tab, modifiers: [.control, .shift])
 
             // Cmd+D — Arc uses pinned tabs where other browsers bookmark, so the
             // bookmark key pins instead. Toggles, so the same key un-pins.
             Button("Pin or Unpin Tab") {
-                guard let store, let window = windowState,
-                      let tab = store.selectedTab(in: window) else { return }
-                store.setPinned(!tab.placement.isPinned, tabID: tab.id)
+                withFocusedWindow { store, window in
+                    guard let tab = store.selectedTab(in: window) else { return }
+                    store.setPinned(!tab.placement.isPinned, tabID: tab.id)
+                }
             }
             .keyboardShortcut("d", modifiers: .command)
 
@@ -223,20 +234,21 @@ struct BrowserCommands: Commands {
             .keyboardShortcut("d", modifiers: [.command, .shift])
 
             Button("Close Pane") {
-                guard let store, let window = windowState,
-                      let tab = store.selectedTab(in: window) else { return }
-                store.closePane(tab.focusedPaneID, in: window)
+                withFocusedWindow { store, window in
+                    guard let tab = store.selectedTab(in: window) else { return }
+                    store.closePane(tab.focusedPaneID, in: window)
+                }
             }
             .keyboardShortcut("d", modifiers: [.command, .shift, .option])
 
             Divider()
 
-            Button("Reload") { store?.reload(in: windowState) }
+            Button("Reload") { withFocusedWindow { $0.reload(in: $1) } }
                 .keyboardShortcut("r", modifiers: .command)
 
             // Cmd+. — the platform's "stop". The reload button also becomes a
             // stop button while a page loads; this is the keyboard equivalent.
-            Button("Stop Loading") { store?.stopLoading(in: windowState) }
+            Button("Stop Loading") { withFocusedWindow { $0.stopLoading(in: $1) } }
                 .keyboardShortcut(".", modifiers: .command)
         }
 
@@ -244,7 +256,7 @@ struct BrowserCommands: Commands {
         // print item so it targets the focused pane's web view rather than a
         // document the app does not have.
         CommandGroup(replacing: .printItem) {
-            Button("Print…") { store?.printSelectedPane(in: windowState) }
+            Button("Print…") { withFocusedWindow { $0.printSelectedPane(in: $1) } }
                 .keyboardShortcut("p", modifiers: .command)
         }
 
@@ -252,13 +264,13 @@ struct BrowserCommands: Commands {
         // work whether or not the field has focus — which is the point: you
         // find, click into the page, then keep stepping through matches.
         CommandGroup(after: .textEditing) {
-            Button("Find…") { store?.showFindBar(in: windowState) }
+            Button("Find…") { withFocusedWindow { $0.showFindBar(in: $1) } }
                 .keyboardShortcut("f", modifiers: .command)
 
-            Button("Find Next") { store?.findNext(in: windowState) }
+            Button("Find Next") { withFocusedWindow { $0.findNext(in: $1) } }
                 .keyboardShortcut("g", modifiers: .command)
 
-            Button("Find Previous") { store?.findPrevious(in: windowState) }
+            Button("Find Previous") { withFocusedWindow { $0.findPrevious(in: $1) } }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
         }
 
@@ -280,7 +292,7 @@ struct BrowserCommands: Commands {
         }
 
         CommandMenu("Spaces") {
-            Button("New Space") { store?.addSpace(in: windowState) }
+            Button("New Space") { withFocusedWindow { $0.addSpace(in: $1) } }
 
             Divider()
 
@@ -289,7 +301,7 @@ struct BrowserCommands: Commands {
             // the store ignores an index that does not exist.
             ForEach(1...9, id: \.self) { position in
                 Button("Space \(position)") {
-                    store?.selectSpace(atIndex: position - 1, in: windowState)
+                    withFocusedWindow { $0.selectSpace(atIndex: position - 1, in: $1) }
                 }
                 .keyboardShortcut(
                     KeyEquivalent(Character("\(position)")), modifiers: .command
