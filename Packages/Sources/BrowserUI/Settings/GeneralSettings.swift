@@ -7,6 +7,8 @@ import SwiftUI
 /// through to the store, which persists them to `UserDefaults`.
 struct GeneralSettings: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
 
     // Search engine. `customName`/`customTemplate` hold the editable fields while
     // "Custom" is selected; they are folded back into a `.custom` engine on edit.

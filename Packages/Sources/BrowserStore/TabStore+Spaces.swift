@@ -49,43 +49,47 @@ extension TabStore {
         visibleTabs.filter { $0.placement.isEphemeral && $0.folderID == nil }
     }
 
-    public func selectSpace(_ spaceID: UUID) {
-        guard spaceID != activeSpaceID, spaces.contains(where: { $0.id == spaceID }) else {
+    /// - Parameter window: the window that switches. Only it moves — Cmd+1…9 in
+    ///   Arc switches the focused window and leaves the others where they are.
+    public func selectSpace(_ spaceID: UUID, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
+        guard spaceID != window.activeSpaceID, spaces.contains(where: { $0.id == spaceID })
+        else {
             return
         }
 
         let state = Log.signposts.beginInterval("spaceSwitch")
         defer { Log.signposts.endInterval("spaceSwitch", state) }
 
-        if let current = activeSpaceID, let selected = selectedTabID {
+        if let current = window.activeSpaceID, let selected = window.selectedTabID {
             lastSelectedTabBySpace[current] = selected
         }
-        activeSpaceID = spaceID
+        window.activeSpaceID = spaceID
 
         // Web views for the other Space stay live and stay in the pool — the
         // LRU cap is what bounds them. Evicting on switch would make going back
         // a reload, which is the opposite of the 100 ms budget.
-        let candidates = visibleTabs
+        let candidates = visibleTabs(in: window)
         if let remembered = lastSelectedTabBySpace[spaceID],
            candidates.contains(where: { $0.id == remembered }) {
-            selectedTabID = remembered
+            window.selectedTabID = remembered
         } else {
-            selectedTabID = candidates.max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
+            window.selectedTabID = candidates.max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
         }
 
-        if selectedTabID == nil { newTab() }
+        if window.selectedTabID == nil { newTab(in: window) }
     }
 
     /// `Cmd+1...9`. Out-of-range indices are ignored rather than clamped —
     /// Cmd+7 with three Spaces should do nothing, not jump to the last one.
-    public func selectSpace(atIndex index: Int) {
+    public func selectSpace(atIndex index: Int, in window: WindowState? = nil) {
         let ordered = spaces.sorted { $0.sortIndex < $1.sortIndex }
         guard ordered.indices.contains(index) else { return }
-        selectSpace(ordered[index].id)
+        selectSpace(ordered[index].id, in: window ?? primaryWindow)
     }
 
     @discardableResult
-    public func addSpace(name: String? = nil) -> Space {
+    public func addSpace(name: String? = nil, in window: WindowState? = nil) -> Space {
         let sortIndex = (spaces.map(\.sortIndex).max() ?? -1) + 1
         let space = Space(
             name: name ?? "Space \(spaces.count + 1)",
@@ -94,7 +98,8 @@ extension TabStore {
         )
         spaces.append(space)
         Task { await persistSpaces() }
-        selectSpace(space.id)
+        // The window that made it goes there; the others stay put.
+        selectSpace(space.id, in: window ?? primaryWindow)
         return space
     }
 
@@ -122,7 +127,8 @@ extension TabStore {
 
     /// Closes the Space's tabs and reclaims its disk. Irreversible — callers
     /// must have confirmed with the user first (3.3).
-    public func deleteSpace(_ spaceID: UUID) async {
+    public func deleteSpace(_ spaceID: UUID, in window: WindowState? = nil) async {
+        let window = window ?? primaryWindow
         guard spaces.count > 1, let index = spaces.firstIndex(where: { $0.id == spaceID })
         else { return }  // never leave the user with no Space
 
@@ -142,10 +148,13 @@ extension TabStore {
         spaces.remove(at: index)
         lastSelectedTabBySpace[spaceID] = nil
 
-        if activeSpaceID == spaceID {
-            activeSpaceID = nil
-            selectSpace(spaces[0].id)
+        if window.activeSpaceID == spaceID {
+            window.activeSpaceID = nil
+            selectSpace(spaces[0].id, in: window)
         }
+        // Any other window sitting in the deleted Space is re-homed to the first
+        // one, the same rule `adoptOrphanedTabs` uses for a tab.
+        reconcileWindows(excluding: window)
 
         do {
             try await engine.removeData(for: space)

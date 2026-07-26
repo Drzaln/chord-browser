@@ -18,7 +18,7 @@ extension TabStore {
     private func loadHistory() async -> [HistoryEntry] {
         // Scoped to the active Space: history is per-Space, so the command bar
         // never surfaces a page you visited in a different Space.
-        guard let spaceID = activeSpaceID else { return [] }
+        guard let spaceID = primaryWindow.activeSpaceID else { return [] }
         do {
             return try await historyRepository?.recentHistory(inSpace: spaceID, limit: 500) ?? []
         } catch {
@@ -59,51 +59,58 @@ extension TabStore {
     /// - Parameter destination: where the result goes, decided by the shortcut
     ///   that opened the bar (4.4) — or forced to `.newTab` by `Cmd+Enter`.
     public func activate(
-        _ suggestion: Suggestion, destination: ActivationDestination = .newTab
+        _ suggestion: Suggestion,
+        destination: ActivationDestination = .newTab,
+        in window: WindowState? = nil
     ) {
+        let window = window ?? primaryWindow
         switch suggestion.kind {
         case .openTab(let tabID, let spaceID, _):
             // Choosing an already-open tab always switches to it rather than
             // opening a duplicate (4.4) — except when splitting, where the tab
             // is *moved* into the split exactly as dragging it there would
             // (4.5). Either way the tab never ends up existing twice.
-            if destination == .newPane, let target = selectedTabID, target != tabID {
-                split(target, byMoving: tabID)
+            if destination == .newPane, let target = window.selectedTabID, target != tabID {
+                split(target, byMoving: tabID, in: window)
             } else {
-                if spaceID != activeSpaceID { selectSpace(spaceID) }
-                select(tabID)
+                if spaceID != window.activeSpaceID { selectSpace(spaceID, in: window) }
+                select(tabID, in: window)
             }
 
         case .history(let url), .navigate(let url), .search(_, let url):
-            open(url, destination: destination)
+            open(url, destination: destination, in: window)
 
         case .archived(let tab):
-            restoreArchived(tab)
+            restoreArchived(tab, in: window)
 
         case .command(let command):
-            run(command)
+            run(command, in: window)
         }
     }
 
-    private func open(_ url: URL, destination: ActivationDestination) {
+    private func open(_ url: URL, destination: ActivationDestination, in window: WindowState) {
         switch destination {
-        case .newPane where selectedTabID != nil:
-            splitSelectedTab(url: url)
+        case .newPane where window.selectedTabID != nil:
+            splitSelectedTab(url: url, in: window)
         // With no tab to split or navigate, there is only one sensible landing
         // place and it is a new tab.
         case .newTab, .newPane:
-            newTab(url: url)
+            newTab(url: url, in: window)
         case .currentTab:
-            if selectedTab == nil { newTab(url: url) } else { navigate(to: url) }
+            if selectedTab(in: window) == nil {
+                newTab(url: url, in: window)
+            } else {
+                navigate(to: url, in: window)
+            }
         }
     }
 
-    private func run(_ command: BrowserCommand) {
+    private func run(_ command: BrowserCommand, in window: WindowState) {
         switch command {
-        case .newTab: newTab()
-        case .closeTab: selectedTabID.map { closeTab($0) }
-        case .newSpace: addSpace()
-        case .reload: reload()
+        case .newTab: newTab(in: window)
+        case .closeTab: window.selectedTabID.map { closeTab($0, in: window) }
+        case .newSpace: addSpace(in: window)
+        case .reload: reload(in: window)
         }
     }
 

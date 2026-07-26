@@ -6,6 +6,12 @@ import SwiftUI
 /// The command bar's contents: one input, one ranked result list (4.4).
 struct CommandBarView: View {
     @Bindable var store: TabStore
+    /// Which window the bar is acting for this time round. Not a stored
+    /// `WindowState`: the panel is built once and reused across windows, so the
+    /// target is swapped per presentation (see `CommandBarTarget`).
+    @Bindable var target: CommandBarTarget
+
+    private var windowState: WindowState { target.windowState ?? store.primaryWindow }
     let session: CommandBarSession
     let dismiss: () -> Void
 

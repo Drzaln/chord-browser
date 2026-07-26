@@ -60,7 +60,7 @@ public struct HistoryView: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("History").font(.system(size: 15, weight: .semibold))
-                if let name = store.activeSpace?.name {
+                if let name = store.activeSpace(in: windowState)?.name {
                     Text(name).font(.system(size: 10)).foregroundStyle(.secondary)
                 }
             }
@@ -140,7 +140,7 @@ public struct HistoryView: View {
         } message: {
             Text(
                 "This permanently removes every recorded visit in "
-                    + "“\(store.activeSpace?.name ?? "this Space")”. Other Spaces are unaffected."
+                    + "“\(store.activeSpace(in: windowState)?.name ?? "this Space")”. Other Spaces are unaffected."
             )
         }
     }

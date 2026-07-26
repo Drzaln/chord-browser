@@ -18,18 +18,85 @@ enum Log {
 public final class TabStore {
     public internal(set) var tabs: [Tab] = []
     public internal(set) var spaces: [Space] = []
-    public internal(set) var activeSpaceID: UUID?
-    public var selectedTabID: UUID?
+
+    /// The window every store has: the app's first, and the only one that exists
+    /// until a second is opened. Owned here rather than by the scene so that the
+    /// store always has somewhere to put a selection, and so a headless test does
+    /// not have to build a window before it can select a tab.
+    public let primaryWindow: WindowState
+
+    /// Every window looking at this store, the primary first. Weak: a window is
+    /// owned by its scene, and a closed one must not be kept alive by this list.
+    ///
+    /// The store needs to know them because closing a tab in one window has to
+    /// leave the *others* pointing at something real — see `reconcileWindows`.
+    @ObservationIgnored private var secondaryWindows: [WeakWindow] = []
+
+    /// The primary plus every live secondary, in registration order.
+    public var windows: [WindowState] {
+        [primaryWindow] + secondaryWindows.compactMap(\.value)
+    }
+
+    /// Whether the primary window has been handed to a scene yet.
+    @ObservationIgnored private var primaryClaimed = false
+
+    /// Vends the state for a newly-opened scene: the primary window the first
+    /// time, a fresh registered one after that.
+    ///
+    /// `WindowGroup` builds its content for every window and gives no say in
+    /// which is "first", so the scene asks rather than decides. Idempotent per
+    /// scene because the caller holds the result in `@State`.
+    public func claimWindow() -> WindowState {
+        guard primaryClaimed else {
+            primaryClaimed = true
+            return primaryWindow
+        }
+        let window = WindowState()
+        // A new window opens on the same Space as the one that spawned it, which
+        // is what every browser does with Cmd+N.
+        window.activeSpaceID = primaryWindow.activeSpaceID ?? spaces.first?.id
+        register(window)
+        reconcileWindows(excluding: primaryWindow)
+        return window
+    }
+
+    /// Adds a window opened after launch. The primary is always present and must
+    /// not be registered again.
+    public func register(_ window: WindowState) {
+        guard window !== primaryWindow else { return }
+        guard !secondaryWindows.contains(where: { $0.value === window }) else { return }
+        secondaryWindows.append(WeakWindow(window))
+    }
+
+    /// Drops a closed window, and compacts any that were deallocated.
+    public func unregister(_ window: WindowState) {
+        secondaryWindows.removeAll { $0.value == nil || $0.value === window }
+    }
+
+    /// The Space the *primary* window is looking at.
+    ///
+    /// A proxy while the call sites move to explicit windows: everything that
+    /// says `store.activeSpaceID` today means "the one window there is". Reading
+    /// it registers an observation dependency on the window, so views still
+    /// update.
+    public internal(set) var activeSpaceID: UUID? {
+        get { primaryWindow.activeSpaceID }
+        set { primaryWindow.activeSpaceID = newValue }
+    }
+
+    /// The tab the *primary* window is showing. A proxy, like `activeSpaceID`.
+    public var selectedTabID: UUID? {
+        get { primaryWindow.selectedTabID }
+        set { primaryWindow.selectedTabID = newValue }
+    }
 
     /// The sidebar tab currently being dragged, if any. Observed: it is what
     /// puts the content area's drop layer on screen (4.5).
     public internal(set) var draggingTabID: UUID?
 
-    /// Signed progress of an in-flight swipe between Spaces, in `[-1, 1]` (4.2).
-    /// Positive is toward the next Space (higher `sortIndex`). Observed: the
-    /// sidebar blends its gradient toward the neighbour's as this moves. Volatile
-    /// and never persisted — it is a gesture, not user data. See `TabStore+SpaceSwipe`.
-    public internal(set) var spaceSwipeProgress: Double = 0
+    /// The primary window's in-flight Space swipe. A proxy: the gesture belongs
+    /// to whichever window the trackpad is over. See `WindowState`.
+    public var spaceSwipeProgress: Double { primaryWindow.spaceSwipeProgress }
 
     // Sidebar collapse/width, the collapsed-Pinned set, and the sheet flags used
     // to live here. They are per-*window*, not per-app — see `WindowState`.
@@ -53,13 +120,17 @@ public final class TabStore {
         newTabBehavior.resolvedURL(searchEngine: searchEngine)
     }
 
-    /// Find-in-page (M6). See `TabStore+Find`.
-    public var isFindBarVisible = false
-    public var findText = ""
-    /// `nil` until a non-empty query has been run, so an empty bar does not
-    /// report "not found".
-    public internal(set) var findFoundMatch: Bool?
-    @ObservationIgnored var findTask: Task<Void, Never>?
+    /// Find-in-page (M6) moved to `WindowState` — the bar belongs to a window.
+    /// Proxies to the primary while the call sites move over. See `TabStore+Find`.
+    public var isFindBarVisible: Bool {
+        get { primaryWindow.isFindBarVisible }
+        set { primaryWindow.isFindBarVisible = newValue }
+    }
+    public var findText: String {
+        get { primaryWindow.findText }
+        set { primaryWindow.findText = newValue }
+    }
+    public var findFoundMatch: Bool? { primaryWindow.findFoundMatch }
 
     /// Which panes are still waiting on their stored `interactionState`.
     /// Deliberately observed: flipping a pane to `.resolved` is what re-renders
@@ -164,8 +235,13 @@ public final class TabStore {
         historyRepository: (any HistoryRepository)? = nil,
         archiveRepository: (any ArchiveRepository)? = nil,
         folderRepository: (any FolderRepository)? = nil,
-        clock: any Clock
+        clock: any Clock,
+        primaryWindow: WindowState? = nil
     ) {
+        // Defaulted so a test does not have to build one. The app passes its
+        // first window's state in, so the scene and the store agree on which
+        // object holds the selection.
+        self.primaryWindow = primaryWindow ?? WindowState()
         self.engine = engine
         self.repository = repository
         self.spaceRepository = spaceRepository
@@ -261,13 +337,17 @@ public final class TabStore {
 
     /// - Parameter url: the destination, or `nil` to use the user's configured
     ///   new-tab behaviour (`resolvedNewTabURL`).
-    public func newTab(url: URL? = nil) {
-        guard let spaceID = activeSpace?.id else { return }
+    /// - Parameter window: the window the tab opens in, defaulting to the primary
+    ///   one. A new tab lands in *that* window's Space and becomes *its*
+    ///   selection; other windows are untouched.
+    public func newTab(url: URL? = nil, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
+        guard let spaceID = activeSpace(in: window)?.id else { return }
         let target = url ?? resolvedNewTabURL
 
         // Order is per-Space, so a new tab in one Space does not push another
         // Space's tabs down the list.
-        let order = (visibleTabs.map(\.placement.order).max() ?? -1) + 1
+        let order = (visibleTabs(in: window).map(\.placement.order).max() ?? -1) + 1
         let tab = Tab(
             url: target, spaceID: spaceID, placement: .ephemeral(order: order), now: clock.now
         )
@@ -276,8 +356,8 @@ public final class TabStore {
         // resolved rather than spending a disk read to discover that — and to
         // avoid withholding its surface for a frame.
         for pane in tab.panes { stateResolution[pane.id] = .resolved }
-        let previous = selectedTabID
-        selectedTabID = tab.id
+        let previous = window.selectedTabID
+        window.selectedTabID = tab.id
         extensionHost?.extensionTabDidOpen(tab.id, inSpace: spaceID)
         extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
         scheduleSave()
@@ -286,7 +366,8 @@ public final class TabStore {
     /// Moves a tab to another Space. The pane's web view is torn down first: it
     /// belongs to the old Space's data store and must not carry those cookies
     /// across.
-    public func moveTab(_ tabID: UUID, toSpace spaceID: UUID) {
+    public func moveTab(_ tabID: UUID, toSpace spaceID: UUID, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
         guard let index = tabs.firstIndex(where: { $0.id == tabID }),
               tabs[index].spaceID != spaceID,
               spaces.contains(where: { $0.id == spaceID })
@@ -306,21 +387,28 @@ public final class TabStore {
         extensionHost?.extensionTabDidClose(tabID, inSpace: fromSpaceID)
         extensionHost?.extensionTabDidOpen(tabID, inSpace: spaceID)
 
-        if selectedTabID == tabID {
-            selectedTabID = visibleTabs.first?.id
-            if selectedTabID == nil { newTab() }
+        if window.selectedTabID == tabID {
+            window.selectedTabID = visibleTabs(in: window).first?.id
+            if window.selectedTabID == nil { newTab(in: window) }
         }
+        // The tab left its old Space, so a window still showing that Space has
+        // lost it even though nothing was closed.
+        reconcileWindows(excluding: window)
         scheduleSave()
     }
 
-    public func closeTab(_ tabID: UUID) {
+    /// - Parameter window: the window doing the closing. It picks its own next
+    ///   selection deliberately (the neighbour in the closed tab's slot); other
+    ///   windows are only stopped from pointing at the tab that is gone.
+    public func closeTab(_ tabID: UUID, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
 
         // Favourites and Pinned tabs are not removed by a close (Cmd+W) — Arc
         // keeps them in the sidebar. Closing instead unloads the live view,
         // leaving the entry in place; a Pinned tab also returns to its home URL.
         guard tabs[index].placement.isEphemeral else {
-            unloadTab(at: index)
+            unloadTab(at: index, in: window)
             return
         }
 
@@ -335,22 +423,25 @@ public final class TabStore {
         }
         forgetStateResolution(forPanes: tabs[index].panes.map(\.id))
         let closedSpaceID = tabs[index].spaceID
-        let neighbours = visibleTabs
+        let neighbours = visibleTabs(in: window)
         let closedPosition = neighbours.firstIndex { $0.id == tabID }
         tabs.remove(at: index)
         extensionHost?.extensionTabDidClose(tabID, inSpace: closedSpaceID)
 
-        if selectedTabID == tabID {
+        if window.selectedTabID == tabID {
             // Select the neighbour that is now in the closed tab's slot, within
             // this Space only.
-            let remaining = visibleTabs
+            let remaining = visibleTabs(in: window)
             if let closedPosition, remaining.indices.contains(closedPosition) {
-                selectedTabID = remaining[closedPosition].id
+                window.selectedTabID = remaining[closedPosition].id
             } else {
-                selectedTabID = remaining.last?.id
+                window.selectedTabID = remaining.last?.id
             }
         }
-        if visibleTabs.isEmpty { newTab() }
+        if visibleTabs(in: window).isEmpty { newTab(in: window) }
+        // The acting window just chose its neighbour deliberately; the others
+        // only need to stop pointing at a tab that is gone.
+        reconcileWindows(excluding: window)
         scheduleSave()
     }
 
@@ -362,8 +453,18 @@ public final class TabStore {
     /// pinned at, so reopening it lands at its home rather than wherever it had
     /// drifted. Either way the sidebar keeps its favicon rather than flashing to
     /// a bare globe until the next load.
-    private func unloadTab(at index: Int) {
+    private func unloadTab(at index: Int, in window: WindowState) {
         let tabID = tabs[index].id
+
+        // Another window still has it on screen, so there is nothing to unload —
+        // tearing the view down here would blank that window's content.
+        guard !isShown(tabID, byAnyWindowOtherThan: window) else {
+            if window.selectedTabID == tabID {
+                window.selectedTabID = visibleTabs(in: window).first { $0.id != tabID }?.id
+                if window.selectedTabID == nil { newTab(in: window) }
+            }
+            return
+        }
 
         // A Pinned tab is going home, so its state is discarded; a favourite
         // stays put, so its state is captured before the view is evicted.
@@ -396,12 +497,12 @@ public final class TabStore {
         }
 
         // Move the selection off the unloaded tab, but leave it in the sidebar.
-        if selectedTabID == tabID {
-            if let next = visibleTabs.first(where: { $0.id != tabID }) {
-                select(next.id)
+        if window.selectedTabID == tabID {
+            if let next = visibleTabs(in: window).first(where: { $0.id != tabID }) {
+                select(next.id, in: window)
             } else {
-                selectedTabID = nil
-                newTab()
+                window.selectedTabID = nil
+                newTab(in: window)
             }
         }
         scheduleSave()
@@ -490,19 +591,23 @@ public final class TabStore {
         navigate(to: home)
     }
 
-    public func select(_ tabID: UUID) {
+    public func select(_ tabID: UUID, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
-        let outgoing = selectedTabID
+        let outgoing = window.selectedTabID
 
         // Capture before the switch, while the outgoing tab's view is still
         // live. This is the "persist on deactivation" rule in 3.2 — the only
         // point at which a tab the user merely switched away from gets its
         // state written.
-        if let outgoing, outgoing != tabID {
+        // Not when another window still shows it: capturing is fine, but the
+        // pane is still live there and the blob would be rewritten on its next
+        // switch anyway.
+        if let outgoing, outgoing != tabID, !isShown(outgoing, byAnyWindowOtherThan: window) {
             captureInteractionState(forTab: outgoing)
         }
 
-        selectedTabID = tabID
+        window.selectedTabID = tabID
         resolveInteractionState(forTab: tabID)
         touch(tabID)
 
@@ -517,8 +622,8 @@ public final class TabStore {
         )
     }
 
-    public func navigate(to url: URL) {
-        guard let tab = selectedTab else { return }
+    public func navigate(to url: URL, in window: WindowState? = nil) {
+        guard let tab = selectedTab(in: window ?? primaryWindow) else { return }
         engine.load(url, in: tab.focusedPaneID)
         updatePane(tab.focusedPaneID) { $0.url = url }
         scheduleSave()
@@ -526,8 +631,9 @@ public final class TabStore {
 
     /// Prints the focused pane's page (M6). Searches the focused pane, like find
     /// (4.1): in a split, Cmd+P prints the pane you are reading.
-    public func printSelectedPane() {
-        selectedTab.map { engine.printPane(paneID: $0.focusedPaneID) }
+    public func printSelectedPane(in window: WindowState? = nil) {
+        selectedTab(in: window ?? primaryWindow)
+            .map { engine.printPane(paneID: $0.focusedPaneID) }
     }
 
     /// Whether the tab's focused pane is muted (non-spec: user-requested).
@@ -549,10 +655,28 @@ public final class TabStore {
         }
     }
 
-    public func goBack() { selectedTab.map { engine.goBack(in: $0.focusedPaneID) } }
-    public func goForward() { selectedTab.map { engine.goForward(in: $0.focusedPaneID) } }
-    public func reload() { selectedTab.map { engine.reload(paneID: $0.focusedPaneID) } }
-    public func stopLoading() { selectedTab.map { engine.stopLoading(paneID: $0.focusedPaneID) } }
+    public func goBack(in window: WindowState? = nil) {
+        selectedTab(in: window ?? primaryWindow).map { engine.goBack(in: $0.focusedPaneID) }
+    }
+
+    public func goForward(in window: WindowState? = nil) {
+        selectedTab(in: window ?? primaryWindow).map { engine.goForward(in: $0.focusedPaneID) }
+    }
+
+    public func reload(in window: WindowState? = nil) {
+        selectedTab(in: window ?? primaryWindow).map { engine.reload(paneID: $0.focusedPaneID) }
+    }
+
+    public func stopLoading(in window: WindowState? = nil) {
+        selectedTab(in: window ?? primaryWindow)
+            .map { engine.stopLoading(paneID: $0.focusedPaneID) }
+    }
+
+    /// Whether any window *other than* `window` is showing this tab. Guards the
+    /// teardown paths: a tab on screen somewhere else is not idle.
+    func isShown(_ tabID: UUID, byAnyWindowOtherThan window: WindowState) -> Bool {
+        windows.contains { $0 !== window && $0.selectedTabID == tabID }
+    }
 
     // MARK: - Surfaces
 

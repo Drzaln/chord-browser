@@ -16,67 +16,71 @@ extension TabStore {
         spaces.sorted { $0.sortIndex < $1.sortIndex }
     }
 
-    private var activeSpaceIndex: Int? {
-        guard let id = activeSpace?.id else { return nil }
+    private func activeSpaceIndex(in window: WindowState) -> Int? {
+        guard let id = activeSpace(in: window)?.id else { return nil }
         return orderedSpaces.firstIndex { $0.id == id }
     }
 
-    /// The Space one step from the active one. `direction` is +1 for the next
+    /// The Space one step from the window's. `direction` is +1 for the next
     /// Space (higher `sortIndex`), -1 for the previous.
-    func neighbourSpace(direction: Int) -> Space? {
-        guard let index = activeSpaceIndex else { return nil }
+    func neighbourSpace(direction: Int, in window: WindowState? = nil) -> Space? {
+        guard let index = activeSpaceIndex(in: window ?? primaryWindow) else { return nil }
         let target = index + direction
         return orderedSpaces.indices.contains(target) ? orderedSpaces[target] : nil
     }
 
     /// Whether a swipe in `direction` has somewhere to go. False at the ends,
     /// which is what makes the swipe rubber-band rather than commit there.
-    public func canSwipeSpace(direction: Int) -> Bool {
-        neighbourSpace(direction: direction) != nil
+    public func canSwipeSpace(direction: Int, in window: WindowState? = nil) -> Bool {
+        neighbourSpace(direction: direction, in: window ?? primaryWindow) != nil
     }
 
     // MARK: - Driving a swipe
 
-    public func beginSpaceSwipe() {
-        spaceSwipeProgress = 0
+    public func beginSpaceSwipe(in window: WindowState? = nil) {
+        (window ?? primaryWindow).spaceSwipeProgress = 0
     }
 
     /// Sets the progress directly. The release spring lives in the UI's
     /// `SpaceSwipeMonitor`, which drives this inside `withAnimation`.
-    public func setSpaceSwipeProgress(_ value: Double) {
-        spaceSwipeProgress = value
+    public func setSpaceSwipeProgress(_ value: Double, in window: WindowState? = nil) {
+        (window ?? primaryWindow).spaceSwipeProgress = value
     }
 
     /// `offset` is accumulated horizontal travel in points, positive toward the
     /// next Space. Past the last (or before the first) Space there is no
     /// neighbour, so the progress rubber-bands instead of tracking one-to-one.
-    public func updateSpaceSwipe(offset: Double) {
+    public func updateSpaceSwipe(offset: Double, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
         let raw = SpaceSwipe.progress(forOffset: offset)
         let direction = raw >= 0 ? 1 : -1
 
-        if canSwipeSpace(direction: direction) {
-            spaceSwipeProgress = max(-1, min(1, raw))
+        if canSwipeSpace(direction: direction, in: window) {
+            window.spaceSwipeProgress = max(-1, min(1, raw))
         } else {
-            spaceSwipeProgress = Double(direction) * SpaceSwipe.rubberBand(abs(raw))
+            window.spaceSwipeProgress = Double(direction) * SpaceSwipe.rubberBand(abs(raw))
         }
     }
 
     /// The swipe crossed the commit threshold toward an existing neighbour.
-    public var swipeShouldCommit: Bool {
-        let direction = spaceSwipeProgress >= 0 ? 1 : -1
-        return abs(spaceSwipeProgress) >= SpaceSwipe.commitThreshold
-            && canSwipeSpace(direction: direction)
+    public func swipeShouldCommit(in window: WindowState? = nil) -> Bool {
+        let window = window ?? primaryWindow
+        let progress = window.spaceSwipeProgress
+        let direction = progress >= 0 ? 1 : -1
+        return abs(progress) >= SpaceSwipe.commitThreshold
+            && canSwipeSpace(direction: direction, in: window)
     }
 
     /// Lands the swipe on the neighbour and resets progress. The caller has
     /// already animated `spaceSwipeProgress` to `±1`, so the blended gradient
     /// there equals the neighbour's fully — resetting to 0 over the *new* active
     /// Space shows the same pixels, and the transition reads as continuous.
-    public func commitSpaceSwipe(direction: Int) {
-        if let neighbour = neighbourSpace(direction: direction) {
-            selectSpace(neighbour.id)
+    public func commitSpaceSwipe(direction: Int, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
+        if let neighbour = neighbourSpace(direction: direction, in: window) {
+            selectSpace(neighbour.id, in: window)
         }
-        spaceSwipeProgress = 0
+        window.spaceSwipeProgress = 0
     }
 
     // MARK: - Rendering
@@ -85,16 +89,16 @@ extension TabStore {
     /// blended toward the neighbour by the current swipe progress. Returns the
     /// active Space's stops unchanged when no swipe is in flight, so the idle
     /// path stays on `SpaceTheme`'s cache rather than blending every frame.
-    public var swipeBlendedGradient: [ColorHex] {
-        guard let active = activeSpace else { return Space.defaultGradient }
-        guard spaceSwipeProgress != 0 else { return active.gradient }
+    public func swipeBlendedGradient(in window: WindowState? = nil) -> [ColorHex] {
+        let window = window ?? primaryWindow
+        guard let active = activeSpace(in: window) else { return Space.defaultGradient }
+        let progress = window.spaceSwipeProgress
+        guard progress != 0 else { return active.gradient }
 
-        let direction = spaceSwipeProgress >= 0 ? 1 : -1
-        guard let neighbour = neighbourSpace(direction: direction) else {
+        let direction = progress >= 0 ? 1 : -1
+        guard let neighbour = neighbourSpace(direction: direction, in: window) else {
             return active.gradient
         }
-        return SpaceSwipe.blend(
-            active.gradient, neighbour.gradient, t: abs(spaceSwipeProgress)
-        )
+        return SpaceSwipe.blend(active.gradient, neighbour.gradient, t: abs(progress))
     }
 }

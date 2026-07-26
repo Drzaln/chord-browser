@@ -12,8 +12,10 @@ extension TabStore {
     /// per-Space, so the window shows only where you've been *in this Space*.
     /// Bounded so an enormous history cannot stall the window; 5,000 rows is far
     /// past what the list shows at once and still cheap to load.
-    public func loadFullHistory(limit: Int = 5_000) async -> [HistoryEntry] {
-        guard let spaceID = activeSpaceID else { return [] }
+    public func loadFullHistory(
+        limit: Int = 5_000, in window: WindowState? = nil
+    ) async -> [HistoryEntry] {
+        guard let spaceID = activeSpace(in: window ?? primaryWindow)?.id else { return [] }
         do {
             return try await historyRepository?.recentHistory(inSpace: spaceID, limit: limit) ?? []
         } catch {
@@ -25,8 +27,8 @@ extension TabStore {
     /// Opens a history entry in a new tab. New tab, not the current one: the
     /// History window is a place you go looking, and clobbering what you were on
     /// is the surprise users hate.
-    public func openHistoryEntry(_ url: URL) {
-        newTab(url: url)
+    public func openHistoryEntry(_ url: URL, in window: WindowState? = nil) {
+        newTab(url: url, in: window ?? primaryWindow)
     }
 
     /// Deletes the given entries by id. The window removes them from its own list
@@ -46,8 +48,8 @@ extension TabStore {
 
     /// Clears the active Space's history — the History window's "Clear All".
     /// Scoped to this Space, unlike Settings' global clear-browsing-data.
-    public func clearActiveSpaceHistory() async {
-        guard let spaceID = activeSpaceID else { return }
+    public func clearActiveSpaceHistory(in window: WindowState? = nil) async {
+        guard let spaceID = activeSpace(in: window ?? primaryWindow)?.id else { return }
         cachedHistory.removeAll()
         do {
             try await historyRepository?.deleteAllHistory(inSpace: spaceID)

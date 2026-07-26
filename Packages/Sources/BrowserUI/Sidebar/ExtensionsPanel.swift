@@ -11,9 +11,11 @@ import SwiftUI
 /// exposes per-process memory.
 struct ExtensionsPanel: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
     let host: any ExtensionHost
 
-    private var space: Space? { store.activeSpace }
+    private var space: Space? { store.activeSpace(in: windowState) }
     private var extensions: [LoadedExtension] {
         space.map { host.loadedExtensions(in: $0) } ?? []
     }

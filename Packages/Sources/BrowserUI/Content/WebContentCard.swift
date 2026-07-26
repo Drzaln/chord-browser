@@ -9,9 +9,11 @@ import SwiftUI
 /// compositor fast path (BROWSER_SPEC 5).
 struct WebContentCard: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
 
     var body: some View {
-        if let tab = store.selectedTab {
+        if let tab = store.selectedTab(in: windowState) {
             // Split view is just a tab with more panes (3.2), so there is one
             // path here rather than a normal case and a split case.
             SplitContentView(store: store, tab: tab)
@@ -20,8 +22,8 @@ struct WebContentCard: View {
                 // to make room would relayout every pane for the length of a
                 // search.
                 .overlay(alignment: .topTrailing) {
-                    if store.isFindBarVisible {
-                        FindBar(store: store)
+                    if windowState.isFindBarVisible {
+                        FindBar(store: store, windowState: windowState)
                     }
                 }
         } else {

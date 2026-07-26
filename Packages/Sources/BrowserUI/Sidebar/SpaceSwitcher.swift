@@ -40,14 +40,14 @@ struct SpaceSwitcher: View {
     }
 
     private func spaceButton(_ space: Space) -> some View {
-        let isActive = space.id == store.activeSpace?.id
+        let isActive = space.id == store.activeSpace(in: windowState)?.id
         let isDragging = store.draggingTabID != nil
 
         return Button {
             withAnimation(Motion.respectingReduceMotion(
                 Motion.spaceSwitch, reduceMotion: reduceMotion
             )) {
-                store.selectSpace(space.id)
+                store.selectSpace(space.id, in: windowState)
             }
         } label: {
             icon(for: space)

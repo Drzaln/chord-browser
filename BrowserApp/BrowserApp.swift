@@ -7,19 +7,17 @@ import os
 struct BrowserApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
-    /// One per window. Still a single `Window`, so there is exactly one — but it
-    /// is owned by the scene rather than by the store, which is what lets a
-    /// second window have its own.
-    @State private var windowState = WindowState()
-
     var body: some Scene {
-        // `Window`, not `WindowGroup`: this is a single-window browser (1), and
-        // a group spawns a *second* window when a URL is handed to the app —
-        // whose RootView then runs `store.restore()` again on the same store.
-        Window("Chord", id: "main") {
+        // `WindowGroup`, so Cmd+N opens a real second window (verified against
+        // Arc, which this replicates). The reason it was a single `Window`
+        // before — a URL handed to the app spawned a window whose `RootView`
+        // ran `store.restore()` a second time on the same store — is handled by
+        // the store now: `restore()` is guarded by `hasRestored`, and each
+        // scene takes its own `WindowState` from `claimWindow()` rather than
+        // sharing one.
+        WindowGroup("Chord", id: "main") {
             AppRootView(
                 launch: appDelegate.launch,
-                windowState: windowState,
                 commandBar: appDelegate.commandBar
             )
             .onAppear { appDelegate.attachOcclusionObserver() }
@@ -51,12 +49,42 @@ enum Launch {
 
 struct AppRootView: View {
     let launch: Launch
-    let windowState: WindowState
     let commandBar: CommandBarController?
+
+    /// This scene's window state, taken from the store on first appearance: the
+    /// primary for the first window, a fresh registered one for each Cmd+N.
+    /// Held in `@State` so it is stable for the life of the window.
+    @State private var windowState: WindowState?
 
     var body: some View {
         switch launch {
         case .ready(let environment):
+            content(environment)
+                .onAppear {
+                    if windowState == nil { windowState = environment.store.claimWindow() }
+                }
+                // Restore is a *session* concern, not a window one, so only the
+                // window that got the primary state kicks it off. `restore()` is
+                // guarded against running twice anyway, but a second window
+                // should not be asking in the first place — that ambiguity is
+                // exactly what kept this app on a single `Window` before.
+                .task {
+                    guard windowState === environment.store.primaryWindow else { return }
+                    await environment.store.restore()
+                }
+                .onDisappear {
+                    if let windowState { environment.store.unregister(windowState) }
+                }
+        case .failed(let message):
+            LaunchFailureView(message: message)
+        }
+    }
+
+    /// Withheld until the window has its state — one frame, and it avoids
+    /// every view below having to treat the window as optional.
+    @ViewBuilder
+    private func content(_ environment: AppEnvironment) -> some View {
+        if let windowState {
             RootView(
                 store: environment.store,
                 windowState: windowState,
@@ -65,15 +93,18 @@ struct AppRootView: View {
                 extensions: environment.extensions,
                 openCommandBar: { mode, query in
                     commandBar?.present(
-                        over: NSApp.mainWindow, mode: mode, initialQuery: query ?? ""
+                        over: NSApp.keyWindow,
+                        windowState: windowState,
+                        mode: mode,
+                        initialQuery: query ?? ""
                     )
                 }
             )
-                #if DEBUG
-                .overlay(DebugOverlay(store: environment.store))
-                #endif
-        case .failed(let message):
-            LaunchFailureView(message: message)
+            #if DEBUG
+            .overlay(DebugOverlay(store: environment.store))
+            #endif
+        } else {
+            Color.clear
         }
     }
 }
@@ -101,11 +132,15 @@ struct LaunchFailureView: View {
 
 struct BrowserCommands: Commands {
     let launch: Launch
+    @Environment(\.openWindow) private var openWindow
     /// The focused window's state. `Commands` is built once for the app, so the
     /// items that act on a window must ask which one is focused rather than
     /// assume — see `FocusedWindowState`. Nil only if no browser window is
     /// focused, in which case those items are correctly disabled.
     @FocusedValue(\.windowState) private var windowState: WindowState?
+
+    /// The store, when the app actually started. Every window shares it.
+    private var store: TabStore? { launch.store }
     /// Lives in the UI package, so it is owned by the delegate rather than by
     /// `AppEnvironment` — Store must not depend on UI.
     let commandBar: CommandBarController?
@@ -123,7 +158,7 @@ struct BrowserCommands: Commands {
             // Cmd+T opens the command bar, not a blank tab (4.4). A new tab is
             // one Enter away, and usually you wanted a destination anyway.
             Button("New Tab…") {
-                commandBar?.toggle(over: NSApp.mainWindow, mode: .newTab)
+                commandBar?.toggle(over: NSApp.keyWindow, windowState: windowState, mode: .newTab)
             }
             .keyboardShortcut("t", modifiers: .command)
 
@@ -131,22 +166,29 @@ struct BrowserCommands: Commands {
             // Without it, Cmd+T had to double as "replace this tab", which is
             // the one thing users never expect it to do.
             Button("Open Location…") {
-                commandBar?.toggle(over: NSApp.mainWindow, mode: .currentTab)
+                commandBar?.toggle(over: NSApp.keyWindow, windowState: windowState, mode: .currentTab)
             }
             .keyboardShortcut("l", modifiers: .command)
 
-            Button("New Blank Tab") { launch.store?.newTab() }
+            // Cmd+N is New Window — Arc's binding, and the platform's. It was
+            // bound to a blank tab only because there was no second window to
+            // open; `newWindow` is SwiftUI's action for a `WindowGroup`.
+            Button("New Window") { openWindow(id: "main") }
                 .keyboardShortcut("n", modifiers: .command)
+
+            Button("New Blank Tab") { store?.newTab(in: windowState) }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
         }
         CommandGroup(after: .newItem) {
             Button("Close Tab") {
-                guard let store = launch.store, let id = store.selectedTabID else { return }
-                store.closeTab(id)
+                guard let store, let window = windowState,
+                      let id = window.selectedTabID else { return }
+                store.closeTab(id, in: window)
             }
             .keyboardShortcut("w", modifiers: .command)
 
             // Cmd+Shift+T — the platform-wide "reopen the tab I just closed".
-            Button("Reopen Closed Tab") { launch.store?.reopenLastClosedTab() }
+            Button("Reopen Closed Tab") { store?.reopenLastClosedTab(in: windowState) }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
 
             Divider()
@@ -154,16 +196,17 @@ struct BrowserCommands: Commands {
             // Cycle the selection through the active Space's tabs. Ctrl+Tab /
             // Ctrl+Shift+Tab are what every browser binds; Cmd+1…9 is taken by
             // Spaces here, so this is the only keyboard way to step through tabs.
-            Button("Next Tab") { launch.store?.selectNextTab() }
+            Button("Next Tab") { store?.selectNextTab(in: windowState) }
                 .keyboardShortcut(.tab, modifiers: .control)
 
-            Button("Previous Tab") { launch.store?.selectPreviousTab() }
+            Button("Previous Tab") { store?.selectPreviousTab(in: windowState) }
                 .keyboardShortcut(.tab, modifiers: [.control, .shift])
 
             // Cmd+D — Arc uses pinned tabs where other browsers bookmark, so the
             // bookmark key pins instead. Toggles, so the same key un-pins.
             Button("Pin or Unpin Tab") {
-                guard let store = launch.store, let tab = store.selectedTab else { return }
+                guard let store, let window = windowState,
+                      let tab = store.selectedTab(in: window) else { return }
                 store.setPinned(!tab.placement.isPinned, tabID: tab.id)
             }
             .keyboardShortcut("d", modifiers: .command)
@@ -175,24 +218,25 @@ struct BrowserCommands: Commands {
             // blank pane just makes you type the destination afterwards. The
             // store still declines beyond four panes rather than replacing one.
             Button("Split Tab…") {
-                commandBar?.toggle(over: NSApp.mainWindow, mode: .newPane)
+                commandBar?.toggle(over: NSApp.keyWindow, windowState: windowState, mode: .newPane)
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
 
             Button("Close Pane") {
-                guard let store = launch.store, let tab = store.selectedTab else { return }
-                store.closePane(tab.focusedPaneID)
+                guard let store, let window = windowState,
+                      let tab = store.selectedTab(in: window) else { return }
+                store.closePane(tab.focusedPaneID, in: window)
             }
             .keyboardShortcut("d", modifiers: [.command, .shift, .option])
 
             Divider()
 
-            Button("Reload") { launch.store?.reload() }
+            Button("Reload") { store?.reload(in: windowState) }
                 .keyboardShortcut("r", modifiers: .command)
 
             // Cmd+. — the platform's "stop". The reload button also becomes a
             // stop button while a page loads; this is the keyboard equivalent.
-            Button("Stop Loading") { launch.store?.stopLoading() }
+            Button("Stop Loading") { store?.stopLoading(in: windowState) }
                 .keyboardShortcut(".", modifiers: .command)
         }
 
@@ -200,7 +244,7 @@ struct BrowserCommands: Commands {
         // print item so it targets the focused pane's web view rather than a
         // document the app does not have.
         CommandGroup(replacing: .printItem) {
-            Button("Print…") { launch.store?.printSelectedPane() }
+            Button("Print…") { store?.printSelectedPane(in: windowState) }
                 .keyboardShortcut("p", modifiers: .command)
         }
 
@@ -208,13 +252,13 @@ struct BrowserCommands: Commands {
         // work whether or not the field has focus — which is the point: you
         // find, click into the page, then keep stepping through matches.
         CommandGroup(after: .textEditing) {
-            Button("Find…") { launch.store?.showFindBar() }
+            Button("Find…") { store?.showFindBar(in: windowState) }
                 .keyboardShortcut("f", modifiers: .command)
 
-            Button("Find Next") { launch.store?.findNext() }
+            Button("Find Next") { store?.findNext(in: windowState) }
                 .keyboardShortcut("g", modifiers: .command)
 
-            Button("Find Previous") { launch.store?.findPrevious() }
+            Button("Find Previous") { store?.findPrevious(in: windowState) }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
         }
 
@@ -236,7 +280,7 @@ struct BrowserCommands: Commands {
         }
 
         CommandMenu("Spaces") {
-            Button("New Space") { launch.store?.addSpace() }
+            Button("New Space") { store?.addSpace(in: windowState) }
 
             Divider()
 
@@ -245,7 +289,7 @@ struct BrowserCommands: Commands {
             // the store ignores an index that does not exist.
             ForEach(1...9, id: \.self) { position in
                 Button("Space \(position)") {
-                    launch.store?.selectSpace(atIndex: position - 1)
+                    store?.selectSpace(atIndex: position - 1, in: windowState)
                 }
                 .keyboardShortcut(
                     KeyEquivalent(Character("\(position)")), modifiers: .command

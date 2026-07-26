@@ -9,6 +9,8 @@ import UniformTypeIdentifiers
 /// (extensions are per-Space), or uninstall it everywhere.
 struct ExtensionsSettings: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
     let extensions: ExtensionsService?
 
     @State private var installed: [InstalledExtension] = []
@@ -48,7 +50,7 @@ struct ExtensionsSettings: View {
             }
 
             Text(
-                store.activeSpace.map {
+                store.activeSpace(in: windowState).map {
                     "Enabling loads the extension into “\($0.name)”. Each Space enables extensions independently."
                 } ?? "Open a Space to enable extensions."
             )
@@ -102,7 +104,7 @@ struct ExtensionsSettings: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.mini)
-                .disabled(store.activeSpace == nil)
+                .disabled(store.activeSpace(in: windowState) == nil)
 
                 Button(role: .destructive) {
                     remove(slug: ext.slug)
@@ -123,7 +125,7 @@ struct ExtensionsSettings: View {
     private func refresh() {
         guard let extensions else { return }
         installed = (try? extensions.installedExtensions()) ?? []
-        if let space = store.activeSpace {
+        if let space = store.activeSpace(in: windowState) {
             enabledSlugs = Set(extensions.enabledExtensions(in: space).map(\.slug))
         } else {
             enabledSlugs = []
@@ -153,7 +155,7 @@ struct ExtensionsSettings: View {
     }
 
     private func setEnabled(_ enabled: Bool, slug: String) {
-        guard let extensions, let space = store.activeSpace else { return }
+        guard let extensions, let space = store.activeSpace(in: windowState) else { return }
         busySlug = slug
         Task {
             do {

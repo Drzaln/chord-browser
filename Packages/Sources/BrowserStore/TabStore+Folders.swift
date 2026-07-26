@@ -10,7 +10,7 @@ extension TabStore {
 
     /// The active Space's folders, in sidebar order.
     public var activeSpaceFolders: [Folder] {
-        guard let spaceID = activeSpaceID else { return [] }
+        guard let spaceID = primaryWindow.activeSpaceID else { return [] }
         return folders
             .filter { $0.spaceID == spaceID }
             .sorted { $0.sortIndex < $1.sortIndex }
@@ -28,7 +28,7 @@ extension TabStore {
     /// Creates a folder in the active Space and returns its id.
     @discardableResult
     public func addFolder(name: String = "New Folder") -> UUID? {
-        guard let spaceID = activeSpaceID else { return nil }
+        guard let spaceID = primaryWindow.activeSpaceID else { return nil }
         let sortIndex = (folders.filter { $0.spaceID == spaceID }.map(\.sortIndex).max() ?? -1) + 1
         let folder = Folder(spaceID: spaceID, name: name, sortIndex: sortIndex)
         folders.append(folder)

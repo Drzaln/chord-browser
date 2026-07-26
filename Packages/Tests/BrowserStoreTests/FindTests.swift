@@ -95,7 +95,7 @@ struct FindTests {
 
         store.findText = "a"       // would miss, and answers last
         store.findNext()
-        let superseded = store.findTask
+        let superseded = store.primaryWindow.findTask
         store.findText = "ab"      // hits, issued before the first returns
         store.findNext()
 
@@ -120,9 +120,9 @@ struct FindTests {
 }
 
 extension TabStore {
-    /// Awaits the in-flight find, so tests assert on a settled result rather
-    /// than polling.
+    /// Awaits the primary window's in-flight find, so tests assert on a settled
+    /// result rather than polling.
     func waitForFind() async {
-        await findTask?.value
+        await primaryWindow.findTask?.value
     }
 }

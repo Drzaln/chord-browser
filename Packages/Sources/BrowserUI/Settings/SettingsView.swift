@@ -56,13 +56,13 @@ public struct SettingsView: View {
             ScrollView {
                 switch section {
                 case .general:
-                    GeneralSettings(store: store)
+                    GeneralSettings(store: store, windowState: windowState)
                         .padding(20)
                 case .privacy:
                     PrivacyDataSettings(store: store)
                         .padding(20)
                 case .extensions:
-                    ExtensionsSettings(store: store, extensions: extensions)
+                    ExtensionsSettings(store: store, windowState: windowState, extensions: extensions)
                         .padding(20)
                 }
             }

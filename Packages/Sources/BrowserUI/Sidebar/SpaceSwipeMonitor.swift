@@ -20,6 +20,9 @@ import SwiftUI
 @MainActor
 final class SpaceSwipeMonitor {
     private let store: TabStore
+    /// The window this monitor's swipes belong to. A swipe is a gesture on one
+    /// window, so it must not move another window's Space.
+    private let windowState: WindowState
     private var monitor: Any?
 
     /// True between a horizontal `.began` and its `.ended`. While false, every
@@ -41,7 +44,8 @@ final class SpaceSwipeMonitor {
     /// is never a Space switch.
     weak var window: NSWindow?
 
-    init(store: TabStore) {
+    init(store: TabStore, windowState: WindowState) {
+        self.windowState = windowState
         self.store = store
     }
 
@@ -85,9 +89,9 @@ final class SpaceSwipeMonitor {
             }
             engaged = true
             accumulated = 0
-            store.beginSpaceSwipe()
+            store.beginSpaceSwipe(in: windowState)
             accumulated += Double(event.scrollingDeltaX)
-            store.updateSpaceSwipe(offset: -accumulated)
+            store.updateSpaceSwipe(offset: -accumulated, in: windowState)
             return true
 
         case .changed:
@@ -95,7 +99,7 @@ final class SpaceSwipeMonitor {
             accumulated += Double(event.scrollingDeltaX)
             // Swipe the fingers left (`scrollingDeltaX < 0`) to move to the next
             // Space, so the offset the store sees is the negated travel.
-            store.updateSpaceSwipe(offset: -accumulated)
+            store.updateSpaceSwipe(offset: -accumulated, in: windowState)
             return true
 
         case .ended, .cancelled:
@@ -120,18 +124,18 @@ final class SpaceSwipeMonitor {
             Motion.spaceSwitch, reduceMotion: reduceMotion
         )
 
-        if store.swipeShouldCommit {
-            let direction = store.spaceSwipeProgress >= 0 ? 1 : -1
+        if store.swipeShouldCommit(in: windowState) {
+            let direction = windowState.spaceSwipeProgress >= 0 ? 1 : -1
             withAnimation(animation) {
                 // Carry the gradient the rest of the way to the neighbour's
                 // stops; committing there is a no-op on the pixels.
-                store.setSpaceSwipeProgress(Double(direction))
+                store.setSpaceSwipeProgress(Double(direction), in: windowState)
             } completion: {
-                self.store.commitSpaceSwipe(direction: direction)
+                self.store.commitSpaceSwipe(direction: direction, in: self.windowState)
             }
         } else {
             withAnimation(animation) {
-                store.setSpaceSwipeProgress(0)
+                store.setSpaceSwipeProgress(0, in: windowState)
             }
         }
     }

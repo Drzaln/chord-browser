@@ -13,6 +13,8 @@ import SwiftUI
 /// button only hands the host an `NSView` anchor to position against (ADR 011).
 struct ExtensionActionsBar: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
     let host: any ExtensionHost
 
     var body: some View {
@@ -25,7 +27,7 @@ struct ExtensionActionsBar: View {
     @State private var showingPanel = false
 
     @ViewBuilder private var content: some View {
-        if let space = store.activeSpace {
+        if let space = store.activeSpace(in: windowState) {
             let loaded = host.loadedExtensions(in: space)
             HStack(spacing: 2) {
                 ForEach(host.actions(in: space)) { action in
@@ -46,7 +48,7 @@ struct ExtensionActionsBar: View {
                     .help("Manage Extensions")
                     .accessibilityLabel("Manage Extensions")
                     .popover(isPresented: $showingPanel, arrowEdge: .bottom) {
-                        ExtensionsPanel(store: store, host: host)
+                        ExtensionsPanel(store: store, windowState: windowState, host: host)
                     }
                 }
             }

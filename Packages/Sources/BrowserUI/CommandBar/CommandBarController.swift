@@ -22,19 +22,35 @@ public final class CommandBarController {
     private let session = CommandBarSession()
     private var panel: CommandBarPanel?
 
+    /// The window the bar is currently acting for. The panel is built once and
+    /// reused across windows, so what it targets has to be swapped per
+    /// presentation rather than baked into the view — otherwise a bar opened
+    /// from the second window would still open tabs in the first.
+    private let target = CommandBarTarget()
+
     public init(store: TabStore) {
         self.store = store
     }
 
     public var isVisible: Bool { panel?.isVisible ?? false }
 
-    public func toggle(over parent: NSWindow?, mode: CommandBarMode = .newTab) {
-        isVisible ? dismiss() : present(over: parent, mode: mode)
+    public func toggle(
+        over parent: NSWindow?,
+        windowState: WindowState?,
+        mode: CommandBarMode = .newTab
+    ) {
+        isVisible ? dismiss() : present(over: parent, windowState: windowState, mode: mode)
     }
 
     public func present(
-        over parent: NSWindow?, mode: CommandBarMode = .newTab, initialQuery: String = ""
+        over parent: NSWindow?,
+        windowState: WindowState?,
+        mode: CommandBarMode = .newTab,
+        initialQuery: String = ""
     ) {
+        // Whichever window asked. Nil means no browser window is focused, in
+        // which case the bar falls back to the primary rather than doing nothing.
+        target.windowState = windowState ?? store.primaryWindow
         // Bounds the app-side work only: panel on screen and routed to first
         // responder. It does not include the compositor putting the frame on
         // the display.
@@ -70,6 +86,7 @@ public final class CommandBarController {
         let hosting = NSHostingController(
             rootView: CommandBarView(
                 store: store,
+                target: target,
                 session: session,
                 dismiss: { [weak self] in self?.dismiss() }
             )

@@ -10,6 +10,8 @@ import SwiftUI
 /// not found is what the API supports, so it is what the bar says.
 struct FindBar: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
 
     @FocusState private var isFieldFocused: Bool
 
@@ -19,7 +21,7 @@ struct FindBar: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
-            TextField("Find on page", text: $store.findText)
+            TextField("Find on page", text: $windowState.findText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .frame(width: 160)
@@ -27,22 +29,22 @@ struct FindBar: View {
                 // Return finds the next match. A focused `TextField` consumes
                 // Return for its own submit, so this is the only hook that
                 // sees it — see the keyboard hazards in CHECKPOINT.
-                .onSubmit { store.findNext() }
+                .onSubmit { store.findNext(in: windowState) }
                 // Searching as you type, which is the behaviour everywhere
                 // else. The store cancels the in-flight query, so a fast
                 // typist does not get an answer for a prefix they have already
                 // moved past.
-                .onChange(of: store.findText) { store.findNext() }
+                .onChange(of: windowState.findText) { store.findNext(in: windowState) }
 
-            if store.findFoundMatch == false {
+            if windowState.findFoundMatch == false {
                 Text("Not found")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
 
-            button("chevron.up", label: "Previous Match") { store.findPrevious() }
-            button("chevron.down", label: "Next Match") { store.findNext() }
-            button("xmark", label: "Close Find Bar") { store.hideFindBar() }
+            button("chevron.up", label: "Previous Match") { store.findPrevious(in: windowState) }
+            button("chevron.down", label: "Next Match") { store.findNext(in: windowState) }
+            button("xmark", label: "Close Find Bar") { store.hideFindBar(in: windowState) }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -56,13 +58,13 @@ struct FindBar: View {
             // moved, so nothing else on screen changed to say so.
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(
-                    store.findFoundMatch == false ? Color.red.opacity(0.6) : .clear,
+                    windowState.findFoundMatch == false ? Color.red.opacity(0.6) : .clear,
                     lineWidth: 1
                 )
         }
         .padding(Metrics.contentInset + 6)
         // Esc dismisses, as it does in the command bar.
-        .onExitCommand { store.hideFindBar() }
+        .onExitCommand { store.hideFindBar(in: windowState) }
         .onAppear { isFieldFocused = true }
         // The bar is rebuilt on each presentation rather than kept alive, so
         // `onAppear` is a reliable place to take focus here — unlike the

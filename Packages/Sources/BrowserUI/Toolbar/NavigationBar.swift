@@ -8,6 +8,8 @@ import SwiftUI
 /// loading progress tick redraws this bar and nothing else (6.4).
 struct NavigationBar: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
     @Bindable var downloads: DownloadsStore
     /// The active Space's colour, tinting the address button to match the tabs
     /// (item 4).
@@ -18,13 +20,13 @@ struct NavigationBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var runtime: PaneRuntime? {
-        store.selectedTab.map { store.runtime(for: $0.focusedPaneID) }
+        store.selectedTab(in: windowState).map { store.runtime(for: $0.focusedPaneID) }
     }
 
     /// The address shown on the button, live from the focused pane.
     private var currentURLString: String {
         runtime?.currentURL?.absoluteString
-            ?? store.selectedTab?.focusedPane.url.absoluteString
+            ?? store.selectedTab(in: windowState)?.focusedPane.url.absoluteString
             ?? ""
     }
 
@@ -32,21 +34,21 @@ struct NavigationBar: View {
         VStack(spacing: 4) {
             HStack(spacing: 4) {
                 button("chevron.left", label: "Back", enabled: runtime?.canGoBack ?? false) {
-                    store.goBack()
+                    store.goBack(in: windowState)
                 }
                 .keyboardShortcut("[", modifiers: .command)
 
                 button(
                     "chevron.right", label: "Forward", enabled: runtime?.canGoForward ?? false
                 ) {
-                    store.goForward()
+                    store.goForward(in: windowState)
                 }
                 .keyboardShortcut("]", modifiers: .command)
 
                 if runtime?.isLoading == true {
-                    button("xmark", label: "Stop", enabled: true) { store.stopLoading() }
+                    button("xmark", label: "Stop", enabled: true) { store.stopLoading(in: windowState) }
                 } else {
-                    button("arrow.clockwise", label: "Reload", enabled: true) { store.reload() }
+                    button("arrow.clockwise", label: "Reload", enabled: true) { store.reload(in: windowState) }
                 }
 
                 DownloadsButton(downloads: downloads)

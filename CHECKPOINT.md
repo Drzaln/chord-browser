@@ -1740,3 +1740,79 @@ one `Window`, still one of everything. What moved is *ownership*.
   registering a domain in the first place actually works.
 - The old `PinnedTests` collapse test was writing to the **real** `UserDefaults`,
   which is how the leak was noticed at all.
+
+### Multiple windows (2026-07-27)
+
+`Window` → `WindowGroup`. Cmd+N opens a real second window; each has its own
+Space, selection, sidebar, and find bar, over one shared store.
+
+**The model checked against Arc first, not guessed.** Two Arc windows share one
+Space *list* — a Space made in one appears in the other — but each has its own
+active Space, its own sidebar collapse/width, and Cmd+1…9 moves only the focused
+window. Dragging a tab between windows warns "you might get logged out", i.e. it
+is a Space change, not a window primitive. So:
+
+- `TabStore` owns the world: tabs, Spaces, folders, persistence, the sweep.
+- `WindowState` owns the view onto it: `activeSpaceID`, `selectedTabID`, sidebar,
+  sheets, find, swipe progress.
+
+**Selection reconciliation — the rule worth remembering.** The window performing
+a mutation fixes its own selection *with intent* (closing tab 3 selects tab 4).
+Every other window has no intent to honour and only needs to stop pointing at
+something gone, which `reconcileWindows(excluding:)` does after the mutations
+that *remove* things. Adding never invalidates a selection and does not call it.
+
+- `isSelectedByAnyWindow` is what keeps the **sweep** honest: a tab on screen in
+  window B is not idle however long ago window A last touched it. Without this
+  the sweep archives a page the user is reading. Covered by a test.
+- `unloadTab` bails out when another window still shows the tab — tearing the
+  view down would blank *that* window.
+- `select` no longer captures interaction state for the outgoing tab when another
+  window still shows it; the pane is still live there.
+
+**Migration shape.** `TabStore` keeps `primaryWindow` and proxies the old
+no-argument API (`selectedTabID`, `activeSpace`, `visibleTabs`, …) onto it, so
+~150 existing test call sites and every "the one window there is" caller stayed
+untouched. The window-scoped forms take `in window: WindowState? = nil`
+defaulting to the primary. **These proxies are scaffolding, not the design** — new
+code should pass the window explicitly, and the proxies should go once nothing
+outside tests uses them.
+
+- `claimWindow()` is how a scene gets its state: the primary for the first
+  window, a fresh registered one after. `WindowGroup` builds content for every
+  window and gives no say in which is first, so the scene asks rather than
+  decides. Held in the scene's `@State` so it is stable for the window's life.
+- Windows are held **weakly** (`WeakWindow`) — a window belongs to its scene, and
+  a closed one must not be kept alive by the store's list.
+- **`restore()` is a session concern**: only the scene holding the primary calls
+  it. The `hasRestored` guard still exists, but a second window should not be
+  asking — that exact ambiguity is what kept this app on a single `Window`.
+- The command bar panel is built once and reused, so it cannot store a window.
+  `CommandBarTarget` is a small observable box set on every presentation;
+  without it a bar opened from window 2 opened tabs in window 1.
+- Menu commands moved off `NSApp.mainWindow` to `@FocusedValue`, and `NSApp
+  .mainWindow` → `NSApp.keyWindow` for panel parenting.
+- **Cmd+N is now New Window** (Arc's binding, and the platform's). "New Blank
+  Tab" moved to Cmd+Shift+N. It was only ever on Cmd+N because there was no
+  window to open.
+- `RootView.body` blew the type-checker budget *again*; the three sidebar-hold
+  `onChange`s collapsed into one `isSidebarHeldOpen`. Same rule three times, so
+  this is smaller and clearer as well as compilable. If you add a modifier to
+  that body and get an error pointing at an unrelated line, this is why.
+
+**Verification.** 381 tests (373 + 8, seven of them multi-window: distinct claims,
+different Spaces at once, per-window Cmd+1…9, per-window new tab, close
+re-pointing another window, sweep skipping a tab visible elsewhere, Space delete
+re-homing, per-window find). `prepush.sh` green. Against the real app: File ▸ New
+Window produces a genuine second window (2 on-screen windows via
+`CGWindowListCopyWindowInfo`), and both menu items carry the right key
+equivalents (⌘N / ⌘⇧N read back from `AXMenuItemCmdChar`).
+
+**Not verified, worth a manual minute:** the ⌘N *keystroke* end-to-end — the menu
+item works and the key equivalent is registered, but a synthetic AppleScript
+keystroke did not fire it (⌘S/⌘Y do, so it may be `openWindow` and synthetic
+events). Also unverified visually: that the second window paints its content
+rather than the `Color.clear` shown while `claimWindow()` resolves — clicking
+into it does hit a real element, but no screenshot was taken. Note
+`System Events`' `every window` reports **0** for this app while CoreGraphics
+reports the real count; use the latter, and `AXFocusedWindow` for the former.

@@ -10,8 +10,9 @@ extension TabStore {
     ///
     /// Capped at `SplitLayout.maxPanes`; beyond that the command does nothing
     /// rather than silently replacing a pane.
-    public func splitSelectedTab(url: URL? = nil) {
-        guard let tabID = selectedTabID else { return }
+    public func splitSelectedTab(url: URL? = nil, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
+        guard let tabID = window.selectedTabID else { return }
         split(tabID, url: url)
     }
 
@@ -63,7 +64,8 @@ extension TabStore {
     /// The dragged tab is *moved*, not copied: it stops being its own row and
     /// becomes a pane. Copying would leave two rows showing the same page with
     /// no way to tell them apart.
-    public func split(_ tabID: UUID, byMoving sourceTabID: UUID) {
+    public func split(_ tabID: UUID, byMoving sourceTabID: UUID, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
         guard tabID != sourceTabID,
               tabs.contains(where: { $0.id == tabID }),
               let source = tabs.first(where: { $0.id == sourceTabID })
@@ -81,22 +83,23 @@ extension TabStore {
         // that no longer exists.
         let url = source.focusedPane.url
 
-        closeTab(sourceTabID)
+        closeTab(sourceTabID, in: window)
         // closeTab may have moved the selection; the split must still land on
         // the tab that was dropped onto.
-        selectedTabID = tabID
+        window.selectedTabID = tabID
         split(tabID, url: url)
     }
 
     /// Removes a pane. Closing down to one converts the tab back to a normal
     /// tab (4.5); closing the last pane closes the tab.
-    public func closePane(_ paneID: UUID) {
+    public func closePane(_ paneID: UUID, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
         guard let index = tabs.firstIndex(where: { tab in
             tab.panes.contains { $0.id == paneID }
         }) else { return }
 
         guard tabs[index].panes.count > 1 else {
-            closeTab(tabs[index].id)
+            closeTab(tabs[index].id, in: window)
             return
         }
 

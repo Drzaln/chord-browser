@@ -46,7 +46,10 @@ extension TabStore {
                 placement: tab.placement,
                 lastAccessedAt: tab.lastAccessedAt,
                 isPlayingAudio: runtimes[tab.focusedPaneID]?.isPlayingAudio ?? false,
-                isSelected: tab.id == selectedTabID
+                // Selected in *any* window. A tab on screen in a second window
+                // is not idle, and sweeping it would close a page the user is
+                // looking at.
+                isSelected: isSelectedByAnyWindow(tab.id)
             )
         }
 
@@ -76,20 +79,26 @@ extension TabStore {
 
         Log.store.notice("swept \(closing.count, privacy: .public) idle tab(s)")
 
-        if visibleTabs.isEmpty { newTab() }
+        // Every window that just lost its whole list needs a tab again.
+        for window in windows where visibleTabs(in: window).isEmpty {
+            newTab(in: window)
+        }
+        // The sweep is not driven by any window, so no window is excluded.
+        reconcileWindows()
         scheduleSave()
     }
 
     /// Reopens an archived tab in its original Space when that Space still
     /// exists, and in the active one when it does not.
-    public func restoreArchived(_ archived: ArchivedTab) {
+    public func restoreArchived(_ archived: ArchivedTab, in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
         let spaceID = spaces.contains { $0.id == archived.spaceID }
             ? archived.spaceID
-            : activeSpace?.id
+            : activeSpace(in: window)?.id
 
         guard let spaceID else { return }
 
-        if spaceID != activeSpaceID { selectSpace(spaceID) }
+        if spaceID != window.activeSpaceID { selectSpace(spaceID, in: window) }
 
         let order = (tabs.filter { $0.spaceID == spaceID }.map(\.placement.order).max() ?? -1) + 1
         var tab = Tab(
@@ -104,7 +113,7 @@ extension TabStore {
         }
 
         tabs.append(tab)
-        selectedTabID = tab.id
+        window.selectedTabID = tab.id
         scheduleSave()
     }
 }

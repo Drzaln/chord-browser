@@ -9,10 +9,12 @@ import SwiftUI
 /// the ephemeral ones. Nothing here is new state; it is the section §4.1 asked
 /// for, finally rendered.
 ///
-/// Per-Space comes for free: `store.pinnedTabs` filters by the active Space,
+/// Per-Space comes for free: `store.pinnedTabs(in: windowState)` filters by the active Space,
 /// so one Space's favourites can never appear in another.
 struct PinnedGrid: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 6), count: 4
@@ -20,7 +22,7 @@ struct PinnedGrid: View {
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 6) {
-            ForEach(store.pinnedTabs) { tab in
+            ForEach(store.pinnedTabs(in: windowState)) { tab in
                 tile(tab)
             }
         }
@@ -29,13 +31,13 @@ struct PinnedGrid: View {
     }
 
     private func tile(_ tab: BrowserCore.Tab) -> some View {
-        let isSelected = tab.id == store.selectedTabID
+        let isSelected = tab.id == windowState.selectedTabID
         // Tinted with the Space colour, matching the tab rows and the address
         // button (items 1 and 4).
-        let tint = SpaceTheme.accent(for: store.activeSpace ?? Space.makeDefault())
+        let tint = SpaceTheme.accent(for: store.activeSpace(in: windowState) ?? Space.makeDefault())
 
         return Button {
-            store.select(tab.id)
+            store.select(tab.id, in: windowState)
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -57,7 +59,7 @@ struct PinnedGrid: View {
                 title: tab.displayTitle,
                 onDragBegan: { store.beginTabDrag(tab.id) },
                 onDragEnded: { store.endTabDrag() },
-                onClick: { store.select(tab.id) },
+                onClick: { store.select(tab.id, in: windowState) },
                 // Double-click returns the favourite to the URL it was pinned at.
                 onDoubleClick: { store.returnToPinnedHome(tab.id) }
             )
@@ -86,7 +88,7 @@ struct PinnedGrid: View {
             Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") {
                 store.toggleMute(tab.id)
             }
-            Button("Close Tab") { store.closeTab(tab.id) }
+            Button("Close Tab") { store.closeTab(tab.id, in: windowState) }
         }
     }
 

@@ -10,22 +10,24 @@ import SwiftUI
 /// that is already selected returns it to that home URL — Arc's "click the icon
 /// to return to where it was pinned" behaviour.
 ///
-/// Per-Space comes for free: `store.bookmarkedTabs` filters by the active Space.
+/// Per-Space comes for free: `store.bookmarkedTabs(in: windowState)` filters by the active Space.
 struct PinnedList: View {
     @Bindable var store: TabStore
+    /// The window this view belongs to — its selection, its Space.
+    @Bindable var windowState: WindowState
     var tint: Color = .accentColor
 
     var body: some View {
         LazyVStack(spacing: 2) {
-            ForEach(store.bookmarkedTabs) { tab in
+            ForEach(store.bookmarkedTabs(in: windowState)) { tab in
                 TabRowView(
                     tab: tab,
-                    isSelected: tab.id == store.selectedTabID,
+                    isSelected: tab.id == windowState.selectedTabID,
                     tint: tint,
                     isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                     isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
                     select: { selectOrReturnHome(tab) },
-                    close: { store.closeTab(tab.id) },
+                    close: { store.closeTab(tab.id, in: windowState) },
                     toggleMute: { store.toggleMute(tab.id) },
                     beginDrag: { store.beginTabDrag(tab.id) },
                     endDrag: { store.endTabDrag() }
@@ -41,7 +43,7 @@ struct PinnedList: View {
                     Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") {
                         store.toggleMute(tab.id)
                     }
-                    Button("Close Tab") { store.closeTab(tab.id) }
+                    Button("Close Tab") { store.closeTab(tab.id, in: windowState) }
                 }
             }
         }
@@ -52,10 +54,10 @@ struct PinnedList: View {
     /// First click focuses the Pinned tab; a click on the already-selected tab
     /// snaps it back to the URL it was pinned at (4.1).
     private func selectOrReturnHome(_ tab: BrowserCore.Tab) {
-        if tab.id == store.selectedTabID {
+        if tab.id == windowState.selectedTabID {
             store.returnToPinnedHome(tab.id)
         } else {
-            store.select(tab.id)
+            store.select(tab.id, in: windowState)
         }
     }
 }

@@ -10,12 +10,13 @@ extension TabStore {
     /// title, favicon, and pinned state. Lands in its original Space when that
     /// still exists, otherwise the active one — the same rule the archive
     /// restore uses (4.3).
-    public func reopenLastClosedTab() {
+    public func reopenLastClosedTab(in window: WindowState? = nil) {
+        let window = window ?? primaryWindow
         guard var tab = recentlyClosed.popLast() else { return }
 
         let spaceID = spaces.contains { $0.id == tab.spaceID }
             ? tab.spaceID
-            : activeSpace?.id
+            : activeSpace(in: window)?.id
         guard let spaceID else { return }
 
         // Re-densify order within the destination Space's matching section, so a
@@ -38,8 +39,8 @@ extension TabStore {
         for pane in tab.panes { markInteractionStateResolved(pane.id) }
 
         tabs.append(tab)
-        if spaceID != activeSpaceID { selectSpace(spaceID) }
-        selectedTabID = tab.id
+        if spaceID != window.activeSpaceID { selectSpace(spaceID, in: window) }
+        window.selectedTabID = tab.id
         extensionHost?.extensionTabDidOpen(tab.id, inSpace: spaceID)
         scheduleSave()
     }
@@ -47,24 +48,30 @@ extension TabStore {
     /// The active Space's tabs in the order the sidebar shows them: favourites
     /// first, then the Pinned list, then the ephemeral list. This is the cycle
     /// order for the next/previous-tab shortcuts.
-    private var cycleOrder: [Tab] { pinnedTabs + bookmarkedTabs + unpinnedTabs }
+    private func cycleOrder(in window: WindowState) -> [Tab] {
+        pinnedTabs(in: window) + bookmarkedTabs(in: window) + unpinnedTabs(in: window)
+    }
 
-    /// Selects the next tab in the active Space, wrapping past the end (Ctrl+Tab
-    /// / Cmd+Shift+]).
-    public func selectNextTab() { cycleSelection(by: 1) }
+    /// Selects the next tab in the window's Space, wrapping past the end
+    /// (Ctrl+Tab / Cmd+Shift+]).
+    public func selectNextTab(in window: WindowState? = nil) {
+        cycleSelection(by: 1, in: window ?? primaryWindow)
+    }
 
     /// Selects the previous tab, wrapping past the start (Ctrl+Shift+Tab /
     /// Cmd+Shift+[).
-    public func selectPreviousTab() { cycleSelection(by: -1) }
+    public func selectPreviousTab(in window: WindowState? = nil) {
+        cycleSelection(by: -1, in: window ?? primaryWindow)
+    }
 
-    private func cycleSelection(by delta: Int) {
-        let list = cycleOrder
+    private func cycleSelection(by delta: Int, in window: WindowState) {
+        let list = cycleOrder(in: window)
         guard !list.isEmpty else { return }
 
-        guard let current = selectedTabID,
+        guard let current = window.selectedTabID,
               let index = list.firstIndex(where: { $0.id == current })
         else {
-            select(list[0].id)
+            select(list[0].id, in: window)
             return
         }
 

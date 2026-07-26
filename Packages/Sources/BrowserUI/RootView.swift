@@ -65,6 +65,15 @@ public struct RootView: View {
     /// window is not fullscreen. In fullscreen they must remain — hiding them
     /// leaves no way to exit but the keyboard, which is the bug this guards
     /// against.
+    /// Something is keeping the revealed sidebar on screen: a resize drag in
+    /// progress, or a Space sheet open over it. Hiding it out from under any of
+    /// these takes the thing the user is using with it.
+    private var isSidebarHeldOpen: Bool {
+        windowState.isSidebarResizing
+            || windowState.editingSpaceID != nil
+            || windowState.deletingSpaceID != nil
+    }
+
     private var shouldHideTrafficLights: Bool {
         isHidden && !isFullscreen
     }
@@ -91,7 +100,7 @@ public struct RootView: View {
         ZStack(alignment: .topLeading) {
             HStack(spacing: 0) {
                 Color.clear.frame(width: laneWidth)
-                WebContentCard(store: store)
+                WebContentCard(store: store, windowState: windowState)
             }
 
             // Only while hidden. A permanent strip is not needed once the
@@ -175,20 +184,10 @@ public struct RootView: View {
             // hide itself the moment the pointer moved away.
             if !collapsed { cancelPendingHide(); isRevealed = false }
         }
-        .onChange(of: windowState.isSidebarResizing) { _, resizing in
-            if !resizing && !isSidebarHovered {
-                scheduleHide()
-            }
-        }
-        .onChange(of: windowState.deletingSpaceID) { _, deletingID in
-            if deletingID == nil && !isSidebarHovered {
-                scheduleHide()
-            }
-        }
-        .onChange(of: windowState.editingSpaceID) { _, editingID in
-            if editingID == nil && !isSidebarHovered {
-                scheduleHide()
-            }
+        // One rule, not three: a revealed sidebar stays put while anything is
+        // holding it open, and gets its hide timer back the moment nothing is.
+        .onChange(of: isSidebarHeldOpen) { _, held in
+            if !held && !isSidebarHovered { scheduleHide() }
         }
         // All of them presented here rather than in the sidebar so they survive
         // the sidebar collapsing (and auto-hiding) beneath them. Factored into
@@ -197,9 +196,8 @@ public struct RootView: View {
         .modifier(
             RootSheets(store: store, windowState: windowState, extensions: extensions)
         )
-        .task { await store.restore() }
         .onAppear {
-            let monitor = SpaceSwipeMonitor(store: store)
+            let monitor = SpaceSwipeMonitor(store: store, windowState: windowState)
             monitor.engageMaxX = sidebarEngageWidth
             monitor.window = window
             monitor.start()
@@ -235,12 +233,12 @@ public struct RootView: View {
     private var spaceBorderTint: some View {
         ZStack {
             Rectangle().fill(.ultraThinMaterial)
-            if let space = store.activeSpace {
+            if let space = store.activeSpace(in: windowState) {
                 Group {
-                    if store.spaceSwipeProgress == 0 {
+                    if windowState.spaceSwipeProgress == 0 {
                         SpaceTheme.gradient(for: space)
                     } else {
-                        SpaceTheme.gradient(stops: store.swipeBlendedGradient)
+                        SpaceTheme.gradient(stops: store.swipeBlendedGradient(in: windowState))
                     }
                 }
                 .opacity(0.4)
@@ -270,9 +268,7 @@ public struct RootView: View {
     private func scheduleHide() {
         cancelPendingHide()
         guard isRevealed else { return }
-        guard !windowState.isSidebarResizing else { return }
-        guard windowState.editingSpaceID == nil else { return }
-        guard windowState.deletingSpaceID == nil else { return }
+        guard !isSidebarHeldOpen else { return }
         collapseTask = Task { @MainActor in
             try? await Task.sleep(for: Motion.sidebarCollapseDelay)
             guard !Task.isCancelled else { return }

@@ -28,6 +28,22 @@ public final class WindowState {
     /// in-memory store instead of the user's real defaults.
     @ObservationIgnored private let defaults: any PreferenceStore
 
+    // MARK: - Selection
+
+    /// The Space this window is looking at. Per-window: Arc lets two windows sit
+    /// in different Spaces, and Cmd+1…9 moves only the focused one.
+    ///
+    /// Not persisted — which Space a window was in is window *layout*, and
+    /// `restore()` picks the first Space until layout persistence exists.
+    public internal(set) var activeSpaceID: UUID?
+
+    /// The tab this window is showing, which is only ever one of its active
+    /// Space's tabs.
+    ///
+    /// Two windows may hold the same id: the same tab shown twice is one tab and
+    /// one web view, because a pane belongs to its Space, not to a window.
+    public var selectedTabID: UUID?
+
     /// Whether the sidebar is collapsed to icons (4.1).
     ///
     /// Not in a `@State` because the menu command drives it too, and a view's
@@ -68,6 +84,23 @@ public final class WindowState {
 
     /// Whether the History window is showing. Kept here for the same reason.
     public var isHistoryPresented = false
+
+    /// Signed progress of an in-flight swipe between Spaces, in `[-1, 1]` (4.2).
+    /// Positive is toward the next Space (higher `sortIndex`). Observed: the
+    /// sidebar blends its gradient toward the neighbour's as this moves. Volatile
+    /// and never persisted — it is a gesture, not user data.
+    public internal(set) var spaceSwipeProgress: Double = 0
+
+    // MARK: - Find in page
+
+    /// Find-in-page state (M6), per-window because the bar belongs to a window
+    /// and searches whatever *that* window is showing.
+    public var isFindBarVisible = false
+    public var findText = ""
+    /// `nil` until a non-empty query has been run, so an empty bar does not
+    /// report "not found".
+    public internal(set) var findFoundMatch: Bool?
+    @ObservationIgnored var findTask: Task<Void, Never>?
 
     /// A new window opens looking like the last one you configured: the
     /// persisted values are app-wide defaults that each window seeds from and

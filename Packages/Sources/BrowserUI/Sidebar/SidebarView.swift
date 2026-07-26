@@ -26,7 +26,7 @@ struct SidebarView: View {
     /// address button so they read as part of the Space (items 1 and 4). Cheap
     /// to recompute — it is one colour off the cached gradient stops.
     private var spaceTint: Color {
-        SpaceTheme.accent(for: store.activeSpace ?? Space.makeDefault())
+        SpaceTheme.accent(for: store.activeSpace(in: windowState) ?? Space.makeDefault())
     }
 
     /// While a tab is being dragged, the row slot the ephemeral list would drop
@@ -47,7 +47,7 @@ struct SidebarView: View {
             header
 
             NavigationBar(
-                store: store, downloads: downloads,
+                store: store, windowState: windowState, downloads: downloads,
                 tint: spaceTint, openCommandBar: openCommandBar
             )
             .padding(.horizontal, 10)
@@ -58,8 +58,8 @@ struct SidebarView: View {
             // Space reads as something failing to load. During a drag an empty
             // section still shows a drop zone, so the first favourite can be
             // made by dragging.
-            if !store.pinnedTabs.isEmpty {
-                PinnedGrid(store: store)
+            if !store.pinnedTabs(in: windowState).isEmpty {
+                PinnedGrid(store: store, windowState: windowState)
                     .overlay { if isDragging { pinnedDropOverlay } }
             } else if isDragging {
                 firstPinDropZone
@@ -70,10 +70,10 @@ struct SidebarView: View {
             // list does not push the ephemeral tabs off-screen. Skipped entirely
             // when empty except during a drag, when a drop zone lets the first
             // Pinned tab be made.
-            if !store.bookmarkedTabs.isEmpty {
+            if !store.bookmarkedTabs(in: windowState).isEmpty {
                 pinnedSectionHeader
-                if !windowState.isPinnedSectionCollapsed(inSpace: store.activeSpace?.id) {
-                    PinnedList(store: store, tint: spaceTint)
+                if !windowState.isPinnedSectionCollapsed(inSpace: store.activeSpace(in: windowState)?.id) {
+                    PinnedList(store: store, windowState: windowState, tint: spaceTint)
                         .overlay { if isDragging { bookmarkDropOverlay } }
                 }
             } else if isDragging {
@@ -104,7 +104,7 @@ struct SidebarView: View {
             // docked keeps more tint so the Space colour still carries, but the
             // material is the same thin glass either way (the window is
             // non-opaque, so the material samples the desktop behind it).
-            if let space = store.activeSpace {
+            if let space = store.activeSpace(in: windowState) {
                 gradient(for: space)
                     .opacity(isFloating ? 0.1 : 0.28)
                     .overlay(.ultraThinMaterial)
@@ -167,15 +167,15 @@ struct SidebarView: View {
             LazyVStack(spacing: 2) {
                 foldersSection
 
-                ForEach(store.unpinnedTabs) { tab in
+                ForEach(store.unpinnedTabs(in: windowState)) { tab in
                     TabRowView(
                         tab: tab,
-                        isSelected: tab.id == store.selectedTabID,
+                        isSelected: tab.id == windowState.selectedTabID,
                         tint: spaceTint,
                         isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                         isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
-                        select: { store.select(tab.id) },
-                        close: { store.closeTab(tab.id) },
+                        select: { store.select(tab.id, in: windowState) },
+                        close: { store.closeTab(tab.id, in: windowState) },
                         toggleMute: { store.toggleMute(tab.id) },
                         beginDrag: { store.beginTabDrag(tab.id) },
                         endDrag: { store.endTabDrag() }
@@ -212,7 +212,7 @@ struct SidebarView: View {
     private var insertionIndicator: some View {
         if let index = ephemeralDropIndex {
             Capsule()
-                .fill(SpaceTheme.accent(for: store.activeSpace ?? Space.makeDefault()))
+                .fill(SpaceTheme.accent(for: store.activeSpace(in: windowState) ?? Space.makeDefault()))
                 .frame(height: 2)
                 .padding(.horizontal, 10)
                 .offset(y: CGFloat(index) * rowSlot)
@@ -224,7 +224,7 @@ struct SidebarView: View {
     /// drop lands between rows rather than on one.
     private func insertionIndex(forY y: CGFloat) -> Int {
         let raw = Int(((y + rowSlot / 2) / rowSlot).rounded(.down))
-        return max(0, min(raw, store.unpinnedTabs.count))
+        return max(0, min(raw, store.unpinnedTabs(in: windowState).count))
     }
 
     /// Dropping onto the favourites grid pins the tab (4.1). Appends rather than
@@ -233,7 +233,7 @@ struct SidebarView: View {
     private var pinnedDropOverlay: some View {
         SidebarDropTarget(
             onDrop: { tabID, _ in
-                store.reorderTab(tabID, toPinned: true, at: store.pinnedTabs.count)
+                store.reorderTab(tabID, toPinned: true, at: store.pinnedTabs(in: windowState).count)
             }
         )
     }
@@ -243,7 +243,7 @@ struct SidebarView: View {
     /// toggles rather than renaming. During a drag it doubles as a drop target,
     /// so a tab can be pinned even while the list is collapsed.
     private var pinnedSectionHeader: some View {
-        let collapsed = windowState.isPinnedSectionCollapsed(inSpace: store.activeSpace?.id)
+        let collapsed = windowState.isPinnedSectionCollapsed(inSpace: store.activeSpace(in: windowState)?.id)
         return HStack(spacing: 6) {
             Image(systemName: collapsed ? "chevron.right" : "chevron.down")
                 .font(.system(size: 9, weight: .semibold))
@@ -256,7 +256,7 @@ struct SidebarView: View {
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
             Spacer(minLength: 0)
-            Text("\(store.bookmarkedTabs.count)")
+            Text("\(store.bookmarkedTabs(in: windowState).count)")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
@@ -265,11 +265,11 @@ struct SidebarView: View {
         .frame(height: Metrics.sidebarRowHeight)
         .contentShape(Rectangle())
         .onTapGesture {
-            windowState.togglePinnedSectionCollapsed(inSpace: store.activeSpace?.id)
+            windowState.togglePinnedSectionCollapsed(inSpace: store.activeSpace(in: windowState)?.id)
         }
         .overlay { if isDragging { bookmarkDropOverlay } }
         .padding(.horizontal, 8)
-        .accessibilityLabel("Pinned tabs, \(store.bookmarkedTabs.count)")
+        .accessibilityLabel("Pinned tabs, \(store.bookmarkedTabs(in: windowState).count)")
         .accessibilityAddTraits(.isButton)
     }
 
@@ -278,7 +278,7 @@ struct SidebarView: View {
     private var bookmarkDropOverlay: some View {
         SidebarDropTarget(
             onDrop: { tabID, _ in
-                store.reorderTab(tabID, to: .pinned, at: store.bookmarkedTabs.count)
+                store.reorderTab(tabID, to: .pinned, at: store.bookmarkedTabs(in: windowState).count)
             }
         )
     }
@@ -316,9 +316,9 @@ struct SidebarView: View {
     }
 
     private func gradient(for space: BrowserCore.Space) -> LinearGradient {
-        store.spaceSwipeProgress == 0
+        windowState.spaceSwipeProgress == 0
             ? SpaceTheme.gradient(for: space)
-            : SpaceTheme.gradient(stops: store.swipeBlendedGradient)
+            : SpaceTheme.gradient(stops: store.swipeBlendedGradient(in: windowState))
     }
 
     /// Clears the traffic lights, and carries the collapse control beside them
@@ -327,7 +327,9 @@ struct SidebarView: View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
             if let extensionHost {
-                ExtensionActionsBar(store: store, host: extensionHost)
+                ExtensionActionsBar(
+                    store: store, windowState: windowState, host: extensionHost
+                )
                     .padding(.trailing, 4)
             }
             collapseButton
@@ -360,7 +362,7 @@ struct SidebarView: View {
     /// nested beneath (non-spec: user-requested).
     @ViewBuilder
     private var foldersSection: some View {
-        ForEach(store.activeSpaceFolders) { folder in
+        ForEach(store.folders(in: windowState)) { folder in
             FolderRowView(
                 folder: folder,
                 isRenaming: renamingFolderID == folder.id,
@@ -374,12 +376,12 @@ struct SidebarView: View {
                 ForEach(store.tabs(inFolder: folder.id)) { tab in
                     TabRowView(
                         tab: tab,
-                        isSelected: tab.id == store.selectedTabID,
+                        isSelected: tab.id == windowState.selectedTabID,
                         tint: spaceTint,
                         isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                         isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
-                        select: { store.select(tab.id) },
-                        close: { store.closeTab(tab.id) },
+                        select: { store.select(tab.id, in: windowState) },
+                        close: { store.closeTab(tab.id, in: windowState) },
                         toggleMute: { store.toggleMute(tab.id) },
                         beginDrag: { store.beginTabDrag(tab.id) },
                         endDrag: { store.endTabDrag() }
@@ -411,9 +413,9 @@ struct SidebarView: View {
                     renamingFolderID = id
                 }
             }
-            if !store.activeSpaceFolders.isEmpty {
+            if !store.folders(in: windowState).isEmpty {
                 Divider()
-                ForEach(store.activeSpaceFolders) { folder in
+                ForEach(store.folders(in: windowState)) { folder in
                     Button(folder.displayName) { store.moveTab(tab.id, toFolder: folder.id) }
                 }
             }
