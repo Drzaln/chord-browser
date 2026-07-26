@@ -1864,3 +1864,45 @@ Now it captures to a temp log and propagates xcodebuild's own status. Verified i
 both directions: a deliberate syntax error in `AppDelegate.swift` exits 1, and a
 clean tree exits 0. Worth knowing if you ever trusted a green prepush that
 predates this.
+
+### Cross-window tab drag (2026-07-27)
+
+The gesture itself needed no new plumbing: the drag is already AppKit
+(`TabDragSource` writes a real `NSPasteboardItem`, `SidebarDropTarget` reads it),
+and an `NSDraggingSession` crosses windows within an app for free. `draggingTabID`
+lives on the store, so the destination window shows its drop targets while a drag
+started in another window is in flight.
+
+What was missing was the *model* side.
+
+- **A drop is no longer "within this tab's own Space".** `reorderTab` reads
+  `moving.spaceID`, so a tab dropped into a window showing a different Space
+  renumbered itself invisibly in the Space it came from — a silent no-op from the
+  user's side. The sidebar now calls `dropTab(_:into:at:in:)`, which compares the
+  tab's Space against the *destination window's*.
+- **Crossing Spaces is a profile change, so it asks first.** Each Space has its
+  own `WKWebsiteDataStore`; the page is rebuilt against different cookies and a
+  signed-in session does not survive. `PendingTabMove` on the destination
+  `WindowState` puts the dialog up; Arc prompts for the same reason and says the
+  same thing.
+- **Same Space, two windows** shows the same list in both, so a drop between them
+  is an ordinary reorder plus selecting what was dragged. No prompt.
+
+**The hole this closed was one multi-window opened.** Dragging into another
+window's *content area* (drag-to-split, 4.5) was previously unreachable across
+Spaces — one window meant the sidebar only ever showed one Space, so no drag
+could carry a tab across one. With two windows it can, and
+`split(_:byMoving:)` would have closed the source tab and rebuilt its URL as a
+pane in the target's Space, changing the data store with no warning at all. It
+now routes through the same prompt, hence `PendingTabMove.Destination`
+(`.section` vs `.splitInto`) rather than a bare section + index.
+
+**Deliberately left alone:** dragging a tab onto a *Space button* in the switcher
+still moves it with no prompt. Same hazard, but it is a targeted gesture onto a
+Space the user named, it predates this change, and adding a dialog there is a
+behaviour change to an existing feature rather than part of this one. Worth
+revisiting if the inconsistency grates.
+
+Nine new tests: same-Space reorder without prompt, cross-Space prompt-then-move,
+confirm, cancel, section preserved across the move, and the four split-drop
+cases. 390 total, `prepush.sh` green.

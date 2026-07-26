@@ -43,6 +43,14 @@ struct RootSheets: ViewModifier {
         )
     }
 
+    /// A tab dragged in from another window, which would change its Space.
+    private var isMovingTab: Binding<Bool> {
+        Binding(
+            get: { windowState.pendingTabMove != nil },
+            set: { if !$0 { store.cancelPendingTabMove(in: windowState) } }
+        )
+    }
+
     private var deletingSpaceName: String {
         store.spaces.first { $0.id == windowState.deletingSpaceID }?.name ?? ""
     }
@@ -60,6 +68,25 @@ struct RootSheets: ViewModifier {
             }
             .sheet(isPresented: $windowState.isHistoryPresented) {
                 HistoryView(store: store, windowState: windowState)
+            }
+            // Dropping a tab into a window showing a different Space moves it
+            // between Spaces, and each Space has its own cookie store — so the
+            // page comes back signed out. Worth a prompt; Arc asks too.
+            .confirmationDialog(
+                "Move “\(windowState.pendingTabMove?.tabTitle ?? "")” to \(windowState.pendingTabMove?.toSpaceName ?? "")?",
+                isPresented: isMovingTab,
+                titleVisibility: .visible
+            ) {
+                Button("Move Tab") { store.confirmPendingTabMove(in: windowState) }
+                Button("Cancel", role: .cancel) {
+                    store.cancelPendingTabMove(in: windowState)
+                }
+            } message: {
+                Text(
+                    """
+                    \(windowState.pendingTabMove?.toSpaceName ?? "") uses a separate                     profile, so this tab may be signed out of any sites it is                     logged in to.
+                    """
+                )
             }
             .confirmationDialog(
                 "Delete “\(deletingSpaceName)”?",

@@ -190,4 +190,194 @@ struct MultiWindowTests {
         #expect(!windowB.isFindBarVisible, "opening find in one window does not open it in the other")
         #expect(windowB.findText.isEmpty)
     }
+
+    // MARK: - Cross-window tab drag
+
+    /// Two windows in the same Space show the same list, so a drop between them
+    /// is an ordinary reorder — no Space changes, so nothing to warn about.
+    @Test("Dropping inside the same Space reorders without prompting")
+    func dropInSameSpaceJustReorders() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://one.example").build(),
+            TabBuilder().url("https://two.example").build(),
+        ])
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+        let moving = try! #require(store.tabs.first { $0.focusedPane.url.host() == "two.example" })
+
+        store.dropTab(moving.id, into: .ephemeral, at: 0, in: windowB)
+
+        #expect(windowB.pendingTabMove == nil, "same Space is not a profile change")
+        #expect(store.unpinnedTabs(in: windowB).first?.id == moving.id)
+        #expect(windowB.selectedTabID == moving.id, "the window selects what was dropped on it")
+        #expect(windowA.selectedTabID != nil)
+    }
+
+    /// The Arc behaviour: dragging a tab into a window sitting in another Space
+    /// changes its Space, which swaps its cookie store — so it asks first.
+    @Test("Dropping into a window in another Space asks before moving")
+    func dropAcrossSpacesPromptsFirst() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+        let home = try! #require(store.activeSpace(in: windowA))
+        let other = store.addSpace(name: "Personal", in: windowB)
+
+        let moving = try! #require(store.tabs.first)
+        store.dropTab(moving.id, into: .ephemeral, at: 0, in: windowB)
+
+        let pending = try! #require(windowB.pendingTabMove)
+        #expect(pending.id == moving.id)
+        #expect(pending.toSpaceName == "Personal")
+        #expect(pending.fromSpaceName == home.name)
+        #expect(
+            store.tabs.first { $0.id == moving.id }?.spaceID == home.id,
+            "nothing moves until the user says so"
+        )
+        #expect(store.visibleTabs(in: windowB).allSatisfy { $0.id != moving.id })
+        _ = other
+    }
+
+    @Test("Confirming the move changes Space, places, and selects it")
+    func confirmingTheMoveCompletesIt() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+        let personal = store.addSpace(name: "Personal", in: windowB)
+        let moving = try! #require(store.tabs.first { $0.focusedPane.url.host() == "work.example" })
+
+        store.dropTab(moving.id, into: .ephemeral, at: 0, in: windowB)
+        store.confirmPendingTabMove(in: windowB)
+
+        #expect(windowB.pendingTabMove == nil)
+        #expect(store.tabs.first { $0.id == moving.id }?.spaceID == personal.id)
+        #expect(store.visibleTabs(in: windowB).contains { $0.id == moving.id })
+        #expect(windowB.selectedTabID == moving.id)
+        #expect(windowA.selectedTabID != moving.id, "it left the window it was dragged from")
+    }
+
+    @Test("Cancelling the move leaves the tab exactly where it was")
+    func cancellingTheMoveChangesNothing() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+        store.addSpace(name: "Personal", in: windowB)
+        let moving = try! #require(store.tabs.first)
+        let origin = moving.spaceID
+        let wasSelected = windowA.selectedTabID
+
+        store.dropTab(moving.id, into: .ephemeral, at: 0, in: windowB)
+        store.cancelPendingTabMove(in: windowB)
+
+        #expect(windowB.pendingTabMove == nil)
+        #expect(store.tabs.first { $0.id == moving.id }?.spaceID == origin)
+        #expect(windowA.selectedTabID == wasSelected)
+    }
+
+    /// A drop can also change tier, and crossing Spaces must not lose that.
+    @Test("A cross-Space drop lands in the section it was dropped into")
+    func crossSpaceDropKeepsItsSection() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        _ = store.claimWindow()
+        let windowB = store.claimWindow()
+        store.addSpace(name: "Personal", in: windowB)
+        let moving = try! #require(store.tabs.first { $0.focusedPane.url.host() == "work.example" })
+
+        store.dropTab(moving.id, into: .favourite, at: 0, in: windowB)
+        store.confirmPendingTabMove(in: windowB)
+
+        #expect(store.pinnedTabs(in: windowB).map(\.id) == [moving.id])
+        #expect(store.unpinnedTabs(in: windowB).allSatisfy { $0.id != moving.id })
+    }
+
+    /// Newly reachable once a second window exists: before, the sidebar only
+    /// ever showed one Space, so a drag could not carry a tab across one.
+    @Test("Dragging into another window's split asks before crossing Spaces")
+    func splitDropAcrossSpacesPromptsFirst() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+        store.addSpace(name: "Personal", in: windowB)
+        store.newTab(url: URL(string: "https://personal.example")!, in: windowB)
+
+        let source = try! #require(store.tabs.first { $0.focusedPane.url.host() == "work.example" })
+        let target = try! #require(store.selectedTab(in: windowB))
+
+        store.split(target.id, byMoving: source.id, in: windowB)
+
+        #expect(windowB.pendingTabMove != nil, "a cross-Space split is a profile change")
+        #expect(store.tabs.contains { $0.id == source.id }, "nothing is destroyed until confirmed")
+        #expect(store.tabs.first { $0.id == target.id }?.panes.count == 1)
+        _ = windowA
+    }
+
+    @Test("Confirming a split drop merges the page into the target tab")
+    func confirmingSplitDropMerges() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        _ = store.claimWindow()
+        let windowB = store.claimWindow()
+        store.addSpace(name: "Personal", in: windowB)
+        store.newTab(url: URL(string: "https://personal.example")!, in: windowB)
+
+        let source = try! #require(store.tabs.first { $0.focusedPane.url.host() == "work.example" })
+        let target = try! #require(store.selectedTab(in: windowB))
+
+        store.split(target.id, byMoving: source.id, in: windowB)
+        store.confirmPendingTabMove(in: windowB)
+
+        #expect(windowB.pendingTabMove == nil)
+        #expect(!store.tabs.contains { $0.id == source.id }, "the source tab is consumed")
+        let merged = try! #require(store.tabs.first { $0.id == target.id })
+        #expect(merged.panes.count == 2)
+        #expect(merged.panes.contains { $0.url.host() == "work.example" })
+    }
+
+    @Test("Cancelling a split drop leaves both tabs alone")
+    func cancellingSplitDropChangesNothing() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        _ = store.claimWindow()
+        let windowB = store.claimWindow()
+        store.addSpace(name: "Personal", in: windowB)
+        store.newTab(url: URL(string: "https://personal.example")!, in: windowB)
+
+        let source = try! #require(store.tabs.first { $0.focusedPane.url.host() == "work.example" })
+        let target = try! #require(store.selectedTab(in: windowB))
+
+        store.split(target.id, byMoving: source.id, in: windowB)
+        store.cancelPendingTabMove(in: windowB)
+
+        #expect(store.tabs.contains { $0.id == source.id })
+        #expect(store.tabs.first { $0.id == target.id }?.panes.count == 1)
+    }
+
+    /// Within one Space a split drop is unchanged — no prompt, immediate merge.
+    @Test("A same-Space split drop still merges immediately")
+    func sameSpaceSplitDropIsUnchanged() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://one.example").build(),
+            TabBuilder().url("https://two.example").build(),
+        ])
+        let window = store.claimWindow()
+        let source = try! #require(store.tabs.first { $0.focusedPane.url.host() == "two.example" })
+        let target = try! #require(store.tabs.first { $0.focusedPane.url.host() == "one.example" })
+
+        store.split(target.id, byMoving: source.id, in: window)
+
+        #expect(window.pendingTabMove == nil, "no Space change, so nothing to warn about")
+        #expect(store.tabs.first { $0.id == target.id }?.panes.count == 2)
+    }
 }

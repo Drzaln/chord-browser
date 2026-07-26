@@ -63,7 +63,16 @@ extension TabStore {
     /// The dragged tab is *moved*, not copied: it stops being its own row and
     /// becomes a pane. Copying would leave two rows showing the same page with
     /// no way to tell them apart.
-    public func split(_ tabID: UUID, byMoving sourceTabID: UUID, in window: WindowState) {
+    /// - Parameter confirmed: set once the user has accepted a cross-Space move.
+    ///   Dragging a tab from a window in another Space rebuilds its page against
+    ///   the target Space's cookie store, so it asks first — the same prompt the
+    ///   sidebar drop uses.
+    public func split(
+        _ tabID: UUID,
+        byMoving sourceTabID: UUID,
+        in window: WindowState,
+        confirmed: Bool = false
+    ) {
         guard tabID != sourceTabID,
               tabs.contains(where: { $0.id == tabID }),
               let source = tabs.first(where: { $0.id == sourceTabID })
@@ -73,6 +82,25 @@ extension TabStore {
               target.panes.count < SplitLayout.maxPanes
         else {
             Log.store.notice("drop refused: target tab already has \(SplitLayout.maxPanes) panes")
+            return
+        }
+
+        // Newly reachable with a second window: before, the sidebar only ever
+        // showed one Space, so a drag could not carry a tab across one. It can
+        // now, and it is the same data-store change the sidebar drop warns about.
+        if !confirmed, source.spaceID != target.spaceID {
+            window.pendingTabMove = PendingTabMove(
+                id: sourceTabID,
+                toSpaceID: target.spaceID,
+                destination: .splitInto(tabID: tabID),
+                fromSpaceName: spaces.first { $0.id == source.spaceID }?.name
+                    ?? "another Space",
+                toSpaceName: spaces.first { $0.id == target.spaceID }?.name
+                    ?? "this Space",
+                tabTitle: source.focusedPane.title.isEmpty
+                    ? (source.focusedPane.url.host() ?? "this tab")
+                    : source.focusedPane.title
+            )
             return
         }
 

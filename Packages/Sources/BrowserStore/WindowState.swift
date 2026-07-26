@@ -91,6 +91,10 @@ public final class WindowState {
     /// and never persisted — it is a gesture, not user data.
     public internal(set) var spaceSwipeProgress: Double = 0
 
+    /// A tab dropped into this window from a Space other than the one it is
+    /// showing, awaiting confirmation. Non-nil puts the dialog on screen.
+    public var pendingTabMove: PendingTabMove?
+
     // MARK: - Find in page
 
     /// Find-in-page state (M6), per-window because the bar belongs to a window

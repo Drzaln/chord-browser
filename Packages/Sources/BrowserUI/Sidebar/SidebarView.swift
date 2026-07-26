@@ -196,8 +196,14 @@ struct SidebarView: View {
                             ephemeralDropIndex = insertionIndex(forY: point.y)
                         },
                         onDrop: { tabID, point in
-                            store.reorderTab(
-                                tabID, toPinned: false, at: insertionIndex(forY: point.y)
+                            // `dropTab`, not `reorderTab`: the tab may be
+                            // arriving from another window, in a Space this one
+                            // is not showing.
+                            store.dropTab(
+                                tabID,
+                                into: .ephemeral,
+                                at: insertionIndex(forY: point.y),
+                                in: windowState
                             )
                             ephemeralDropIndex = nil
                         }
@@ -233,7 +239,12 @@ struct SidebarView: View {
     private var pinnedDropOverlay: some View {
         SidebarDropTarget(
             onDrop: { tabID, _ in
-                store.reorderTab(tabID, toPinned: true, at: store.pinnedTabs(in: windowState).count)
+                store.dropTab(
+                    tabID,
+                    into: .favourite,
+                    at: store.pinnedTabs(in: windowState).count,
+                    in: windowState
+                )
             }
         )
     }
@@ -278,7 +289,12 @@ struct SidebarView: View {
     private var bookmarkDropOverlay: some View {
         SidebarDropTarget(
             onDrop: { tabID, _ in
-                store.reorderTab(tabID, to: .pinned, at: store.bookmarkedTabs(in: windowState).count)
+                store.dropTab(
+                    tabID,
+                    into: .pinned,
+                    at: store.bookmarkedTabs(in: windowState).count,
+                    in: windowState
+                )
             }
         )
     }
