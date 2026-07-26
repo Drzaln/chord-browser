@@ -40,9 +40,19 @@ public struct TabBuilder {
         return copy
     }
 
-    public func pinned(order: Int = 0) -> Self {
+    public func pinned(order: Int = 0, homeURL: String? = nil) -> Self {
         var copy = self
-        copy.placement = .pinned(order: order)
+        let home = homeURL.flatMap { URL(string: $0) } ?? copy.url
+        copy.placement = .pinned(order: order, homeURL: home)
+        return copy
+    }
+
+    /// An Arc-style *Pinned* tab, homed at `homeURL` (defaulting to the tab's
+    /// own URL).
+    public func bookmarked(order: Int = 0, homeURL: String? = nil) -> Self {
+        var copy = self
+        let home = homeURL.flatMap { URL(string: $0) } ?? copy.url
+        copy.placement = .bookmarked(order: order, homeURL: home)
         return copy
     }
 

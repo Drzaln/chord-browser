@@ -18,8 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | Review. The remaining non-spec follow-up is a **per-site content-blocking whitelist / disable toggle** — **ask the user before building** (§11).                                                  |
+| **Post-M7 (non-spec)**           | **Pinned tabs — Arc's three-tier model (2026-07-26).** Favourites grid + collapsible Pinned list + ephemeral; both non-ephemeral tiers carry a home URL, close-keeps-entry, per-Space collapse. Schema **v8** (`pinnedHomeURL`). See §4.1a and "Pinned tabs — the third tier". |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | 318 passing (299 unit + 19 end-to-end)                                                                                                                                                            |
+| **Tests**                        | 371 passing (352 unit + 19 end-to-end)                                                                                                                                                            |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
 After the two fixes below, **Enhancer for YouTube works** (content script) and
@@ -1647,3 +1648,38 @@ archive keeps the last 100, no time limit.
 - `E2EHarness.relaunch()` makes a second store over the same directory, which is
   how "quit and relaunch" is tested. Use `flushSaveAndWait()` before relaunching
   — plain `flushSave()` is fire-and-forget and the write will not have landed.
+
+### Pinned tabs — the third tier (post-M7, 2026-07-26)
+
+Arc's three tab tiers, finally all present (§4.1a):
+
+- The existing `TabPlacement.pinned` is **Favourites** (the icon grid) — the name
+  predates Arc's "Pinned" and was too costly to rename across ~90 sites, so the
+  new tier is `.bookmarked` in code and "Pinned" in the UI. `isBookmarked`,
+  `isEphemeral`, and `homeURL` were added; `isPinned` still means Favourites
+  only. If this naming bites, that is why.
+- **Both** non-ephemeral tiers now carry a `homeURL`. It is optional on `.pinned`
+  so favourites made before this change decode as "no home" rather than being
+  dropped — the `pinnedHomeURL` column (migration **v8**, additive, nullable)
+  backs both tiers, and `TabMapping` writes `placement.homeURL` for whichever has
+  one. A `.bookmarked` row that decodes with no recoverable URL is demoted to
+  `.ephemeral`, never dropped.
+- The sweep now exempts on `!isEphemeral`, not `isPinned` — otherwise Pinned tabs
+  would be swept. One-line change in `SweepPolicy`, easy to miss.
+- **Close keeps the entry** (`unloadTab`): a favourite or Pinned tab is unloaded,
+  not removed. A favourite's state is captured first (reopen restores it); a
+  Pinned tab is reset to `homeURL` by **replacing its pane with a fresh one** —
+  the new pane id orphans the stale interaction blob (pruned on next save), which
+  is what actually clears the drifted back/forward history so it lands on home
+  rather than restoring the drifted page. The favicon is carried onto the reset
+  pane **only when host matches** the home origin (favicons are per-origin).
+- Return-to-home: double-click a favourite tile (`TabDragSource` gained an
+  `onDoubleClick`; the tile click path is AppKit, so a SwiftUI `.onTapGesture`
+  would not fire), or click an already-selected Pinned row.
+- `reorderTab` was generalised from a `toPinned: Bool` to a three-way
+  `PlacementSection`; the old boolean call is a back-compat wrapper so existing
+  tests and the favourites/ephemeral drag are unchanged.
+- The Pinned section header collapses the list. State is **per-Space**, in
+  `collapsedPinnedSpaces` (a `Set<UUID>` in `UserDefaults`, like the sidebar
+  width) — not the schema. `addSpace` makes the new Space active, which the first
+  collapse test got wrong; select the Space you mean before toggling.

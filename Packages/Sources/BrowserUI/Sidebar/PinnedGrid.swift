@@ -57,7 +57,9 @@ struct PinnedGrid: View {
                 title: tab.displayTitle,
                 onDragBegan: { store.beginTabDrag(tab.id) },
                 onDragEnded: { store.endTabDrag() },
-                onClick: { store.select(tab.id) }
+                onClick: { store.select(tab.id) },
+                // Double-click returns the favourite to the URL it was pinned at.
+                onDoubleClick: { store.returnToPinnedHome(tab.id) }
             )
         }
         .overlay(alignment: .bottomTrailing) {
@@ -76,6 +78,10 @@ struct PinnedGrid: View {
         .accessibilityLabel(tab.displayTitle)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .contextMenu {
+            Button("Return to Pinned URL") { store.returnToPinnedHome(tab.id) }
+                .disabled(tab.placement.homeURL == nil || tab.placement.homeURL == tab.focusedPane.url)
+            Button("Set Current Page as Pinned URL") { store.updatePinnedHome(tab.id) }
+                .disabled(tab.placement.homeURL == tab.focusedPane.url)
             Button("Unpin") { store.setPinned(false, tabID: tab.id) }
             Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") {
                 store.toggleMute(tab.id)

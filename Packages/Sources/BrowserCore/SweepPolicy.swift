@@ -69,8 +69,9 @@ public enum SweepPolicy {
         // "Never" disables the sweep entirely (4.3).
         guard let window = idleWindow.seconds else { return false }
 
-        // Pinned tabs are exempt. Audio-playing tabs are exempt (4.3).
-        guard !candidate.placement.isPinned, !candidate.isPlayingAudio else { return false }
+        // Only loose ephemeral tabs are swept — favourites and Pinned tabs are
+        // exempt, as are audio-playing tabs (4.3).
+        guard candidate.placement.isEphemeral, !candidate.isPlayingAudio else { return false }
 
         // Closing the tab the user is looking at would be indefensible, however
         // long it has sat there.

@@ -14,6 +14,7 @@ enum TabMapping {
         let kind: String
         switch tab.placement {
         case .pinned: kind = "pinned"
+        case .bookmarked: kind = "bookmarked"
         case .ephemeral: kind = "ephemeral"
         }
 
@@ -22,6 +23,7 @@ enum TabMapping {
             spaceId: tab.spaceID.uuidString,
             placementKind: kind,
             placementOrder: tab.placement.order,
+            pinnedHomeURL: tab.placement.homeURL?.absoluteString,
             folderId: tab.folderID?.uuidString,
             focusedPaneID: tab.focusedPaneID.uuidString,
             lastAccessedAt: tab.lastAccessedAt.timeIntervalSince1970,
@@ -67,7 +69,11 @@ enum TabMapping {
             return nil
         }
 
-        guard let placement = placement(kind: tabRow.placementKind, order: tabRow.placementOrder)
+        guard let placement = placement(
+            kind: tabRow.placementKind,
+            order: tabRow.placementOrder,
+            homeURL: tabRow.pinnedHomeURL
+        )
         else {
             Log.db.error("skipping tab \(tabRow.id, privacy: .public): unknown placement kind")
             return nil
@@ -109,11 +115,19 @@ enum TabMapping {
         )
     }
 
-    private static func placement(kind: String, order: Int) -> TabPlacement? {
+    private static func placement(kind: String, order: Int, homeURL: String?) -> TabPlacement? {
         switch kind {
-        case "pinned": .pinned(order: order)
-        case "ephemeral": .ephemeral(order: order)
-        default: nil
+        case "pinned": return .pinned(order: order, homeURL: homeURL.flatMap(URL.init(string:)))
+        case "ephemeral": return .ephemeral(order: order)
+        case "bookmarked":
+            // A Pinned tab with no recoverable home URL is demoted to a loose
+            // tab rather than dropped — the tab and its panes survive (7.2).
+            guard let string = homeURL, let url = URL(string: string) else {
+                Log.db.error("bookmarked tab missing home URL; demoting to ephemeral")
+                return .ephemeral(order: order)
+            }
+            return .bookmarked(order: order, homeURL: url)
+        default: return nil
         }
     }
 }

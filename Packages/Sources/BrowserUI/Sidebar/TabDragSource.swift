@@ -23,6 +23,9 @@ struct TabDragSource: NSViewRepresentable {
     let onDragBegan: () -> Void
     let onDragEnded: () -> Void
     let onClick: () -> Void
+    /// Fired on a double-click, when set. Used by favourite tiles to return the
+    /// tab to its home URL (4.1).
+    var onDoubleClick: (() -> Void)?
 
     func makeNSView(context: Context) -> NSView {
         let view = DragSourceView()
@@ -41,6 +44,7 @@ struct TabDragSource: NSViewRepresentable {
         view.onDragBegan = onDragBegan
         view.onDragEnded = onDragEnded
         view.onClick = onClick
+        view.onDoubleClick = onDoubleClick
     }
 
     final class DragSourceView: NSView, NSDraggingSource {
@@ -49,6 +53,7 @@ struct TabDragSource: NSViewRepresentable {
         var onDragBegan: (() -> Void)?
         var onDragEnded: (() -> Void)?
         var onClick: (() -> Void)?
+        var onDoubleClick: (() -> Void)?
 
         /// The mouse-down that a drag session must be started from: AppKit
         /// tracks the drag against that event, not against the one that crossed
@@ -95,7 +100,17 @@ struct TabDragSource: NSViewRepresentable {
             // arrive afterwards read as a plain click, so ending any drag also
             // selected the row that had just been dragged — visible as a
             // refused drop that moved the selection anyway.
-            if !isDragging { onClick?() }
+            if !isDragging {
+                // A double-click on a favourite returns it home; a single click
+                // selects. `clickCount` is 2 on the second mouse-up of a pair,
+                // so the first still fires `onClick` — selecting then returning
+                // home reads correctly for a favourite.
+                if event.clickCount == 2, let onDoubleClick {
+                    onDoubleClick()
+                } else {
+                    onClick?()
+                }
+            }
         }
 
         // MARK: - NSDraggingSource

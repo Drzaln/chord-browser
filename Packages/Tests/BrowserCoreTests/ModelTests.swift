@@ -26,7 +26,7 @@ struct ModelCodableTests {
 
     @Test("TabPlacement preserves its case and order")
     func placementRoundTrip() throws {
-        for placement in [TabPlacement.pinned(order: 2), .ephemeral(order: 7)] {
+        for placement in [TabPlacement.pinned(order: 2, homeURL: nil), .ephemeral(order: 7)] {
             let data = try JSONEncoder().encode(placement)
             let decoded = try JSONDecoder().decode(TabPlacement.self, from: data)
             #expect(decoded == placement)
@@ -34,16 +34,32 @@ struct ModelCodableTests {
         }
     }
 
-    @Test("Only pinned placement reports isPinned")
-    func isPinned() {
-        #expect(TabPlacement.pinned(order: 0).isPinned)
+    @Test("Each placement reports exactly its own tier")
+    func placementTiers() {
+        let home = URL(string: "https://home.example")!
+        #expect(TabPlacement.pinned(order: 0, homeURL: nil).isPinned)
         #expect(!TabPlacement.ephemeral(order: 0).isPinned)
+        #expect(!TabPlacement.bookmarked(order: 0, homeURL: home).isPinned)
+
+        #expect(TabPlacement.bookmarked(order: 0, homeURL: home).isBookmarked)
+        #expect(TabPlacement.bookmarked(order: 0, homeURL: home).homeURL == home)
+        #expect(TabPlacement.pinned(order: 0, homeURL: nil).homeURL == nil)
+        #expect(TabPlacement.pinned(order: 0, homeURL: home).homeURL == home)
+
+        #expect(TabPlacement.ephemeral(order: 0).isEphemeral)
+        #expect(!TabPlacement.pinned(order: 0, homeURL: nil).isEphemeral)
+        #expect(!TabPlacement.bookmarked(order: 0, homeURL: home).isEphemeral)
     }
 
     @Test("withOrder changes the order without changing the case")
     func withOrder() {
-        #expect(TabPlacement.pinned(order: 1).withOrder(5) == .pinned(order: 5))
+        let home = URL(string: "https://home.example")!
+        #expect(TabPlacement.pinned(order: 1, homeURL: nil).withOrder(5) == .pinned(order: 5, homeURL: nil))
         #expect(TabPlacement.ephemeral(order: 1).withOrder(5) == .ephemeral(order: 5))
+        #expect(
+            TabPlacement.bookmarked(order: 1, homeURL: home).withOrder(5)
+                == .bookmarked(order: 5, homeURL: home)
+        )
     }
 }
 

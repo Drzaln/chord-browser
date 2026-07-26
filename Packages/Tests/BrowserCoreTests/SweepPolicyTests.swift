@@ -44,7 +44,7 @@ struct SweepPolicyTests {
 
     @Test("Pinned tabs are exempt however long they sit")
     func pinnedIsExempt() {
-        let tab = candidate(placement: .pinned(order: 0), idleFor: twelveHours * 100)
+        let tab = candidate(placement: .pinned(order: 0, homeURL: nil), idleFor: twelveHours * 100)
         #expect(!SweepPolicy.shouldSweep(tab, now: now, idleWindow: .default))
     }
 
@@ -76,7 +76,7 @@ struct SweepPolicyTests {
     @Test("sweepable returns only the eligible ids")
     func sweepableFilters() {
         let doomed = candidate(idleFor: twelveHours * 2)
-        let pinned = candidate(placement: .pinned(order: 0), idleFor: twelveHours * 2)
+        let pinned = candidate(placement: .pinned(order: 0, homeURL: nil), idleFor: twelveHours * 2)
         let fresh = candidate(idleFor: 60)
 
         let result = SweepPolicy.sweepable(

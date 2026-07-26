@@ -104,8 +104,13 @@ struct Space: Identifiable, Codable {
 }
 
 enum TabPlacement: Codable {
-    case pinned(order: Int)         // never auto-closed
-    case ephemeral(order: Int)      // auto-closed after idle window
+    // "pinned" is the Favourites icon grid (historical name). "bookmarked" is
+    // Arc's Pinned-tabs list. Both are exempt from the idle sweep and both carry
+    // a homeURL — the URL the tab returns to (double-click a favourite tile, or
+    // click a selected Pinned row). See §4.1a.
+    case pinned(order: Int, homeURL: URL?)         // Favourites grid; never auto-closed
+    case bookmarked(order: Int, homeURL: URL)      // Pinned tabs; never auto-closed
+    case ephemeral(order: Int)                     // auto-closed after idle window
 }
 
 struct Tab: Identifiable, Codable {
@@ -247,13 +252,40 @@ protocol ExtensionHost { ... }
 
 ### 4.1 Vertical tabs (sidebar)
 
-- Sections top-to-bottom: Space switcher, pinned tabs, ephemeral tabs, new-tab
-  affordance.
+- Sections top-to-bottom: Favourites grid, Pinned tabs, new-tab affordance,
+  ephemeral tabs, Space switcher (on the bottom bar).
 - Drag to reorder within a section, drag across sections to change placement,
   drag onto a Space in the switcher to move between Spaces.
 - Collapsed state shows favicons only; hovering the collapsed sidebar expands it
   as an overlay without shifting web content.
 - Sidebar background carries the active Space's gradient with a material overlay.
+
+### 4.1a Favourites and Pinned tabs (three tiers)
+
+Three tab tiers, matching Arc, all per-Space:
+
+- **Favourites** — an icon grid at the top (`TabPlacement.pinned`). Exempt from
+  the idle sweep.
+- **Pinned** — a list section between the favourites grid and the New Tab
+  affordance (`TabPlacement.bookmarked`), under a collapsible header showing a
+  count. Collapse state is per-Space and persisted (a window preference in
+  `UserDefaults`, not the schema). Exempt from the sweep.
+- **Ephemeral** — the loose tabs the sweep may close (§4.3).
+
+Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
+
+- **Return to home**: double-click a favourite tile, or click an already-selected
+  Pinned row. Context menu: *Return to Pinned URL*.
+- **Re-home**: *Set Current Page as Pinned URL* replaces the home with the
+  current page.
+- **Close keeps the entry** (Cmd+W, the × button, "Close Tab"): a favourite or
+  Pinned tab is **unloaded, not removed** — the live web view is torn down but the
+  sidebar entry stays, keeping its favicon. A favourite keeps its current page
+  (state captured, restored on reopen); a Pinned tab returns to its home URL.
+- **Pin/unpin**: *Pin to Favourites* / *Pin Tab* / *Add to Favourites* / *Unpin*,
+  or by dragging between sections. Pinning captures the current URL as the home;
+  re-pinning preserves an existing home. A favicon carried onto a reset home is
+  kept only when it matches the home's origin (favicons are per-origin).
 
 ### 4.2 Spaces
 
@@ -271,7 +303,8 @@ protocol ExtensionHost { ... }
   (default 12h, user-configurable, "never" allowed) is closed.
 - Closed tabs go to a recoverable archive (last 100), searchable from the command
   bar. Never hard-delete on sweep.
-- Pinned tabs are exempt. Audio-playing tabs are exempt — detected by injected
+- Favourites and Pinned tabs are exempt (only `.ephemeral` is swept).
+  Audio-playing tabs are exempt — detected by injected
   user script, since no public WebKit API reports playback (ADR 008). The
   selected tab is also exempt.
 

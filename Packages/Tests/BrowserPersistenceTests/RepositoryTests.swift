@@ -18,16 +18,23 @@ struct RepositoryTests {
         let tabs = [
             TabBuilder().url("https://a.example").title("A").pinned(order: 0).build(),
             TabBuilder().url("https://b.example").title("B").ephemeral(order: 1).build(),
+            TabBuilder().url("https://c.example").title("C")
+                .bookmarked(order: 2, homeURL: "https://c.example/home").build(),
         ]
 
         try await repository.save(tabs)
         let loaded = try await repository.loadAll()
 
-        #expect(loaded.count == 2)
+        #expect(loaded.count == 3)
         #expect(loaded.map(\.id) == tabs.map(\.id))
-        #expect(loaded.map(\.displayTitle) == ["A", "B"])
-        #expect(loaded[0].placement == .pinned(order: 0))
+        #expect(loaded.map(\.displayTitle) == ["A", "B", "C"])
+        #expect(loaded[0].placement == .pinned(order: 0, homeURL: URL(string: "https://a.example")!))
         #expect(loaded[1].placement == .ephemeral(order: 1))
+        #expect(
+            loaded[2].placement == .bookmarked(
+                order: 2, homeURL: URL(string: "https://c.example/home")!
+            )
+        )
     }
 
     @Test("Pane order is preserved across a save")

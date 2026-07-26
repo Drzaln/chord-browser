@@ -63,6 +63,21 @@ struct SidebarView: View {
                 firstPinDropZone
             }
 
+            // Arc's "Pinned" tabs — a list section under the favourites grid and
+            // above the New Tab affordance. It has a collapsible header so a long
+            // list does not push the ephemeral tabs off-screen. Skipped entirely
+            // when empty except during a drag, when a drop zone lets the first
+            // Pinned tab be made.
+            if !store.bookmarkedTabs.isEmpty {
+                pinnedSectionHeader
+                if !store.isPinnedSectionCollapsed {
+                    PinnedList(store: store, tint: spaceTint)
+                        .overlay { if isDragging { bookmarkDropOverlay } }
+                }
+            } else if isDragging {
+                firstBookmarkDropZone
+            }
+
             newTabButton
 
             ephemeralList
@@ -221,6 +236,65 @@ struct SidebarView: View {
         )
     }
 
+    /// A collapsible header for the Pinned section: a disclosure chevron, the
+    /// label, and the count. Modelled on the folder headers, but the whole row
+    /// toggles rather than renaming. During a drag it doubles as a drop target,
+    /// so a tab can be pinned even while the list is collapsed.
+    private var pinnedSectionHeader: some View {
+        let collapsed = store.isPinnedSectionCollapsed
+        return HStack(spacing: 6) {
+            Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 12)
+            Image(systemName: "pin.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+            Text("Pinned")
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Text("\(store.bookmarkedTabs.count)")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 8)
+        .frame(height: Metrics.sidebarRowHeight)
+        .contentShape(Rectangle())
+        .onTapGesture { store.togglePinnedSectionCollapsed() }
+        .overlay { if isDragging { bookmarkDropOverlay } }
+        .padding(.horizontal, 8)
+        .accessibilityLabel("Pinned tabs, \(store.bookmarkedTabs.count)")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    /// Dropping onto the Pinned list pins the tab as an Arc *Pinned* tab (4.1),
+    /// appending it to the end of the section.
+    private var bookmarkDropOverlay: some View {
+        SidebarDropTarget(
+            onDrop: { tabID, _ in
+                store.reorderTab(tabID, to: .pinned, at: store.bookmarkedTabs.count)
+            }
+        )
+    }
+
+    /// Shown in place of the (absent) Pinned list while dragging, so the first
+    /// Pinned tab in a Space can be made by dragging a tab onto it.
+    private var firstBookmarkDropZone: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .strokeBorder(.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4]))
+            .frame(height: Metrics.sidebarRowHeight)
+            .overlay {
+                Label("Pin Tab", systemImage: "pin")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .overlay { bookmarkDropOverlay }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
+    }
+
     /// Shown in place of the (absent) grid while dragging, so the first
     /// favourite in a Space can be made by dragging a tab up.
     private var firstPinDropZone: some View {
@@ -317,6 +391,9 @@ struct SidebarView: View {
     @ViewBuilder
     private func rowMenu(for tab: BrowserCore.Tab) -> some View {
         Button("Pin to Favourites") { store.setPinned(true, tabID: tab.id) }
+        if !tab.placement.isBookmarked {
+            Button("Pin Tab") { store.setBookmarked(true, tabID: tab.id) }
+        }
 
         Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") {
             store.toggleMute(tab.id)

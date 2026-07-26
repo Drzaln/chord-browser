@@ -45,9 +45,9 @@ extension TabStore {
     }
 
     /// The active Space's tabs in the order the sidebar shows them: favourites
-    /// first, then the ephemeral list. This is the cycle order for the
-    /// next/previous-tab shortcuts.
-    private var cycleOrder: [Tab] { pinnedTabs + unpinnedTabs }
+    /// first, then the Pinned list, then the ephemeral list. This is the cycle
+    /// order for the next/previous-tab shortcuts.
+    private var cycleOrder: [Tab] { pinnedTabs + bookmarkedTabs + unpinnedTabs }
 
     /// Selects the next tab in the active Space, wrapping past the end (Ctrl+Tab
     /// / Cmd+Shift+]).

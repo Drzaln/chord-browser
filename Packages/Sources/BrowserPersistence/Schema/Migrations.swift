@@ -20,11 +20,12 @@ enum Migrations {
         migrator.registerMigration("v5_granted_permissions", migrate: v5GrantedPermissions)
         migrator.registerMigration("v6_history_per_space", migrate: v6HistoryPerSpace)
         migrator.registerMigration("v7_folders", migrate: v7Folders)
+        migrator.registerMigration("v8_pinned_home_url", migrate: v8PinnedHomeURL)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 7
+    static let currentVersion = 8
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -224,6 +225,17 @@ enum Migrations {
 
         try db.alter(table: "tab") { t in
             t.add(column: "folderId", .text)
+        }
+    }
+
+    /// Arc-style *Pinned* tabs (non-spec: user-requested). Purely additive — a
+    /// nullable `pinnedHomeURL` on `tab`, defaulting to NULL so every existing
+    /// tab is unaffected (7.2). The tier itself is carried in the existing
+    /// `placementKind` column as the new value "bookmarked"; only Pinned tabs
+    /// set the URL column.
+    private static func v8PinnedHomeURL(_ db: Database) throws {
+        try db.alter(table: "tab") { t in
+            t.add(column: "pinnedHomeURL", .text)
         }
     }
 }

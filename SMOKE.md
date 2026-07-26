@@ -544,6 +544,20 @@ screenshot — a 6-point strip does not survive a guess.
 - [x] Unpin returns it to the ephemeral list
 - [x] A Space's favourites do not appear in another Space
 - [ ] Favourites survive relaunch (the placement is persisted from M1; confirm)
+- [ ] Double-click a favourite tile returns it to its home URL
+- [ ] "Set Current Page as Pinned URL" re-homes a favourite to the current page
+- [ ] Closing a favourite (Cmd+W) unloads it but keeps the tile and its favicon
+
+### Pinned tabs (§4.1a)
+
+- [ ] "Pin Tab" moves an ephemeral tab into the Pinned list (above New Tab)
+- [ ] Clicking an already-selected Pinned row returns it to its home URL
+- [ ] "Set Current Page as Pinned URL" re-homes a Pinned tab
+- [ ] Closing a Pinned tab keeps the row and returns it to its home URL, favicon intact
+- [ ] The Pinned header collapses/expands the list; the count shows while collapsed
+- [ ] Collapse state is per-Space and survives relaunch
+- [ ] A Pinned tab is exempt from the idle sweep
+- [ ] Drag a tab onto the Pinned section to pin it; drag out to unpin
 
 ### 30-minute soak
 
@@ -593,6 +607,35 @@ No leak: both figures end _below_ where they started, the total declining
 monotonically as WebKit reclaims. Split view costs nothing structural — a
 4-pane tab is four panes against the same 12-view cap, not four extra.
 
+#### Post-M7 Pinned-tabs re-run, 2026-07-26
+
+Exercises the three-tier model (§4.1a) and, separately, real heavyweight sites.
+Seed spans all tiers: 3 Favourites + 3 Pinned (both homed) + 15 ephemeral, one
+4-pane split per Space. Space switched every 4 s, sampled every 60 s, from a
+_restored_ session.
+
+Light fixture (`example.com`-class), 5 min:
+
+|                          | start  | plateau (min 1–4) |
+| ------------------------ | ------ | ----------------- |
+| App `phys_footprint`     | 54 MB  | 67 MB (flat)      |
+| App + all WebKit helpers | 109 MB | 727 MB (flat)     |
+
+Mainstream fixture (top-16 of the Wikipedia most-visited list — google,
+youtube, facebook, instagram, chatgpt, x, reddit, bing, tiktok, wikipedia,
+yahoo, amazon, linkedin, baidu, naver, yandex), 7 min, via
+`SOAK_URLS="…" scripts/soak.sh seed`:
+
+|                          | start  | peak (min 2) | settled (min 3–6) |
+| ------------------------ | ------ | ------------ | ----------------- |
+| App `phys_footprint`     | 38 MB  | 68 MB        | 68 MB (flat)      |
+| App + all WebKit helpers | 302 MB | 779 MB       | ~660 MB (flat)    |
+
+No leak on either: the app process is flat, and the total warms to a transient
+peak while every Space's SPAs load at once, then WebKit reclaims to a flat band.
+Both runs were shorter than the §8 gate of 30 minutes (run budget) — the plateau
+is clear, but do a full 30-min pass by hand before treating this as shippable.
+
 ### How to re-run the measurements
 
 Footprint was read with `footprint -p <pid>`, which reports the same
@@ -618,3 +661,9 @@ ceiling — and settled to 0.01% once WebKit finished reclaiming. The transient 
 JavaScriptCore's `libpas` scavenger thread, not app-layer work: a 20-second
 `sample` of the process while occluded put the main thread in `mach_msg2_trap`
 for 17397 of 17398 samples. Do not chase this one without re-measuring settled.
+
+Override the seed's URL set for a realistic run with `SOAK_URLS` (space-separated,
+read by `seed`): `SOAK_URLS="https://a https://b" scripts/soak.sh seed`. The app
+is now **Chord** — `scripts/soak.sh` drives and samples the `Chord` process, but
+the profile still lives under the `Browser` Application Support folder (the rename
+is display-only; bundle id `com.rizal.browser` is unchanged).

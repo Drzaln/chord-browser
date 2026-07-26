@@ -252,6 +252,43 @@ struct MigrationTests {
         #expect(folderId == nil, "existing tabs default to no folder")
     }
 
+    @Test("v8 adds a nullable pinnedHomeURL, deleting nothing")
+    func v8AddsPinnedHomeURL() throws {
+        let queue = try DatabaseQueue()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(queue, upTo: "v7_folders")
+
+        // A pre-v8 tab, to prove the additive column leaves it untouched.
+        let tabID = UUID().uuidString
+        let spaceID = try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1")
+        } ?? UUID().uuidString
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO tab
+                        (id, spaceId, placementKind, placementOrder, focusedPaneID,
+                         lastAccessedAt, createdAt)
+                    VALUES (?, ?, 'ephemeral', 0, ?, 0, 0)
+                    """,
+                arguments: [tabID, spaceID, UUID().uuidString]
+            )
+        }
+
+        try migrator.migrate(queue)
+
+        let (tabCount, homeURL) = try queue.read { db in
+            (
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM tab") ?? 0,
+                try String.fetchOne(
+                    db, sql: "SELECT pinnedHomeURL FROM tab WHERE id = ?", arguments: [tabID]
+                )
+            )
+        }
+        #expect(tabCount == 1, "the existing tab is not deleted")
+        #expect(homeURL == nil, "existing tabs have no pinned home URL")
+    }
+
     @Test("A fresh database reports the current schema version")
     func versionRecorded() throws {
         let queue = try DatabaseQueue()

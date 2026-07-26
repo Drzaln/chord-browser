@@ -9,6 +9,7 @@ enum Preferences {
     private static let searchEngineKey = "prefs.searchEngine"
     private static let newTabBehaviorKey = "prefs.newTabBehavior"
     private static let idleWindowKey = "prefs.idleWindow"
+    private static let collapsedPinnedSpacesKey = "prefs.collapsedPinnedSpaces"
 
     static func loadSearchEngine(
         _ defaults: UserDefaults = .standard
@@ -44,6 +45,22 @@ enum Preferences {
         _ idleWindow: IdleWindow, to defaults: UserDefaults = .standard
     ) {
         encode(idleWindow, forKey: idleWindowKey, to: defaults)
+    }
+
+    /// The Spaces whose Pinned-tabs section is collapsed (non-spec:
+    /// user-requested). A window preference, so it lives here as JSON rather
+    /// than in the schema.
+    static func loadCollapsedPinnedSpaces(
+        _ defaults: UserDefaults = .standard
+    ) -> Set<UUID> {
+        let strings = decode([String].self, forKey: collapsedPinnedSpacesKey, from: defaults) ?? []
+        return Set(strings.compactMap(UUID.init(uuidString:)))
+    }
+
+    static func save(
+        collapsedPinnedSpaces spaces: Set<UUID>, to defaults: UserDefaults = .standard
+    ) {
+        encode(spaces.map(\.uuidString), forKey: collapsedPinnedSpacesKey, to: defaults)
     }
 
     // MARK: - JSON helpers

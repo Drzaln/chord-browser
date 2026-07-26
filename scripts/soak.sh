@@ -17,6 +17,9 @@
 # web views).
 set -euo pipefail
 
+# The app is now "Chord" (display rename only — bundle id com.rizal.browser and
+# the "Browser" Application Support folder are unchanged), so the process and app
+# name driven below are "Chord" while this path stays "Browser".
 APP_SUPPORT=~/"Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser"
 DB="$APP_SUPPORT/browser.sqlite"
 MINUTES="${SOAK_MINUTES:-30}"
@@ -37,7 +40,7 @@ if [ -n "${SOAK_URLS:-}" ]; then
 fi
 
 seed() {
-    osascript -e 'quit app "Browser"' 2>/dev/null || true
+    osascript -e 'quit app "Chord"' 2>/dev/null || true
     sleep 3
 
     [ -f "$DB" ] || { echo "no database at $DB — launch the app once first" >&2; exit 1; }
@@ -73,33 +76,50 @@ seed() {
     local now
     now=$(python3 -c 'import time; print(time.time() - 978307200)')  # Core Data epoch
 
-    # 21 tabs: 7 per Space, one of them a 4-pane split. Split view and Little
-    # Arc are what M5 added, and both add live web views — a 4-pane tab is 4 at
-    # once — so a soak that predates them proves nothing about them.
+    # 21 tabs: 7 per Space, spanning all three tiers so the soak exercises the
+    # post-M7 Pinned model, not just ephemeral tabs. Per Space: i=0 a Favourite,
+    # i=1 a Pinned tab (both carry a home URL), i=3 a 4-pane split, the rest
+    # ephemeral. Split view and Little Arc (M5) add live web views — a 4-pane tab
+    # is 4 at once — so a soak that predates them proves nothing about them.
+    #
+    # Explicit column lists on both inserts: the `tab` table has grown `spaceId`
+    # (v2), `folderId` (v7), and `pinnedHomeURL` (v8), so a positional VALUES()
+    # no longer matches. `pinnedHomeURL` is set only for the tiers that have one.
     local n=0
     for space in "${spaces[@]}"; do
         for i in $(seq 0 6); do
-            local tabID paneCount
+            local tabID paneCount kind home
             tabID=$(uuidgen)
             paneCount=1
             [ "$i" -eq 3 ] && paneCount=4
 
-            local firstPane="" p
+            case "$i" in
+                0) kind="pinned" ;;       # Favourites grid
+                1) kind="bookmarked" ;;   # Pinned-tabs list
+                *) kind="ephemeral" ;;
+            esac
+
+            local firstPane="" firstURL="" p
             for p in $(seq 0 $((paneCount - 1))); do
                 local paneID url fraction
                 paneID=$(uuidgen)
                 url="${URLS[$((n % ${#URLS[@]}))]}"
                 fraction=$(python3 -c "print(1.0 / $paneCount)")
-                [ -z "$firstPane" ] && firstPane="$paneID"
-                sqlite3 "$DB" "insert into pane values (
-                    '$paneID', '$tabID', $p, '$url', '', null, $fraction
-                );"
+                if [ -z "$firstPane" ]; then firstPane="$paneID"; firstURL="$url"; fi
+                sqlite3 "$DB" "insert into pane
+                    (id, tabId, position, url, title, faviconData, widthFraction)
+                    values ('$paneID', '$tabID', $p, '$url', '', null, $fraction);"
                 n=$((n + 1))
             done
 
-            sqlite3 "$DB" "insert into tab values (
-                '$tabID', 'ephemeral', $i, '$firstPane', $now, $now, '$space'
-            );"
+            # A favourite or Pinned tab is homed at the URL it was pinned at.
+            if [ "$kind" = "ephemeral" ]; then home="null"; else home="'$firstURL'"; fi
+
+            sqlite3 "$DB" "insert into tab
+                (id, spaceId, placementKind, placementOrder, folderId,
+                 focusedPaneID, lastAccessedAt, createdAt, pinnedHomeURL)
+                values ('$tabID', '$space', '$kind', $i, null,
+                 '$firstPane', $now, $now, $home);"
         done
     done
 
@@ -129,7 +149,7 @@ footprint_mb() {
 
 run() {
     local pid
-    pid=$(pgrep -x Browser | head -1)
+    pid=$(pgrep -x Chord | head -1)
     [ -n "$pid" ] || { echo "Browser is not running" >&2; exit 1; }
 
     local samples="/tmp/soak-$(date +%H%M%S).tsv"
@@ -145,7 +165,7 @@ run() {
     while [ $SECONDS -lt $endAt ]; do
         # Cmd+1...3: a Space switch tears down and revives web views, which is
         # where a leak would show.
-        osascript -e "tell application \"System Events\" to tell process \"Browser\" \
+        osascript -e "tell application \"System Events\" to tell process \"Chord\" \
             to keystroke \"$space\" using command down" 2>/dev/null || true
         space=$(( space % 3 + 1 ))
         sleep 4
@@ -168,7 +188,7 @@ run() {
 # cost (§6.2), and the app process alone hides them entirely.
 total_mb() {
     local pids
-    pids=$(pgrep -x Browser; pgrep -f "com.apple.WebKit" || true)
+    pids=$(pgrep -x Chord; pgrep -f "com.apple.WebKit" || true)
     local sum=0 p mb
     for p in $pids; do
         mb=$(footprint_mb "$p")
@@ -178,7 +198,7 @@ total_mb() {
 }
 
 restore() {
-    osascript -e 'quit app "Browser"' 2>/dev/null || true
+    osascript -e 'quit app "Chord"' 2>/dev/null || true
     sleep 3
     [ -f "$DB.presoak" ] || { echo "no $DB.presoak to restore" >&2; exit 1; }
 

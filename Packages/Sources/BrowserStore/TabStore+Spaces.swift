@@ -33,10 +33,35 @@ extension TabStore {
         visibleTabs.filter { $0.placement.isPinned && $0.folderID == nil }
     }
 
-    /// The loose ephemeral tabs the sweep may eventually close — not pinned and
-    /// not in a folder.
+    /// The active Space's Arc-style *Pinned* tabs — the list section between the
+    /// favourites grid and the loose tabs (non-spec: user-requested). Foldered
+    /// tabs are shown under their folder instead, so they are excluded here.
+    public var bookmarkedTabs: [Tab] {
+        visibleTabs.filter { $0.placement.isBookmarked && $0.folderID == nil }
+    }
+
+    /// Whether the active Space's Pinned-tabs section is collapsed to just its
+    /// header (non-spec: user-requested) — so a long list of Pinned tabs does
+    /// not push the ephemeral tabs off-screen.
+    public var isPinnedSectionCollapsed: Bool {
+        guard let id = activeSpace?.id else { return false }
+        return collapsedPinnedSpaces.contains(id)
+    }
+
+    /// Expands or collapses the active Space's Pinned-tabs section.
+    public func togglePinnedSectionCollapsed() {
+        guard let id = activeSpace?.id else { return }
+        if collapsedPinnedSpaces.contains(id) {
+            collapsedPinnedSpaces.remove(id)
+        } else {
+            collapsedPinnedSpaces.insert(id)
+        }
+    }
+
+    /// The loose ephemeral tabs the sweep may eventually close — neither a
+    /// favourite nor a Pinned tab, and not in a folder.
     public var unpinnedTabs: [Tab] {
-        visibleTabs.filter { !$0.placement.isPinned && $0.folderID == nil }
+        visibleTabs.filter { $0.placement.isEphemeral && $0.folderID == nil }
     }
 
     public func selectSpace(_ spaceID: UUID) {

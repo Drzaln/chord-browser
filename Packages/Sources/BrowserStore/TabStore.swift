@@ -54,6 +54,14 @@ public final class TabStore {
     /// Whether the user is actively dragging to resize the sidebar.
     public var isSidebarResizing: Bool = false
 
+    /// The Spaces whose Pinned-tabs section is collapsed (non-spec:
+    /// user-requested). A window preference, persisted to `UserDefaults` as JSON
+    /// like the sidebar width — not schema-bound user data. See
+    /// `isPinnedSectionCollapsed` / `togglePinnedSectionCollapsed`.
+    public var collapsedPinnedSpaces: Set<UUID> = Preferences.loadCollapsedPinnedSpaces() {
+        didSet { Preferences.save(collapsedPinnedSpaces: collapsedPinnedSpaces) }
+    }
+
     /// The Space whose appearance is being edited, if any. Ephemeral UI state
     /// kept here — not in the sidebar — so its editor sheet is presented from
     /// `RootView` and survives the sidebar collapsing (and auto-hiding) beneath
@@ -357,6 +365,14 @@ public final class TabStore {
     public func closeTab(_ tabID: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
 
+        // Favourites and Pinned tabs are not removed by a close (Cmd+W) — Arc
+        // keeps them in the sidebar. Closing instead unloads the live view,
+        // leaving the entry in place; a Pinned tab also returns to its home URL.
+        guard tabs[index].placement.isEphemeral else {
+            unloadTab(at: index)
+            return
+        }
+
         // Remember it for Cmd+Shift+T before the panes are torn down, so the
         // reopened tab carries its URLs, title, favicon, and pinned placement.
         recentlyClosed.append(tabs[index])
@@ -387,6 +403,59 @@ public final class TabStore {
         scheduleSave()
     }
 
+    /// Closes a favourite or Pinned tab without removing it: the live view is
+    /// torn down and the sidebar entry stays.
+    ///
+    /// A favourite keeps its current page — its state is captured first, so
+    /// reopening restores where it was. A Pinned tab is reset to the URL it was
+    /// pinned at, so reopening it lands at its home rather than wherever it had
+    /// drifted. Either way the sidebar keeps its favicon rather than flashing to
+    /// a bare globe until the next load.
+    private func unloadTab(at index: Int) {
+        let tabID = tabs[index].id
+
+        // A Pinned tab is going home, so its state is discarded; a favourite
+        // stays put, so its state is captured before the view is evicted.
+        let isReturningHome = tabs[index].placement.isBookmarked
+        if !isReturningHome { captureInteractionState(forTab: tabID) }
+
+        for pane in tabs[index].panes {
+            engine.evict(paneID: pane.id)
+            runtimes[pane.id] = nil
+        }
+        forgetStateResolution(forPanes: tabs[index].panes.map(\.id))
+
+        if isReturningHome, let home = tabs[index].placement.homeURL {
+            // A fresh single pane at the home URL — a new pane id orphans the
+            // stale interaction blob, which the next save prunes (6.5). The
+            // favicon is carried over so the tab keeps its icon in the sidebar,
+            // but only when it still matches the home origin: a favicon is
+            // per-origin, and a tab that drifted cross-site would keep the wrong
+            // one. The title comes along only when nothing drifted.
+            let previous = tabs[index].focusedPane
+            let sameOrigin = previous.url.host() == home.host()
+            let pane = Pane(
+                url: home,
+                title: home == previous.url ? previous.title : "",
+                faviconData: sameOrigin ? previous.faviconData : nil
+            )
+            tabs[index].panes = [pane]
+            tabs[index].focusedPaneID = pane.id
+            stateResolution[pane.id] = .resolved
+        }
+
+        // Move the selection off the unloaded tab, but leave it in the sidebar.
+        if selectedTabID == tabID {
+            if let next = visibleTabs.first(where: { $0.id != tabID }) {
+                select(next.id)
+            } else {
+                selectedTabID = nil
+                newTab()
+            }
+        }
+        scheduleSave()
+    }
+
     /// Pinning exempts a tab from the ephemeral sweep (4.3). Order is
     /// recomputed within the destination section so the two lists stay dense.
     public func setPinned(_ pinned: Bool, tabID: UUID) {
@@ -401,12 +470,74 @@ public final class TabStore {
             .max()
             .map { $0 + 1 } ?? 0
 
-        tabs[index].placement = pinned ? .pinned(order: order) : .ephemeral(order: order)
+        // Pinning captures the tab's current URL as its home — the URL
+        // double-clicking the favourite returns it to. An existing home (from a
+        // previous pin) is kept when re-pinning.
+        let home = tabs[index].placement.homeURL ?? tabs[index].focusedPane.url
+        tabs[index].placement = pinned
+            ? .pinned(order: order, homeURL: home)
+            : .ephemeral(order: order)
         scheduleSave()
     }
 
     public func pin(_ tabID: UUID) { setPinned(true, tabID: tabID) }
     public func unpin(_ tabID: UUID) { setPinned(false, tabID: tabID) }
+
+    /// Turns a tab into an Arc-style *Pinned* tab, or back into a loose one
+    /// (non-spec: user-requested). Pinning captures the tab's current focused
+    /// URL as its home — the URL clicking the row returns it to. Like the
+    /// favourites, Pinned tabs are exempt from the ephemeral sweep. Order is
+    /// recomputed within the destination section so both lists stay dense.
+    public func setBookmarked(_ bookmarked: Bool, tabID: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }),
+              tabs[index].placement.isBookmarked != bookmarked
+        else { return }
+
+        let spaceID = tabs[index].spaceID
+        let matches: (Tab) -> Bool = bookmarked
+            ? { $0.placement.isBookmarked }
+            : { $0.placement.isEphemeral }
+        let order = tabs
+            .filter { $0.spaceID == spaceID && matches($0) }
+            .map(\.placement.order)
+            .max()
+            .map { $0 + 1 } ?? 0
+
+        tabs[index].placement = bookmarked
+            ? .bookmarked(order: order, homeURL: tabs[index].focusedPane.url)
+            : .ephemeral(order: order)
+        scheduleSave()
+    }
+
+    /// Replaces a favourite or Pinned tab's home with its current URL, so the
+    /// page it is on now becomes the one it returns to (non-spec: user-requested).
+    /// No-op for a loose tab, or when the home already matches.
+    public func updatePinnedHome(_ tabID: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        let current = tabs[index].focusedPane.url
+
+        switch tabs[index].placement {
+        case .pinned(let order, let home) where home != current:
+            tabs[index].placement = .pinned(order: order, homeURL: current)
+        case .bookmarked(let order, let home) where home != current:
+            tabs[index].placement = .bookmarked(order: order, homeURL: current)
+        default:
+            return
+        }
+        scheduleSave()
+    }
+
+    /// Navigates a favourite or Pinned tab back to the URL it was pinned at
+    /// (4.1). No-op for a loose tab, a favourite with no recorded home, or a tab
+    /// already sitting on its home URL.
+    public func returnToPinnedHome(_ tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }),
+              let home = tab.placement.homeURL,
+              tab.focusedPane.url != home
+        else { return }
+        select(tabID)
+        navigate(to: home)
+    }
 
     public func select(_ tabID: UUID) {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }

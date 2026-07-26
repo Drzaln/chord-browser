@@ -30,6 +30,11 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   two Spaces. Gradient theming per Space, `Cmd+1…9` to switch.
 - **Command bar** — `Cmd+T` panel with fuzzy ranking over tabs and history.
 - **Ephemeral tabs** — auto-sweep timer with archive.
+- **Favourites & Pinned tabs** — three tab tiers: a Favourites icon grid, a
+  collapsible Pinned-tabs list (both sweep-exempt and homed at the URL they were
+  pinned at — double-click/click to return, "Set Current Page as Pinned URL" to
+  re-home), and ephemeral tabs. Closing a favourite or Pinned tab unloads it but
+  keeps the sidebar entry and its favicon.
 - **Session restore** — `interactionState` persistence; a force-quit relaunch
   restores everything, including scroll and form state.
 - **Downloads** — `WKDownload` handling with progress UI.
