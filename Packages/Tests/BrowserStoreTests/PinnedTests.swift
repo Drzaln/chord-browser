@@ -167,15 +167,69 @@ struct PinnedTests {
         let second = try! #require(store.spaces.first { $0.id != first.id })
         store.selectSpace(first.id)
 
-        #expect(!store.isPinnedSectionCollapsed)
-        store.togglePinnedSectionCollapsed()
-        #expect(store.isPinnedSectionCollapsed)
+        // In-memory, not `UserDefaults`: this state persists on write, and a
+        // test has no business editing the real profile's sidebar.
+        let window = WindowState(defaults: InMemoryPreferenceStore())
+
+        #expect(!window.isPinnedSectionCollapsed(inSpace: store.activeSpace?.id))
+        window.togglePinnedSectionCollapsed(inSpace: store.activeSpace?.id)
+        #expect(window.isPinnedSectionCollapsed(inSpace: store.activeSpace?.id))
 
         store.selectSpace(second.id)
-        #expect(!store.isPinnedSectionCollapsed, "collapse is scoped to the Space it was set in")
+        #expect(
+            !window.isPinnedSectionCollapsed(inSpace: store.activeSpace?.id),
+            "collapse is scoped to the Space it was set in"
+        )
 
         store.selectSpace(first.id)
-        #expect(store.isPinnedSectionCollapsed, "the first Space stays collapsed")
+        #expect(
+            window.isPinnedSectionCollapsed(inSpace: store.activeSpace?.id),
+            "the first Space stays collapsed"
+        )
+    }
+
+    /// Two windows in the *same* Space disagree about the Pinned section —
+    /// verified against Arc, where sidebar state is per-window.
+    @Test("The Pinned collapse is per-window, not shared")
+    func pinnedSectionCollapseIsPerWindow() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://pin.example").bookmarked(order: 0).build()
+        ])
+        let spaceID = try! #require(store.activeSpace).id
+
+        // A store each: what is under test is that the *in-memory* state does
+        // not bleed between windows, and sharing one would let A's write load
+        // into B and hide exactly that.
+        let windowA = WindowState(defaults: InMemoryPreferenceStore())
+        let windowB = WindowState(defaults: InMemoryPreferenceStore())
+
+        windowA.togglePinnedSectionCollapsed(inSpace: spaceID)
+
+        #expect(windowA.isPinnedSectionCollapsed(inSpace: spaceID))
+        #expect(
+            !windowB.isPinnedSectionCollapsed(inSpace: spaceID),
+            "collapsing in one window must not collapse the other"
+        )
+    }
+
+    /// The sidebar is per-window too, and a new window seeds from the persisted
+    /// value rather than starting at the built-in default.
+    @Test("A new window inherits the last-used sidebar, then owns it")
+    func newWindowInheritsSidebarThenDiverges() {
+        // One store, two windows — the real app's shape, where every window
+        // persists to the same defaults.
+        let defaults = InMemoryPreferenceStore()
+
+        let windowA = WindowState(defaults: defaults)
+        windowA.sidebarWidth = 320
+        windowA.isSidebarCollapsed = true
+
+        let windowB = WindowState(defaults: defaults)
+        #expect(windowB.sidebarWidth == 320, "a new window opens like the last one")
+        #expect(windowB.isSidebarCollapsed)
+
+        windowB.sidebarWidth = 200
+        #expect(windowA.sidebarWidth == 320, "resizing one window must not resize the other")
     }
 
     @Test("Closing a favourite keeps it, and keeps its favicon")

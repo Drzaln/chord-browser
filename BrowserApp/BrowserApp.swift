@@ -7,13 +7,22 @@ import os
 struct BrowserApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    /// One per window. Still a single `Window`, so there is exactly one — but it
+    /// is owned by the scene rather than by the store, which is what lets a
+    /// second window have its own.
+    @State private var windowState = WindowState()
+
     var body: some Scene {
         // `Window`, not `WindowGroup`: this is a single-window browser (1), and
         // a group spawns a *second* window when a URL is handed to the app —
         // whose RootView then runs `store.restore()` again on the same store.
         Window("Chord", id: "main") {
-            AppRootView(launch: appDelegate.launch, commandBar: appDelegate.commandBar)
-                .onAppear { appDelegate.attachOcclusionObserver() }
+            AppRootView(
+                launch: appDelegate.launch,
+                windowState: windowState,
+                commandBar: appDelegate.commandBar
+            )
+            .onAppear { appDelegate.attachOcclusionObserver() }
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
@@ -42,6 +51,7 @@ enum Launch {
 
 struct AppRootView: View {
     let launch: Launch
+    let windowState: WindowState
     let commandBar: CommandBarController?
 
     var body: some View {
@@ -49,6 +59,7 @@ struct AppRootView: View {
         case .ready(let environment):
             RootView(
                 store: environment.store,
+                windowState: windowState,
                 downloads: environment.downloads,
                 extensionHost: environment.extensionHost,
                 extensions: environment.extensions,
@@ -90,6 +101,11 @@ struct LaunchFailureView: View {
 
 struct BrowserCommands: Commands {
     let launch: Launch
+    /// The focused window's state. `Commands` is built once for the app, so the
+    /// items that act on a window must ask which one is focused rather than
+    /// assume — see `FocusedWindowState`. Nil only if no browser window is
+    /// focused, in which case those items are correctly disabled.
+    @FocusedValue(\.windowState) private var windowState: WindowState?
     /// Lives in the UI package, so it is owned by the delegate rather than by
     /// `AppEnvironment` — Store must not depend on UI.
     let commandBar: CommandBarController?
@@ -99,8 +115,9 @@ struct BrowserCommands: Commands {
         // (clear browsing data + extensions) rather than a separate window, so
         // it lives inside the single browser window like the other sheets.
         CommandGroup(replacing: .appSettings) {
-            Button("Settings…") { launch.store?.isSettingsPresented = true }
+            Button("Settings…") { windowState?.isSettingsPresented = true }
                 .keyboardShortcut(",", modifiers: .command)
+                .disabled(windowState == nil)
         }
         CommandGroup(replacing: .newItem) {
             // Cmd+T opens the command bar, not a blank tab (4.4). A new tab is
@@ -204,17 +221,18 @@ struct BrowserCommands: Commands {
         CommandGroup(after: .toolbar) {
             // Cmd+S. Arc's binding, and nothing here saves a document.
             Button("Toggle Sidebar") {
-                guard let store = launch.store else { return }
-                store.isSidebarCollapsed.toggle()
+                windowState?.isSidebarCollapsed.toggle()
             }
             .keyboardShortcut("s", modifiers: .command)
+            .disabled(windowState == nil)
         }
 
         // Cmd+Y — the platform's "Show All History" (Safari/Chrome both use it),
         // so it needs no learning. Opens the History window.
         CommandMenu("History") {
-            Button("Show History") { launch.store?.isHistoryPresented = true }
+            Button("Show History") { windowState?.isHistoryPresented = true }
                 .keyboardShortcut("y", modifiers: .command)
+                .disabled(windowState == nil)
         }
 
         CommandMenu("Spaces") {

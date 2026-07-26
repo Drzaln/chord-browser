@@ -8,6 +8,8 @@ import SwiftUI
 /// sidebar collapsing beneath it, like Settings.
 public struct HistoryView: View {
     @Bindable var store: TabStore
+    /// The presenting window's state — this sheet's Done button closes it.
+    @Bindable var windowState: WindowState
 
     @State private var entries: [HistoryEntry] = []
     @State private var query = ""
@@ -15,8 +17,9 @@ public struct HistoryView: View {
     @State private var isLoading = true
     @State private var confirmingClearAll = false
 
-    public init(store: TabStore) {
+    public init(store: TabStore, windowState: WindowState) {
         self.store = store
+        self.windowState = windowState
     }
 
     /// Entries matching the search box, over both title and URL.
@@ -77,7 +80,7 @@ public struct HistoryView: View {
             Button("Delete", role: .destructive) { deleteSelected() }
                 .disabled(selection.isEmpty)
 
-            Button("Done") { store.isHistoryPresented = false }
+            Button("Done") { windowState.isHistoryPresented = false }
                 .keyboardShortcut(.defaultAction)
         }
         .padding(.horizontal, 20)
@@ -164,7 +167,7 @@ public struct HistoryView: View {
 
     private func open(_ entry: HistoryEntry) {
         store.openHistoryEntry(entry.url)
-        store.isHistoryPresented = false
+        windowState.isHistoryPresented = false
     }
 
     private func deleteSelected() {

@@ -4,6 +4,9 @@ import SwiftUI
 
 public struct RootView: View {
     @Bindable private var store: TabStore
+    /// This window's own view state — sidebar, sheets. Shared `TabStore`, one
+    /// of these per window.
+    @Bindable private var windowState: WindowState
     @Bindable private var downloads: DownloadsStore
     /// The extension host, present only when the extensions flag is on (M7,
     /// 7.5b). Threaded to the sidebar header for the toolbar-action buttons.
@@ -37,12 +40,14 @@ public struct RootView: View {
 
     public init(
         store: TabStore,
+        windowState: WindowState,
         downloads: DownloadsStore,
         extensionHost: (any ExtensionHost)? = nil,
         extensions: ExtensionsService? = nil,
         openCommandBar: @escaping (CommandBarMode, String?) -> Void = { _, _ in }
     ) {
         self.store = store
+        self.windowState = windowState
         self.downloads = downloads
         self.extensionHost = extensionHost
         self.extensions = extensions
@@ -53,7 +58,7 @@ public struct RootView: View {
     /// all. Collapsing hides it completely rather than leaving a rail, which is
     /// what Arc does and what makes the reveal worth having.
     private var isHidden: Bool {
-        store.isSidebarCollapsed && !isRevealed
+        windowState.isSidebarCollapsed && !isRevealed
     }
 
     /// Hide the traffic lights only while the sidebar is off screen *and* the
@@ -69,7 +74,7 @@ public struct RootView: View {
     /// explicit that revealing must not shift web content, and shifting it
     /// would relayout every web view for as long as the pointer sat there.
     private var laneWidth: CGFloat {
-        store.isSidebarCollapsed ? 0 : store.sidebarWidth
+        windowState.isSidebarCollapsed ? 0 : windowState.sidebarWidth
     }
 
     /// The x below which a swipe is over the sidebar and may switch Spaces (4.2).
@@ -79,7 +84,7 @@ public struct RootView: View {
     /// web view's back/forward gesture.
     private var sidebarEngageWidth: CGFloat {
         guard !isHidden else { return 0 }
-        return store.sidebarWidth + (store.isSidebarCollapsed ? Metrics.contentInset : 0)
+        return windowState.sidebarWidth + (windowState.isSidebarCollapsed ? Metrics.contentInset : 0)
     }
 
     public var body: some View {
@@ -102,8 +107,9 @@ public struct RootView: View {
             if !isHidden {
                 SidebarView(
                     store: store,
+                    windowState: windowState,
                     downloads: downloads,
-                    isFloating: store.isSidebarCollapsed,
+                    isFloating: windowState.isSidebarCollapsed,
                     openCommandBar: openCommandBar,
                     extensionHost: extensionHost
                 )
@@ -128,6 +134,9 @@ public struct RootView: View {
         // clearance for the traffic lights.
         .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 720, minHeight: 480)
+        // How the menu bar reaches *this* window's state — Cmd+S, Cmd+, and
+        // Cmd+Y act on whichever window is focused. See `FocusedWindowState`.
+        .focusedSceneValue(\.windowState, windowState)
         // The active Space's colour tints the window, which shows as the border
         // around the inset content card (and follows a swipe's blend). The card
         // itself is opaque, so the tint reads only in the inset — the coloured
@@ -160,76 +169,34 @@ public struct RootView: View {
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)
         ) { _ in isFullscreen = false }
-        .onChange(of: store.isSidebarCollapsed) { _, collapsed in
+        .onChange(of: windowState.isSidebarCollapsed) { _, collapsed in
             // Showing the sidebar by menu while the pointer sits at the edge
             // would otherwise leave the reveal flag set, and the sidebar would
             // hide itself the moment the pointer moved away.
             if !collapsed { cancelPendingHide(); isRevealed = false }
         }
-        .onChange(of: store.isSidebarResizing) { _, resizing in
+        .onChange(of: windowState.isSidebarResizing) { _, resizing in
             if !resizing && !isSidebarHovered {
                 scheduleHide()
             }
         }
-        .onChange(of: store.deletingSpaceID) { _, deletingID in
+        .onChange(of: windowState.deletingSpaceID) { _, deletingID in
             if deletingID == nil && !isSidebarHovered {
                 scheduleHide()
             }
         }
-        .onChange(of: store.editingSpaceID) { _, editingID in
+        .onChange(of: windowState.editingSpaceID) { _, editingID in
             if editingID == nil && !isSidebarHovered {
                 scheduleHide()
             }
         }
-        // Presented here rather than in the sidebar so it survives the sidebar
-        // collapsing (and auto-hiding) beneath it — the bug being fixed.
-        .sheet(item: Binding(
-            get: { store.spaces.first { $0.id == store.editingSpaceID } },
-            set: { if $0 == nil { store.editingSpaceID = nil } }
-        )) { space in
-            SpaceEditor(store: store, space: space)
-        }
-        // Extension permission prompts, one at a time (7.5c). A dismiss without
-        // a decision (Esc / swipe) is treated as a denial by the setter.
-        .sheet(item: Binding(
-            get: { store.pendingPermissionRequests.first },
-            set: { newValue in
-                if newValue == nil, let current = store.pendingPermissionRequests.first {
-                    store.resolvePermissionRequest(current.id, allow: false)
-                }
-            }
-        )) { request in
-            ExtensionPermissionSheet(request: request, store: store)
-        }
-        // Settings (clear browsing data + extensions). Presented here for the
-        // same reason as the other sheets: it must survive the sidebar
-        // collapsing beneath it.
-        .sheet(isPresented: $store.isSettingsPresented) {
-            SettingsView(store: store, extensions: extensions)
-        }
-        // History window, presented here for the same reason as Settings: it
-        // must survive the sidebar collapsing (and auto-hiding) beneath it.
-        .sheet(isPresented: $store.isHistoryPresented) {
-            HistoryView(store: store)
-        }
-        .confirmationDialog(
-            "Delete “\(store.spaces.first { $0.id == store.deletingSpaceID }?.name ?? "")”?",
-            isPresented: Binding(
-                get: { store.deletingSpaceID != nil },
-                set: { if !$0 { store.deletingSpaceID = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Delete Space and Its Data", role: .destructive) {
-                guard let spaceID = store.deletingSpaceID else { return }
-                store.deletingSpaceID = nil
-                Task { await store.deleteSpace(spaceID) }
-            }
-            Button("Cancel", role: .cancel) { store.deletingSpaceID = nil }
-        } message: {
-            // 3.3: reclaiming the data store is irreversible, so say so plainly.
-            Text("Its tabs, cookies, and cached data are removed permanently.")
-        }
+        // All of them presented here rather than in the sidebar so they survive
+        // the sidebar collapsing (and auto-hiding) beneath them. Factored into
+        // their own modifier because inlining them puts `body` past what the
+        // type-checker will solve in reasonable time.
+        .modifier(
+            RootSheets(store: store, windowState: windowState, extensions: extensions)
+        )
         .task { await store.restore() }
         .onAppear {
             let monitor = SpaceSwipeMonitor(store: store)
@@ -293,7 +260,7 @@ public struct RootView: View {
 
     private func reveal() {
         cancelPendingHide()
-        guard store.isSidebarCollapsed else { return }
+        guard windowState.isSidebarCollapsed else { return }
         isRevealed = true
     }
 
@@ -303,9 +270,9 @@ public struct RootView: View {
     private func scheduleHide() {
         cancelPendingHide()
         guard isRevealed else { return }
-        guard !store.isSidebarResizing else { return }
-        guard store.editingSpaceID == nil else { return }
-        guard store.deletingSpaceID == nil else { return }
+        guard !windowState.isSidebarResizing else { return }
+        guard windowState.editingSpaceID == nil else { return }
+        guard windowState.deletingSpaceID == nil else { return }
         collapseTask = Task { @MainActor in
             try? await Task.sleep(for: Motion.sidebarCollapseDelay)
             guard !Task.isCancelled else { return }

@@ -5,6 +5,8 @@ import SwiftUI
 /// The Space strip on the sidebar's bottom bar.
 struct SpaceSwitcher: View {
     @Bindable var store: TabStore
+    /// The Edit/Delete Space items drive this window's sheets.
+    @Bindable var windowState: WindowState
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -73,9 +75,9 @@ struct SpaceSwitcher: View {
         .accessibilityLabel(space.name)
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
         .contextMenu {
-            Button("Edit Space…") { store.editingSpaceID = space.id }
+            Button("Edit Space…") { windowState.editingSpaceID = space.id }
             Divider()
-            Button("Delete Space…", role: .destructive) { store.deletingSpaceID = space.id }
+            Button("Delete Space…", role: .destructive) { windowState.deletingSpaceID = space.id }
                 .disabled(store.spaces.count <= 1)
         }
     }

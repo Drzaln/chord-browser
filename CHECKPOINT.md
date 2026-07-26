@@ -1683,3 +1683,60 @@ Arc's three tab tiers, finally all present (§4.1a):
   `collapsedPinnedSpaces` (a `Set<UUID>` in `UserDefaults`, like the sidebar
   width) — not the schema. `addSpace` makes the new Space active, which the first
   collapse test got wrong; select the Space you mean before toggling.
+
+### `WindowState` — window state split out of `TabStore` (2026-07-27)
+
+Step 1 of making a second browser window possible. **No behaviour change**: still
+one `Window`, still one of everything. What moved is *ownership*.
+
+- **The dividing line is ownership, not layer.** `TabStore` owns the world —
+  tabs, Spaces, folders, persistence, the sweep — and every window shows the same
+  one. `WindowState` owns how a window is *looking* at it: sidebar collapse and
+  width, `collapsedPinnedSpaces`, and the four sheet flags (`editingSpaceID`,
+  `deletingSpaceID`, `isSettingsPresented`, `isHistoryPresented`).
+- **Checked against Arc first, rather than guessed.** Two Arc windows share one
+  Space *list* (a Space made in one appears in the other) but each has its own
+  active Space, its own sidebar, and Cmd+1…9 switches only the focused window.
+  So the Space collection is session-level and selection is window-level. That
+  is why `WindowState` is thin and `TabStore` keeps the repository wiring.
+- **Selection did NOT move**, deliberately. `selectedTabID` / `activeSpaceID` are
+  maintained as invariants by the store's own mutations (`closeTab`, the sweep,
+  `closePane`, `moveTab`), and moving them needs a reconciliation rule for what
+  window B does when window A closes the tab B was showing. Separate change.
+- **`isPinnedSectionCollapsed` took a parameter** — `(inSpace:)` — because the
+  active Space still lives on the store. It loses the parameter again when
+  selection moves.
+- **Menu commands now use `@FocusedValue`, not `NSApp.mainWindow`.** Settings,
+  Toggle Sidebar, and Show History used to ask AppKit which window was "main",
+  which is a guess that is only right while there is one. `FocusedWindowState`
+  carries the focused window's state to `Commands`, which is built once for the
+  whole app and so cannot capture a particular window. Not a §3.6 violation — no
+  *service* travels through the environment, only scene-scoped view state.
+- **The `UserDefaults` keys are unchanged** (`sidebar.collapsed`, `sidebar.width`,
+  `prefs.collapsedPinnedSpaces`), so an existing profile does not reset. The two
+  sidebar keys moved into `Preferences` but kept their unprefixed names.
+- **A new window seeds from the persisted values, then owns its copy.** Windows
+  have no durable identity to key on until layout persistence exists (that would
+  be v9), and inheriting is what Arc appears to do.
+- **`RootView.body` had to be split.** Adding one modifier tipped it past what
+  the type-checker would solve in reasonable time — the error points at whatever
+  line it gave up on (`swipeMonitor = nil`), not at the cause. The five sheets
+  moved to a `RootSheets` ViewModifier. Worth knowing that body was already at
+  the limit before this change.
+- **Verification.** 373 tests pass (371 + 2 new: collapse is per-window, and a
+  new window inherits the sidebar then diverges). `prepush.sh` green. Then
+  against the real app, because none of the above proves the `@FocusedValue`
+  wiring: Cmd+S, Cmd+Y, Cmd+, all fire, History's Done dismisses, and
+  `sidebar.collapsed` wrote through to the container plist. Note AppleScript
+  reports `enabled` as false for a menu item until its menu has been opened
+  once — query it after clicking the menu, or you will chase a phantom.
+- **Tests do not touch `UserDefaults` at all**, via a two-method
+  `PreferenceStore` protocol (`UserDefaults` conforms as-is) and an
+  `InMemoryPreferenceStore`. The first attempt — `UserDefaults(suiteName:)` per
+  test — is a trap worth recording: registering a suite creates a *persistent*
+  domain, and `cfprefsd` recreates the plist at process exit no matter how
+  carefully you call `removePersistentDomain` and `synchronize` first. It left
+  three `chord.tests.*` files in `~/Library/Preferences` per run. Only not
+  registering a domain in the first place actually works.
+- The old `PinnedTests` collapse test was writing to the **real** `UserDefaults`,
+  which is how the leak was noticed at all.

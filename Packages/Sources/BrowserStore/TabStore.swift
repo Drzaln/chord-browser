@@ -31,57 +31,8 @@ public final class TabStore {
     /// and never persisted — it is a gesture, not user data. See `TabStore+SpaceSwipe`.
     public internal(set) var spaceSwipeProgress: Double = 0
 
-    /// Whether the sidebar is collapsed to icons (4.1).
-    ///
-    /// In the store rather than in a view because the menu command drives it
-    /// too, and a `@State` in `RootView` is not reachable from `Commands`.
-    /// Persisted to `UserDefaults`, not to SQLite: it is a window preference,
-    /// not user data, and it has no place in a schema that carries migrations.
-    public var isSidebarCollapsed: Bool = UserDefaults.standard.bool(forKey: "sidebar.collapsed") {
-        didSet { UserDefaults.standard.set(isSidebarCollapsed, forKey: "sidebar.collapsed") }
-    }
-
-    /// The user-configured width of the sidebar, persisted in UserDefaults.
-    public var sidebarWidth: CGFloat = {
-        let saved = UserDefaults.standard.double(forKey: "sidebar.width")
-        return saved > 0 ? CGFloat(saved) : 240
-    }() {
-        didSet {
-            UserDefaults.standard.set(Double(sidebarWidth), forKey: "sidebar.width")
-        }
-    }
-
-    /// Whether the user is actively dragging to resize the sidebar.
-    public var isSidebarResizing: Bool = false
-
-    /// The Spaces whose Pinned-tabs section is collapsed (non-spec:
-    /// user-requested). A window preference, persisted to `UserDefaults` as JSON
-    /// like the sidebar width — not schema-bound user data. See
-    /// `isPinnedSectionCollapsed` / `togglePinnedSectionCollapsed`.
-    public var collapsedPinnedSpaces: Set<UUID> = Preferences.loadCollapsedPinnedSpaces() {
-        didSet { Preferences.save(collapsedPinnedSpaces: collapsedPinnedSpaces) }
-    }
-
-    /// The Space whose appearance is being edited, if any. Ephemeral UI state
-    /// kept here — not in the sidebar — so its editor sheet is presented from
-    /// `RootView` and survives the sidebar collapsing (and auto-hiding) beneath
-    /// it. Not persisted.
-    public var editingSpaceID: UUID?
-
-    /// The Space being deleted, if any. Ephemeral UI state kept here so its
-    /// confirmation dialog is presented from RootView and survives the sidebar
-    /// collapsing (and auto-hiding) beneath it. Not persisted.
-    public var deletingSpaceID: UUID?
-
-    /// Whether the settings sheet is showing. Ephemeral UI state kept here so
-    /// the sheet is presented from `RootView` and survives the sidebar
-    /// collapsing beneath it. Not persisted. See `TabStore+Settings`.
-    public var isSettingsPresented = false
-
-    /// Whether the History window is showing. Ephemeral UI state kept here so the
-    /// sheet is presented from `RootView` and survives the sidebar collapsing
-    /// beneath it. Not persisted. See `TabStore+History`.
-    public var isHistoryPresented = false
+    // Sidebar collapse/width, the collapsed-Pinned set, and the sheet flags used
+    // to live here. They are per-*window*, not per-app — see `WindowState`.
 
     /// The search engine free-text queries go to (non-spec: user-requested).
     /// Persisted to `UserDefaults` as JSON, like the other window preferences —

@@ -1,0 +1,106 @@
+import BrowserCore
+import Foundation
+import Observation
+
+/// The state that belongs to *one browser window*, split out of `TabStore` so a
+/// second window can hold its own.
+///
+/// The dividing line is ownership, not layer: `TabStore` owns the world — tabs,
+/// Spaces, folders, persistence, the sweep — and every window shows the same
+/// one. This owns how a particular window is *looking* at that world: which
+/// sections are collapsed, how wide its sidebar is, which sheet it is showing.
+/// Verified against Arc, which is the model being replicated (§1): sidebar
+/// collapse and width are per-window there, while the Space list is shared.
+///
+/// Selection (`selectedTabID`, `activeSpaceID`) belongs here too — Arc lets two
+/// windows sit in different Spaces — but it is still on `TabStore`, because the
+/// store's own mutations maintain it as an invariant (close, sweep, split) and
+/// moving it needs a reconciliation rule for what window B does when window A
+/// closes the tab it was showing. Deliberately a separate change.
+///
+/// Not `Codable` and not schema-bound: these are window preferences, not user
+/// data, so they live in `UserDefaults` and have no place in a migration (§7.2).
+@MainActor
+@Observable
+public final class WindowState {
+
+    /// Backing store for the persisted preferences. Injected so tests get an
+    /// in-memory store instead of the user's real defaults.
+    @ObservationIgnored private let defaults: any PreferenceStore
+
+    /// Whether the sidebar is collapsed to icons (4.1).
+    ///
+    /// Not in a `@State` because the menu command drives it too, and a view's
+    /// `@State` is not reachable from `Commands` — the window reaches it through
+    /// `@FocusedValue` instead.
+    public var isSidebarCollapsed: Bool {
+        didSet { Preferences.save(isSidebarCollapsed: isSidebarCollapsed, to: defaults) }
+    }
+
+    /// The user-configured width of the sidebar.
+    public var sidebarWidth: CGFloat {
+        didSet { Preferences.save(sidebarWidth: sidebarWidth, to: defaults) }
+    }
+
+    /// Whether the user is actively dragging to resize the sidebar. Volatile —
+    /// it is a gesture, not a preference.
+    public var isSidebarResizing: Bool = false
+
+    /// The Spaces whose Pinned-tabs section is collapsed in *this* window
+    /// (non-spec: user-requested). Per-Space and now per-window, so two windows
+    /// in the same Space can disagree.
+    public var collapsedPinnedSpaces: Set<UUID> {
+        didSet { Preferences.save(collapsedPinnedSpaces: collapsedPinnedSpaces, to: defaults) }
+    }
+
+    /// The Space whose appearance is being edited, if any. Ephemeral UI state
+    /// kept here — not in the sidebar — so its editor sheet is presented from
+    /// `RootView` and survives the sidebar collapsing (and auto-hiding) beneath
+    /// it. Not persisted.
+    public var editingSpaceID: UUID?
+
+    /// The Space being deleted, if any. Kept here for the same reason as
+    /// `editingSpaceID`. Not persisted.
+    public var deletingSpaceID: UUID?
+
+    /// Whether the settings sheet is showing. Kept here for the same reason.
+    public var isSettingsPresented = false
+
+    /// Whether the History window is showing. Kept here for the same reason.
+    public var isHistoryPresented = false
+
+    /// A new window opens looking like the last one you configured: the
+    /// persisted values are app-wide defaults that each window seeds from and
+    /// then owns. Windows have no durable identity to key on until layout
+    /// persistence exists, and inheriting is what Arc appears to do.
+    public init(defaults: any PreferenceStore = UserDefaults.standard) {
+        self.defaults = defaults
+        self.isSidebarCollapsed = Preferences.loadSidebarCollapsed(defaults)
+        self.sidebarWidth = Preferences.loadSidebarWidth(defaults)
+        self.collapsedPinnedSpaces = Preferences.loadCollapsedPinnedSpaces(defaults)
+    }
+
+    // MARK: - Pinned section
+
+    /// Whether the given Space's Pinned-tabs section is collapsed in this window
+    /// (non-spec: user-requested) — so a long list of Pinned tabs does not push
+    /// the ephemeral tabs off-screen.
+    ///
+    /// Takes the Space rather than reading the active one because the active
+    /// Space still lives on `TabStore`; when selection moves here this loses the
+    /// parameter again.
+    public func isPinnedSectionCollapsed(inSpace spaceID: UUID?) -> Bool {
+        guard let spaceID else { return false }
+        return collapsedPinnedSpaces.contains(spaceID)
+    }
+
+    /// Expands or collapses the given Space's Pinned-tabs section in this window.
+    public func togglePinnedSectionCollapsed(inSpace spaceID: UUID?) {
+        guard let spaceID else { return }
+        if collapsedPinnedSpaces.contains(spaceID) {
+            collapsedPinnedSpaces.remove(spaceID)
+        } else {
+            collapsedPinnedSpaces.insert(spaceID)
+        }
+    }
+}

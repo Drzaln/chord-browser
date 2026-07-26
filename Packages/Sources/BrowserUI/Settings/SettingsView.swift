@@ -11,6 +11,8 @@ import UniformTypeIdentifiers
 /// the sidebar collapsing beneath it.
 public struct SettingsView: View {
     @Bindable var store: TabStore
+    /// The presenting window's state — this sheet's Done button closes it.
+    @Bindable var windowState: WindowState
     let extensions: ExtensionsService?
 
     private enum Section: String, CaseIterable, Identifiable {
@@ -21,8 +23,11 @@ public struct SettingsView: View {
     }
     @State private var section: Section = .general
 
-    public init(store: TabStore, extensions: ExtensionsService?) {
+    public init(
+        store: TabStore, windowState: WindowState, extensions: ExtensionsService?
+    ) {
         self.store = store
+        self.windowState = windowState
         self.extensions = extensions
     }
 
@@ -31,7 +36,7 @@ public struct SettingsView: View {
             HStack {
                 Text("Settings").font(.system(size: 15, weight: .semibold))
                 Spacer()
-                Button("Done") { store.isSettingsPresented = false }
+                Button("Done") { windowState.isSettingsPresented = false }
                     .keyboardShortcut(.defaultAction)
             }
             .padding(.horizontal, 20)

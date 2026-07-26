@@ -11,6 +11,8 @@ import SwiftUI
 /// state read as *over* the content rather than part of it.
 struct SidebarView: View {
     @Bindable var store: TabStore
+    /// This window's sidebar state — width, and which sections it has collapsed.
+    @Bindable var windowState: WindowState
     @Bindable var downloads: DownloadsStore
     /// Overhanging the page rather than sitting in its own lane.
     var isFloating: Bool = false
@@ -70,7 +72,7 @@ struct SidebarView: View {
             // Pinned tab be made.
             if !store.bookmarkedTabs.isEmpty {
                 pinnedSectionHeader
-                if !store.isPinnedSectionCollapsed {
+                if !windowState.isPinnedSectionCollapsed(inSpace: store.activeSpace?.id) {
                     PinnedList(store: store, tint: spaceTint)
                         .overlay { if isDragging { bookmarkDropOverlay } }
                 }
@@ -89,9 +91,9 @@ struct SidebarView: View {
             // is about which sections exist, and the bottom is where the
             // interaction model this is copying puts it.
             Divider().opacity(0.5)
-            SpaceSwitcher(store: store)
+            SpaceSwitcher(store: store, windowState: windowState)
         }
-        .frame(width: store.sidebarWidth)
+        .frame(width: windowState.sidebarWidth)
         .background {
             // The active Space's gradient, under a material overlay (4.1).
             // While a swipe is in flight it blends toward the neighbour's stops
@@ -138,17 +140,17 @@ struct SidebarView: View {
                     DragGesture(minimumDistance: 0, coordinateSpace: .global)
                         .onChanged { value in
                             if dragStartWidth == nil {
-                                dragStartWidth = store.sidebarWidth
-                                store.isSidebarResizing = true
+                                dragStartWidth = windowState.sidebarWidth
+                                windowState.isSidebarResizing = true
                             }
                             if let startWidth = dragStartWidth {
                                 let newWidth = startWidth + value.translation.width
-                                store.sidebarWidth = min(max(newWidth, 160), 400)
+                                windowState.sidebarWidth = min(max(newWidth, 160), 400)
                             }
                         }
                         .onEnded { _ in
                             dragStartWidth = nil
-                            store.isSidebarResizing = false
+                            windowState.isSidebarResizing = false
                         }
                 )
         }
@@ -241,7 +243,7 @@ struct SidebarView: View {
     /// toggles rather than renaming. During a drag it doubles as a drop target,
     /// so a tab can be pinned even while the list is collapsed.
     private var pinnedSectionHeader: some View {
-        let collapsed = store.isPinnedSectionCollapsed
+        let collapsed = windowState.isPinnedSectionCollapsed(inSpace: store.activeSpace?.id)
         return HStack(spacing: 6) {
             Image(systemName: collapsed ? "chevron.right" : "chevron.down")
                 .font(.system(size: 9, weight: .semibold))
@@ -262,7 +264,9 @@ struct SidebarView: View {
         .padding(.horizontal, 8)
         .frame(height: Metrics.sidebarRowHeight)
         .contentShape(Rectangle())
-        .onTapGesture { store.togglePinnedSectionCollapsed() }
+        .onTapGesture {
+            windowState.togglePinnedSectionCollapsed(inSpace: store.activeSpace?.id)
+        }
         .overlay { if isDragging { bookmarkDropOverlay } }
         .padding(.horizontal, 8)
         .accessibilityLabel("Pinned tabs, \(store.bookmarkedTabs.count)")
@@ -334,7 +338,7 @@ struct SidebarView: View {
 
     private var collapseButton: some View {
         Button {
-            store.isSidebarCollapsed.toggle()
+            windowState.isSidebarCollapsed.toggle()
         } label: {
             Image(systemName: "sidebar.leading")
                 .font(.system(size: 12, weight: .medium))

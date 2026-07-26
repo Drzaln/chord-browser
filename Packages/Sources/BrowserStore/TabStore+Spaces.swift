@@ -40,23 +40,8 @@ extension TabStore {
         visibleTabs.filter { $0.placement.isBookmarked && $0.folderID == nil }
     }
 
-    /// Whether the active Space's Pinned-tabs section is collapsed to just its
-    /// header (non-spec: user-requested) — so a long list of Pinned tabs does
-    /// not push the ephemeral tabs off-screen.
-    public var isPinnedSectionCollapsed: Bool {
-        guard let id = activeSpace?.id else { return false }
-        return collapsedPinnedSpaces.contains(id)
-    }
-
-    /// Expands or collapses the active Space's Pinned-tabs section.
-    public func togglePinnedSectionCollapsed() {
-        guard let id = activeSpace?.id else { return }
-        if collapsedPinnedSpaces.contains(id) {
-            collapsedPinnedSpaces.remove(id)
-        } else {
-            collapsedPinnedSpaces.insert(id)
-        }
-    }
+    // The Pinned section's collapse state moved to `WindowState` — it is
+    // per-window, so two windows in one Space can disagree about it.
 
     /// The loose ephemeral tabs the sweep may eventually close — neither a
     /// favourite nor a Pinned tab, and not in a folder.

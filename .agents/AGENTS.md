@@ -22,7 +22,8 @@ This is **Chord Browser**, a native macOS browser in Swift on `WKWebView`. It re
 4. **Restore is lazy.** N saved tabs create 0 web views at launch.
 5. **A web view belongs to the Space it was created in** — resolve Space from the _tab_, never the selection.
 6. **Per-view `WKUserContentController`.** `WKWebViewConfiguration.copy()` shares it — duplicate script-handler names crash.
-7. **Keyboard shortcuts live in `BrowserCommands` only** — view-level `.keyboardShortcut` silently beats menu items.
+7. **Keyboard shortcuts live in `BrowserCommands` only** — view-level `.keyboardShortcut` silently beats menu items. A command that acts on a *window* reads `@FocusedValue(\.windowState)`, never `NSApp.mainWindow`.
+7b. **Window state goes in `WindowState`, world state in `TabStore`.** Sidebar, sheet flags, and per-window collapse are per-window; tabs, Spaces, folders, and persistence are shared by every window. Selection is still on the store — see CHECKPOINT.
 8. **Never persist `Codable` app models.** Row types + mappers only.
 9. **Decoding is defensive.** A corrupt row costs one tab, never a launch.
 10. **Migrations are forward-only, named, never edited once shipped.**
