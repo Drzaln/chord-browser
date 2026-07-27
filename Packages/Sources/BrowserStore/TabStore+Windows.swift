@@ -19,6 +19,16 @@ struct WeakWindow {
 @MainActor
 extension TabStore {
 
+    /// The window showing this tab, if any, ignoring `excluding`.
+    ///
+    /// The load-bearing question for multi-window: a `WKWebView` is an `NSView`
+    /// and an `NSView` has exactly one superview, so a tab can be on screen in
+    /// **at most one window**. Two windows selecting it does not show it twice —
+    /// it shows in whichever rendered last and leaves the other blank.
+    func windowShowing(_ tabID: UUID, excluding: WindowState? = nil) -> WindowState? {
+        windows.first { $0 !== excluding && $0.selectedTabID == tabID }
+    }
+
     /// Whether any window is showing this tab.
     ///
     /// The sweep's idea of "in use": a tab open in a second window is on screen
@@ -63,16 +73,18 @@ extension TabStore {
         }
     }
 
-    private func reconcile(_ window: WindowState) {
+    func reconcile(_ window: WindowState) {
         // A window whose Space was deleted follows the same rule as an orphaned
-        // tab: re-home rather than blank out.
-        if let spaceID = window.activeSpaceID,
-           !spaces.contains(where: { $0.id == spaceID }) {
+        // tab: re-home rather than blank out. A window that never had one — a
+        // scene macOS restored before `restore()` had loaded any Spaces — is the
+        // same case, and used to be missed because `nil` is not "invalid".
+        let known = window.activeSpaceID.map { id in spaces.contains { $0.id == id } } ?? false
+        if !known {
             window.activeSpaceID = spaces.first?.id
             window.selectedTabID = nil
         }
 
-        guard let spaceID = window.activeSpaceID ?? spaces.first?.id else {
+        guard let spaceID = window.activeSpaceID else {
             window.selectedTabID = nil
             return
         }
@@ -81,14 +93,26 @@ extension TabStore {
             .filter { $0.spaceID == spaceID }
             .sorted { $0.placement.order < $1.placement.order }
 
-        // Still showing something real: leave it alone. This is the common case
-        // — most mutations touch a tab no other window is looking at.
-        if let selected = window.selectedTabID, visible.contains(where: { $0.id == selected }) {
+        // Still showing something real, and no one else is showing it: leave it
+        // alone. The common case — most mutations touch a tab nothing else is
+        // looking at.
+        if let selected = window.selectedTabID,
+           visible.contains(where: { $0.id == selected }),
+           windowShowing(selected, excluding: window) == nil {
             return
         }
 
-        // Its tab went away. Nothing better to go on than the most recently used
-        // of what is left, which is also what `restore()` picks.
-        window.selectedTabID = visible.max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
+        // Otherwise take the most recently used tab **no other window has**.
+        // Sharing one would leave one of the two windows blank.
+        let free = visible.filter { windowShowing($0.id, excluding: window) == nil }
+        if let pick = free.max(by: { $0.lastAccessedAt < $1.lastAccessedAt }) {
+            window.selectedTabID = pick.id
+            return
+        }
+
+        // Every tab in this Space is on screen elsewhere, so this window needs
+        // one of its own — which is what Cmd+N does anyway.
+        window.selectedTabID = nil
+        newTab(in: window)
     }
 }

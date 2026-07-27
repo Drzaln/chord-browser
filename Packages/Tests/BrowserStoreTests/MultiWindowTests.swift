@@ -380,4 +380,121 @@ struct MultiWindowTests {
         #expect(window.pendingTabMove == nil, "no Space change, so nothing to warn about")
         #expect(store.tabs.first { $0.id == target.id }?.panes.count == 2)
     }
+
+    // MARK: - One tab, one window (found by manual testing, 2026-07-27)
+
+    /// A `WKWebView` is an `NSView` and an `NSView` has one superview, so a tab
+    /// shown in two windows renders in whichever drew last and leaves the other
+    /// **blank**. Every path that assigns a selection has to respect that.
+    @Test("A new window never adopts a tab already on screen")
+    func newWindowTakesItsOwnTab() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://one.example").build()
+        ])
+        let windowA = store.claimWindow()
+        let shown = try! #require(windowA.selectedTabID)
+
+        let windowB = store.claimWindow()
+
+        #expect(windowB.selectedTabID != nil, "a new window must show something")
+        #expect(
+            windowB.selectedTabID != shown,
+            "adopting the tab window A is showing would blank one of them"
+        )
+    }
+
+    /// With only one tab in the Space there is nothing free to take, so the new
+    /// window gets a tab of its own — which is what Cmd+N does anyway.
+    @Test("A new window opens its own tab when every tab is taken")
+    func newWindowOpensATabWhenNoneAreFree() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://only.example").build()
+        ])
+        _ = store.claimWindow()
+        let before = store.tabs.count
+
+        let windowB = store.claimWindow()
+
+        #expect(store.tabs.count == before + 1)
+        #expect(windowB.selectedTabID != nil)
+    }
+
+    @Test("Selecting a tab another window shows moves it, and re-points that one")
+    func selectingATabHeldElsewhereHandsItOver() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://one.example").build(),
+            TabBuilder().url("https://two.example").build(),
+        ])
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+        let wanted = try! #require(windowA.selectedTabID)
+
+        store.select(wanted, in: windowB)
+
+        #expect(windowB.selectedTabID == wanted)
+        #expect(windowA.selectedTabID != wanted, "window A gave it up")
+        #expect(windowA.selectedTabID != nil, "and did not go blank")
+    }
+
+    /// No window may ever share a selection, whatever the sequence.
+    @Test("No two windows ever hold the same selection")
+    func selectionsAreNeverShared() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://a.example").build(),
+            TabBuilder().url("https://b.example").build(),
+            TabBuilder().url("https://c.example").build(),
+        ])
+        let windows = [store.claimWindow(), store.claimWindow(), store.claimWindow()]
+
+        for window in windows {
+            for tab in store.visibleTabs(in: window) {
+                store.select(tab.id, in: window)
+            }
+        }
+
+        let selections = windows.compactMap(\.selectedTabID)
+        #expect(selections.count == windows.count, "every window shows something")
+        #expect(Set(selections).count == selections.count, "and no two share a tab")
+    }
+
+    /// macOS restores a second scene at launch, which claims its state *before*
+    /// `restore()` has loaded any Spaces or tabs — so it starts nil/nil. Nothing
+    /// used to fix that afterwards, and the window stayed permanently empty.
+    @Test("A window claimed before restore is repaired by it")
+    func windowClaimedBeforeRestoreIsRepaired() async {
+        let store = TabStore(
+            engine: FakeWebEngine(),
+            repository: FakeTabRepository(stored: [
+                TabBuilder().url("https://restored.example").build()
+            ]),
+            clock: FixedClock()
+        )
+
+        // Both scenes appear before the async restore finishes.
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+        #expect(windowB.activeSpaceID == nil, "nothing to point at yet")
+
+        await store.restore()
+
+        #expect(windowB.activeSpaceID != nil, "restore has to re-point it")
+        #expect(windowB.selectedTabID != nil, "or the window renders empty forever")
+        #expect(windowA.selectedTabID != windowB.selectedTabID)
+    }
+
+    /// `reconcile` used to read through a `?? spaces.first` fallback without ever
+    /// writing it back, leaving the window with no Space of record.
+    @Test("Reconcile assigns a Space rather than falling back to one")
+    func reconcileAssignsTheSpace() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://a.example").build()
+        ])
+        let window = store.claimWindow()
+        window.activeSpaceID = nil
+
+        store.reconcile(window)
+
+        #expect(window.activeSpaceID != nil)
+        #expect(window.activeSpaceID == store.spaces.first?.id)
+    }
 }

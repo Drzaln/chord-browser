@@ -101,7 +101,7 @@ struct AppRootView: View {
                 }
             )
             #if DEBUG
-            .overlay(DebugOverlay(store: environment.store))
+            .overlay(DebugOverlay(store: environment.store, windowState: windowState))
             #endif
         } else {
             Color.clear

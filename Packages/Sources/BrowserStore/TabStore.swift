@@ -56,7 +56,10 @@ public final class TabStore {
         // is what every browser does with Cmd+N.
         window.activeSpaceID = primaryWindow.activeSpaceID ?? spaces.first?.id
         register(window)
-        reconcileWindows(excluding: primaryWindow)
+        // Its *own* selection, never one already on screen: `reconcile` picks a
+        // free tab, or opens a new one when every tab is taken. Adopting the
+        // primary's tab would leave one of the two windows blank.
+        reconcile(window)
         return window
     }
 
@@ -281,6 +284,12 @@ public final class TabStore {
                 resolveInteractionState(forTab: selected)
             }
         }
+
+        // Any window macOS restored alongside the primary claimed its state
+        // *before* this ran, so it holds a nil Space and a nil selection. Nothing
+        // else would ever fix that — the reconcile passes hang off mutations, and
+        // restoring is not one.
+        reconcileWindows(excluding: primaryWindow)
 
         startSweep()
 
@@ -564,6 +573,12 @@ public final class TabStore {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
         let outgoing = window.selectedTabID
 
+        // A tab is on screen in at most one window — one web view, one superview.
+        // Selecting one another window holds *moves* it here; that window is given
+        // a tab of its own below, once this one has actually taken it.
+        let donor = windowShowing(tabID, excluding: window)
+        donor?.selectedTabID = nil
+
         // Capture before the switch, while the outgoing tab's view is still
         // live. This is the "persist on deactivation" rule in 3.2 — the only
         // point at which a tab the user merely switched away from gets its
@@ -588,6 +603,10 @@ public final class TabStore {
         extensionHost?.extensionTabDidActivate(
             tabID, previous: previousInSameSpace, inSpace: tab.spaceID
         )
+
+        // After the handover, so `reconcile` sees the tab as taken and picks the
+        // donor a different one rather than immediately claiming it back.
+        if let donor { reconcile(donor) }
     }
 
     public func navigate(to url: URL, in window: WindowState) {

@@ -6,6 +6,9 @@ import SwiftUI
 /// the whole file compiles out of release.
 struct DebugOverlay: View {
     let store: TabStore
+    /// This window's state, so a multi-window session can be told apart on
+    /// screen: which window this is, what Space it is in, and what it selected.
+    let windowState: WindowState
 
     @State private var isVisible = false
     @State private var footprintMB: Double = 0
@@ -18,6 +21,11 @@ struct DebugOverlay: View {
 
             if isVisible {
                 VStack(alignment: .leading, spacing: 2) {
+                    row("window", windowIdentity)
+                    row("space", short(windowState.activeSpaceID))
+                    row("selected tab", short(windowState.selectedTabID))
+                    row("windows open", "\(store.windows.count)")
+                    row("also showing it", "\(othersShowingSelection)")
                     row("live web views", "\(liveViews)")
                     row("footprint", String(format: "%.0f MB", footprintMB))
                     row("main frame", String(format: "%.1f ms", frameMilliseconds))
@@ -36,6 +44,28 @@ struct DebugOverlay: View {
                 .keyboardShortcut("p", modifiers: [.command, .control])
                 .opacity(0)
         }
+    }
+
+    /// `primary` or `secondary#n`, plus the object's address, so two windows are
+    /// never confused for one.
+    private var windowIdentity: String {
+        let index = store.windows.firstIndex { $0 === windowState }
+        let role = windowState === store.primaryWindow ? "primary" : "secondary"
+        let address = String(UInt(bitPattern: ObjectIdentifier(windowState).hashValue) % 0xFFFF, radix: 16)
+        return "\(role)[\(index.map(String.init) ?? "?")] \(address)"
+    }
+
+    /// How many *other* windows have this window's selected tab on screen. Above
+    /// zero means two windows are competing for one web view, which AppKit
+    /// cannot satisfy — a view has one superview.
+    private var othersShowingSelection: Int {
+        guard let selected = windowState.selectedTabID else { return 0 }
+        return store.windows.filter { $0 !== windowState && $0.selectedTabID == selected }.count
+    }
+
+    private func short(_ id: UUID?) -> String {
+        guard let id else { return "nil" }
+        return String(id.uuidString.prefix(8))
     }
 
     private func row(_ label: String, _ value: String) -> some View {
