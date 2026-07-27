@@ -1906,3 +1906,64 @@ revisiting if the inconsistency grates.
 Nine new tests: same-Space reorder without prompt, cross-Space prompt-then-move,
 confirm, cancel, section preserved across the move, and the four split-drop
 cases. 390 total, `prepush.sh` green.
+
+### Blank-window bug, found by manual testing (2026-07-27)
+
+Driving the multi-window smoke checklist with `cliclick` turned up two of three
+windows rendering **blank** — empty content area, working sidebar, no crash and
+no log. `WindowState`'s own doc comment had it backwards: a `WKWebView` is an
+`NSView` with exactly **one** superview, so a tab selected in two windows shows
+in whichever drew last and leaves the other empty. A tab is on screen in at most
+one window; the model has to guarantee it.
+
+Three defects fed it, all in selection assignment, all fixed in
+`fix: one tab is shown in at most one window`:
+
+1. `restore()` never reconciled the other windows. macOS restores a second scene
+   at launch, which calls `claimWindow()` *before* the async restore has loaded
+   any Spaces — so it held nil/nil and nothing ever fixed it.
+2. `reconcile` read its Space through `?? spaces.first` without writing it back,
+   and `nil` slipped past the "is my Space valid" check — which is why the
+   restored window stayed unrepaired.
+3. Every selection-assigning path could pick a tab another window already had.
+   `claimWindow` adopted the primary's tab outright.
+
+Now: `claimWindow` reconciles rather than adopting, `reconcile` prefers a tab no
+other window holds and opens a fresh one when none is free, and `select` hands a
+contested tab over and re-points the window that lost it. Invariant:
+`windowShowing(_:excluding:)` is nil for every window's own selection.
+
+The DEBUG overlay (⌃⌘P) now shows, per window, its identity / Space / selection /
+**`also showing it`**. That last count made this diagnosable and must stay **0** —
+screenshots could not, because windows shuffle z-order between captures and a
+blank window is indistinguishable from an unloaded one.
+
+### Current state — where multi-window stands
+
+Milestones M1–M7 are done (see earlier entries). Multi-window is functional and
+manually verified through the checklist's §A–§D:
+
+- **Verified working:** ⌘N (keystroke included), second-window rendering,
+  per-window sidebar / Space / find independence, cross-window tab drag with the
+  cross-Space profile prompt (confirm + cancel), the split-drop variant of that
+  prompt, and ⌘Y routing to the focused window.
+- **Not yet re-run after the blank-window fix:** SMOKE §E (regressions) — Space
+  deletion re-homing a window, two Google accounts staying separate across two
+  windows, extensions under two windows — and the §D ⌘D / ⌘⇧D menu items. The
+  logic is unit-tested; what is unverified is the live app.
+
+**Known gaps and deferrals**, in rough priority:
+
+1. **Empty area below the tab list is not a drop target** — a drop there is
+   silently ignored, which reads as a broken drag. Most browsers accept a drop
+   anywhere in the list. Small papercut, worth closing.
+2. **Little Arc and app-opened URLs land in the primary window**, never the
+   focused one — the panel does not track a window. Commented at the call sites.
+3. **Dragging a tab onto a Space button does not prompt** on a cross-Space move,
+   unlike every other cross-Space drag. Inconsistent; deliberately left.
+4. **Window layout is not persisted** (which Space/tab each window had). macOS
+   restores the *scenes*, but each comes back reconciled to a default selection.
+   Real persistence would be a v9 migration.
+5. **`SMOKE.md` note corrected**: relaunch restores *two* windows via macOS scene
+   restoration, not one — Chord persists no layout of its own. Earlier entries
+   here that imply single-window-on-relaunch are stale.
