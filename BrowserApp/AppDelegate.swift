@@ -152,7 +152,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The Little Arc panel can be the only window there is (4.6), so the app
     /// must not quit when the main window closes while a panel is up.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        littleArc?.isVisible != true
+        // littleArc?.isVisible != true
+        return false
     }
 
     /// Defers termination until session state is on disk.
