@@ -84,10 +84,24 @@ final class LiveWebView {
     /// Explicit teardown. KVO observations and the delegate wiring are classic
     /// retain-cycle sources, so nothing here is left to deinit ordering.
     func tearDown() {
+        // 1. Force WebKit's media daemon to stop immediately
+        webView.evaluateJavaScript("""
+            document.querySelectorAll('video, audio').forEach(media => {
+                media.pause();
+                media.removeAttribute('src');
+                media.load(); // Forces the buffer to flush
+            });
+        """)
+        
+        // 2. Navigate away to destroy the active document context
+        webView.load(URLRequest(url: URL(string: "about:blank")!))
+        
+        // 3. Your existing retain-cycle cleanup
         observations.forEach { $0.invalidate() }
         observations.removeAll()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
+        
         // A script message handler retains its receiver until removed, which is
         // one of the two classic leak sources named in 6.7.
         webView.configuration.userContentController
@@ -96,6 +110,7 @@ final class LiveWebView {
             .removeScriptMessageHandler(forName: ContextLinkMonitor.messageName)
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: PeekLinkMonitor.messageName)
+            
         webView.stopLoading()
         container.removeContent()
     }
