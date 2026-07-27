@@ -677,16 +677,34 @@ Covers the three commits that split `WindowState` out of `TabStore`, turned
 Open a second window with **File ▸ New Window** before starting §B onward. Where a
 check says "window A" and "window B", A is the one that launched.
 
-### A. Unverified by automation — check these first
+### The bug this checklist found — one tab, one window
 
-The store logic is covered by tests; these three are the parts no test reaches.
+Keep this at the top: it is the failure mode multi-window invites, and it is
+silent.
 
-- [ ] **⌘N** opens a second window. (The menu item is verified working; the
-      *keystroke* is not — a synthetic AppleScript keypress did not fire it,
-      though ⌘S and ⌘Y do. If only the menu item works, that is a real bug.)
-- [ ] The second window **paints its content** — sidebar and page, not an empty
-      area. There is a one-frame `Color.clear` while `claimWindow()` resolves; a
-      permanently blank window means it never resolved.
+A `WKWebView` is an `NSView`, and an `NSView` has exactly one superview. A tab
+selected in two windows renders in whichever drew last and leaves the other
+**blank** — no crash, no log, just an empty content area with a perfectly working
+sidebar. Three windows all landed on one tab and two of them were empty.
+
+The DEBUG overlay (**⌃⌘P**) exists to make this visible: per window it shows the
+window's identity, Space, selection, and **`also showing it`**. That last number
+must stay **0**; anything higher is that many windows fighting over one web view.
+
+Screenshots alone could not diagnose it — windows shuffle z-order between
+captures, and a blank window looks exactly like one whose page has not loaded.
+Turn the overlay on in every window before investigating anything here.
+
+### A. Driven end-to-end on 2026-07-27
+
+Exercised with `cliclick` against the real app. Still listed as checks because
+they are worth repeating after any change to how a selection is assigned.
+
+- [x] **⌘N** opens a second window. The keystroke *does* work — an earlier
+      AppleScript `keystroke` probe failed to fire it and I wrongly suspected the
+      binding. Distrust `osascript keystroke` for this; `cliclick` is reliable.
+- [x] The second window **paints its content**. This genuinely failed first time
+      — see above.
 - [ ] **⌘⇧N** opens a new blank tab in the focused window (it moved off ⌘N).
 
 ### B. Per-window independence
@@ -705,6 +723,10 @@ these at once. Report them as one finding, not ten.
       per-Space)
 
 ### C. Cross-window tab drag
+
+**Aim at an actual drop target.** The empty area *below* the tab list is not one
+— a drop there is silently ignored, which reads exactly like the drag being
+broken. Drop onto the favourites row, a tab row, or the list itself.
 
 - [ ] **Same Space**, A → B: the tab reorders and is selected in B, with **no
       dialog** (both windows show the same list)
@@ -737,9 +759,11 @@ These moved from `NSApp.mainWindow` (a guess) to `@FocusedValue`.
 ### E. Regressions — one window must behave exactly as before
 
 - [ ] Closing the second window leaves the first fully working
-- [ ] Quit and relaunch restores the session **in one window**. Window layout is
-      deliberately not persisted yet (it would be a v9 migration), so this is
-      correct rather than a bug
+- [ ] Quit and relaunch restores the session. **macOS restores the windows
+      itself** — relaunch with two open and you get two back, even though Chord
+      persists no layout of its own. (The note here used to say "expect one
+      window"; that was wrong. Chord stores nothing, AppKit scene restoration
+      does it.) What Chord does *not* restore is which Space or tab each had
 - [ ] Deleting a Space that B is sitting in **re-homes B** to a surviving Space
       instead of blanking it
 - [ ] Two windows in different Spaces, each signed into a different Google
