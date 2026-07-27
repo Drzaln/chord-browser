@@ -667,3 +667,100 @@ read by `seed`): `SOAK_URLS="https://a https://b" scripts/soak.sh seed`. The app
 is now **Chord** — `scripts/soak.sh` drives and samples the `Chord` process, but
 the profile still lives under the `Browser` Application Support folder (the rename
 is display-only; bundle id `com.rizal.browser` is unchanged).
+
+
+## Multiple windows, added 2026-07-27
+
+Covers the three commits that split `WindowState` out of `TabStore`, turned
+`Window` into `WindowGroup`, and made a tab draggable between windows.
+
+Open a second window with **File ▸ New Window** before starting §B onward. Where a
+check says "window A" and "window B", A is the one that launched.
+
+### A. Unverified by automation — check these first
+
+The store logic is covered by tests; these three are the parts no test reaches.
+
+- [ ] **⌘N** opens a second window. (The menu item is verified working; the
+      *keystroke* is not — a synthetic AppleScript keypress did not fire it,
+      though ⌘S and ⌘Y do. If only the menu item works, that is a real bug.)
+- [ ] The second window **paints its content** — sidebar and page, not an empty
+      area. There is a one-frame `Color.clear` while `claimWindow()` resolves; a
+      permanently blank window means it never resolved.
+- [ ] **⌘⇧N** opens a new blank tab in the focused window (it moved off ⌘N).
+
+### B. Per-window independence
+
+A single cause — `claimWindow()` handing out the same object — would fail all of
+these at once. Report them as one finding, not ten.
+
+- [ ] ⌘S in window A collapses **only A's** sidebar
+- [ ] Dragging A's sidebar edge resizes **only A**
+- [ ] ⌘2 in A switches **only A's** Space; B stays where it is
+- [ ] With A and B in different Spaces, each sidebar lists only its own Space's
+      tabs, and the window tint differs
+- [ ] Selecting a tab in A does not move B's selection
+- [ ] ⌘F and a query in A leaves B's find bar closed and empty
+- [ ] Collapsing the Pinned section in A leaves B's expanded (per-window *and*
+      per-Space)
+
+### C. Cross-window tab drag
+
+- [ ] **Same Space**, A → B: the tab reorders and is selected in B, with **no
+      dialog** (both windows show the same list)
+- [ ] **Different Spaces**, A → B: prompts *"Move "<title>" to <Space>?"* with the
+      separate-profile / signed-out warning
+- [ ] Confirming: the tab appears in B, is selected there, and is gone from A.
+      The page **reloads** — expected, it is a different cookie store
+- [ ] Cancelling: nothing moves, the tab stays in A
+- [ ] Dropping across Spaces into B's **favourites grid** lands it as a favourite,
+      not a loose tab
+- [ ] **Drag into B's content area** (drag-to-split) from another Space: same
+      prompt; confirming makes it a second pane and consumes the source tab;
+      cancelling leaves both tabs untouched
+- [ ] Same-Space drag-to-split still merges immediately, no prompt
+
+The split case is the one worth the most attention: it was unreachable across
+Spaces before a second window existed, and without the prompt it would change a
+page's data store silently.
+
+### D. Menu commands act on the focused window
+
+These moved from `NSApp.mainWindow` (a guess) to `@FocusedValue`.
+
+- [ ] ⌘T / ⌘L with B focused: the command bar opens over **B** and its result
+      lands in B
+- [ ] ⌘Y (History) and ⌘, (Settings) present on the **focused** window
+- [ ] ⌘W closes a tab in the focused window only
+- [ ] ⌘D (pin) and ⌘⇧D (split) act on the focused window's selected tab
+
+### E. Regressions — one window must behave exactly as before
+
+- [ ] Closing the second window leaves the first fully working
+- [ ] Quit and relaunch restores the session **in one window**. Window layout is
+      deliberately not persisted yet (it would be a v9 migration), so this is
+      correct rather than a bug
+- [ ] Deleting a Space that B is sitting in **re-homes B** to a surviving Space
+      instead of blanking it
+- [ ] Two windows in different Spaces, each signed into a different Google
+      account, stay signed in independently — the M2 done-when, now under two
+      windows
+- [ ] Extensions load and their toolbar actions work with two windows open
+
+### Known limitations — expected, do not file
+
+- **Little Arc** promotes into the **first** window even when the second is
+  focused; the panel does not track a window. Commented at the call site.
+- URLs opened from another app land in the first window, for the same reason.
+- Dragging a tab onto a **Space button** in the switcher moves it with **no**
+  prompt, unlike dragging into another window. Same hazard, deliberately left as
+  it was — see CHECKPOINT.
+
+### Not worth doing by hand
+
+- **The sweep skipping a tab that is visible in another window.** The shortest
+  idle preset is 1 hour. Covered by `sweepSkipsTabsVisibleElsewhere`; the failure
+  it guards against is a tab being archived out from under a window that is
+  showing it.
+- Window-close reconciliation — covered by tests, and windows are held weakly, so
+  a stale entry compacts itself.
