@@ -80,6 +80,7 @@ public struct AppEnvironment {
 
         let repository = SQLiteTabRepository(database: database)
         let history = SQLiteHistoryRepository(database: database)
+        let windowLayouts = SQLiteWindowLayoutRepository(database: database)
 
         let store = TabStore(
             engine: engine,
@@ -88,6 +89,7 @@ public struct AppEnvironment {
             historyRepository: history,
             archiveRepository: history,
             folderRepository: repository,
+            windowLayoutRepository: windowLayouts,
             clock: SystemClock()
         )
 

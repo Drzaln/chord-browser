@@ -192,10 +192,21 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(ContextLinkMonitor.makeUserScript())
         controller.addUserScript(AudioMuteController.makeUserScript())
         controller.addUserScript(PeekLinkMonitor.makeUserScript())
+        controller.addUserScript(NotificationBridge.makeUserScript())
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
             controller.add(coordinator, name: PeekLinkMonitor.messageName)
+            controller.add(coordinator, name: NotificationBridge.showMessageName)
+            // requestPermission() needs the native decision back, so it is a
+            // with-reply handler installed in the page world. The coordinator
+            // conforms to both handler protocols, so the cast selects the
+            // with-reply overload (Swift maps both to `addScriptMessageHandler`).
+            controller.addScriptMessageHandler(
+                coordinator as any WKScriptMessageHandlerWithReply,
+                contentWorld: .page,
+                name: NotificationBridge.permissionMessageName
+            )
         }
         // Native content blocking (§4.8, C2). The compiled list is shared and
         // immutable; adding it to each view's controller is what actually
@@ -413,6 +424,11 @@ public final class WebKitEngine: WebEngine {
 
     public func hasLiveView(paneID: UUID) -> Bool {
         pool.contains(paneID)
+    }
+
+    public func dispatchNotificationClick(jsID: String, toPane paneID: UUID) {
+        guard let live = pool.view(for: paneID) else { return }
+        live.webView.evaluateJavaScript(NotificationBridge.clickScript(jsID: jsID)) { _, _ in }
     }
 
     public func seedInteractionState(_ data: Data, for paneID: UUID) {

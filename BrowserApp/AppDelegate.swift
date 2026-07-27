@@ -32,6 +32,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return PeekController(store: store)
     }()
 
+    /// Web notifications bridged to macOS Notification Center (non-spec:
+    /// user-requested). Owns the `UNUserNotificationCenter`; the store forwards
+    /// the engine's polyfill calls here.
+    private(set) lazy var notifications: NotificationController = {
+        let controller = NotificationController()
+        controller.onClick = { [weak self] jsID, paneID in
+            self?.launch.store?.handleNotificationClick(jsID: jsID, paneID: paneID)
+            // Bring Chord forward so the focused tab is actually visible.
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        return controller
+    }()
+
     override init() {
         let state = Self.signposter.beginInterval("launch")
         do {
@@ -93,6 +106,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.peek?.present(url: url)
         }
 
+        // Web notifications route engine (polyfill) → store → these hooks. The
+        // presenter posts to Notification Center; the requester drives the OS
+        // authorization prompt and reports the result back to the page.
+        launch.store?.notificationPresenter = { [weak self] request, paneID in
+            self?.notifications.present(request, fromPane: paneID)
+        }
+        launch.store?.notificationPermissionRequester = { [weak self] in
+            await self?.notifications.requestAuthorization() ?? false
+        }
+
         // Windows created later (and SwiftUI recreating one) must get the same
         // treatment, or the shortcut breaks again the next time.
         NotificationCenter.default.addObserver(
@@ -115,13 +138,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let url = webLinks.first else { return }
 
         if webLinks.count > 1 {
-            // Several at once is a "open all of these" gesture, not a peek.
-            // The primary window: these arrive from another app, so there is no
-            // originating browser window to put them in — the same call
-            // `LittleArcController.promote` makes, for the same reason.
+            // Several at once is a "open all of these" gesture, not a peek. They
+            // land in the window the user last focused (the same window Little Arc
+            // promotion targets), falling back to the primary at a cold launch.
             for extra in webLinks.dropFirst() {
                 guard let store = launch.store else { break }
-                store.newTab(url: extra, in: store.primaryWindow)
+                store.newTab(url: extra, in: store.focusedWindow)
             }
         }
         littleArc?.present(url: url)

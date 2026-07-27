@@ -10,6 +10,7 @@
 		A1000101000000000000001 /* BrowserApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000201000000000000001 /* BrowserApp.swift */; };
 		A1000102000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000202000000000000001 /* AppDelegate.swift */; };
 		A1000103000000000000001 /* DebugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000203000000000000001 /* DebugOverlay.swift */; };
+		A1000104000000000000001 /* NotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000206000000000000001 /* NotificationController.swift */; };
 		A1000301000000000000001 /* BrowserUI in Frameworks */ = {isa = PBXBuildFile; productRef = A1000401000000000000001 /* BrowserUI */; };
 		A1000302000000000000001 /* BrowserStore in Frameworks */ = {isa = PBXBuildFile; productRef = A1000402000000000000001 /* BrowserStore */; };
 		A1000303000000000000001 /* BrowserCore in Frameworks */ = {isa = PBXBuildFile; productRef = A1000403000000000000001 /* BrowserCore */; };
@@ -21,6 +22,7 @@
 		A1000201000000000000001 /* BrowserApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserApp.swift; sourceTree = "<group>"; };
 		A1000202000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000203000000000000001 /* DebugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlay.swift; sourceTree = "<group>"; };
+		A1000206000000000000001 /* NotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationController.swift; sourceTree = "<group>"; };
 		A1000204000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000205000000000000001 /* Browser.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Browser.entitlements; sourceTree = "<group>"; };
 		C42B564330149E4B00869681 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -55,6 +57,7 @@
 				A1000201000000000000001 /* BrowserApp.swift */,
 				A1000202000000000000001 /* AppDelegate.swift */,
 				A1000203000000000000001 /* DebugOverlay.swift */,
+				A1000206000000000000001 /* NotificationController.swift */,
 				A1000204000000000000001 /* Info.plist */,
 				A1000205000000000000001 /* Browser.entitlements */,
 			);
@@ -149,6 +152,7 @@
 				A1000101000000000000001 /* BrowserApp.swift in Sources */,
 				A1000102000000000000001 /* AppDelegate.swift in Sources */,
 				A1000103000000000000001 /* DebugOverlay.swift in Sources */,
+				A1000104000000000000001 /* NotificationController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

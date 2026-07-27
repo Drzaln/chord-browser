@@ -168,6 +168,22 @@ public struct RootView: View {
         .onChange(of: window == nil) { _, _ in
             window?.setTrafficLightsHidden(shouldHideTrafficLights)
             configureWindow()
+            // Associate this window with its state so Little Arc promotion can
+            // bring *this* window forward, and treat a window that appears while
+            // key as focused (the first window at launch).
+            if let window {
+                WindowRegistry.associate(windowState, with: window)
+                if window.isKeyWindow { store.windowDidBecomeFocused(windowState) }
+            }
+        }
+        // Track which window is the user's current one, so app-opened URLs and a
+        // promoted Little Arc tab land here rather than always in the primary.
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
+        ) { note in
+            guard let keyed = note.object as? NSWindow, keyed === window else { return }
+            WindowRegistry.associate(windowState, with: keyed)
+            store.windowDidBecomeFocused(windowState)
         }
         // Fullscreen enter/exit must re-evaluate the traffic lights: entering
         // with the sidebar collapsed would otherwise leave them hidden and the

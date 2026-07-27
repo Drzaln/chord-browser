@@ -30,3 +30,12 @@ public protocol FolderRepository: Sendable {
     func loadFolders() async throws -> [Folder]
     func saveFolders(_ folders: [Folder]) async throws
 }
+
+/// Persistence for per-window layout — which Space and tab each window showed —
+/// so a relaunch restores them, not just the macOS window frames. Separate seam
+/// so fakes and tests need no SQLite.
+public protocol WindowLayoutRepository: Sendable {
+    func loadWindowLayouts() async throws -> [WindowLayout]
+    /// Replaces the stored set wholesale: the windows open now are the layout.
+    func saveWindowLayouts(_ layouts: [WindowLayout]) async throws
+}

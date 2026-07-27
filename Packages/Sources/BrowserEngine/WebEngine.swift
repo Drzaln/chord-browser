@@ -53,6 +53,12 @@ public protocol WebEngineDelegate: AnyObject {
     /// The ⌘-hover Peek preview should show `url`, or dismiss when `nil`
     /// (non-spec: user-requested).
     func paneRequestedPeek(url: URL?)
+    /// A page called `new Notification(...)` — post it to Notification Center
+    /// (non-spec: user-requested). Carries the pane so a click can focus its tab.
+    func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID)
+    /// A page called `Notification.requestPermission()` — ask the OS and report
+    /// whether notifications are allowed (non-spec: user-requested).
+    func paneRequestedNotificationPermission() async -> Bool
     /// The content process died. The pane's model is intact; the view is gone.
     func paneContentProcessDidTerminate(_ paneID: UUID)
 }
@@ -62,6 +68,8 @@ extension WebEngineDelegate {
     /// not implement them.
     public func paneRequestedLittleArc(url: URL) {}
     public func paneRequestedPeek(url: URL?) {}
+    public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {}
+    public func paneRequestedNotificationPermission() async -> Bool { false }
 }
 
 /// The seam between the app and WebKit.
@@ -101,6 +109,11 @@ public protocol WebEngine: AnyObject {
     /// Mutes or unmutes a pane's audio (non-spec: user-requested). Persists
     /// across reloads and view eviction so a muted tab stays muted.
     func setMuted(_ muted: Bool, paneID: UUID)
+
+    /// Fires the page-side `Notification` instance's `onclick` after its banner
+    /// was clicked (non-spec: user-requested). A no-op if the pane has no live
+    /// view — a closed page has nothing to notify.
+    func dispatchNotificationClick(jsID: String, toPane paneID: UUID)
 
     func snapshot(for paneID: UUID) -> PaneSnapshot?
 

@@ -20,6 +20,9 @@ public struct PendingTabMove: Identifiable, Equatable, Sendable {
         case section(TabStore.PlacementSection, index: Int)
         /// The content area of an existing tab — a drag-to-split (4.5).
         case splitInto(tabID: UUID)
+        /// A Space button in the switcher — move into that Space keeping the tab's
+        /// placement kind, no particular slot aimed at.
+        case space
     }
 
     /// The tab being moved. Doubles as the identity of the pending prompt.

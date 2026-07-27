@@ -25,6 +25,22 @@ struct MultiWindowTests {
         return store
     }
 
+    /// A store restored from explicit Spaces, tabs, and saved window layouts —
+    /// for the v9 layout-restore tests. Not `restore`d yet, so a caller can claim
+    /// windows in whatever order it is exercising.
+    private func makeLayoutStore(
+        spaces: [Space], tabs: [Tab], layouts: [WindowLayout]
+    ) -> TabStore {
+        let repo = FakeTabRepository(stored: tabs, spaces: spaces)
+        return TabStore(
+            engine: FakeWebEngine(),
+            repository: repo,
+            spaceRepository: repo,
+            windowLayoutRepository: FakeWindowLayoutRepository(stored: layouts),
+            clock: FixedClock()
+        )
+    }
+
     /// The first scene gets the primary; every one after it gets its own.
     @Test("Each window claims its own state, the first being the primary")
     func claimVendsDistinctWindows() async {
@@ -238,6 +254,61 @@ struct MultiWindowTests {
         )
         #expect(store.visibleTabs(in: windowB).allSatisfy { $0.id != moving.id })
         _ = other
+    }
+
+    @Test("Dropping a tab onto another Space's button asks before moving")
+    func dropOntoSpaceButtonPromptsFirst() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        let window = store.claimWindow()
+        let home = try! #require(store.activeSpace(in: window))
+        let personal = store.addSpace(name: "Personal", in: window)
+        store.selectSpace(home.id, in: window)
+
+        let moving = try! #require(store.tabs.first)
+        store.dropTab(moving.id, ontoSpace: personal.id, in: window)
+
+        let pending = try! #require(window.pendingTabMove)
+        #expect(pending.destination == .space)
+        #expect(pending.toSpaceName == "Personal")
+        #expect(pending.fromSpaceName == home.name)
+        #expect(
+            store.tabs.first { $0.id == moving.id }?.spaceID == home.id,
+            "nothing moves until the user says so"
+        )
+    }
+
+    @Test("Confirming a Space-button drop moves the tab, keeping placement")
+    func confirmingSpaceButtonDropMoves() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        let window = store.claimWindow()
+        let home = try! #require(store.activeSpace(in: window))
+        let personal = store.addSpace(name: "Personal", in: window)
+        store.selectSpace(home.id, in: window)
+        let moving = try! #require(store.tabs.first)
+
+        store.dropTab(moving.id, ontoSpace: personal.id, in: window)
+        store.confirmPendingTabMove(in: window)
+
+        #expect(window.pendingTabMove == nil)
+        #expect(store.tabs.first { $0.id == moving.id }?.spaceID == personal.id)
+    }
+
+    @Test("Dropping a tab onto its own Space's button does nothing")
+    func dropOntoOwnSpaceButtonIsNoop() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://work.example").build()
+        ])
+        let window = store.claimWindow()
+        let home = try! #require(store.activeSpace(in: window))
+        let moving = try! #require(store.tabs.first)
+
+        store.dropTab(moving.id, ontoSpace: home.id, in: window)
+
+        #expect(window.pendingTabMove == nil, "it is already in that Space")
     }
 
     @Test("Confirming the move changes Space, places, and selects it")
@@ -496,5 +567,156 @@ struct MultiWindowTests {
 
         #expect(window.activeSpaceID != nil)
         #expect(window.activeSpaceID == store.spaces.first?.id)
+    }
+
+    // MARK: - Window layout persistence (v9)
+
+    @Test("Restore puts the primary on its saved Space and tab")
+    func restoreAppliesPrimaryLayout() async {
+        let spaceA = Space(name: "A", sortIndex: 0)
+        let spaceB = Space(name: "B", sortIndex: 1)
+        let tabA = TabBuilder().url("https://a.example").space(spaceA.id).build()
+        let tabB = TabBuilder().url("https://b.example").space(spaceB.id).build()
+
+        let store = makeLayoutStore(
+            spaces: [spaceA, spaceB],
+            tabs: [tabA, tabB],
+            layouts: [WindowLayout(ordinal: 0, activeSpaceID: spaceB.id, selectedTabID: tabB.id)]
+        )
+        await store.restore()
+
+        #expect(store.primaryWindow.activeSpaceID == spaceB.id, "not the first Space")
+        #expect(store.primaryWindow.selectedTabID == tabB.id)
+    }
+
+    @Test("A window claiming after restore gets the next saved layout")
+    func claimAfterRestoreAppliesNextLayout() async {
+        let spaceA = Space(name: "A", sortIndex: 0)
+        let spaceB = Space(name: "B", sortIndex: 1)
+        let tabA = TabBuilder().url("https://a.example").space(spaceA.id).build()
+        let tabB = TabBuilder().url("https://b.example").space(spaceB.id).build()
+
+        let store = makeLayoutStore(
+            spaces: [spaceA, spaceB],
+            tabs: [tabA, tabB],
+            layouts: [
+                WindowLayout(ordinal: 0, activeSpaceID: spaceA.id, selectedTabID: tabA.id),
+                WindowLayout(ordinal: 1, activeSpaceID: spaceB.id, selectedTabID: tabB.id),
+            ]
+        )
+        _ = store.claimWindow()  // the primary scene claims first, as in the app
+        await store.restore()
+        let second = store.claimWindow()
+
+        #expect(store.primaryWindow.activeSpaceID == spaceA.id)
+        #expect(store.primaryWindow.selectedTabID == tabA.id)
+        #expect(second !== store.primaryWindow, "a real second window")
+        #expect(second.activeSpaceID == spaceB.id, "the second window's saved Space")
+        #expect(second.selectedTabID == tabB.id)
+    }
+
+    @Test("A layout naming a tab the primary already shows never blanks the window")
+    func layoutContestedTabFallsBackToReconcile() async {
+        // Both layouts name the same Space and tab — a corrupt/stale layout. The
+        // second window must not fight over one web view; it takes a free tab.
+        let space = Space(name: "A", sortIndex: 0)
+        let tab1 = TabBuilder().url("https://one.example").space(space.id).build()
+        let tab2 = TabBuilder().url("https://two.example").space(space.id).build()
+
+        let store = makeLayoutStore(
+            spaces: [space],
+            tabs: [tab1, tab2],
+            layouts: [
+                WindowLayout(ordinal: 0, activeSpaceID: space.id, selectedTabID: tab1.id),
+                WindowLayout(ordinal: 1, activeSpaceID: space.id, selectedTabID: tab1.id),
+            ]
+        )
+        _ = store.claimWindow()  // the primary scene claims first, as in the app
+        await store.restore()
+        let second = store.claimWindow()
+
+        #expect(second !== store.primaryWindow, "a real second window")
+        #expect(store.primaryWindow.selectedTabID == tab1.id)
+        #expect(second.selectedTabID != nil, "or the window renders blank")
+        #expect(
+            second.selectedTabID != store.primaryWindow.selectedTabID,
+            "one tab is shown in at most one window"
+        )
+    }
+
+    @Test("A layout whose Space is gone reconciles instead of failing")
+    func layoutStaleSpaceReconciles() async {
+        let space = Space(name: "A", sortIndex: 0)
+        let tab = TabBuilder().url("https://a.example").space(space.id).build()
+
+        let store = makeLayoutStore(
+            spaces: [space],
+            tabs: [tab],
+            layouts: [
+                WindowLayout(ordinal: 0, activeSpaceID: UUID(), selectedTabID: UUID()),
+            ]
+        )
+        await store.restore()
+
+        #expect(store.primaryWindow.activeSpaceID == space.id, "re-homed to a real Space")
+        #expect(store.primaryWindow.selectedTabID == tab.id)
+    }
+
+    @Test("Open windows' layouts are captured for saving in window order")
+    func capturedLayoutsFollowWindowOrder() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://a.example").build()
+        ])
+        _ = store.claimWindow()  // the primary scene claims first, as in the app
+        let second = store.claimWindow()
+        let personal = store.addSpace(name: "Personal", in: second)
+        store.selectSpace(personal.id, in: second)
+
+        let layouts = store.captureWindowLayouts()
+        #expect(layouts.count == 2)
+        #expect(layouts[0].ordinal == 0)
+        #expect(layouts[0].activeSpaceID == store.primaryWindow.activeSpaceID)
+        #expect(layouts[1].ordinal == 1)
+        #expect(layouts[1].activeSpaceID == personal.id)
+        #expect(layouts[1].selectedTabID == second.selectedTabID)
+    }
+
+    /// App-opened URLs and a promoted Little Arc tab used to always hit the
+    /// primary; they now follow the window the user last focused.
+    @Test("focusedWindow tracks the last-focused window, falling back to primary")
+    func focusedWindowTracksLastFocused() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://a.example").build()
+        ])
+
+        // Nothing focused yet: the primary is the sensible default (a URL that
+        // opens the app cold has no window to inherit).
+        #expect(store.focusedWindow === store.primaryWindow)
+
+        let second = store.claimWindow()
+        store.windowDidBecomeFocused(second)
+        #expect(store.focusedWindow === second)
+
+        // Focus moving back to the primary follows.
+        store.windowDidBecomeFocused(store.primaryWindow)
+        #expect(store.focusedWindow === store.primaryWindow)
+    }
+
+    /// The reference is weak: a focused window that closes must not be handed out
+    /// (or kept alive), so focus falls back to the primary.
+    @Test("A closed focused window falls back to the primary")
+    func focusedWindowFallsBackWhenClosed() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://a.example").build()
+        ])
+
+        do {
+            let second = store.claimWindow()
+            store.windowDidBecomeFocused(second)
+            #expect(store.focusedWindow === second)
+            store.unregister(second)
+        }
+        // `second` is gone; the weak reference drops it and focus falls back.
+        #expect(store.focusedWindow === store.primaryWindow)
     }
 }

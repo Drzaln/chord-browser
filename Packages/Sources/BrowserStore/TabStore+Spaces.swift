@@ -42,6 +42,10 @@ extension TabStore {
         }
 
         if window.selectedTabID == nil { newTab(in: window) }
+
+        // Persist the layout change (v9): the common path sets the selection
+        // directly without touching a tab, so nothing else would save it.
+        scheduleSave()
     }
 
     /// `Cmd+1...9`. Out-of-range indices are ignored rather than clamped —

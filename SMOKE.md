@@ -754,22 +754,45 @@ These moved from `NSApp.mainWindow` (a guess) to `@FocusedValue`.
       lands in B
 - [ ] ⌘Y (History) and ⌘, (Settings) present on the **focused** window
 - [ ] ⌘W closes a tab in the focused window only
-- [ ] ⌘D (pin) and ⌘⇧D (split) act on the focused window's selected tab
+- [x] ⌘D (pin) and ⌘⇧D (split) act on the focused window's selected tab —
+      driven 2026-07-27. With B focused, ⌘D pinned **B's** selected tab and left
+      A's selection untouched; ⌘⇧D opened the Split command bar over **B** and
+      the chosen tab became a second pane in B. Overlay `also showing it` stayed
+      0 in both throughout.
 
 ### E. Regressions — one window must behave exactly as before
 
-- [ ] Closing the second window leaves the first fully working
-- [ ] Quit and relaunch restores the session. **macOS restores the windows
+- [x] Closing the second window leaves the first fully working — driven
+      2026-07-27. After closing B, A rendered, switched tabs, overlay clean
+      (`windows open 1`, `also showing it 0`).
+- [x] Quit and relaunch restores the session. **macOS restores the windows
       itself** — relaunch with two open and you get two back, even though Chord
       persists no layout of its own. (The note here used to say "expect one
       window"; that was wrong. Chord stores nothing, AppKit scene restoration
-      does it.) What Chord does *not* restore is which Space or tab each had
-- [ ] Deleting a Space that B is sitting in **re-homes B** to a surviving Space
-      instead of blanking it
-- [ ] Two windows in different Spaces, each signed into a different Google
+      does it.) What Chord does *not* restore is which Space or tab each had.
+      Driven 2026-07-27: quit with two windows, relaunched, both came back and
+      **both painted** (this is the blank-window bug's exact scenario) with
+      distinct selections and `also showing it 0` in each.
+- [x] Deleting a Space that B is sitting in **re-homes B** to a surviving Space
+      instead of blanking it — driven 2026-07-27 with a *throwaway* Space (New
+      Space → moved a window into it → Delete Space and Its Data). The window
+      re-homed to a surviving Space with a valid selection and rendered content;
+      `also showing it 0`. Use a throwaway Space for this — deleting a real one
+      destroys its tabs and cookies permanently.
+- [~] Two windows in different Spaces, each signed into a different Google
       account, stay signed in independently — the M2 done-when, now under two
-      windows
-- [ ] Extensions load and their toolbar actions work with two windows open
+      windows. Mechanism verified 2026-07-27: two windows showing `google.com`
+      in different Spaces at the same time had **independent** login state (one
+      logged in as the Personal account, a fresh Space's `google.com` showed
+      "Sign in"). The literal two-*accounts* form needs a second real Google
+      sign-in (credentials), so it is left to the operator; the per-Space data
+      store isolation it rests on is what was checked here and holds across two
+      windows.
+- [ ] Extensions load and their toolbar actions work with two windows open —
+      **not exercised 2026-07-27**: this profile has no extensions installed
+      (`extensionEnablement` is empty, no manifests on disk), so there is
+      nothing to load. Install an extension first, then re-run. Logic is
+      unit-tested.
 
 ### Known limitations — expected, do not file
 

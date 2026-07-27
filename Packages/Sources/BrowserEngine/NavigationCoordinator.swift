@@ -122,8 +122,31 @@ extension NavigationCoordinator: WKScriptMessageHandler {
         case PeekLinkMonitor.messageName:
             // Only the frontmost pane's hovers should drive the shared preview.
             engine?.delegate?.paneRequestedPeek(url: PeekLinkMonitor.linkURL(from: message.body))
+        case NotificationBridge.showMessageName:
+            guard let request = NotificationBridge.request(from: message.body) else { return }
+            engine?.delegate?.paneRequestedNotification(request, fromPane: paneID)
         default:
             break
+        }
+    }
+}
+
+extension NavigationCoordinator: WKScriptMessageHandlerWithReply {
+
+    /// `Notification.requestPermission()` — the one channel that needs a value
+    /// back, so it is a with-reply handler. Resolves to the web-spec strings.
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage,
+        replyHandler: @escaping @MainActor (Any?, String?) -> Void
+    ) {
+        guard message.name == NotificationBridge.permissionMessageName else {
+            replyHandler(nil, "unexpected message")
+            return
+        }
+        Task { @MainActor in
+            let granted = await engine?.delegate?.paneRequestedNotificationPermission() ?? false
+            replyHandler(granted ? "granted" : "denied", nil)
         }
     }
 }
@@ -144,5 +167,28 @@ extension NavigationCoordinator: WKUIDelegate {
             )
         }
         return nil
+    }
+
+    /// Camera and microphone for `getUserMedia` — Google Meet, Slack huddles, etc.
+    ///
+    /// We grant at the WebKit layer; the real gate is the OS. macOS still shows
+    /// its own camera/microphone TCC prompt the first time (backed by the sandbox
+    /// `device.camera`/`device.microphone` entitlements and the `NS*UsageDescription`
+    /// strings in Info.plist), and denying it there denies the site. Returning
+    /// `.prompt` — or not implementing this — makes WKWebView deny outright, which
+    /// is why Meet's camera never came up before.
+    ///
+    /// Screen sharing (`getDisplayMedia`) is deliberately absent: `WKMediaCaptureType`
+    /// has only camera and microphone, and public WKWebView exposes no display-
+    /// capture permission hook, so "Present now" in Meet cannot be supported
+    /// through the public SDK (verified against WKUIDelegate.h). Not faked here.
+    func webView(
+        _ webView: WKWebView,
+        requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+        initiatedByFrame frame: WKFrameInfo,
+        type: WKMediaCaptureType,
+        decisionHandler: @escaping @MainActor (WKPermissionDecision) -> Void
+    ) {
+        decisionHandler(.grant)
     }
 }

@@ -1947,10 +1947,19 @@ manually verified through the checklist's §A–§D:
   per-window sidebar / Space / find independence, cross-window tab drag with the
   cross-Space profile prompt (confirm + cancel), the split-drop variant of that
   prompt, and ⌘Y routing to the focused window.
-- **Not yet re-run after the blank-window fix:** SMOKE §E (regressions) — Space
-  deletion re-homing a window, two Google accounts staying separate across two
-  windows, extensions under two windows — and the §D ⌘D / ⌘⇧D menu items. The
-  logic is unit-tested; what is unverified is the live app.
+- **Re-run after the blank-window fix (2026-07-27):** the §D ⌘D / ⌘⇧D menu
+  items and SMOKE §E now pass in the live app. ⌘D/⌘⇧D act on the focused
+  window's selection and leave the other window's selection alone. §E: closing
+  the second window leaves the first working; quit+relaunch brings both windows
+  back **painting** (the blank-window bug's exact scenario) with `also showing
+  it 0` in each; deleting the Space a window sits in re-homes it to a surviving
+  Space instead of blanking. Per-Space login isolation holds with two windows
+  visible at once (same site, one logged in, one signed out).
+- **Still unverified in the live app:** the two-*distinct*-Google-accounts form
+  of the isolation check (needs a second real sign-in — credentials) and the
+  extensions-under-two-windows check (this profile has **no** extensions
+  installed — `extensionEnablement` empty, no manifests — so there is nothing to
+  load; install one first). Both are unit-tested.
 
 **Known gaps and deferrals**, in rough priority:
 
@@ -1967,3 +1976,67 @@ manually verified through the checklist's §A–§D:
 5. **`SMOKE.md` note corrected**: relaunch restores *two* windows via macOS scene
    restoration, not one — Chord persists no layout of its own. Earlier entries
    here that imply single-window-on-relaunch are stale.
+
+### Post-multi-window feature batch (2026-07-27)
+
+Six items off the multi-window backlog, in one session. All packages build with
+warnings-as-errors, the app builds, and `./scripts/prepush.sh` is green (407
+tests). Not yet committed.
+
+- **#2 Sidebar drop-target papercut** — a drop in the empty area below the tab
+  list was silently ignored. `ephemeralList` (a greedy `ScrollView`) split the
+  leftover height with a trailing `Spacer`, leaving that gap outside the
+  overlaid `SidebarDropTarget`. The ScrollView now fills the region
+  (`.frame(maxHeight: .infinity)`, Spacer removed) so the drop target covers it;
+  `insertionIndex(forY:)` already clamps to the end, so a drop there appends.
+
+- **#3 Little Arc / app-opened URLs → focused window** — the store now tracks
+  the last-focused `WindowState` (`focusedWindow` / `windowDidBecomeFocused`,
+  fed by RootView on `didBecomeKey`); `WindowRegistry` (BrowserUI) maps a
+  `WindowState` to its `NSWindow` for bring-forward. `LittleArcController.promote`
+  and `AppDelegate.application(_:open:)` target `focusedWindow`, not the primary.
+  Tested in `MultiWindowTests` (tracks last-focused; weak fallback to primary).
+
+- **#4 Space-button cross-Space drag prompts** — dropping a tab on a Space button
+  went straight to `moveTab` with no confirm. New `PendingTabMove.Destination`
+  case `.space` + `dropTab(_:ontoSpace:in:)` routes it through the same prompt as
+  the sidebar/split paths (own-Space drop is a no-op). Tested.
+
+- **#5 Window layout persistence (v9)** — new `windowLayout` table (ordinal,
+  activeSpaceId, selectedTabId), `WindowLayout` model, `WindowLayoutRepository`
+  + `SQLiteWindowLayoutRepository`. Restore applies layouts to already-registered
+  windows in order and queues the rest; `claimWindow` pops the queue for scenes
+  that claim after restore; both paths guard the one-tab-one-window invariant
+  (`applyLayout` falls back to `reconcile` on a contested/stale tab or missing
+  Space). Saved via the debounced `performSave`; `selectSpace`/open/close now
+  schedule a save. Migration fixture test + restore tests. Schema is now **v9**.
+
+- **#7 Camera + microphone** — `NavigationCoordinator` implements
+  `requestMediaCapturePermissionForOrigin…` returning `.grant`; entitlements
+  gain `device.camera`/`device.microphone` and Info.plist gains
+  `NSCamera/NSMicrophoneUsageDescription`. Meet's camera/mic now reach the OS TCC
+  prompt. **Screen sharing is infeasible**: `WKMediaCaptureType` has only
+  camera/microphone and public WKWebView exposes no display-capture hook
+  (verified against WKUIDelegate.h) — "Present now" cannot be supported without
+  private API. Not faked.
+
+- **#6 Web notifications** — public WKWebView has no notification hook, so
+  `NotificationBridge` shims `window.Notification` and bridges over message
+  handlers (show = plain handler; `requestPermission` = with-reply handler) to
+  `NotificationController` (app layer), which posts via `UNUserNotificationCenter`
+  and routes a click back to focus the tab and fire the page's `onclick`
+  (`TabStore.handleNotificationClick`). This is notifications while the app is
+  running and the page is open — **not** background Web Push (that needs
+  Safari-gated APNs). Needs the user's macOS notification permission at runtime.
+
+**Live-verification gaps** (need OS-permission grants only the user can give, so
+left to the operator): #6 notifications end-to-end (grant notification
+permission, observe a banner + click routing) and #7 camera/mic on a real site
+(Google Meet). The app launches cleanly with the new per-web-view script/handler
+registration and media delegate — the regression that mattered.
+
+**Xcode project note:** `NotificationController.swift` was added to
+`Browser.xcodeproj/project.pbxproj` (the app target lists files explicitly — not
+a synchronized group — so a new file must be referenced there to build). The
+repo's git rule excludes the pbxproj from commits; this addition needs to ride
+along (or be re-added in Xcode) or the app target won't compile the file.

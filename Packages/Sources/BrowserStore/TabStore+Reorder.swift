@@ -121,6 +121,30 @@ extension TabStore {
         )
     }
 
+    /// A tab dropped onto a Space *button* in the switcher. Moving into that Space
+    /// is a Space change like any other — it swaps the data store out from under
+    /// the page — so it prompts first, the way the sidebar and split drops already
+    /// do. This was the one cross-Space drag that used to move silently.
+    ///
+    /// A drop onto the tab's own Space is a no-op: it is already there.
+    public func dropTab(_ tabID: UUID, ontoSpace spaceID: UUID, in window: WindowState) {
+        guard let tab = tabs.first(where: { $0.id == tabID }),
+              let destination = spaces.first(where: { $0.id == spaceID }),
+              tab.spaceID != spaceID
+        else { return }
+
+        window.pendingTabMove = PendingTabMove(
+            id: tabID,
+            toSpaceID: spaceID,
+            destination: .space,
+            fromSpaceName: spaces.first { $0.id == tab.spaceID }?.name ?? "another Space",
+            toSpaceName: destination.name,
+            tabTitle: tab.focusedPane.title.isEmpty
+                ? (tab.focusedPane.url.host() ?? "this tab")
+                : tab.focusedPane.title
+        )
+    }
+
     /// The user accepted the move. Changes the tab's Space — which evicts its
     /// panes, so the page reloads against the destination's cookies — then places
     /// it where it was dropped and selects it.
@@ -141,6 +165,11 @@ extension TabStore {
             // and rebuilds its URL as a pane of the target, which already puts
             // the page in the target's Space and its data store.
             split(targetID, byMoving: pending.id, in: window, confirmed: true)
+
+        case .space:
+            // A plain send-to-Space: keep the tab's placement kind, no slot to
+            // renumber into. Matches the pre-prompt behaviour exactly.
+            moveTab(pending.id, toSpace: pending.toSpaceID, in: window)
         }
     }
 

@@ -51,19 +51,22 @@ public final class LittleArcController {
         // Clear the pane first: dismiss() would otherwise tear down the web view
         // we are about to hand over.
         self.pane = nil
-        // The primary window, deliberately: Little Arc is opened by a URL handed
-        // to the app, so there is no originating browser window to inherit — and
-        // it is the window `NSApp.activate` brings forward below. If a second
-        // window is focused the tab still lands in the first; promoting into the
-        // key window would need the panel to track one, which it does not.
-        store.promoteLittleArc(pane, in: store.primaryWindow)
+        // The window the user last focused, not always the primary: the panel
+        // itself never registers as focused (it is not a browser scene), so the
+        // store's `focusedWindow` still names the browser window that was current
+        // when the link arrived. A URL opened at a cold launch has no focused
+        // window and falls back to the primary.
+        let target = store.focusedWindow
+        store.promoteLittleArc(pane, in: target)
 
         closePanel()
 
-        // Bring the main window forward, since the tab now lives there.
+        // Bring that same window forward, since the tab now lives there — falling
+        // back to any main-capable window if its NSWindow is somehow gone.
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first { $0 is LittleArcPanel == false && $0.canBecomeMain }?
-            .makeKeyAndOrderFront(nil)
+        let front = WindowRegistry.nsWindow(for: target)
+            ?? NSApp.windows.first { $0 is LittleArcPanel == false && $0.canBecomeMain }
+        front?.makeKeyAndOrderFront(nil)
     }
 
     public func dismiss() {

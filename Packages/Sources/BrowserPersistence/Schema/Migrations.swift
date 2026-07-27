@@ -21,11 +21,12 @@ enum Migrations {
         migrator.registerMigration("v6_history_per_space", migrate: v6HistoryPerSpace)
         migrator.registerMigration("v7_folders", migrate: v7Folders)
         migrator.registerMigration("v8_pinned_home_url", migrate: v8PinnedHomeURL)
+        migrator.registerMigration("v9_window_layout", migrate: v9WindowLayout)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 8
+    static let currentVersion = 9
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -236,6 +237,22 @@ enum Migrations {
     private static func v8PinnedHomeURL(_ db: Database) throws {
         try db.alter(table: "tab") { t in
             t.add(column: "pinnedHomeURL", .text)
+        }
+    }
+
+    /// Per-window layout, so a relaunch restores which Space and tab each window
+    /// showed rather than reconciling every one to a default (non-spec:
+    /// user-requested). Purely additive — a new table only, nothing existing is
+    /// touched (7.2). One row per open window, keyed by its ordinal in window
+    /// order (the primary at 0); `activeSpaceId` / `selectedTabId` are nullable
+    /// because a window can legitimately have neither yet, and are plain columns
+    /// with no foreign key so a Space or tab that vanishes between sessions simply
+    /// fails to resolve and the window reconciles — orphaned, never a failed load.
+    private static func v9WindowLayout(_ db: Database) throws {
+        try db.create(table: "windowLayout") { t in
+            t.primaryKey("ordinal", .integer).notNull()
+            t.column("activeSpaceId", .text)
+            t.column("selectedTabId", .text)
         }
     }
 }

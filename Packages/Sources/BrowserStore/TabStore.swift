@@ -56,10 +56,20 @@ public final class TabStore {
         // is what every browser does with Cmd+N.
         window.activeSpaceID = primaryWindow.activeSpaceID ?? spaces.first?.id
         register(window)
-        // Its *own* selection, never one already on screen: `reconcile` picks a
-        // free tab, or opens a new one when every tab is taken. Adopting the
-        // primary's tab would leave one of the two windows blank.
-        reconcile(window)
+        // A scene macOS restores *after* `restore()` gets its saved layout (v9);
+        // one opened by the user (or claiming before restore, when the queue is
+        // empty) gets its *own* selection via `reconcile` — never one already on
+        // screen, which would leave one of the two windows blank. An early claim
+        // holding nil is repaired by `applyRestoredLayouts` when restore runs.
+        if let layout = takeNextPendingLayout(), applyLayout(layout, to: window) {
+            if let selected = window.selectedTabID {
+                resolveInteractionState(forTab: selected)
+            }
+        } else {
+            reconcile(window)
+        }
+        // A new window changes the saved layout set (v9).
+        scheduleSave()
         return window
     }
 
@@ -74,6 +84,28 @@ public final class TabStore {
     /// Drops a closed window, and compacts any that were deallocated.
     public func unregister(_ window: WindowState) {
         secondaryWindows.removeAll { $0.value == nil || $0.value === window }
+        // A closed window changes the saved layout set (v9): the layout snapshot
+        // is rebuilt from the windows that remain.
+        scheduleSave()
+    }
+
+    /// The window the user most recently focused. Weak: a closed window must not
+    /// be kept alive here, and a nil (closed or never-set) one falls back to the
+    /// primary in `focusedWindow`.
+    @ObservationIgnored private weak var lastFocusedWindow: WindowState?
+
+    /// The window that app-opened URLs and a promoted Little Arc tab land in: the
+    /// one the user last focused, or the primary when none has been (a URL that
+    /// opens the app cold). This is why those two used to always hit the primary —
+    /// nothing tracked which window was current.
+    public var focusedWindow: WindowState {
+        lastFocusedWindow ?? primaryWindow
+    }
+
+    /// Records that a window became key, so `focusedWindow` follows the user's
+    /// current one. Each window reports this as its scene becomes key.
+    public func windowDidBecomeFocused(_ window: WindowState) {
+        lastFocusedWindow = window
     }
 
     /// The sidebar tab currently being dragged, if any. Observed: it is what
@@ -117,7 +149,14 @@ public final class TabStore {
     @ObservationIgnored let historyRepository: (any HistoryRepository)?
     @ObservationIgnored let archiveRepository: (any ArchiveRepository)?
     @ObservationIgnored let folderRepository: (any FolderRepository)?
+    @ObservationIgnored let windowLayoutRepository: (any WindowLayoutRepository)?
     @ObservationIgnored let clock: any Clock
+
+    /// Layouts loaded at restore for windows that have not claimed yet, primary
+    /// dropped (it is applied directly). Each secondary scene pops the next one in
+    /// `claimWindow`; when it runs dry, later windows reconcile as before. Cleared
+    /// as it drains so a late window never re-applies a stale layout.
+    @ObservationIgnored var pendingWindowLayouts: [WindowLayout] = []
 
     /// How long an unpinned tab may sit idle before it is auto-archived. "Never"
     /// disables the sweep (4.3). Persisted to `UserDefaults` like the other
@@ -193,6 +232,18 @@ public final class TabStore {
     /// the app layer, which owns the preview panel; inert until then.
     @ObservationIgnored public var peekPresenter: (@MainActor (URL?) -> Void)?
 
+    /// Posts a web notification to macOS Notification Center (non-spec:
+    /// user-requested). Injected by the app layer, which owns the notification
+    /// centre; inert until then. The pane is carried so a click can focus its tab.
+    @ObservationIgnored public var notificationPresenter:
+        (@MainActor (WebNotificationRequest, UUID) -> Void)?
+
+    /// Asks the OS for notification authorization and reports whether it is
+    /// allowed. Injected by the app layer; returns false until then, which the
+    /// polyfill reports to the page as a denied permission.
+    @ObservationIgnored public var notificationPermissionRequester:
+        (@MainActor () async -> Bool)?
+
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
 
@@ -205,6 +256,7 @@ public final class TabStore {
         historyRepository: (any HistoryRepository)? = nil,
         archiveRepository: (any ArchiveRepository)? = nil,
         folderRepository: (any FolderRepository)? = nil,
+        windowLayoutRepository: (any WindowLayoutRepository)? = nil,
         clock: any Clock,
         primaryWindow: WindowState? = nil
     ) {
@@ -218,6 +270,7 @@ public final class TabStore {
         self.historyRepository = historyRepository
         self.archiveRepository = archiveRepository
         self.folderRepository = folderRepository
+        self.windowLayoutRepository = windowLayoutRepository
         self.clock = clock
         self.engine.delegate = self
     }
@@ -270,26 +323,17 @@ public final class TabStore {
         }
         adoptOrphanedTabs()
 
-        // Restore populates the primary window; any window opened later seeds
-        // itself from it in `claimWindow`.
-        if visibleTabs(in: primaryWindow).isEmpty {
-            newTab(in: primaryWindow)
-        } else {
-            // Restored tabs are lazy: no web view exists until one is activated.
-            primaryWindow.selectedTabID = visibleTabs(in: primaryWindow)
-                .max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
-            // Only the tab about to be shown has its blob read. The rest are
-            // read if and when they are activated (6.5).
-            if let selected = primaryWindow.selectedTabID {
-                resolveInteractionState(forTab: selected)
-            }
+        // Which Space and tab each window showed last session (v9). Empty on a
+        // profile from before window layouts existed, or one saved with none —
+        // then every window falls back to the default reconcile below.
+        let layouts: [WindowLayout]
+        do {
+            layouts = try await windowLayoutRepository?.loadWindowLayouts() ?? []
+        } catch {
+            Log.store.error("window layout restore failed: \(String(describing: error))")
+            layouts = []
         }
-
-        // Any window macOS restored alongside the primary claimed its state
-        // *before* this ran, so it holds a nil Space and a nil selection. Nothing
-        // else would ever fix that — the reconcile passes hang off mutations, and
-        // restoring is not one.
-        reconcileWindows(excluding: primaryWindow)
+        applyRestoredLayouts(layouts)
 
         startSweep()
 
@@ -774,6 +818,16 @@ public final class TabStore {
             Log.store.error("tab save failed: \(String(describing: error))")
         }
 
+        // Window layout (v9): which Space and tab each open window is showing, so
+        // a relaunch restores them. Captured on the main actor, then written on
+        // the persistence queue like everything else.
+        let layouts = captureWindowLayouts()
+        do {
+            try await windowLayoutRepository?.saveWindowLayouts(layouts)
+        } catch {
+            Log.store.error("window layout save failed: \(String(describing: error))")
+        }
+
         // Reclaim state for panes that no longer exist. Nothing else does this:
         // the blob table has no foreign key to `pane`, on purpose, so a closed
         // tab's state would otherwise sit on disk forever (6.5).
@@ -889,9 +943,31 @@ extension TabStore: WebEngineDelegate {
         peekPresenter?(url)
     }
 
+    public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {
+        // Owned by the app layer (Notification Center); inert until wired.
+        notificationPresenter?(request, paneID)
+    }
+
+    public func paneRequestedNotificationPermission() async -> Bool {
+        await notificationPermissionRequester?() ?? false
+    }
+
     public func paneContentProcessDidTerminate(_ paneID: UUID) {
         // The engine already restarted the page. Nothing to do but note it —
         // the user should not see anything beyond a brief reload.
         Log.store.notice("recovered pane \(paneID, privacy: .public) after process termination")
+    }
+
+    /// A delivered web notification was clicked: bring its page to the front and
+    /// fire the page-side instance's `onclick` (non-spec: user-requested). The app
+    /// layer activates the app; this selects the tab in a window showing it — the
+    /// one already showing it, or the focused one, switching that window to the
+    /// tab's Space first.
+    public func handleNotificationClick(jsID: String, paneID: UUID) {
+        guard let tab = tabs.first(where: { $0.panes.contains { $0.id == paneID } }) else { return }
+        let window = windowShowing(tab.id) ?? focusedWindow
+        selectSpace(tab.spaceID, in: window)  // no-op if already there
+        select(tab.id, in: window)
+        engine.dispatchNotificationClick(jsID: jsID, toPane: paneID)
     }
 }

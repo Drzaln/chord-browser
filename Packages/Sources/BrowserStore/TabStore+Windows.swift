@@ -115,4 +115,72 @@ extension TabStore {
         window.selectedTabID = nil
         newTab(in: window)
     }
+
+    // MARK: - Window layout (v9)
+
+    /// Applies saved layouts to every window that already exists at restore, in
+    /// order, and queues the rest for windows that claim later.
+    ///
+    /// Both orderings happen: macOS can restore a secondary scene that claims
+    /// *before* `restore()` runs (the window is already registered here), and it
+    /// can create one *after* (it pops `pendingWindowLayouts` in `claimWindow`).
+    /// The ordinal is the identity, so layout *i* goes to the *i*th window.
+    func applyRestoredLayouts(_ layouts: [WindowLayout]) {
+        let current = windows  // primary first, then any early secondaries
+        for (i, window) in current.enumerated() {
+            if i >= layouts.count || !applyLayout(layouts[i], to: window) {
+                // No usable layout: the default — keep the window's Space if it
+                // has a valid one, and take the most-recent free tab in it.
+                reconcile(window)
+            }
+            // Only the tab about to be shown has its blob read; the rest load if
+            // and when they are activated (6.5).
+            if let selected = window.selectedTabID {
+                resolveInteractionState(forTab: selected)
+            }
+        }
+        pendingWindowLayouts = Array(layouts.dropFirst(current.count))
+    }
+
+    /// Puts one window on the Space and tab a layout names, guarding the
+    /// one-tab-one-window invariant. Returns false if the Space no longer exists,
+    /// so the caller falls back to a reconcile.
+    @discardableResult
+    func applyLayout(_ layout: WindowLayout, to window: WindowState) -> Bool {
+        guard let spaceID = layout.activeSpaceID,
+              spaces.contains(where: { $0.id == spaceID })
+        else { return false }
+
+        window.activeSpaceID = spaceID
+
+        // Take the saved tab only if it still exists, lives in this Space, and no
+        // other window already shows it. Otherwise let reconcile pick a free tab
+        // in the (valid) Space rather than blank the window.
+        if let tabID = layout.selectedTabID,
+           let tab = tabs.first(where: { $0.id == tabID }),
+           tab.spaceID == spaceID,
+           windowShowing(tabID, excluding: window) == nil {
+            window.selectedTabID = tabID
+        } else {
+            window.selectedTabID = nil
+            reconcile(window)
+        }
+        return true
+    }
+
+    /// The next queued layout for a window claiming after restore, if any.
+    func takeNextPendingLayout() -> WindowLayout? {
+        pendingWindowLayouts.isEmpty ? nil : pendingWindowLayouts.removeFirst()
+    }
+
+    /// A snapshot of the open windows' layouts, in window order, for persistence.
+    func captureWindowLayouts() -> [WindowLayout] {
+        windows.enumerated().map { index, window in
+            WindowLayout(
+                ordinal: index,
+                activeSpaceID: window.activeSpaceID,
+                selectedTabID: window.selectedTabID
+            )
+        }
+    }
 }

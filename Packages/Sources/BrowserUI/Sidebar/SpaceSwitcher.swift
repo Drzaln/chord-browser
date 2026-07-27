@@ -61,13 +61,14 @@ struct SpaceSwitcher: View {
                 .foregroundStyle(isActive ? .white : .secondary)
         }
         .buttonStyle(.plain)
-        // Dropping a dragged tab onto a Space moves it there (4.1). Mounted only
-        // while a drag is in flight so it never eats an ordinary click on the
-        // Space button.
+        // Dropping a dragged tab onto a Space moves it there (4.1). Routed through
+        // `dropTab(_:ontoSpace:)` so a cross-Space move prompts first, like every
+        // other cross-Space drag. Mounted only while a drag is in flight so it
+        // never eats an ordinary click on the Space button.
         .overlay {
             if isDragging {
                 SidebarDropTarget(
-                    onDrop: { tabID, _ in store.moveTab(tabID, toSpace: space.id, in: windowState) }
+                    onDrop: { tabID, _ in store.dropTab(tabID, ontoSpace: space.id, in: windowState) }
                 )
             }
         }

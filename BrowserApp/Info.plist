@@ -49,6 +49,17 @@
 			</array>
 		</dict>
 	</array>
+	<!--
+		Shown in the system camera/microphone permission prompt the first time a
+		page calls getUserMedia (Google Meet, Slack huddles). Required for a
+		sandboxed app to open a capture device; without these strings the prompt
+		cannot appear and access is denied. Paired with the device.camera /
+		device.microphone entitlements.
+	-->
+	<key>NSCameraUsageDescription</key>
+	<string>Chord needs camera access so sites like Google Meet can use your camera.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Chord needs microphone access so sites like Google Meet can use your microphone.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSSupportsAutomaticTermination</key>

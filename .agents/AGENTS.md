@@ -50,7 +50,7 @@ BrowserTestSupport   ← fakes, fixtures, builders (test-only)
 
 ## Schema
 
-Current version: **v8**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, through `v8` (`pinnedHomeURL`). Each migration has a fixture test.
+Current version: **v9**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, through `v8` (`pinnedHomeURL`) and `v9_window_layout` (per-window Space/tab). Each migration has a fixture test.
 
 ## Git
 

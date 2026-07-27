@@ -82,9 +82,12 @@ struct SidebarView: View {
 
             newTabButton
 
+            // Fills the space down to the Space switcher rather than hugging its
+            // rows, so its overlaid drop target covers the empty area below the
+            // last tab too — a drop there appends, the way most browsers accept a
+            // drop anywhere in the list. (The old `Spacer(minLength: 0)` here
+            // split that slack with the list and left the gap undroppable.)
             ephemeralList
-
-            Spacer(minLength: 0)
 
             // Arc keeps the Space switcher on the bottom bar, under the tab
             // list, rather than above it. §4.1 lists it first; the order there
@@ -186,6 +189,10 @@ struct SidebarView: View {
             }
             .padding(.horizontal, 8)
         }
+        // Fill the region between the New Tab button and the Space switcher so
+        // the drop target below covers the empty area under the rows, not just
+        // the rows themselves.
+        .frame(maxHeight: .infinity)
         .overlay(alignment: .top) {
             if isDragging {
                 ZStack(alignment: .top) {

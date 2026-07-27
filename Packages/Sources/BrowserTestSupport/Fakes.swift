@@ -63,6 +63,11 @@ public final class FakeWebEngine: WebEngine {
 
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
+    public private(set) var notificationClicks: [(jsID: String, paneID: UUID)] = []
+    public func dispatchNotificationClick(jsID: String, toPane paneID: UUID) {
+        notificationClicks.append((jsID, paneID))
+    }
+
     public private(set) var printedPanes: [UUID] = []
     public func printPane(paneID: UUID) { printedPanes.append(paneID) }
 
@@ -187,4 +192,21 @@ public actor FakeTabRepository: TabRepository, SpaceRepository {
     public func storedInteractionStateCount() -> Int { interactionStates.count }
 
     public func setLoadError(_ error: (any Error)?) { loadError = error }
+}
+
+/// In-memory window-layout persistence for tests (v9).
+public actor FakeWindowLayoutRepository: WindowLayoutRepository {
+    public private(set) var stored: [WindowLayout]
+    public private(set) var saveCount = 0
+
+    public init(stored: [WindowLayout] = []) {
+        self.stored = stored
+    }
+
+    public func loadWindowLayouts() async throws -> [WindowLayout] { stored }
+
+    public func saveWindowLayouts(_ layouts: [WindowLayout]) async throws {
+        stored = layouts
+        saveCount += 1
+    }
 }

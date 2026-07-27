@@ -19,5 +19,16 @@
 	     unsandboxed and cannot catch that — verified against the real app. -->
 	<key>com.apple.security.print</key>
 	<true/>
+	<!-- Camera and microphone for getUserMedia (Google Meet, Slack huddles).
+	     A sandboxed app cannot open a capture device without these; WebKit's
+	     media-capture permission grant is refused by the OS otherwise. The
+	     first use still shows the system TCC prompt (see NSCamera/Microphone
+	     UsageDescription in Info.plist). swift test runs unsandboxed and cannot
+	     catch this — verify against the real app. Screen sharing is not
+	     included: public WKWebView exposes no display-capture hook. -->
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	<key>com.apple.security.device.microphone</key>
+	<true/>
 </dict>
 </plist>

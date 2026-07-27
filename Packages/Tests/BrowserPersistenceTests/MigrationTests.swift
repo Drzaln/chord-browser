@@ -15,7 +15,7 @@ struct MigrationTests {
         let queue = try DatabaseQueue()
         try Migrations.makeMigrator().migrate(queue)
 
-        let expected = ["tab", "pane", "paneInteractionState", "space"]
+        let expected = ["tab", "pane", "paneInteractionState", "space", "windowLayout"]
         let existing = try queue.read { db in
             try expected.filter { try db.tableExists($0) }
         }
@@ -287,6 +287,58 @@ struct MigrationTests {
         }
         #expect(tabCount == 1, "the existing tab is not deleted")
         #expect(homeURL == nil, "existing tabs have no pinned home URL")
+    }
+
+    @Test("v9 adds the windowLayout table, deleting nothing")
+    func v9AddsWindowLayout() throws {
+        let queue = try DatabaseQueue()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(queue, upTo: "v8_pinned_home_url")
+
+        // A pre-v9 tab, to prove the additive table leaves existing data untouched.
+        let tabID = UUID().uuidString
+        let spaceID = try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1")
+        } ?? UUID().uuidString
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO tab
+                        (id, spaceId, placementKind, placementOrder, focusedPaneID,
+                         lastAccessedAt, createdAt)
+                    VALUES (?, ?, 'ephemeral', 0, ?, 0, 0)
+                    """,
+                arguments: [tabID, spaceID, UUID().uuidString]
+            )
+        }
+
+        try migrator.migrate(queue)
+
+        // The table exists and takes a row with nullable references.
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO windowLayout (ordinal, activeSpaceId, selectedTabId)
+                    VALUES (0, ?, NULL)
+                    """,
+                arguments: [spaceID]
+            )
+        }
+
+        let (hasTable, tabCount, layoutCount, storedSpace, storedTab) = try queue.read { db in
+            (
+                try db.tableExists("windowLayout"),
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM tab") ?? 0,
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM windowLayout") ?? 0,
+                try String.fetchOne(db, sql: "SELECT activeSpaceId FROM windowLayout WHERE ordinal = 0"),
+                try String.fetchOne(db, sql: "SELECT selectedTabId FROM windowLayout WHERE ordinal = 0")
+            )
+        }
+        #expect(hasTable)
+        #expect(tabCount == 1, "the existing tab is not deleted")
+        #expect(layoutCount == 1)
+        #expect(storedSpace == spaceID)
+        #expect(storedTab == nil, "a null tab reference is allowed")
     }
 
     @Test("A fresh database reports the current schema version")
