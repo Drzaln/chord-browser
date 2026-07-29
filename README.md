@@ -206,7 +206,8 @@ This project follows a strict set of working agreements
 
 Copyright © 2026 Doddy Rizal Novianto.
 
-This is a personal project. No license is currently granted for reuse,
-redistribution, or modification. If you would like to use any part of it, please
-open an issue or contact the author first. A permissive open-source license may
-be added later.
+**Source-available, all rights reserved.** This repository is public so the code
+can be read and studied, but no license is currently granted: you may not reuse,
+redistribute, or modify any part of it. If you would like to use any part of it,
+please open an issue or contact the author first. A permissive open-source
+license may be added later.
