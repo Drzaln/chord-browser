@@ -115,6 +115,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launch.store?.notificationPermissionRequester = { [weak self] in
             await self?.notifications.requestAuthorization() ?? false
         }
+        // Seed the web-facing notification permission from the OS's persisted
+        // decision, so pages loaded this launch read their real state instead of
+        // 'default' (which is what made Slack re-prompt on every visit).
+        Task { [weak self] in
+            guard let self else { return }
+            let status = await self.notifications.authorizationStatus()
+            self.launch.store?.updateNotificationPermission(status)
+        }
 
         // Windows created later (and SwiftUI recreating one) must get the same
         // treatment, or the shortcut breaks again the next time.

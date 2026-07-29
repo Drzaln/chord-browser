@@ -27,3 +27,17 @@ public struct WebNotificationRequest: Sendable, Equatable {
         self.tag = tag
     }
 }
+
+/// The web-facing notification permission state, mirroring the OS authorization
+/// so the shimmed `window.Notification.permission` reflects a decision the user
+/// already made instead of resetting to `default` on every page load — which is
+/// what made sites (Slack) re-prompt each visit.
+public enum WebNotificationPermission: String, Sendable, Equatable {
+    /// Not yet decided — the OS prompt has never been shown.
+    case notDetermined = "default"
+    case granted
+    case denied
+
+    /// The JS-spec string a page reads from `Notification.permission`.
+    public var jsValue: String { rawValue }
+}

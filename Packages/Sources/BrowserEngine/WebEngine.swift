@@ -128,6 +128,13 @@ public protocol WebEngine: AnyObject {
     /// next load). See `UserAgentPreference`.
     func setCustomUserAgent(_ userAgent: String?)
 
+    /// Mirrors the OS notification decision into the web-facing
+    /// `Notification.permission` (and `navigator.permissions`), so a returning
+    /// page reads a decision the user already made instead of `default` and stops
+    /// re-prompting on each visit. Seeds views built afterwards and updates any
+    /// already live. See `WebNotificationPermission`.
+    func setNotificationPermission(_ permission: WebNotificationPermission)
+
     /// Fires the page-side `Notification` instance's `onclick` after its banner
     /// was clicked (non-spec: user-requested). A no-op if the pane has no live
     /// view — a closed page has nothing to notify.

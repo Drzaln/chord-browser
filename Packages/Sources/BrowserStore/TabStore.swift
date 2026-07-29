@@ -970,7 +970,19 @@ extension TabStore: WebEngineDelegate {
     }
 
     public func paneRequestedNotificationPermission() async -> Bool {
-        await notificationPermissionRequester?() ?? false
+        let granted = await notificationPermissionRequester?() ?? false
+        // Mirror the fresh decision into the web layer so every page — this one
+        // and any other open tab — reflects it and stops re-prompting.
+        updateNotificationPermission(granted ? .granted : .denied)
+        return granted
+    }
+
+    /// Publishes the current OS notification decision to the engine, which seeds
+    /// it into the shimmed `Notification.permission`. Called by the app layer at
+    /// launch (with the status read from the OS) and after the user answers the
+    /// prompt, so returning pages read a real decision instead of `default`.
+    public func updateNotificationPermission(_ permission: WebNotificationPermission) {
+        engine.setNotificationPermission(permission)
     }
 
     public func paneContentProcessDidTerminate(_ paneID: UUID) {

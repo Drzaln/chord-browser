@@ -23,13 +23,23 @@ enum NotificationBridge {
     static let permissionMessageName = "chordNotifyPermission"
 
     @MainActor
-    static func makeUserScript() -> WKUserScript {
+    static func makeUserScript(
+        notificationPermission: WebNotificationPermission = .notDetermined
+    ) -> WKUserScript {
         WKUserScript(
-            source: source,
+            source: source(notificationPermission: notificationPermission),
             injectionTime: .atDocumentStart,
             // All frames: embedded frames (e.g. chat widgets) post notifications too.
             forMainFrameOnly: false
         )
+    }
+
+    /// JS to push a fresh notification-permission decision into a *live* page,
+    /// so a grant made mid-session (or read from the OS after launch) reaches
+    /// pages that were already open — not just ones loaded afterwards.
+    static func updatePermissionScript(_ permission: WebNotificationPermission) -> String {
+        "window.__chordSetNotificationPermission && "
+            + "window.__chordSetNotificationPermission('\(permission.jsValue)');"
     }
 
     /// Parses a `show` message body into a request, or nil if malformed.
@@ -56,14 +66,18 @@ enum NotificationBridge {
         return "window.__chordNotifyClick && window.__chordNotifyClick('\(escaped)');"
     }
 
-    private static let source = """
+    private static func source(notificationPermission: WebNotificationPermission) -> String {
+    """
     (function () {
         var w = window.webkit && window.webkit.messageHandlers;
         var show = w && w.\(showMessageName);
         var perm = w && w.\(permissionMessageName);
         if (!show || !perm) { return; }
 
-        var permission = 'default';
+        // Seeded from the OS authorization the user already granted (or denied),
+        // so a returning page reads its real permission instead of 'default' and
+        // does not re-prompt. Native pushes updates via __chordSetNotificationPermission.
+        var permission = '\(notificationPermission.jsValue)';
         var instances = {};
         var counter = 0;
 
@@ -118,6 +132,14 @@ enum NotificationBridge {
         ChordNotification.maxActions = 0;
 
         ChordNotification.requestPermission = function (deprecatedCallback) {
+            // Already decided: resolve from the seeded state without prompting
+            // again — the OS remembers the grant across launches.
+            if (permission === 'granted' || permission === 'denied') {
+                if (typeof deprecatedCallback === 'function') {
+                    try { deprecatedCallback(permission); } catch (e) {}
+                }
+                return Promise.resolve(permission);
+            }
             var p = perm.postMessage({}).then(function (result) {
                 permission = (result === 'granted') ? 'granted' : 'denied';
                 if (typeof deprecatedCallback === 'function') {
@@ -137,7 +159,66 @@ enum NotificationBridge {
             try { window.focus(); } catch (e) {}
         };
 
+        // Native pushes the current OS notification decision here (at launch, or
+        // right after the user answers the prompt) so already-open pages update.
+        window.__chordSetNotificationPermission = function (value) {
+            permission = value;
+        };
+
         window.Notification = ChordNotification;
+
+        // --- Permissions API (notifications only) ------------------------------
+        // Mirror the notification decision from `permission` above into
+        // navigator.permissions.query({name:'notifications'}), which WKWebView
+        // otherwise reports as 'prompt' on every launch.
+        //
+        // We deliberately do NOT touch camera/microphone here. WKWebView does not
+        // support querying those names (the native call rejects), and reporting a
+        // synthetic 'granted' makes Google Meet take a path that fails outright
+        // ("Couldn't start the video call"). getUserMedia is still auto-granted at
+        // the WKUIDelegate layer, so camera/mic work; Meet just shows its own
+        // pre-join access prompt, which is correct for a browser that does not
+        // persist media grants.
+        //
+        // We never hand back a fake object when the native query works: we wrap
+        // the real PermissionStatus in a Proxy overriding only `state`, so
+        // instanceof, `change` events, and identity stay intact.
+        function chordOverrideState(name) {
+            if (name === 'notifications') {
+                return (permission === 'default') ? 'prompt' : permission;
+            }
+            return null;
+        }
+        try {
+            var nav = window.navigator;
+            if (nav && nav.permissions && typeof nav.permissions.query === 'function') {
+                var nativeQuery = nav.permissions.query.bind(nav.permissions);
+                nav.permissions.query = function (desc) {
+                    var name = desc && desc.name;
+                    var override = chordOverrideState(name);
+                    return nativeQuery(desc).then(function (status) {
+                        if (!override || !status) { return status; }
+                        return new Proxy(status, {
+                            get: function (target, prop) {
+                                if (prop === 'state') { return override; }
+                                var value = target[prop];
+                                return (typeof value === 'function')
+                                    ? value.bind(target) : value;
+                            }
+                        });
+                    }, function (err) {
+                        if (!override) { throw err; }
+                        return {
+                            name: name, state: override, onchange: null,
+                            addEventListener: function () {},
+                            removeEventListener: function () {},
+                            dispatchEvent: function () { return false; }
+                        };
+                    });
+                };
+            }
+        } catch (e) {}
     })();
     """
+    }
 }
