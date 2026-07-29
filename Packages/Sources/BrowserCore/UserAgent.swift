@@ -27,6 +27,18 @@ public enum UserAgentPreference: Codable, Hashable, Sendable {
         .default, .chrome, .firefox, .safariIPhone,
     ]
 
+    /// A representative full macOS Safari UA, used only to pre-fill the editable
+    /// custom field when starting from `.default` — whose real UA the engine
+    /// completes at runtime and which the UI layer cannot read. Plausible but
+    /// static, the same accepted staleness as the engine's version token.
+    public static let defaultTemplate =
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        + "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+
+    /// The string to seed a manual edit from: the resolved override, or the
+    /// default template when nothing overrides the UA.
+    public var editableTemplate: String { resolvedUserAgent ?? Self.defaultTemplate }
+
     public var displayName: String {
         switch self {
         case .default: "Default (this browser)"

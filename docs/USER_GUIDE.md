@@ -99,8 +99,10 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
   new split panes.
 - **User agent** — how the browser identifies itself to sites. Pick **Default**
   (the browser's own), **Chrome**, **Firefox**, or **Safari — iPhone** (for a
-  phone layout), or choose **Custom…** and paste any User-Agent string. Handy for
-  the occasional site that blocks non-Chrome browsers. It applies to every tab and
+  phone layout), or choose **Custom…** to type or paste any User-Agent string —
+  the field is pre-filled with the current UA so you can start from a real string
+  and tweak it. Handy for the occasional site that blocks non-Chrome browsers. It
+  applies to every tab and
   takes effect on the next page load; leave a custom field empty to fall back to
   the default.
 - **Archive inactive tabs** — how long an unpinned, non-folder tab may sit idle

@@ -186,6 +186,13 @@ struct GeneralSettings: View {
             get: { isCustomUA ? "__custom__" : store.userAgent.displayName },
             set: { tag in
                 if tag == "__custom__" {
+                    // Seed the manual field from the UA currently in effect, so
+                    // editing starts from a real string to tweak rather than a
+                    // blank box. `resolvedUserAgent` is nil only for Default, in
+                    // which case the browser's own completed UA is the template.
+                    if customUA.isEmpty {
+                        customUA = store.userAgent.editableTemplate
+                    }
                     isCustomUA = true
                     commitCustomUA()
                 } else if let preset = UserAgentPreference.presets.first(

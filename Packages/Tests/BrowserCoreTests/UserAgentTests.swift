@@ -33,6 +33,15 @@ struct UserAgentTests {
         #expect(UserAgentPreference.custom("   ").resolvedUserAgent == nil)
     }
 
+    @Test("Editable template seeds from the resolved UA, or the default template")
+    func editableTemplate() {
+        // Default has no resolved UA, so it seeds from the representative string.
+        #expect(UserAgentPreference.default.editableTemplate == UserAgentPreference.defaultTemplate)
+        #expect(UserAgentPreference.default.editableTemplate.contains("Safari/"))
+        // A preset seeds from its own string, giving a real template to edit.
+        #expect(UserAgentPreference.chrome.editableTemplate.contains("Chrome/"))
+    }
+
     @Test("Round-trips through Codable")
     func codableRoundTrip() throws {
         for value: UserAgentPreference in [.default, .chrome, .custom("X/1")] {
