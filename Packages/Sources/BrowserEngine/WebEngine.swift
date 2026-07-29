@@ -19,6 +19,11 @@ public struct PaneSnapshot: Equatable, Sendable {
     /// Engine-side state, not a `WKWebView` property — see `AudioMuteController`.
     public var isMuted: Bool
 
+    /// Whether the page currently holds a `getDisplayMedia` stream, i.e. it is
+    /// screen-sharing (non-spec: user-requested). WebKit reports no such state,
+    /// so it is observed in-page; see `ScreenShareMonitor`.
+    public var isScreenSharing: Bool
+
     public init(
         url: URL? = nil,
         title: String = "",
@@ -27,10 +32,12 @@ public struct PaneSnapshot: Equatable, Sendable {
         canGoBack: Bool = false,
         canGoForward: Bool = false,
         isPlayingAudio: Bool = false,
-        isMuted: Bool = false
+        isMuted: Bool = false,
+        isScreenSharing: Bool = false
     ) {
         self.isPlayingAudio = isPlayingAudio
         self.isMuted = isMuted
+        self.isScreenSharing = isScreenSharing
         self.url = url
         self.title = title
         self.isLoading = isLoading
@@ -109,6 +116,11 @@ public protocol WebEngine: AnyObject {
     /// Mutes or unmutes a pane's audio (non-spec: user-requested). Persists
     /// across reloads and view eviction so a muted tab stays muted.
     func setMuted(_ muted: Bool, paneID: UUID)
+
+    /// Stops every display-capture stream the pane holds (non-spec:
+    /// user-requested), ending screen sharing. A no-op for a pane with no live
+    /// view — a page that is gone cannot be sharing. See `ScreenShareMonitor`.
+    func stopScreenSharing(paneID: UUID)
 
     /// Fires the page-side `Notification` instance's `onclick` after its banner
     /// was clicked (non-spec: user-requested). A no-op if the pane has no live

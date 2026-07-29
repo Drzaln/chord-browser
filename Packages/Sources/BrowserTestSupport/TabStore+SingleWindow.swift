@@ -73,6 +73,7 @@ extension TabStore {
     public func goBack() { goBack(in: primaryWindow) }
     public func goForward() { goForward(in: primaryWindow) }
     public func stopLoading() { stopLoading(in: primaryWindow) }
+    public func stopScreenSharing() { stopScreenSharing(in: primaryWindow) }
     public func printSelectedPane() { printSelectedPane(in: primaryWindow) }
 
     public func selectNextTab() { selectNextTab(in: primaryWindow) }

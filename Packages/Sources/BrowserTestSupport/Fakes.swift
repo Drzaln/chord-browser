@@ -61,6 +61,11 @@ public final class FakeWebEngine: WebEngine {
         if muted { mutedPanes.insert(paneID) } else { mutedPanes.remove(paneID) }
     }
 
+    public private(set) var stoppedScreenShares: [UUID] = []
+    public func stopScreenSharing(paneID: UUID) {
+        stoppedScreenShares.append(paneID)
+    }
+
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
     public private(set) var notificationClicks: [(jsID: String, paneID: UUID)] = []

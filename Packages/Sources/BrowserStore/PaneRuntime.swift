@@ -19,6 +19,9 @@ public final class PaneRuntime {
     public var isPlayingAudio: Bool = false
     /// Whether the user has muted this pane (non-spec: user-requested).
     public var isMuted: Bool = false
+    /// Whether the pane is screen-sharing (non-spec: user-requested). Drives the
+    /// "sharing this window" banner; see `ScreenShareMonitor`.
+    public var isScreenSharing: Bool = false
 
     init(paneID: UUID) {
         self.paneID = paneID
@@ -32,5 +35,6 @@ public final class PaneRuntime {
         currentURL = snapshot.url
         isPlayingAudio = snapshot.isPlayingAudio
         isMuted = snapshot.isMuted
+        isScreenSharing = snapshot.isScreenSharing
     }
 }

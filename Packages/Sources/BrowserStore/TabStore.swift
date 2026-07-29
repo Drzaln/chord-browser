@@ -686,6 +686,14 @@ public final class TabStore {
         }
     }
 
+    /// Ends screen sharing for the window's focused pane (non-spec:
+    /// user-requested). Drives the "Stop" button on the sharing banner; the page
+    /// reports `sharing:false` back, which clears the runtime flag.
+    public func stopScreenSharing(in window: WindowState) {
+        selectedTab(in: window)
+            .map { engine.stopScreenSharing(paneID: $0.focusedPaneID) }
+    }
+
     public func goBack(in window: WindowState) {
         selectedTab(in: window).map { engine.goBack(in: $0.focusedPaneID) }
     }

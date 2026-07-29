@@ -79,6 +79,7 @@ Space_.
 | `Cmd+Shift+G` | Find previous                                                |
 | `Cmd+P`       | Print the focused pane                                       |
 | `Cmd+S`       | Toggle the sidebar                                           |
+| `Cmd+Ctrl+S`  | Toggle **Presentation mode** (hide all chrome — for sharing) |
 | `Cmd+Y`       | Open the **History** window                                  |
 | `Cmd+,`       | Open **Settings** (General, clear browsing data, extensions) |
 
@@ -113,6 +114,23 @@ auto-archived**, so a folder is a safe place to keep things.
 A tab making noise shows a speaker button in its sidebar row — click it to mute,
 click again to unmute. Mute is also on the right-click menu, and it sticks across
 reloads. Muting a split silences every pane.
+
+## Screen sharing
+
+When a site (Google Meet, Discord, etc.) asks to share your screen, macOS shows
+its own picker with **Entire screen** and a **Window** list. Pick this browser's
+window to share the page.
+
+There is **no "Share this tab"** option — tab-level capture is a Chromium-only
+feature, and Chord is built on WebKit, which does not offer it. Sharing the
+window is the equivalent, and **Presentation mode** (`Cmd+Ctrl+S`, or the
+**View** menu) makes it clean: it hides the sidebar and all browser chrome so the
+shared window shows only the page. The traffic-light buttons stay so you can
+always get out.
+
+While a page is sharing your screen, a red **“Sharing this window”** banner
+appears at the top of the window. Click **Stop** on it to end sharing without
+digging through the site's own controls.
 
 ## Peek (⌘-hover preview)
 

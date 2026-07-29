@@ -26,6 +26,11 @@ final class LiveWebView {
         didSet { refreshSnapshot() }
     }
 
+    /// Reported by the page rather than by WebKit; see `ScreenShareMonitor`.
+    var isScreenSharing = false {
+        didSet { refreshSnapshot() }
+    }
+
     init(paneID: UUID, webView: WKWebView, cornerRadius: CGFloat) {
         self.paneID = paneID
         self.webView = webView
@@ -67,7 +72,8 @@ final class LiveWebView {
             canGoBack: webView.canGoBack,
             canGoForward: webView.canGoForward,
             isPlayingAudio: isPlayingAudio,
-            isMuted: isMuted
+            isMuted: isMuted,
+            isScreenSharing: isScreenSharing
         )
     }
 
@@ -110,7 +116,9 @@ final class LiveWebView {
             .removeScriptMessageHandler(forName: ContextLinkMonitor.messageName)
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: PeekLinkMonitor.messageName)
-            
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: ScreenShareMonitor.messageName)
+
         webView.stopLoading()
         container.removeContent()
     }

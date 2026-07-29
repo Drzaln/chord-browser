@@ -58,7 +58,26 @@ public struct RootView: View {
     /// all. Collapsing hides it completely rather than leaving a rail, which is
     /// what Arc does and what makes the reveal worth having.
     private var isHidden: Bool {
-        windowState.isSidebarCollapsed && !isRevealed
+        windowState.isPresentationMode || (windowState.isSidebarCollapsed && !isRevealed)
+    }
+
+    /// The macOS window title. Hidden visually by `.hiddenTitleBar`, but it is
+    /// still the string the screen-share picker and Mission Control show — so a
+    /// user hunting for this window among a grid can find it. Tracks the active
+    /// tab's page title.
+    private var windowTitle: String {
+        let title = store.selectedTab(in: windowState)?.focusedPane.displayTitle ?? ""
+        return title.isEmpty ? "Chord" : "Chord — \(title)"
+    }
+
+    /// The pane the window is currently showing, when it is screen-sharing —
+    /// drives the "you are sharing" banner. WebKit surfaces no screen-capture
+    /// signal, so this is observed in-page; see `ScreenShareMonitor`.
+    private var sharingPaneID: UUID? {
+        guard let paneID = store.selectedTab(in: windowState)?.focusedPaneID,
+              store.runtime(for: paneID).isScreenSharing
+        else { return nil }
+        return paneID
     }
 
     /// Hide the traffic lights only while the sidebar is off screen *and* the
@@ -75,7 +94,9 @@ public struct RootView: View {
     }
 
     private var shouldHideTrafficLights: Bool {
-        isHidden && !isFullscreen
+        // Presentation mode hides the sidebar but keeps the traffic lights, so
+        // the user always has a visible way out of a mode meant for sharing.
+        isHidden && !isFullscreen && !windowState.isPresentationMode
     }
 
     /// What the sidebar reserves in the layout, which is not what it draws.
@@ -105,12 +126,24 @@ public struct RootView: View {
 
             // Only while hidden. A permanent strip is not needed once the
             // sidebar is on screen, and the sidebar's own hover handles
-            // leaving.
-            if isHidden {
+            // leaving. Presentation mode suppresses it too — the point of that
+            // mode is that a shared window shows content and nothing else.
+            if isHidden && !windowState.isPresentationMode {
                 SidebarRevealStrip { reveal() }
                     .frame(width: SidebarRevealStrip.width)
                     .frame(maxHeight: .infinity)
                     .zIndex(2)
+            }
+
+            if let sharingPaneID {
+                ScreenShareBanner {
+                    store.stopScreenSharing(in: windowState)
+                }
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(3)
+                .id(sharingPaneID)
             }
 
             if !isHidden {
@@ -194,6 +227,11 @@ public struct RootView: View {
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)
         ) { _ in isFullscreen = false }
+        // Keep the (visually hidden) window title in step with the page — it is
+        // what the screen-share picker and Mission Control label this window by.
+        .onChange(of: windowTitle, initial: true) { _, title in
+            window?.title = title
+        }
         .onChange(of: windowState.isSidebarCollapsed) { _, collapsed in
             // Showing the sidebar by menu while the pointer sits at the edge
             // would otherwise leave the reveal flag set, and the sidebar would
@@ -270,6 +308,9 @@ public struct RootView: View {
         guard let window else { return }
         window.isOpaque = false
         window.backgroundColor = .clear
+        // Seed the title as soon as the window resolves; the observer keeps it
+        // current after that.
+        window.title = windowTitle
     }
 
     private func reveal() {

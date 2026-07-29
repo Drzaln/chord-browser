@@ -193,11 +193,13 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(AudioMuteController.makeUserScript())
         controller.addUserScript(PeekLinkMonitor.makeUserScript())
         controller.addUserScript(NotificationBridge.makeUserScript())
+        controller.addUserScript(ScreenShareMonitor.makeUserScript())
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
             controller.add(coordinator, name: PeekLinkMonitor.messageName)
             controller.add(coordinator, name: NotificationBridge.showMessageName)
+            controller.add(coordinator, name: ScreenShareMonitor.messageName)
             // requestPermission() needs the native decision back, so it is a
             // with-reply handler installed in the page world. The coordinator
             // conforms to both handler protocols, so the cast selects the
@@ -288,6 +290,23 @@ public final class WebKitEngine: WebEngine {
         guard let live = pool.view(for: paneID), live.isPlayingAudio != playing else { return }
         live.isPlayingAudio = playing
         handleSnapshot(live.snapshot, for: paneID)
+    }
+
+    /// Records whether the pane is screen-sharing, as reported from inside the
+    /// page (see `ScreenShareMonitor`), and republishes the snapshot so the
+    /// "sharing" banner tracks it.
+    func setScreenSharing(_ sharing: Bool, for paneID: UUID) {
+        guard let live = pool.view(for: paneID), live.isScreenSharing != sharing else { return }
+        live.isScreenSharing = sharing
+        handleSnapshot(live.snapshot, for: paneID)
+    }
+
+    /// Stops every display-capture stream the pane holds, ending screen sharing.
+    /// A no-op without a live view — a page that is gone cannot be sharing. The
+    /// page reports the resulting `sharing:false` itself, which clears the state.
+    public func stopScreenSharing(paneID: UUID) {
+        guard let live = pool.peek(paneID) else { return }
+        live.webView.evaluateJavaScript(ScreenShareMonitor.stopScript) { _, _ in }
     }
 
     /// Records (or clears) the link the pane's page reported under the last

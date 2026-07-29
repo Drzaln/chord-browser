@@ -281,6 +281,19 @@ struct BrowserCommands: Commands {
             }
             .keyboardShortcut("s", modifiers: .command)
             .disabled(windowState == nil)
+
+            // Presentation mode hides all browser chrome so a screen-shared
+            // window shows only the page — WebKit's native stand-in for "Share
+            // this tab", which it cannot do. Cmd+Ctrl+S, a sidebar-family
+            // mnemonic; Cmd+Ctrl+P is the debug overlay.
+            Button(
+                (windowState?.isPresentationMode ?? false)
+                    ? "Exit Presentation Mode" : "Enter Presentation Mode"
+            ) {
+                windowState?.isPresentationMode.toggle()
+            }
+            .keyboardShortcut("s", modifiers: [.command, .control])
+            .disabled(windowState == nil)
         }
 
         // Cmd+Y — the platform's "Show All History" (Safari/Chrome both use it),

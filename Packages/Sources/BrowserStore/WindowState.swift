@@ -62,6 +62,13 @@ public final class WindowState {
     /// it is a gesture, not a preference.
     public var isSidebarResizing: Bool = false
 
+    /// Presentation mode: the sidebar and reveal strip are hidden so the window
+    /// shows only web content (non-spec: user-requested). This is the native
+    /// substitute for "Share this tab" — WebKit has no tab-level screen capture,
+    /// so the user shares the *window*, and this makes the window read as just
+    /// the page. Volatile: a session mode, not a saved preference.
+    public var isPresentationMode: Bool = false
+
     /// The Spaces whose Pinned-tabs section is collapsed in *this* window
     /// (non-spec: user-requested). Per-Space and now per-window, so two windows
     /// in the same Space can disagree.

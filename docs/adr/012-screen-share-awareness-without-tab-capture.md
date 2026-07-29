@@ -1,0 +1,46 @@
+# 012 — Screen-share awareness by user script, not tab capture
+
+**Status:** accepted
+
+Sites like Google Meet and Discord call `navigator.mediaDevices.getDisplayMedia()`
+to share the screen. On WebKit the OS picker offers **Entire screen** and a
+**Window** list, but never **This tab** — tab-level capture is a Chromium-only
+display surface, and the public WebKit SDK exposes no equivalent. So Chord does
+**not** try to add "Share this tab."
+
+Faking it would mean capturing our own window with ScreenCaptureKit, cropping to
+the web view, and piping `CMSampleBuffer` frames back into the page's own
+JavaScript `RTCPeerConnection`. There is no bridge for that last step: the only
+in-page sink is `canvas.captureStream()`, fed frame-by-frame over a local socket
+— software-encoding every frame, shipping it, decoding, blitting, then
+re-encoding for WebRTC. For a live call that is worse than just sharing the
+window. Rejected.
+
+What we do instead is make **window** sharing good:
+
+- **Presentation mode** (`WindowState.isPresentationMode`) hides the sidebar and
+  all chrome so a shared window shows only the page. The traffic lights stay, so
+  the mode is never a trap.
+- The **window title** is kept in step with the active page even though
+  `.hiddenTitleBar` hides it visually — it is still the label the screen-share
+  picker and Mission Control show, so the right window is findable.
+- A **"Sharing this window" banner** with a one-click Stop.
+
+The banner needs to know when a page is sharing, and WebKit reports nothing. So,
+exactly as `MediaActivityMonitor` does for audio (see ADR 008), `ScreenShareMonitor`
+observes from inside the page: a user script wraps `getDisplayMedia`, calls
+through to the real implementation (it never intercepts the media — the site's
+WebRTC path is untouched), and posts `{ sharing: bool }` when the first stream
+starts and the last one ends. It also exposes `window.__chordStopSharing()` so
+the native Stop button can end capture by calling `track.stop()` on every
+display track.
+
+The state flows engine → `PaneSnapshot.isScreenSharing` → `PaneRuntime` →
+`RootView`'s banner, the same path audio playback takes. Like the audio handler,
+the message handler is a per-view leak source (6.7) and is removed explicitly in
+`LiveWebView.tearDown()`; it is installed on the per-view content controller, not
+the shared configuration template, for the same `copy()` reason ADR 008 records.
+
+Trade-off: `track.stop()` does not fire the `ended` event, so the stop hook posts
+`sharing:false` itself rather than waiting for the listener. And if a page holds
+multiple display streams, the banner clears only once the last one ends.
