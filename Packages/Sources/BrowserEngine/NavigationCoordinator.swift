@@ -137,8 +137,10 @@ extension NavigationCoordinator: WKScriptMessageHandler {
 
 extension NavigationCoordinator: WKScriptMessageHandlerWithReply {
 
-    /// `Notification.requestPermission()` — the one channel that needs a value
-    /// back, so it is a with-reply handler. Resolves to the web-spec strings.
+    /// The Web Notifications permission channel, per-origin. `query` reads the
+    /// remembered decision (seeds `Notification.permission` at load, no prompt);
+    /// `request` is `requestPermission()` and prompts the first time. A with-reply
+    /// handler because both need a value back; resolves to the web-spec strings.
     func userContentController(
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage,
@@ -148,9 +150,30 @@ extension NavigationCoordinator: WKScriptMessageHandlerWithReply {
             replyHandler(nil, "unexpected message")
             return
         }
+        let origin = message.frameInfo.securityOrigin
+        let host = origin.host
+        let originString =
+            host.isEmpty ? origin.`protocol` : "\(origin.`protocol`)://\(host)"
+        let requestPaneID = message.webView.flatMap { self.paneID(for: $0) }
+        let isRequest = NotificationBridge.isRequest(message.body)
+
         Task { @MainActor in
-            let granted = await engine?.delegate?.paneRequestedNotificationPermission() ?? false
-            replyHandler(granted ? "granted" : "denied", nil)
+            guard let delegate = engine?.delegate else {
+                replyHandler("default", nil)
+                return
+            }
+            if isRequest {
+                let prompt = SitePermissionPrompt(
+                    origin: originString, host: host, kinds: [.notification], paneID: requestPaneID
+                )
+                let granted = await delegate.paneRequestedNotificationPermission(prompt)
+                replyHandler(granted ? "granted" : "denied", nil)
+            } else {
+                let state = await delegate.paneNotificationPermissionState(
+                    origin: originString, paneID: requestPaneID
+                )
+                replyHandler(state.jsValue, nil)
+            }
         }
     }
 }
@@ -194,23 +217,23 @@ extension NavigationCoordinator: WKUIDelegate {
         type: WKMediaCaptureType,
         decisionHandler: @escaping @MainActor (WKPermissionDecision) -> Void
     ) {
-        let devices: [MediaDevice]
+        let kinds: [SitePermissionKind]
         switch type {
-        case .camera: devices = [.camera]
-        case .microphone: devices = [.microphone]
-        case .cameraAndMicrophone: devices = [.camera, .microphone]
-        @unknown default: devices = [.camera, .microphone]
+        case .camera: kinds = [.camera]
+        case .microphone: kinds = [.microphone]
+        case .cameraAndMicrophone: kinds = [.camera, .microphone]
+        @unknown default: kinds = [.camera, .microphone]
         }
         let host = origin.host
         let originString = host.isEmpty ? origin.`protocol` : "\(origin.`protocol`)://\(host)"
-        let request = MediaPermissionRequest(
+        let prompt = SitePermissionPrompt(
             origin: originString,
             host: host,
-            devices: devices,
+            kinds: kinds,
             paneID: paneID(for: webView)
         )
         Task { @MainActor in
-            let granted = await engine?.delegate?.paneRequestedMediaCapture(request) ?? false
+            let granted = await engine?.delegate?.paneRequestedMediaCapture(prompt) ?? false
             decisionHandler(granted ? .grant : .deny)
         }
     }

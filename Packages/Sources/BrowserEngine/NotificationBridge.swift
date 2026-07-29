@@ -23,23 +23,20 @@ enum NotificationBridge {
     static let permissionMessageName = "chordNotifyPermission"
 
     @MainActor
-    static func makeUserScript(
-        notificationPermission: WebNotificationPermission = .notDetermined
-    ) -> WKUserScript {
+    static func makeUserScript() -> WKUserScript {
         WKUserScript(
-            source: source(notificationPermission: notificationPermission),
+            source: source,
             injectionTime: .atDocumentStart,
             // All frames: embedded frames (e.g. chat widgets) post notifications too.
             forMainFrameOnly: false
         )
     }
 
-    /// JS to push a fresh notification-permission decision into a *live* page,
-    /// so a grant made mid-session (or read from the OS after launch) reaches
-    /// pages that were already open — not just ones loaded afterwards.
-    static func updatePermissionScript(_ permission: WebNotificationPermission) -> String {
-        "window.__chordSetNotificationPermission && "
-            + "window.__chordSetNotificationPermission('\(permission.jsValue)');"
+    /// The `op` value a permission message carries: `query` reads the remembered
+    /// per-origin decision without prompting (seeds `Notification.permission` at
+    /// load); `request` is `Notification.requestPermission()` and may prompt.
+    static func isRequest(_ body: Any) -> Bool {
+        (body as? [String: Any])?["op"] as? String != "query"
     }
 
     /// Parses a `show` message body into a request, or nil if malformed.
@@ -66,18 +63,20 @@ enum NotificationBridge {
         return "window.__chordNotifyClick && window.__chordNotifyClick('\(escaped)');"
     }
 
-    private static func source(notificationPermission: WebNotificationPermission) -> String {
-    """
+    private static let source = """
     (function () {
         var w = window.webkit && window.webkit.messageHandlers;
         var show = w && w.\(showMessageName);
         var perm = w && w.\(permissionMessageName);
         if (!show || !perm) { return; }
 
-        // Seeded from the OS authorization the user already granted (or denied),
-        // so a returning page reads its real permission instead of 'default' and
-        // does not re-prompt. Native pushes updates via __chordSetNotificationPermission.
-        var permission = '\(notificationPermission.jsValue)';
+        // Per-origin: on load we ask native for this site's remembered decision
+        // (no prompt); requestPermission() prompts the first time. Starts at
+        // 'default' until the async query resolves — the spec's own initial value.
+        var permission = 'default';
+        perm.postMessage({ op: 'query' }).then(function (result) {
+            if (result === 'granted' || result === 'denied') { permission = result; }
+        });
         var instances = {};
         var counter = 0;
 
@@ -132,15 +131,14 @@ enum NotificationBridge {
         ChordNotification.maxActions = 0;
 
         ChordNotification.requestPermission = function (deprecatedCallback) {
-            // Already decided: resolve from the seeded state without prompting
-            // again — the OS remembers the grant across launches.
+            // Already decided for this site: resolve without prompting again.
             if (permission === 'granted' || permission === 'denied') {
                 if (typeof deprecatedCallback === 'function') {
                     try { deprecatedCallback(permission); } catch (e) {}
                 }
                 return Promise.resolve(permission);
             }
-            var p = perm.postMessage({}).then(function (result) {
+            var p = perm.postMessage({ op: 'request' }).then(function (result) {
                 permission = (result === 'granted') ? 'granted' : 'denied';
                 if (typeof deprecatedCallback === 'function') {
                     try { deprecatedCallback(permission); } catch (e) {}
@@ -159,26 +157,18 @@ enum NotificationBridge {
             try { window.focus(); } catch (e) {}
         };
 
-        // Native pushes the current OS notification decision here (at launch, or
-        // right after the user answers the prompt) so already-open pages update.
-        window.__chordSetNotificationPermission = function (value) {
-            permission = value;
-        };
-
         window.Notification = ChordNotification;
 
         // --- Permissions API (notifications only) ------------------------------
-        // Mirror the notification decision from `permission` above into
+        // Mirror the per-origin notification decision from `permission` above into
         // navigator.permissions.query({name:'notifications'}), which WKWebView
         // otherwise reports as 'prompt' on every launch.
         //
         // We deliberately do NOT touch camera/microphone here. WKWebView does not
         // support querying those names (the native call rejects), and reporting a
         // synthetic 'granted' makes Google Meet take a path that fails outright
-        // ("Couldn't start the video call"). getUserMedia is still auto-granted at
-        // the WKUIDelegate layer, so camera/mic work; Meet just shows its own
-        // pre-join access prompt, which is correct for a browser that does not
-        // persist media grants.
+        // ("Couldn't start the video call"). getUserMedia permission is handled at
+        // the WKUIDelegate layer (per-origin prompt), so camera/mic work there.
         //
         // We never hand back a fake object when the native query works: we wrap
         // the real PermissionStatus in a Proxy overriding only `state`, so
@@ -220,5 +210,4 @@ enum NotificationBridge {
         } catch (e) {}
     })();
     """
-    }
 }

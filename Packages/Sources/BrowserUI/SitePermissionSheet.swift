@@ -2,19 +2,27 @@ import BrowserCore
 import BrowserStore
 import SwiftUI
 
-/// The grant/deny sheet for a camera/microphone request (non-spec:
-/// user-requested). All-or-nothing per request, matching how browsers present
-/// these; dismissing without a choice is treated as a denial by `RootSheets`.
-struct MediaPermissionSheet: View {
-    let request: MediaPermissionRequest
+/// The grant/deny sheet for a camera/microphone or notification request
+/// (non-spec: user-requested). All-or-nothing per request, matching how browsers
+/// present these; dismissing without a choice is treated as a denial by
+/// `RootSheets`.
+struct SitePermissionSheet: View {
+    let prompt: SitePermissionPrompt
     @Bindable var store: TabStore
 
-    private var deviceList: String {
-        request.devices.map(\.label).joined(separator: " and ")
+    private var isNotification: Bool { prompt.kinds == [.notification] }
+
+    private var message: String {
+        if isNotification {
+            return "“\(prompt.host)” wants to send you notifications."
+        }
+        let list = prompt.kinds.map(\.label).joined(separator: " and ")
+        return "“\(prompt.host)” wants to use your \(list)."
     }
 
     private var icon: String {
-        request.devices.contains(.camera) ? "video.fill" : "mic.fill"
+        if isNotification { return "bell.fill" }
+        return prompt.kinds.contains(.camera) ? "video.fill" : "mic.fill"
     }
 
     var body: some View {
@@ -23,16 +31,16 @@ struct MediaPermissionSheet: View {
                 Image(systemName: icon)
                     .font(.system(size: 22))
                     .foregroundStyle(.secondary)
-                Text("“\(request.host)” wants to use your \(deviceList).")
+                Text(message)
                     .font(.system(size: 13, weight: .medium))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack {
                 Spacer()
-                Button("Don’t Allow") { store.resolveMediaPermission(request.id, allow: false) }
+                Button("Don’t Allow") { store.resolveSitePermission(prompt.id, allow: false) }
                     .keyboardShortcut(.cancelAction)
-                Button("Allow") { store.resolveMediaPermission(request.id, allow: true) }
+                Button("Allow") { store.resolveSitePermission(prompt.id, allow: true) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
             }

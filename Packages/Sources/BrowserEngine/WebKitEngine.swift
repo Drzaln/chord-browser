@@ -63,12 +63,6 @@ public final class WebKitEngine: WebEngine {
     /// afterwards and pushed onto any already live. See `UserAgentPreference`.
     private var customUserAgent: String?
 
-    /// The OS notification decision, mirrored into the web-facing
-    /// `Notification.permission` so a returning page reads its real state instead
-    /// of `default` and stops re-prompting. Seeds views built afterwards; live
-    /// views are updated directly. Set from the app layer (`setNotificationPermission`).
-    private var notificationPermission: WebNotificationPermission = .notDetermined
-
     /// Retained so an evicted or crashed pane can be revived without the model
     /// layer having to hand its state back.
     private var interactionStates: [UUID: Data] = [:]
@@ -203,9 +197,7 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(ContextLinkMonitor.makeUserScript())
         controller.addUserScript(AudioMuteController.makeUserScript())
         controller.addUserScript(PeekLinkMonitor.makeUserScript())
-        controller.addUserScript(
-            NotificationBridge.makeUserScript(notificationPermission: notificationPermission)
-        )
+        controller.addUserScript(NotificationBridge.makeUserScript())
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
         if let coordinator {
@@ -280,17 +272,6 @@ public final class WebKitEngine: WebEngine {
         customUserAgent = userAgent
         for live in pool.liveViews {
             live.webView.customUserAgent = userAgent
-        }
-    }
-
-    public func setNotificationPermission(_ permission: WebNotificationPermission) {
-        guard permission != notificationPermission else { return }
-        notificationPermission = permission
-        // Views built afterwards inherit the new seed via `makeUserScript`; push
-        // it into pages already open so they update without a reload.
-        let script = NotificationBridge.updatePermissionScript(permission)
-        for live in pool.liveViews {
-            live.webView.evaluateJavaScript(script) { _, _ in }
         }
     }
 

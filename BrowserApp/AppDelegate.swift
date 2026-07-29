@@ -112,16 +112,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launch.store?.notificationPresenter = { [weak self] request, paneID in
             self?.notifications.present(request, fromPane: paneID)
         }
+        // The OS-authorization backstop: web Notifications only reach Notification
+        // Center if the app itself is authorized. The store calls this the first
+        // time a site is allowed (per-origin consent is handled in the store).
         launch.store?.notificationPermissionRequester = { [weak self] in
             await self?.notifications.requestAuthorization() ?? false
-        }
-        // Seed the web-facing notification permission from the OS's persisted
-        // decision, so pages loaded this launch read their real state instead of
-        // 'default' (which is what made Slack re-prompt on every visit).
-        Task { [weak self] in
-            guard let self else { return }
-            let status = await self.notifications.authorizationStatus()
-            self.launch.store?.updateNotificationPermission(status)
         }
 
         // Windows created later (and SwiftUI recreating one) must get the same

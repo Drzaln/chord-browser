@@ -63,14 +63,22 @@ public protocol WebEngineDelegate: AnyObject {
     /// A page called `new Notification(...)` — post it to Notification Center
     /// (non-spec: user-requested). Carries the pane so a click can focus its tab.
     func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID)
-    /// A page called `Notification.requestPermission()` — ask the OS and report
-    /// whether notifications are allowed (non-spec: user-requested).
-    func paneRequestedNotificationPermission() async -> Bool
+    /// A page called `Notification.requestPermission()`. Return whether to grant:
+    /// the store consults its remembered per-origin decision and, the first time
+    /// for a site, prompts the user (normal browser behaviour), then requests OS
+    /// authorization as the delivery backstop.
+    func paneRequestedNotificationPermission(_ prompt: SitePermissionPrompt) async -> Bool
+    /// A page read `Notification.permission` at load — report the remembered
+    /// per-origin decision (`default` when the site has not been asked) so the
+    /// synchronous getter reflects a real choice without prompting.
+    func paneNotificationPermissionState(
+        origin: String, paneID: UUID?
+    ) async -> WebNotificationPermission
     /// A page called `getUserMedia` for camera/microphone. Return whether to
     /// grant: the store consults its remembered per-origin decision and, the
     /// first time for a site, prompts the user (normal browser behaviour). This
     /// replaces the old blanket auto-grant.
-    func paneRequestedMediaCapture(_ request: MediaPermissionRequest) async -> Bool
+    func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> Bool
     /// The content process died. The pane's model is intact; the view is gone.
     func paneContentProcessDidTerminate(_ paneID: UUID)
 }
@@ -81,8 +89,13 @@ extension WebEngineDelegate {
     public func paneRequestedLittleArc(url: URL) {}
     public func paneRequestedPeek(url: URL?) {}
     public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {}
-    public func paneRequestedNotificationPermission() async -> Bool { false }
-    public func paneRequestedMediaCapture(_ request: MediaPermissionRequest) async -> Bool { false }
+    public func paneRequestedNotificationPermission(_ prompt: SitePermissionPrompt) async -> Bool {
+        false
+    }
+    public func paneNotificationPermissionState(
+        origin: String, paneID: UUID?
+    ) async -> WebNotificationPermission { .notDetermined }
+    public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> Bool { false }
 }
 
 /// The seam between the app and WebKit.
@@ -133,13 +146,6 @@ public protocol WebEngine: AnyObject {
     /// views built afterwards and to any already live (they take effect on the
     /// next load). See `UserAgentPreference`.
     func setCustomUserAgent(_ userAgent: String?)
-
-    /// Mirrors the OS notification decision into the web-facing
-    /// `Notification.permission` (and `navigator.permissions`), so a returning
-    /// page reads a decision the user already made instead of `default` and stops
-    /// re-prompting on each visit. Seeds views built afterwards and updates any
-    /// already live. See `WebNotificationPermission`.
-    func setNotificationPermission(_ permission: WebNotificationPermission)
 
     /// Fires the page-side `Notification` instance's `onclick` after its banner
     /// was clicked (non-spec: user-requested). A no-op if the pane has no live

@@ -7,13 +7,16 @@ struct SitePermissionRow: Codable, FetchableRecord, PersistableRecord, Sendable 
 
     var spaceId: String
     var origin: String
+    /// The `SitePermissionKind` raw value. Column kept named `device` from the
+    /// v10 schema (it predates notifications); the value space just widened.
     var device: String
     var decision: String
 }
 
-/// Per-Space, per-origin camera/microphone decisions (non-spec: user-requested).
-/// Writes go through the database's serial queue like all other persistence,
-/// never the main thread (6.5). Mirrors `SQLiteGrantedPermissionsRepository`.
+/// Per-Space, per-origin camera/microphone/notification decisions (non-spec:
+/// user-requested). Writes go through the database's serial queue like all other
+/// persistence, never the main thread (6.5). Mirrors
+/// `SQLiteGrantedPermissionsRepository`.
 public struct SQLiteSitePermissionsRepository: SitePermissionsRepository {
     private let database: BrowserDatabase
 
@@ -23,16 +26,16 @@ public struct SQLiteSitePermissionsRepository: SitePermissionsRepository {
 
     public func decisions(
         forOrigin origin: String, spaceID: UUID
-    ) async throws -> [MediaDevice: MediaPermissionDecision] {
+    ) async throws -> [SitePermissionKind: SitePermissionDecision] {
         try await database.writer.read { db in
             let rows = try SitePermissionRow
                 .filter(Column("spaceId") == spaceID.uuidString && Column("origin") == origin)
                 .fetchAll(db)
-            var result: [MediaDevice: MediaPermissionDecision] = [:]
+            var result: [SitePermissionKind: SitePermissionDecision] = [:]
             for row in rows {
-                if let device = MediaDevice(rawValue: row.device),
-                   let decision = MediaPermissionDecision(rawValue: row.decision) {
-                    result[device] = decision
+                if let kind = SitePermissionKind(rawValue: row.device),
+                   let decision = SitePermissionDecision(rawValue: row.decision) {
+                    result[kind] = decision
                 }
             }
             return result
@@ -40,8 +43,8 @@ public struct SQLiteSitePermissionsRepository: SitePermissionsRepository {
     }
 
     public func setDecision(
-        _ decision: MediaPermissionDecision,
-        forOrigin origin: String, spaceID: UUID, device: MediaDevice
+        _ decision: SitePermissionDecision,
+        forOrigin origin: String, spaceID: UUID, kind: SitePermissionKind
     ) async throws {
         try await database.writer.write { db in
             // Overwrite: the newest answer wins, so re-answering a re-prompt
@@ -49,7 +52,7 @@ public struct SQLiteSitePermissionsRepository: SitePermissionsRepository {
             try SitePermissionRow(
                 spaceId: spaceID.uuidString,
                 origin: origin,
-                device: device.rawValue,
+                device: kind.rawValue,
                 decision: decision.rawValue
             ).insert(db, onConflict: .replace)
         }
@@ -62,11 +65,11 @@ public struct SQLiteSitePermissionsRepository: SitePermissionsRepository {
                 .fetchAll(db)
                 .compactMap { row in
                     guard let spaceID = UUID(uuidString: row.spaceId),
-                          let device = MediaDevice(rawValue: row.device),
-                          let decision = MediaPermissionDecision(rawValue: row.decision)
+                          let kind = SitePermissionKind(rawValue: row.device),
+                          let decision = SitePermissionDecision(rawValue: row.decision)
                     else { return nil }
                     return SitePermissionRecord(
-                        spaceID: spaceID, origin: row.origin, device: device, decision: decision
+                        spaceID: spaceID, origin: row.origin, kind: kind, decision: decision
                     )
                 }
         }

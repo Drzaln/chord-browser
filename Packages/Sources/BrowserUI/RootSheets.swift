@@ -36,14 +36,14 @@ struct RootSheets: ViewModifier {
         )
     }
 
-    /// Camera/microphone prompts, one at a time (non-spec: user-requested). A
-    /// dismiss without a decision (Esc / swipe) is treated as a denial.
-    private var pendingMediaPermission: Binding<MediaPermissionRequest?> {
+    /// Camera/mic/notification prompts, one at a time (non-spec: user-requested).
+    /// A dismiss without a decision (Esc / swipe) is treated as a denial.
+    private var pendingSitePermission: Binding<SitePermissionPrompt?> {
         Binding(
-            get: { store.pendingMediaPermissionRequests.first },
+            get: { store.pendingSitePermissionPrompts.first },
             set: { newValue in
-                if newValue == nil, let current = store.pendingMediaPermissionRequests.first {
-                    store.resolveMediaPermission(current.id, allow: false)
+                if newValue == nil, let current = store.pendingSitePermissionPrompts.first {
+                    store.resolveSitePermission(current.id, allow: false)
                 }
             }
         )
@@ -76,8 +76,8 @@ struct RootSheets: ViewModifier {
             .sheet(item: pendingPermission) { request in
                 ExtensionPermissionSheet(request: request, store: store)
             }
-            .sheet(item: pendingMediaPermission) { request in
-                MediaPermissionSheet(request: request, store: store)
+            .sheet(item: pendingSitePermission) { prompt in
+                SitePermissionSheet(prompt: prompt, store: store)
             }
             .sheet(isPresented: $windowState.isSettingsPresented) {
                 SettingsView(store: store, windowState: windowState, extensions: extensions)

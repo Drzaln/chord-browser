@@ -73,11 +73,6 @@ public final class FakeWebEngine: WebEngine {
         customUserAgentSetCount += 1
     }
 
-    public private(set) var notificationPermission: WebNotificationPermission = .notDetermined
-    public func setNotificationPermission(_ permission: WebNotificationPermission) {
-        notificationPermission = permission
-    }
-
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
     public private(set) var notificationClicks: [(jsID: String, paneID: UUID)] = []

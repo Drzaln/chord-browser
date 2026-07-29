@@ -228,44 +228,68 @@ public final class TabStore {
         pendingPermissionRequests.removeAll { $0.id == id }
     }
 
-    /// Camera/microphone prompts awaiting the user's decision (non-spec:
+    /// Camera/mic/notification prompts awaiting the user's decision (non-spec:
     /// user-requested), presented one at a time by the UI as a sheet. Populated
-    /// by `paneRequestedMediaCapture` when a site has no remembered decision.
-    public internal(set) var pendingMediaPermissionRequests: [MediaPermissionRequest] = []
+    /// by `requestSitePermission` when a site has no remembered decision.
+    public internal(set) var pendingSitePermissionPrompts: [SitePermissionPrompt] = []
 
-    /// Remembers per-origin camera/mic decisions so a site is asked once. Injected
+    /// Remembers per-Space, per-origin decisions so a site is asked once. Injected
     /// by `AppEnvironment`; when `nil` the store falls back to prompting every
     /// time (no persistence), which is safe if less convenient.
     @ObservationIgnored public var sitePermissions: (any SitePermissionsRepository)?
 
-    /// The awaiting `getUserMedia` continuations, keyed by request id, resumed
-    /// when the sheet is answered (or dismissed, treated as a denial).
-    @ObservationIgnored private var mediaPermissionContinuations:
+    /// The awaiting request continuations, keyed by prompt id, resumed when the
+    /// sheet is answered (or dismissed, treated as a denial).
+    @ObservationIgnored private var sitePermissionContinuations:
         [UUID: CheckedContinuation<Bool, Never>] = [:]
 
-    /// Answers a pending camera/mic prompt: resumes the awaiting `getUserMedia`
-    /// and (when a repository is wired) persists the choice for the pane's Space
-    /// and every device the request covered, so the site is not asked again.
-    public func resolveMediaPermission(_ id: UUID, allow: Bool) {
-        guard let request = pendingMediaPermissionRequests.first(where: { $0.id == id })
+    /// The shared path behind `getUserMedia` and `Notification.requestPermission()`:
+    /// honour a remembered decision for the pane's Space, else prompt once and let
+    /// `resolveSitePermission` persist the answer and resume us.
+    private func requestSitePermission(_ prompt: SitePermissionPrompt) async -> Bool {
+        if let spaceID = spaceID(forPane: prompt.paneID) {
+            let stored =
+                (try? await sitePermissions?.decisions(forOrigin: prompt.origin, spaceID: spaceID))
+                ?? [:]
+            let undecided = prompt.kinds.filter { stored[$0] == nil }
+            if undecided.isEmpty {
+                return prompt.kinds.allSatisfy { stored[$0] == .granted }
+            }
+        }
+        return await withCheckedContinuation { continuation in
+            sitePermissionContinuations[prompt.id] = continuation
+            pendingSitePermissionPrompts.append(prompt)
+        }
+    }
+
+    /// Answers a pending prompt: resumes the awaiting page, persists the choice
+    /// for the pane's Space and every kind the prompt covered, and — for a
+    /// notification grant — requests OS authorization as the delivery backstop.
+    public func resolveSitePermission(_ id: UUID, allow: Bool) {
+        guard let prompt = pendingSitePermissionPrompts.first(where: { $0.id == id })
         else { return }
-        pendingMediaPermissionRequests.removeAll { $0.id == id }
-        if let continuation = mediaPermissionContinuations.removeValue(forKey: id) {
+        pendingSitePermissionPrompts.removeAll { $0.id == id }
+        if let continuation = sitePermissionContinuations.removeValue(forKey: id) {
             continuation.resume(returning: allow)
         }
-        guard let sitePermissions, let spaceID = spaceID(forPane: request.paneID) else { return }
-        let decision: MediaPermissionDecision = allow ? .granted : .denied
+        // A web notification only reaches Notification Center if the app itself
+        // is OS-authorized; ask for that the first time a site is allowed.
+        if allow, prompt.kinds.contains(.notification) {
+            Task { _ = await notificationPermissionRequester?() }
+        }
+        guard let sitePermissions, let spaceID = spaceID(forPane: prompt.paneID) else { return }
+        let decision: SitePermissionDecision = allow ? .granted : .denied
         Task {
-            for device in request.devices {
+            for kind in prompt.kinds {
                 try? await sitePermissions.setDecision(
-                    decision, forOrigin: request.origin, spaceID: spaceID, device: device
+                    decision, forOrigin: prompt.origin, spaceID: spaceID, kind: kind
                 )
             }
             await refreshSitePermissions()
         }
     }
 
-    /// The Space a pane lives in, for scoping its media decision. `nil` if the
+    /// The Space a pane lives in, for scoping its decision. `nil` if the
     /// pane is not in any tab (it always is for a live `getUserMedia`, but the
     /// caller degrades to prompt-without-persist rather than crash).
     private func spaceID(forPane paneID: UUID?) -> UUID? {
@@ -1036,40 +1060,25 @@ extension TabStore: WebEngineDelegate {
         notificationPresenter?(request, paneID)
     }
 
-    public func paneRequestedNotificationPermission() async -> Bool {
-        let granted = await notificationPermissionRequester?() ?? false
-        // Mirror the fresh decision into the web layer so every page — this one
-        // and any other open tab — reflects it and stops re-prompting.
-        updateNotificationPermission(granted ? .granted : .denied)
-        return granted
+    public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> Bool {
+        await requestSitePermission(prompt)
     }
 
-    public func paneRequestedMediaCapture(_ request: MediaPermissionRequest) async -> Bool {
-        // Consult remembered decisions first, scoped to the pane's Space: if
-        // every requested device already has an answer, honour it without asking.
-        if let spaceID = spaceID(forPane: request.paneID) {
-            let stored =
-                (try? await sitePermissions?.decisions(forOrigin: request.origin, spaceID: spaceID))
-                ?? [:]
-            let undecided = request.devices.filter { stored[$0] == nil }
-            if undecided.isEmpty {
-                return request.devices.allSatisfy { stored[$0] == .granted }
-            }
-        }
-        // First time for this site (or a newly-requested device): ask, and let
-        // `resolveMediaPermission` persist the answer and resume us.
-        return await withCheckedContinuation { continuation in
-            mediaPermissionContinuations[request.id] = continuation
-            pendingMediaPermissionRequests.append(request)
-        }
+    public func paneRequestedNotificationPermission(_ prompt: SitePermissionPrompt) async -> Bool {
+        await requestSitePermission(prompt)
     }
 
-    /// Publishes the current OS notification decision to the engine, which seeds
-    /// it into the shimmed `Notification.permission`. Called by the app layer at
-    /// launch (with the status read from the OS) and after the user answers the
-    /// prompt, so returning pages read a real decision instead of `default`.
-    public func updateNotificationPermission(_ permission: WebNotificationPermission) {
-        engine.setNotificationPermission(permission)
+    public func paneNotificationPermissionState(
+        origin: String, paneID: UUID?
+    ) async -> WebNotificationPermission {
+        guard let spaceID = spaceID(forPane: paneID) else { return .notDetermined }
+        let stored =
+            (try? await sitePermissions?.decisions(forOrigin: origin, spaceID: spaceID)) ?? [:]
+        switch stored[.notification] {
+        case .granted: return .granted
+        case .denied: return .denied
+        case nil: return .notDetermined
+        }
     }
 
     public func paneContentProcessDidTerminate(_ paneID: UUID) {

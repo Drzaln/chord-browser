@@ -45,23 +45,6 @@ final class NotificationController: NSObject {
         }
     }
 
-    /// The current OS authorization, read without prompting — used at launch to
-    /// seed the web-facing `Notification.permission` so returning pages read the
-    /// decision the user already made instead of re-prompting.
-    func authorizationStatus() async -> WebNotificationPermission {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        switch settings.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-            return .granted
-        case .denied:
-            return .denied
-        case .notDetermined:
-            return .notDetermined
-        @unknown default:
-            return .notDetermined
-        }
-    }
-
     /// Posts a web notification. `tag` collapses onto an earlier one with the same
     /// tag, matching the web spec; otherwise the page-side id keeps each distinct.
     func present(_ request: WebNotificationRequest, fromPane paneID: UUID) {

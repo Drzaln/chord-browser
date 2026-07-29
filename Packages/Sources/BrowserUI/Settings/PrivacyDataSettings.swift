@@ -107,10 +107,10 @@ struct PrivacyDataSettings: View {
         return grouped.map { key, records in
             let first = records[0]
             let spaceName = store.spaces.first { $0.id == first.spaceID }?.name ?? "Unknown Space"
-            let summary = MediaDevice.allCases.compactMap { device -> String? in
-                guard let decision = records.first(where: { $0.device == device })?.decision
+            let summary = SitePermissionKind.allCases.compactMap { kind -> String? in
+                guard let decision = records.first(where: { $0.kind == kind })?.decision
                 else { return nil }
-                return "\(device.label): \(decision == .granted ? "Allowed" : "Blocked")"
+                return "\(kind.label): \(decision == .granted ? "Allowed" : "Blocked")"
             }.joined(separator: " · ")
             return SiteRow(
                 id: key,
@@ -126,7 +126,7 @@ struct PrivacyDataSettings: View {
 
     @ViewBuilder
     private var sitePermissionsSection: some View {
-        Text("Camera & Microphone")
+        Text("Site Permissions")
             .font(.system(size: 13, weight: .semibold))
 
         if siteRows.isEmpty {
@@ -134,7 +134,7 @@ struct PrivacyDataSettings: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         } else {
-            Text("Sites you have allowed or blocked, per Space. Removing one asks again next time.")
+            Text("Camera, microphone, and notification choices you have made, per Space. Removing one asks again next time.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
