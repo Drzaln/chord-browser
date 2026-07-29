@@ -53,21 +53,34 @@ enum ScreenShareMonitor {
             && window.webkit.messageHandlers.\(messageName);
         if (!md || typeof md.getDisplayMedia !== 'function' || !handler) { return; }
 
-        var active = [];
+        // Install exactly once per window. `atDocumentStart` can run more than
+        // once against the same page (re-injection, about:blank handovers); a
+        // second run must NOT rebind `original` to our own wrapper (infinite
+        // recursion) nor redefine the stop hook over a fresh, empty `active` —
+        // that was the bug where Stop reported "not sharing" but stopped no
+        // tracks, so the site kept sharing. The tracked streams live on `window`
+        // so the one override and the one stop hook always share them.
+        if (window.__chordShare) {
+            window.__chordShare.handler = handler;
+            return;
+        }
+        var state = { active: [], handler: handler };
+        window.__chordShare = state;
+
         var original = md.getDisplayMedia.bind(md);
 
         function report() {
-            handler.postMessage({ sharing: active.length > 0 });
+            state.handler.postMessage({ sharing: state.active.length > 0 });
         }
 
         function forget(stream) {
-            var i = active.indexOf(stream);
-            if (i !== -1) { active.splice(i, 1); report(); }
+            var i = state.active.indexOf(stream);
+            if (i !== -1) { state.active.splice(i, 1); report(); }
         }
 
         md.getDisplayMedia = function (constraints) {
             return original(constraints).then(function (stream) {
-                active.push(stream);
+                state.active.push(stream);
                 report();
                 stream.getTracks().forEach(function (track) {
                     // Fires when the user ends the share from the OS UI, or the
@@ -85,10 +98,10 @@ enum ScreenShareMonitor {
         };
 
         window.__chordStopSharing = function () {
-            active.forEach(function (stream) {
+            state.active.forEach(function (stream) {
                 stream.getTracks().forEach(function (track) { track.stop(); });
             });
-            active = [];
+            state.active = [];
             report();
         };
     })();

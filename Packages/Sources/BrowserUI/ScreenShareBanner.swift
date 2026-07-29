@@ -18,7 +18,11 @@ struct ScreenShareBanner: View {
                 .foregroundStyle(.white)
                 .symbolEffect(.pulse, options: .repeating)
 
-            Text("Sharing this window")
+            // Not "this window": WebKit never reports which surface the page
+            // captured — it could be a screen, this window, or another app's
+            // window. The banner marks that *this page* is sharing something,
+            // and Stop ends it; it does not claim to know what.
+            Text("This page is sharing your screen")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white)
 
@@ -37,7 +41,7 @@ struct ScreenShareBanner: View {
         .background(.red.opacity(0.92), in: Capsule())
         .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Sharing this window")
+        .accessibilityLabel("This page is sharing your screen")
         .accessibilityHint("Activate Stop to end screen sharing")
     }
 }

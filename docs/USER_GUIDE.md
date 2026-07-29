@@ -128,9 +128,11 @@ window is the equivalent, and **Presentation mode** (`Cmd+Ctrl+S`, or the
 shared window shows only the page. The traffic-light buttons stay so you can
 always get out.
 
-While a page is sharing your screen, a red **“Sharing this window”** banner
-appears at the top of the window. Click **Stop** on it to end sharing without
-digging through the site's own controls.
+While a page is sharing your screen, a red **“This page is sharing your screen”**
+banner appears at the top of the window running that page. Click **Stop** on it
+to end sharing without digging through the site's own controls. (The banner marks
+that the page is sharing *something* — WebKit doesn't say whether it's a screen,
+this window, or another app's window — so it doesn't claim to know which.)
 
 ## Peek (⌘-hover preview)
 

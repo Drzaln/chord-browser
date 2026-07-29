@@ -44,3 +44,18 @@ the shared configuration template, for the same `copy()` reason ADR 008 records.
 Trade-off: `track.stop()` does not fire the `ended` event, so the stop hook posts
 `sharing:false` itself rather than waiting for the listener. And if a page holds
 multiple display streams, the banner clears only once the last one ends.
+
+The tracked streams and the stop hook are pinned to a single `window.__chordShare`
+singleton, not a per-injection closure. `atDocumentStart` can run more than once
+against the same document (re-injection, `about:blank` handovers), and the first
+cut of this shipped without a guard: a second run rebound `original` to our own
+wrapper and redefined `__chordStopSharing` over a fresh, empty `active`. Stop then
+iterated nothing — it posted `sharing:false`, so the banner vanished, but no track
+was actually stopped and the site kept sharing. The singleton makes the one
+override and the one stop hook share the same stream list for the window's life.
+
+The banner deliberately does **not** name the shared surface. `getDisplayMedia`
+can capture a whole screen, this window, or another app's window, and WebKit
+reports which to neither the app nor reliably to the page — so the banner says
+"This page is sharing your screen," a claim that holds whatever was picked, rather
+than "this window," which is usually wrong.
