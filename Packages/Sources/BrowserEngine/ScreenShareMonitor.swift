@@ -99,7 +99,19 @@ enum ScreenShareMonitor {
 
         window.__chordStopSharing = function () {
             state.active.forEach(function (stream) {
-                stream.getTracks().forEach(function (track) { track.stop(); });
+                stream.getTracks().forEach(function (track) {
+                    // stop() ends the capture but, by spec, does NOT fire the
+                    // track's 'ended' event — that only fires when a track ends
+                    // for reasons other than the caller stopping it. So a site
+                    // like Meet, which drives its "Presenting" UI off
+                    // track.onended, never learns we stopped it and keeps
+                    // showing "Presenting". Dispatch 'ended' ourselves so its
+                    // listener runs, exactly as a native "Stop sharing" would.
+                    try { track.stop(); } catch (e) {}
+                    try { track.dispatchEvent(new Event('ended')); } catch (e) {}
+                });
+                // Some sites listen on the stream, not the tracks.
+                try { stream.dispatchEvent(new Event('inactive')); } catch (e) {}
             });
             state.active = [];
             report();

@@ -41,9 +41,15 @@ the message handler is a per-view leak source (6.7) and is removed explicitly in
 `LiveWebView.tearDown()`; it is installed on the per-view content controller, not
 the shared configuration template, for the same `copy()` reason ADR 008 records.
 
-Trade-off: `track.stop()` does not fire the `ended` event, so the stop hook posts
-`sharing:false` itself rather than waiting for the listener. And if a page holds
-multiple display streams, the banner clears only once the last one ends.
+Trade-off: `track.stop()` does not fire the `ended` event — by spec that event
+only fires when a track ends for a reason *other* than the caller stopping it. A
+site like Meet drives its "Presenting" UI off `track.onended`, so stopping the
+track alone leaves Meet still showing "Presenting". The stop hook therefore also
+`dispatchEvent(new Event('ended'))` on each track (and `'inactive'` on the
+stream) so the site's own listener runs, exactly as a native "Stop sharing"
+would. And it posts `sharing:false` itself rather than waiting for our listener.
+If a page holds multiple display streams, the banner clears only once the last
+one ends.
 
 The tracked streams and the stop hook are pinned to a single `window.__chordShare`
 singleton, not a per-injection closure. `atDocumentStart` can run more than once
