@@ -341,6 +341,68 @@ struct MigrationTests {
         #expect(storedTab == nil, "a null tab reference is allowed")
     }
 
+    @Test("v10 adds the sitePermission table")
+    func v10AddsSitePermissions() throws {
+        let queue = try DatabaseQueue()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(queue, upTo: "v10_site_permissions")
+
+        let hasTable = try queue.read { try $0.tableExists("sitePermission") }
+        #expect(hasTable)
+        // v10's table is keyed on origin alone (no spaceId column yet).
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO sitePermission (origin, device, decision)
+                    VALUES ('https://meet.google.com', 'camera', 'granted')
+                    """
+            )
+        }
+        let rowCount = try queue.read {
+            try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM sitePermission") ?? 0
+        }
+        #expect(rowCount == 1)
+    }
+
+    @Test("v11 re-scopes site permissions to a Space, adopting existing rows")
+    func v11AdoptsSitePermissionsIntoFirstSpace() throws {
+        let queue = try DatabaseQueue()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(queue, upTo: "v10_site_permissions")
+
+        let spaceID = try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1")
+        } ?? ""
+        // A pre-v11 global decision, to prove v11 adopts rather than drops it.
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO sitePermission (origin, device, decision)
+                    VALUES ('https://meet.google.com', 'camera', 'granted')
+                    """
+            )
+        }
+
+        try migrator.migrate(queue)
+
+        let (adoptedSpace, decision, rowCount) = try queue.read { db in
+            (
+                try String.fetchOne(
+                    db, sql: "SELECT spaceId FROM sitePermission WHERE origin = ?",
+                    arguments: ["https://meet.google.com"]
+                ),
+                try String.fetchOne(
+                    db, sql: "SELECT decision FROM sitePermission WHERE origin = ?",
+                    arguments: ["https://meet.google.com"]
+                ),
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM sitePermission") ?? 0
+            )
+        }
+        #expect(rowCount == 1, "the existing decision is adopted, not deleted")
+        #expect(adoptedSpace == spaceID, "adopted into the first Space")
+        #expect(decision == "granted")
+    }
+
     @Test("A fresh database reports the current schema version")
     func versionRecorded() throws {
         let queue = try DatabaseQueue()

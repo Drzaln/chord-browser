@@ -36,6 +36,19 @@ struct RootSheets: ViewModifier {
         )
     }
 
+    /// Camera/microphone prompts, one at a time (non-spec: user-requested). A
+    /// dismiss without a decision (Esc / swipe) is treated as a denial.
+    private var pendingMediaPermission: Binding<MediaPermissionRequest?> {
+        Binding(
+            get: { store.pendingMediaPermissionRequests.first },
+            set: { newValue in
+                if newValue == nil, let current = store.pendingMediaPermissionRequests.first {
+                    store.resolveMediaPermission(current.id, allow: false)
+                }
+            }
+        )
+    }
+
     private var isDeletingSpace: Binding<Bool> {
         Binding(
             get: { windowState.deletingSpaceID != nil },
@@ -62,6 +75,9 @@ struct RootSheets: ViewModifier {
             }
             .sheet(item: pendingPermission) { request in
                 ExtensionPermissionSheet(request: request, store: store)
+            }
+            .sheet(item: pendingMediaPermission) { request in
+                MediaPermissionSheet(request: request, store: store)
             }
             .sheet(isPresented: $windowState.isSettingsPresented) {
                 SettingsView(store: store, windowState: windowState, extensions: extensions)

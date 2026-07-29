@@ -66,6 +66,11 @@ public protocol WebEngineDelegate: AnyObject {
     /// A page called `Notification.requestPermission()` — ask the OS and report
     /// whether notifications are allowed (non-spec: user-requested).
     func paneRequestedNotificationPermission() async -> Bool
+    /// A page called `getUserMedia` for camera/microphone. Return whether to
+    /// grant: the store consults its remembered per-origin decision and, the
+    /// first time for a site, prompts the user (normal browser behaviour). This
+    /// replaces the old blanket auto-grant.
+    func paneRequestedMediaCapture(_ request: MediaPermissionRequest) async -> Bool
     /// The content process died. The pane's model is intact; the view is gone.
     func paneContentProcessDidTerminate(_ paneID: UUID)
 }
@@ -77,6 +82,7 @@ extension WebEngineDelegate {
     public func paneRequestedPeek(url: URL?) {}
     public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {}
     public func paneRequestedNotificationPermission() async -> Bool { false }
+    public func paneRequestedMediaCapture(_ request: MediaPermissionRequest) async -> Bool { false }
 }
 
 /// The seam between the app and WebKit.

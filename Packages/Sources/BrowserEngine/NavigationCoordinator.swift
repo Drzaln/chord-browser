@@ -1,4 +1,5 @@
 import AppKit
+import BrowserCore
 import Foundation
 import WebKit
 
@@ -174,12 +175,13 @@ extension NavigationCoordinator: WKUIDelegate {
 
     /// Camera and microphone for `getUserMedia` — Google Meet, Slack huddles, etc.
     ///
-    /// We grant at the WebKit layer; the real gate is the OS. macOS still shows
-    /// its own camera/microphone TCC prompt the first time (backed by the sandbox
+    /// Per-origin, ask-once: the store consults its remembered decision for this
+    /// site and prompts the user the first time (normal browser behaviour),
+    /// rather than the old blanket grant that let every site capture unasked.
+    /// A grant here still passes to the OS, which shows its own camera/microphone
+    /// TCC prompt the first time for the app as a whole (backed by the sandbox
     /// `device.camera`/`device.microphone` entitlements and the `NS*UsageDescription`
-    /// strings in Info.plist), and denying it there denies the site. Returning
-    /// `.prompt` — or not implementing this — makes WKWebView deny outright, which
-    /// is why Meet's camera never came up before.
+    /// strings in Info.plist); denying it there denies the site.
     ///
     /// Screen sharing (`getDisplayMedia`) is deliberately absent: `WKMediaCaptureType`
     /// has only camera and microphone, and public WKWebView exposes no display-
@@ -192,6 +194,24 @@ extension NavigationCoordinator: WKUIDelegate {
         type: WKMediaCaptureType,
         decisionHandler: @escaping @MainActor (WKPermissionDecision) -> Void
     ) {
-        decisionHandler(.grant)
+        let devices: [MediaDevice]
+        switch type {
+        case .camera: devices = [.camera]
+        case .microphone: devices = [.microphone]
+        case .cameraAndMicrophone: devices = [.camera, .microphone]
+        @unknown default: devices = [.camera, .microphone]
+        }
+        let host = origin.host
+        let originString = host.isEmpty ? origin.`protocol` : "\(origin.`protocol`)://\(host)"
+        let request = MediaPermissionRequest(
+            origin: originString,
+            host: host,
+            devices: devices,
+            paneID: paneID(for: webView)
+        )
+        Task { @MainActor in
+            let granted = await engine?.delegate?.paneRequestedMediaCapture(request) ?? false
+            decisionHandler(granted ? .grant : .deny)
+        }
     }
 }

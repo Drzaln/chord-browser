@@ -22,11 +22,15 @@ enum Migrations {
         migrator.registerMigration("v7_folders", migrate: v7Folders)
         migrator.registerMigration("v8_pinned_home_url", migrate: v8PinnedHomeURL)
         migrator.registerMigration("v9_window_layout", migrate: v9WindowLayout)
+        migrator.registerMigration("v10_site_permissions", migrate: v10SitePermissions)
+        migrator.registerMigration(
+            "v11_site_permissions_per_space", migrate: v11SitePermissionsPerSpace
+        )
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 9
+    static let currentVersion = 11
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -157,6 +161,52 @@ enum Migrations {
     /// nothing existing is touched. `spaceId` cascades from `space` so deleting a
     /// Space reclaims its grants, matching `extensionEnablement`. The full tuple
     /// is the primary key, so re-granting the same thing is idempotent.
+    /// Per-origin camera/microphone decisions (non-spec: user-requested),
+    /// replacing the old blanket auto-grant with ask-once-per-site. Global here;
+    /// v11 re-scopes it to a Space. Additive; deletes nothing.
+    private static func v10SitePermissions(_ db: Database) throws {
+        try db.create(table: "sitePermission") { t in
+            t.column("origin", .text).notNull()
+            t.column("device", .text).notNull()
+            t.column("decision", .text).notNull()
+            t.primaryKey(["origin", "device"])
+        }
+    }
+
+    /// Re-scopes site camera/mic permissions to a Space (ADR 006, ADR 011), to
+    /// match the isolation cookies, storage, and extension grants already have.
+    ///
+    /// The v10 table keyed on `origin` alone; per-Space needs `(spaceId, origin,
+    /// device)`. SQLite can't add a PK column in place, so the table is rebuilt.
+    /// Existing rows are adopted into the first Space (lowest `sortIndex`) rather
+    /// than dropped — no decision is deleted (7.2), the same adoption v6 did for
+    /// history. A profile with no Space yet keeps nothing to adopt.
+    private static func v11SitePermissionsPerSpace(_ db: Database) throws {
+        let defaultSpaceID = try String.fetchOne(
+            db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1"
+        ) ?? ""
+
+        try db.create(table: "sitePermission_new") { t in
+            t.column("spaceId", .text).notNull()
+                .references("space", onDelete: .cascade)
+            t.column("origin", .text).notNull()
+            t.column("device", .text).notNull()
+            t.column("decision", .text).notNull()
+            t.primaryKey(["spaceId", "origin", "device"])
+        }
+        if !defaultSpaceID.isEmpty {
+            try db.execute(
+                sql: """
+                    INSERT INTO sitePermission_new (spaceId, origin, device, decision)
+                    SELECT ?, origin, device, decision FROM sitePermission
+                    """,
+                arguments: [defaultSpaceID]
+            )
+        }
+        try db.drop(table: "sitePermission")
+        try db.rename(table: "sitePermission_new", to: "sitePermission")
+    }
+
     private static func v5GrantedPermissions(_ db: Database) throws {
         try db.create(table: "grantedPermission") { t in
             t.column("spaceId", .text).notNull()

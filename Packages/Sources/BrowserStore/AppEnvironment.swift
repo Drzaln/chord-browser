@@ -92,6 +92,9 @@ public struct AppEnvironment {
             windowLayoutRepository: windowLayouts,
             clock: SystemClock()
         )
+        // Ask-once-per-site camera/mic decisions (non-spec: user-requested),
+        // persisted across launches like the extension grants.
+        store.sitePermissions = SQLiteSitePermissionsRepository(database: database)
 
         // Wire the tab/window model both ways (7.3b) when extensions are on. The
         // store is the model the adapters read; the engine, forwarded as an

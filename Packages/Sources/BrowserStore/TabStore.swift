@@ -228,6 +228,73 @@ public final class TabStore {
         pendingPermissionRequests.removeAll { $0.id == id }
     }
 
+    /// Camera/microphone prompts awaiting the user's decision (non-spec:
+    /// user-requested), presented one at a time by the UI as a sheet. Populated
+    /// by `paneRequestedMediaCapture` when a site has no remembered decision.
+    public internal(set) var pendingMediaPermissionRequests: [MediaPermissionRequest] = []
+
+    /// Remembers per-origin camera/mic decisions so a site is asked once. Injected
+    /// by `AppEnvironment`; when `nil` the store falls back to prompting every
+    /// time (no persistence), which is safe if less convenient.
+    @ObservationIgnored public var sitePermissions: (any SitePermissionsRepository)?
+
+    /// The awaiting `getUserMedia` continuations, keyed by request id, resumed
+    /// when the sheet is answered (or dismissed, treated as a denial).
+    @ObservationIgnored private var mediaPermissionContinuations:
+        [UUID: CheckedContinuation<Bool, Never>] = [:]
+
+    /// Answers a pending camera/mic prompt: resumes the awaiting `getUserMedia`
+    /// and (when a repository is wired) persists the choice for the pane's Space
+    /// and every device the request covered, so the site is not asked again.
+    public func resolveMediaPermission(_ id: UUID, allow: Bool) {
+        guard let request = pendingMediaPermissionRequests.first(where: { $0.id == id })
+        else { return }
+        pendingMediaPermissionRequests.removeAll { $0.id == id }
+        if let continuation = mediaPermissionContinuations.removeValue(forKey: id) {
+            continuation.resume(returning: allow)
+        }
+        guard let sitePermissions, let spaceID = spaceID(forPane: request.paneID) else { return }
+        let decision: MediaPermissionDecision = allow ? .granted : .denied
+        Task {
+            for device in request.devices {
+                try? await sitePermissions.setDecision(
+                    decision, forOrigin: request.origin, spaceID: spaceID, device: device
+                )
+            }
+            await refreshSitePermissions()
+        }
+    }
+
+    /// The Space a pane lives in, for scoping its media decision. `nil` if the
+    /// pane is not in any tab (it always is for a live `getUserMedia`, but the
+    /// caller degrades to prompt-without-persist rather than crash).
+    private func spaceID(forPane paneID: UUID?) -> UUID? {
+        guard let paneID else { return nil }
+        return tabs.first { $0.panes.contains { $0.id == paneID } }?.spaceID
+    }
+
+    // MARK: - Site permissions (settings management)
+
+    /// Every remembered camera/mic decision, for the Privacy settings list.
+    /// Loaded from the repository via `refreshSitePermissions`.
+    public internal(set) var sitePermissionRecords: [SitePermissionRecord] = []
+
+    /// Reloads `sitePermissionRecords` from the repository. Called after a
+    /// grant/deny and when the settings panel appears.
+    public func refreshSitePermissions() async {
+        sitePermissionRecords = (try? await sitePermissions?.all()) ?? []
+    }
+
+    /// Forgets every device decision for one origin in one Space, so the site is
+    /// asked again next time. Used by the settings "reset site" action.
+    public func revokeSitePermission(origin: String, spaceID: UUID) {
+        guard let sitePermissions else { return }
+        Task {
+            try? await sitePermissions.revoke(origin: origin, spaceID: spaceID)
+            await refreshSitePermissions()
+        }
+    }
+
     /// Runs once at the end of `restore()`, after Spaces and tabs are loaded.
     /// `AppEnvironment` uses it to re-load enabled extensions (7.4), which needs
     /// the restored Spaces to exist first.
@@ -975,6 +1042,26 @@ extension TabStore: WebEngineDelegate {
         // and any other open tab — reflects it and stops re-prompting.
         updateNotificationPermission(granted ? .granted : .denied)
         return granted
+    }
+
+    public func paneRequestedMediaCapture(_ request: MediaPermissionRequest) async -> Bool {
+        // Consult remembered decisions first, scoped to the pane's Space: if
+        // every requested device already has an answer, honour it without asking.
+        if let spaceID = spaceID(forPane: request.paneID) {
+            let stored =
+                (try? await sitePermissions?.decisions(forOrigin: request.origin, spaceID: spaceID))
+                ?? [:]
+            let undecided = request.devices.filter { stored[$0] == nil }
+            if undecided.isEmpty {
+                return request.devices.allSatisfy { stored[$0] == .granted }
+            }
+        }
+        // First time for this site (or a newly-requested device): ask, and let
+        // `resolveMediaPermission` persist the answer and resume us.
+        return await withCheckedContinuation { continuation in
+            mediaPermissionContinuations[request.id] = continuation
+            pendingMediaPermissionRequests.append(request)
+        }
     }
 
     /// Publishes the current OS notification decision to the engine, which seeds
