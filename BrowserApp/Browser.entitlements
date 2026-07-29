@@ -30,5 +30,14 @@
 	<true/>
 	<key>com.apple.security.device.microphone</key>
 	<true/>
+	<!-- Hardened Runtime (Release) uses a DIFFERENT key for the microphone than
+	     App Sandbox does: `device.audio-input`, not `device.microphone`. Camera
+	     shares one key (`device.camera`) across both, which is why camera worked
+	     in Release while the mic did not. Debug disables Hardened Runtime (ad-hoc
+	     signing), so the sandbox key alone sufficed there and hid the gap. Both
+	     mic keys are declared so the microphone works under sandbox and hardened
+	     runtime alike. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>
