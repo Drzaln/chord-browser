@@ -9,6 +9,7 @@ enum Preferences {
     private static let searchEngineKey = "prefs.searchEngine"
     private static let newTabBehaviorKey = "prefs.newTabBehavior"
     private static let idleWindowKey = "prefs.idleWindow"
+    private static let userAgentKey = "prefs.userAgent"
     private static let collapsedPinnedSpacesKey = "prefs.collapsedPinnedSpaces"
     // Unprefixed, unlike the rest: these two predate this file and were written
     // straight from `TabStore`. Kept verbatim so an existing profile does not
@@ -50,6 +51,18 @@ enum Preferences {
         _ idleWindow: IdleWindow, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         encode(idleWindow, forKey: idleWindowKey, to: defaults)
+    }
+
+    static func loadUserAgent(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> UserAgentPreference {
+        decode(UserAgentPreference.self, forKey: userAgentKey, from: defaults) ?? .default
+    }
+
+    static func save(
+        _ userAgent: UserAgentPreference, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(userAgent, forKey: userAgentKey, to: defaults)
     }
 
     /// The Spaces whose Pinned-tabs section is collapsed (non-spec:

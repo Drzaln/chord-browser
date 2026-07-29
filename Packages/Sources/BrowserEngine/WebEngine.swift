@@ -122,6 +122,12 @@ public protocol WebEngine: AnyObject {
     /// view — a page that is gone cannot be sharing. See `ScreenShareMonitor`.
     func stopScreenSharing(paneID: UUID)
 
+    /// Sets the User-Agent every web view presents (non-spec: user-requested),
+    /// or `nil` to restore the browser's own completed Safari UA. Applies to
+    /// views built afterwards and to any already live (they take effect on the
+    /// next load). See `UserAgentPreference`.
+    func setCustomUserAgent(_ userAgent: String?)
+
     /// Fires the page-side `Notification` instance's `onclick` after its banner
     /// was clicked (non-spec: user-requested). A no-op if the pane has no live
     /// view — a closed page has nothing to notify.

@@ -66,6 +66,13 @@ public final class FakeWebEngine: WebEngine {
         stoppedScreenShares.append(paneID)
     }
 
+    public private(set) var customUserAgent: String?
+    public private(set) var customUserAgentSetCount = 0
+    public func setCustomUserAgent(_ userAgent: String?) {
+        customUserAgent = userAgent
+        customUserAgentSetCount += 1
+    }
+
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
     public private(set) var notificationClicks: [(jsID: String, paneID: UUID)] = []

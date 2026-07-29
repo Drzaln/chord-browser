@@ -97,6 +97,12 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
 - **New tab opens** — a **blank page**, the **search engine's home page**, or a
   **specific page** you choose. Applies to `Cmd+N`, the first tab on launch, and
   new split panes.
+- **User agent** — how the browser identifies itself to sites. Pick **Default**
+  (the browser's own), **Chrome**, **Firefox**, or **Safari — iPhone** (for a
+  phone layout), or choose **Custom…** and paste any User-Agent string. Handy for
+  the occasional site that blocks non-Chrome browsers. It applies to every tab and
+  takes effect on the next page load; leave a custom field empty to fall back to
+  the default.
 - **Archive inactive tabs** — how long an unpinned, non-folder tab may sit idle
   before it's auto-archived (Never / 1h / 6h / 12h / 24h). Tabs playing audio and
   tabs in a folder are never archived.

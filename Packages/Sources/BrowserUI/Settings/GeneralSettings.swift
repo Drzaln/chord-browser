@@ -20,6 +20,10 @@ struct GeneralSettings: View {
     @State private var newTabKind: NewTabKind = .searchEngine
     @State private var customURL = ""
 
+    // User agent. `customUA` holds the editable field while "Custom" is selected.
+    @State private var isCustomUA = false
+    @State private var customUA = ""
+
     private enum NewTabKind: String, CaseIterable, Identifiable {
         case blank, searchEngine, custom
         var id: String { rawValue }
@@ -37,6 +41,8 @@ struct GeneralSettings: View {
             searchEngineSection
             Divider()
             newTabSection
+            Divider()
+            userAgentSection
             Divider()
             hibernationSection
             Spacer(minLength: 0)
@@ -136,6 +142,66 @@ struct GeneralSettings: View {
         )
     }
 
+    // MARK: - User agent
+
+    @ViewBuilder
+    private var userAgentSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("User Agent").font(.system(size: 13, weight: .semibold))
+            Text(
+                "How the browser identifies itself to sites. Change it for the "
+                    + "occasional site that blocks non-Chrome browsers or serves a "
+                    + "better mobile layout. Takes effect on the next page load."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Picker("", selection: userAgentSelection) {
+                ForEach(UserAgentPreference.presets, id: \.self) { preset in
+                    Text(preset.displayName).tag(preset.displayName)
+                }
+                Text("Custom…").tag("__custom__")
+            }
+            .labelsHidden()
+            .frame(maxWidth: 260)
+
+            if isCustomUA {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Paste a full User-Agent string", text: $customUA, axis: .vertical)
+                        .lineLimit(1...3)
+                        .onChange(of: customUA) { _, _ in commitCustomUA() }
+                    Text("Leave empty to use the browser's own User-Agent.")
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 360)
+            }
+        }
+    }
+
+    /// Binds the picker to a string tag so the presets and "Custom" coexist,
+    /// mirroring the search-engine picker.
+    private var userAgentSelection: Binding<String> {
+        Binding(
+            get: { isCustomUA ? "__custom__" : store.userAgent.displayName },
+            set: { tag in
+                if tag == "__custom__" {
+                    isCustomUA = true
+                    commitCustomUA()
+                } else if let preset = UserAgentPreference.presets.first(
+                    where: { $0.displayName == tag }
+                ) {
+                    isCustomUA = false
+                    store.userAgent = preset
+                }
+            }
+        )
+    }
+
+    private func commitCustomUA() {
+        store.userAgent = .custom(customUA)
+    }
+
     // MARK: - Hibernation / auto-archive
 
     @ViewBuilder
@@ -198,6 +264,14 @@ struct GeneralSettings: View {
         case .custom(let url):
             newTabKind = .custom
             customURL = url.absoluteString
+        }
+
+        switch store.userAgent {
+        case .custom(let value):
+            isCustomUA = true
+            customUA = value
+        default:
+            isCustomUA = false
         }
     }
 }

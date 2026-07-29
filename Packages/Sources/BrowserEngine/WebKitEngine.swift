@@ -58,6 +58,11 @@ public final class WebKitEngine: WebEngine {
     /// split across several immutable compiled lists, all attached together.
     private var contentRuleLists: [WKContentRuleList] = []
 
+    /// The user's chosen User-Agent override (non-spec: user-requested), or `nil`
+    /// for the browser's own completed Safari UA. Applied to every web view built
+    /// afterwards and pushed onto any already live. See `UserAgentPreference`.
+    private var customUserAgent: String?
+
     /// Retained so an evicted or crashed pane can be revived without the model
     /// layer having to hand its state back.
     private var interactionStates: [UUID: Data] = [:]
@@ -224,7 +229,7 @@ public final class WebKitEngine: WebEngine {
         webView.allowsBackForwardNavigationGestures = true
         webView.configuration.preferences.setValue(true, forKey: "fullScreenEnabled")
         webView.allowsMagnification = true
-        webView.customUserAgent = nil
+        webView.customUserAgent = customUserAgent
         webView.navigationDelegate = coordinator
         webView.uiDelegate = coordinator
 
@@ -258,6 +263,18 @@ public final class WebKitEngine: WebEngine {
         }
     }
 
+    /// Sets the User-Agent every web view presents (non-spec: user-requested),
+    /// or `nil` to restore the browser's own completed Safari UA. Stored so views
+    /// built later inherit it, and pushed onto every live view now. `nil` on a
+    /// live view restores the engine's default UA (the `applicationNameForUserAgent`
+    /// completion still applies, since that lives on the configuration).
+    public func setCustomUserAgent(_ userAgent: String?) {
+        customUserAgent = userAgent
+        for live in pool.liveViews {
+            live.webView.customUserAgent = userAgent
+        }
+    }
+
     /// Completes the User-Agent so it looks like the browser it actually is.
     ///
     /// WKWebView's default UA ends at `(KHTML, like Gecko)` — no `Version/` and
@@ -268,8 +285,9 @@ public final class WebKitEngine: WebEngine {
     ///
     /// This is **not** the Chrome spoofing §9.6 warns against. We are WebKit,
     /// running the same engine at the same version Safari does; saying so is
-    /// accurate, and per-domain overrides remain the answer for the handful of
-    /// sites that demand Chrome specifically.
+    /// accurate. For the handful of sites that demand Chrome specifically, the
+    /// user can override the UA in Settings (`UserAgentPreference`, applied via
+    /// `setCustomUserAgent`); a bundled per-domain map remains a future option.
     ///
     /// The version is hard-coded and will go stale. That is the accepted cost:
     /// WebKit exposes no API for the Safari version, reading Safari's own

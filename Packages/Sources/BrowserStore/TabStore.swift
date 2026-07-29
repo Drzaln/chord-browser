@@ -128,6 +128,16 @@ public final class TabStore {
         didSet { Preferences.save(newTabBehavior) }
     }
 
+    /// The User-Agent every web view presents (non-spec: user-requested).
+    /// Persisted like the other preferences; the setter pushes it to the engine
+    /// so live views (on their next load) and new views both pick it up.
+    public var userAgent: UserAgentPreference = Preferences.loadUserAgent() {
+        didSet {
+            Preferences.save(userAgent)
+            engine.setCustomUserAgent(userAgent.resolvedUserAgent)
+        }
+    }
+
     /// The URL a `newTab()` with no explicit destination lands on, derived from
     /// `newTabBehavior` and (for the search-engine case) `searchEngine`.
     public var resolvedNewTabURL: URL {
@@ -273,6 +283,9 @@ public final class TabStore {
         self.windowLayoutRepository = windowLayoutRepository
         self.clock = clock
         self.engine.delegate = self
+        // Apply the persisted UA up front — the property's didSet does not fire
+        // for its initial value, so the engine would otherwise start on default.
+        self.engine.setCustomUserAgent(userAgent.resolvedUserAgent)
     }
 
     // MARK: - Lifecycle
