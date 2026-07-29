@@ -77,6 +77,21 @@ enum YouTubeAdBlocker {
             '.ytp-ad-skip-button', '.ytp-ad-skip-button-modern',
             '.ytp-skip-ad-button', '.ytp-ad-skip-button-container button'
         ].join(',');
+        // How fast to run an unskippable ad. Its own progress timer is tied to
+        // media playback, so a high rate makes even a "non-seekable" ad finish
+        // in a blink — a seek alone gets clamped/ignored on many ads, which is
+        // why fast-forwarding by itself did not remove unskippable ads.
+        var AD_RATE = 10;
+
+        // The ad and the real video are ONE <video> element, so a bumped rate
+        // must never survive into content. Restore to 1x whenever we are not in
+        // an ad, and also the instant the current media ends.
+        function restoreRate(video) {
+            if (video.__chordBumped) {
+                try { video.playbackRate = 1; } catch (e) {}
+                video.__chordBumped = false;
+            }
+        }
 
         function tick() {
             var player = document.querySelector('.html5-video-player');
@@ -85,19 +100,31 @@ enum YouTubeAdBlocker {
 
             var adShowing = player.classList.contains('ad-showing')
                 || player.classList.contains('ad-interrupting');
-            if (!adShowing) { return; }
+            if (!adShowing) { restoreRate(video); return; }
 
             var btn = document.querySelector(SKIP);
             if (btn) { try { btn.click(); } catch (e) {} return; }
 
-            // No skip button: jump the ad to its end. Same <video> element as the
-            // content, so this only fast-forwards the ad, not the video.
-            if (isFinite(video.duration) && video.duration > 0) {
-                try { video.currentTime = video.duration; } catch (e) {}
-            }
+            // Unskippable: seek to the end AND run it fast. The seek ends it
+            // outright when the ad allows seeking; the rate bump drains its timer
+            // in a fraction of a second when it does not.
+            try {
+                if (isFinite(video.duration) && video.duration > 0) {
+                    video.currentTime = video.duration;
+                }
+                if (!video.__chordBumped) {
+                    video.playbackRate = AD_RATE;
+                    video.__chordBumped = true;
+                    // When this ad's media ends, restore before content plays —
+                    // the `!adShowing` tick is the backstop, this is the fast path.
+                    video.addEventListener('ended', function () {
+                        restoreRate(video);
+                    }, { once: true });
+                }
+            } catch (e) {}
         }
 
-        setInterval(tick, 300);
+        setInterval(tick, 250);
     })();
     """
 }

@@ -18,9 +18,19 @@ in the same family as the other in-page monitors, not part of the
   and `/embed/` iframes; injected `forMainFrameOnly: false`),
 - installs CSS that hides static ad surfaces (mastheads, promoted rows, in-feed
   and YouTube Music ad slots),
-- polls the player every 300 ms and, while an ad is showing, clicks _Skip_ if
-  present and otherwise seeks the ad to its end. YouTube is an SPA, so a poll —
-  not a one-shot — is what survives navigation between videos.
+- polls the player every 250 ms and, while an ad is showing, clicks _Skip_ if
+  present and otherwise both seeks the ad to its end *and* runs it at 10× speed.
+  YouTube is an SPA, so a poll — not a one-shot — is what survives navigation
+  between videos.
+
+A seek to `video.duration` alone does **not** reliably remove *unskippable* ads:
+many ads clamp or ignore seeks, and the ad module tracks completion by its own
+timer, not the video's `currentTime`. That timer is tied to media playback, so
+bumping `playbackRate` drains it in a fraction of a second — this is what
+actually clears unskippable ads. The ad and the real video are one `<video>`
+element, so the bumped rate must never leak into content: it is restored to 1×
+on the first non-ad tick and on the media's `ended` event (verified: after a
+forced bump, the next no-ad tick restored 1×).
 
 Two deliberate choices. It **does not mute**: mute is owned by
 `AudioMuteController`, and fast-forwarding ends the ad fast enough that muting is
