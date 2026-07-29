@@ -18,13 +18,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A1000001000000000000001 /* Browser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Browser.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000001000000000000001 /* Chord.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chord.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000201000000000000001 /* BrowserApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserApp.swift; sourceTree = "<group>"; };
 		A1000202000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1000203000000000000001 /* DebugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlay.swift; sourceTree = "<group>"; };
-		A1000206000000000000001 /* NotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationController.swift; sourceTree = "<group>"; };
 		A1000204000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000205000000000000001 /* Browser.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Browser.entitlements; sourceTree = "<group>"; };
+		A1000206000000000000001 /* NotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationController.swift; sourceTree = "<group>"; };
 		C42B564330149E4B00869681 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -67,7 +67,7 @@
 		A1000603000000000000001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A1000001000000000000001 /* Browser.app */,
+				A1000001000000000000001 /* Chord.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -94,7 +94,7 @@
 				A1000403000000000000001 /* BrowserCore */,
 			);
 			productName = Browser;
-			productReference = A1000001000000000000001 /* Browser.app */;
+			productReference = A1000001000000000000001 /* Chord.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -228,7 +228,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rizal.browser;
 				PRODUCT_NAME = Chord;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -252,7 +252,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rizal.browser;
 				PRODUCT_NAME = Chord;
 				SWIFT_EMIT_LOC_STRINGS = YES;
