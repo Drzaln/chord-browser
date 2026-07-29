@@ -194,6 +194,7 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(PeekLinkMonitor.makeUserScript())
         controller.addUserScript(NotificationBridge.makeUserScript())
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
+        controller.addUserScript(YouTubeAdBlocker.makeUserScript())
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)

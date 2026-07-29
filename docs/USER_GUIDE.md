@@ -277,13 +277,30 @@ two things:
   including standard CSS `:has()` container-hiding rules (hide the wrapper that
   _contains_ an ad).
 
-**What it can't block:** YouTube (and other first-party-served) **video ads**.
-Those are served from the same domain and player as the video itself, so there's
-no request to drop and nothing to hide. Blocking them requires runtime JavaScript
-injection (scriptlets) — how Brave and uBlock Origin do it — which Apple's
-`WKContentRuleList` API does not allow. That's an architectural limit, not a
-setting you can flip. See the [README](../README.md#content-blocking) and
-[BROWSER_SPEC §4.8](../BROWSER_SPEC.md) for the full explanation.
+**What the network/cosmetic blocker can't touch:** YouTube (and other
+first-party-served) **video ads**. Those are served from the same domain and
+player as the video itself, so there's no request to drop and nothing to hide by
+URL. That's a real limit of `WKContentRuleList` — see the
+[README](../README.md#content-blocking) and
+[BROWSER_SPEC §4.8](../BROWSER_SPEC.md).
+
+## YouTube ad blocking
+
+YouTube and **YouTube Music** ads *are* blocked, by a dedicated built-in that
+does not go through the content blocker above (it can't — see the note there).
+Instead a small script runs on YouTube pages and:
+
+- **Skips video ads** — clicks _Skip_ the moment it appears, and fast-forwards
+  unskippable ads to their end (they vanish in a fraction of a second).
+- **Hides static ads** — mastheads, promoted rows, in-feed ad slots, and YouTube
+  Music's ad slots.
+
+It's **on by default** and needs no extension. Honest caveat: YouTube actively
+fights ad blockers and changes its page constantly, so this is best-effort — it
+may occasionally miss a new ad format until the selectors are updated, and it is
+not the same as running full uBlock Origin. It does **not** mute anything (your
+own per-tab mute stays in charge). Why a bespoke script instead of an extension
+is explained just below.
 
 ### "But Arc / Brave / Orion block YouTube ads with the same extension!"
 
@@ -302,9 +319,11 @@ True — and the reason is the **browser engine**, never the extension:
   setting.
 
 **Bottom line:** for everyday blocking, rely on the **built-in content blocker**
-above (it's fed the same EasyList/EasyPrivacy data an ad blocker uses). Installing
-AdBlock or uBlock Origin Lite won't add YouTube blocking, and classic uBlock
-Origin won't even enable (it's Manifest V2; this browser is MV3-only).
+above (it's fed the same EasyList/EasyPrivacy data an ad blocker uses), plus the
+**built-in YouTube ad skipper**. Installing AdBlock or uBlock Origin Lite won't
+add anything for YouTube, and classic uBlock Origin won't even enable (it's
+Manifest V2; this browser is MV3-only) — which is exactly why YouTube blocking is
+built in as its own script rather than left to an extension.
 
 There is currently **no in-app toggle** to disable blocking or whitelist a
 specific site; both are noted as possible future additions.
