@@ -4,44 +4,27 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Chord</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	<!--
-		The user-facing app name is "Chord". Set here (not via
-		PRODUCT_NAME) so the visible brand changes without renaming the Xcode
-		target/product or the bundle identifier — the latter keys the on-disk
-		profile (cookies, Spaces, extensions), so it must stay `com.rizal.browser`.
-		CFBundleName drives the menu-bar title (≤15 chars); CFBundleDisplayName
-		drives Finder/Dock/Launchpad.
-	-->
 	<key>CFBundleName</key>
-	<string>Chord</string>
-	<key>CFBundleDisplayName</key>
 	<string>Chord</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
-	<key>CFBundleVersion</key>
-	<string>1</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>15.4</string>
-	<!--
-		Registers the app as a *candidate* handler for web links (4.6), which is
-		what lets Little Arc open links from other apps. It does not make this
-		the default browser — that stays a deliberate choice in System Settings.
-	-->
+	<string>1.0</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
-			<key>CFBundleURLName</key>
-			<string>Web site URL</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>Web site URL</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>http</string>
@@ -49,19 +32,16 @@
 			</array>
 		</dict>
 	</array>
-	<!--
-		Shown in the system camera/microphone permission prompt the first time a
-		page calls getUserMedia (Google Meet, Slack huddles). Required for a
-		sandboxed app to open a capture device; without these strings the prompt
-		cannot appear and access is denied. Paired with the device.camera /
-		device.microphone entitlements.
-	-->
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.4</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Chord needs camera access so sites like Google Meet can use your camera.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Chord needs microphone access so sites like Google Meet can use your microphone.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Chord needs microphone access so sites like Google Meet can use your microphone.</string>
 	<key>NSSupportsAutomaticTermination</key>
 	<true/>
 	<key>NSSupportsSuddenTermination</key>
