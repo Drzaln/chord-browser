@@ -300,6 +300,7 @@ public final class WebKitEngine: WebEngine {
         config.websiteDataStore = .default()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         config.applicationNameForUserAgent = safariUserAgentSuffix
+        config.preferences.setValue(true, forKey: "managedMediaSourceEnabled")
         // The user script and message handler are installed per view, not here:
         // copy() shares this controller between every copy.
         return config
