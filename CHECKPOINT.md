@@ -118,6 +118,28 @@ NOT in scope without an explicit ask (§11):**
 - **Server-side YouTube ads** (ad stitched into the video stream) can't be blocked
   by _anyone_ client-side, Orion/uBO included — worth remembering before promising.
 
+**Streaming video quality: AV1 is software-only in our WKWebView (design note,
+durable, verified 2026-07-30).** Recurring user question — "why does YouTube show
+VP9 here but AV1 in Safari, and why do Instagram/Facebook Reels look soft?" On an
+Apple-silicon Mac with a hardware AV1 decoder:
+
+- **Not a decode-support gap and not the User-Agent.** `MediaSource.isTypeSupported`
+  returns true for AV1, and our default UA is a full, correct Safari token
+  (`…Version/26.5 Safari/605.1.15`) — verified against `postman-echo.com/get`,
+  byte-identical to Safari's. Sites do not distinguish us by UA here.
+- **The real lever is `navigator.mediaCapabilities.decodingInfo().powerEfficient`.**
+  Sites pick a codec on hardware-decode, not raw support, to save battery. In our
+  WKWebView the probe reports **AV1 `powerEfficient: false` (software), while VP9 /
+  HEVC / H.264 are `true` (hardware)**. So YouTube serves VP9 (hardware here) and
+  Meta's high-efficiency AV1 Reels ladder is skipped, dropping to the softer
+  fallback. Safari gets hardware AV1 and is offered it.
+- **Root cause:** macOS exposes the AV1 hardware-decode path to Safari (and holders
+  of Apple's special browser entitlement), not to a general WKWebView-hosted app,
+  which silently falls back to software AV1. **Not fixable in app code.**
+- **Diagnostic:** the `Cmd+Ctrl+P` debug overlay reports per-codec `hw`/`sw`/`no`
+  for the active tab (`WebEngine.codecSupport`, DEBUG-only, compiled out of
+  release). Use it to re-check on a future macOS/WebKit.
+
 **Extensions-still-not-working, 2nd fix (2026-07-25).** After the host-access
 fix, AdBlock's popup showed "the AdBlock menu had trouble loading" and Enhancer
 still did nothing. Root cause: an MV3 extension's declared **API permissions**

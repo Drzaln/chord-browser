@@ -195,4 +195,68 @@ public protocol WebEngine: AnyObject {
     func seedInteractionState(_ data: Data, for paneID: UUID)
 
     func liveViewCount() -> Int
+
+    #if DEBUG
+    /// Developer diagnostic (non-spec): whether this engine's WebKit advertises
+    /// decode support for a set of media codec strings, via
+    /// `MediaSource.isTypeSupported` run in the pane's live view. `nil` when the
+    /// pane has no live view. The result is a property of the WebKit build and
+    /// the host's hardware, not of the document, so it answers "does Chord get
+    /// offered AV1/VP9/HEVC?" directly — the question behind streaming quality on
+    /// Reels/Shorts. Surfaced by the Cmd+Ctrl+P overlay. Compiled out of release.
+    func codecSupport(for paneID: UUID) async -> [CodecProbe]?
+    #endif
 }
+
+#if DEBUG
+extension WebEngine {
+    /// Default so test doubles and any non-WebKit engine need not implement the
+    /// diagnostic; only `WebKitEngine` gives a real answer.
+    public func codecSupport(for paneID: UUID) async -> [CodecProbe]? { nil }
+}
+
+/// One codec-support probe result (DEBUG diagnostic). WebKit-free, like every
+/// other type crossing this seam.
+///
+/// `isSupported` is `MediaSource.isTypeSupported` — "can decode at all", software
+/// or hardware. `isPowerEfficient` is `mediaCapabilities.decodingInfo`'s flag —
+/// "decodes in hardware". The gap between them is the whole answer to why YouTube
+/// serves VP9 here but AV1 in Safari: sites choose AV1 only when it is reported
+/// power-efficient, and a WKWebView can decode AV1 (supported = true) while still
+/// reporting it as not power-efficient (no hardware path exposed to this process).
+public struct CodecProbe: Sendable, Equatable {
+    public let label: String
+    public let mimeType: String
+    public let isSupported: Bool
+    public let isPowerEfficient: Bool
+    public let isSmooth: Bool
+
+    public init(
+        label: String,
+        mimeType: String,
+        isSupported: Bool,
+        isPowerEfficient: Bool,
+        isSmooth: Bool
+    ) {
+        self.label = label
+        self.mimeType = mimeType
+        self.isSupported = isSupported
+        self.isPowerEfficient = isPowerEfficient
+        self.isSmooth = isSmooth
+    }
+}
+
+/// The codec strings Chord probes, chosen to answer the streaming-quality
+/// question: AV1 (Instagram/Facebook Reels' high-efficiency ladder), VP9
+/// (YouTube), then HEVC and H.264 (the WebKit-native baseline that Meta falls
+/// back to). The `codecs=` parameters are representative profiles, enough for
+/// `MediaSource.isTypeSupported` to answer for the family.
+public enum CodecCatalog {
+    public static let probes: [(label: String, mimeType: String)] = [
+        ("AV1", #"video/mp4; codecs="av01.0.05M.08""#),
+        ("VP9", #"video/webm; codecs="vp09.00.10.08""#),
+        ("HEVC", #"video/mp4; codecs="hvc1.1.6.L93.B0""#),
+        ("H.264", #"video/mp4; codecs="avc1.42E01E""#),
+    ]
+}
+#endif

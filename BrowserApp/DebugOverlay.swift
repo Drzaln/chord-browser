@@ -14,6 +14,11 @@ struct DebugOverlay: View {
     @State private var footprintMB: Double = 0
     @State private var liveViews = 0
     @State private var frameMilliseconds: Double = 0
+    /// Codec support for the active pane (AV1/VP9/HEVC/H.264) — why Reels/Shorts
+    /// look soft while YouTube stays crisp. Probed on show and on tab change, not
+    /// every poll: it is a property of the WebKit build, not the moment.
+    @State private var codecs: [(label: String, supported: Bool, hardware: Bool)] = []
+    @State private var probedTabID: UUID?
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -29,6 +34,12 @@ struct DebugOverlay: View {
                     row("live web views", "\(liveViews)")
                     row("footprint", String(format: "%.0f MB", footprintMB))
                     row("main frame", String(format: "%.1f ms", frameMilliseconds))
+                    if !codecs.isEmpty {
+                        Divider().padding(.vertical, 1)
+                        ForEach(codecs, id: \.label) { codec in
+                            row("codec \(codec.label)", codecValue(codec))
+                        }
+                    }
                 }
                 .font(.system(size: 10, design: .monospaced))
                 .padding(8)
@@ -68,6 +79,13 @@ struct DebugOverlay: View {
         return String(id.uuidString.prefix(8))
     }
 
+    /// "no" when unsupported, "hw" when hardware (power-efficient) decode — what
+    /// sites gate AV1 on — else "sw" for software-only.
+    private func codecValue(_ codec: (label: String, supported: Bool, hardware: Bool)) -> String {
+        guard codec.supported else { return "no" }
+        return codec.hardware ? "hw" : "sw"
+    }
+
     private func row(_ label: String, _ value: String) -> some View {
         HStack(spacing: 6) {
             Text(label).foregroundStyle(.secondary)
@@ -85,6 +103,15 @@ struct DebugOverlay: View {
             liveViews = store.liveWebViewCount
             footprintMB = Diagnostics.footprintMB()
             frameMilliseconds = (CFAbsoluteTimeGetCurrent() - start) * 1000
+
+            // Re-probe codecs only when the active tab changed — the answer is
+            // fixed per WebKit build, and each probe is four JS round-trips.
+            let selected = windowState.selectedTabID
+            if selected != probedTabID {
+                probedTabID = selected
+                codecs = await store.activeCodecSupport(in: windowState) ?? []
+            }
+
             try? await Task.sleep(for: .seconds(1))
         }
     }

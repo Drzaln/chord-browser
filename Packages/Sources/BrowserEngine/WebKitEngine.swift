@@ -476,6 +476,60 @@ public final class WebKitEngine: WebEngine {
 
     public func liveViewCount() -> Int { pool.count }
 
+    #if DEBUG
+    public func codecSupport(for paneID: UUID) async -> [CodecProbe]? {
+        guard let webView = pool.view(for: paneID)?.webView else { return nil }
+
+        var results: [CodecProbe] = []
+        results.reserveCapacity(CodecCatalog.probes.count)
+        for probe in CodecCatalog.probes {
+            // Two checks, because they answer different questions and streaming
+            // sites care about the second. `MediaSource.isTypeSupported` is
+            // "can decode at all" (software or hardware). `mediaCapabilities`
+            // additionally reports `powerEfficient` — "decodes in hardware" —
+            // which is what YouTube gates AV1 on. A throw (page gone mid-probe)
+            // reads as all-false, the honest default. The 2160p60 profile mirrors
+            // what a 4K request would ask for, so `powerEfficient` reflects the
+            // real hardware path, not a trivially-cheap tiny clip.
+            let (supported, powerEfficient, smooth): (Bool, Bool, Bool)
+            do {
+                let value = try await webView.callAsyncJavaScript(
+                    """
+                    const supported = !!(window.MediaSource && MediaSource.isTypeSupported(type));
+                    let powerEfficient = false, smooth = false;
+                    if (navigator.mediaCapabilities) {
+                        const info = await navigator.mediaCapabilities.decodingInfo({
+                            type: "media-source",
+                            video: { contentType: type, width: 3840, height: 2160,
+                                     bitrate: 15000000, framerate: 60 }
+                        });
+                        powerEfficient = !!info.powerEfficient;
+                        smooth = !!info.smooth;
+                    }
+                    return { supported, powerEfficient, smooth };
+                    """,
+                    arguments: ["type": probe.mimeType],
+                    contentWorld: .defaultClient
+                )
+                let dict = value as? [String: Any]
+                supported = (dict?["supported"] as? Bool) ?? false
+                powerEfficient = (dict?["powerEfficient"] as? Bool) ?? false
+                smooth = (dict?["smooth"] as? Bool) ?? false
+            } catch {
+                Log.engine.debug("codec probe failed: \(error.localizedDescription)")
+                (supported, powerEfficient, smooth) = (false, false, false)
+            }
+            results.append(
+                CodecProbe(
+                    label: probe.label, mimeType: probe.mimeType,
+                    isSupported: supported, isPowerEfficient: powerEfficient, isSmooth: smooth
+                )
+            )
+        }
+        return results
+    }
+    #endif
+
     // MARK: - Coordinator callbacks
 
     func paneID(for webView: WKWebView) -> UUID? {
