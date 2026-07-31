@@ -58,11 +58,16 @@ struct SidebarView: View {
             // Space reads as something failing to load. During a drag an empty
             // section still shows a drop zone, so the first favourite can be
             // made by dragging.
-            if !store.pinnedTabs(in: windowState).isEmpty {
-                PinnedGrid(store: store, windowState: windowState)
-                    .overlay { if isDragging { pinnedDropOverlay } }
-            } else if isDragging {
-                firstPinDropZone
+            // A private window has neither pinned tier and no drop zones for
+            // them: both promise the tab will still be there, and its Space
+            // evaporates when the window closes (`TabStore+Private`).
+            if !windowState.isPrivate {
+                if !store.pinnedTabs(in: windowState).isEmpty {
+                    PinnedGrid(store: store, windowState: windowState)
+                        .overlay { if isDragging { pinnedDropOverlay } }
+                } else if isDragging {
+                    firstPinDropZone
+                }
             }
 
             // Arc's "Pinned" tabs — a list section under the favourites grid and
@@ -70,14 +75,18 @@ struct SidebarView: View {
             // list does not push the ephemeral tabs off-screen. Skipped entirely
             // when empty except during a drag, when a drop zone lets the first
             // Pinned tab be made.
-            if !store.bookmarkedTabs(in: windowState).isEmpty {
-                pinnedSectionHeader
-                if !windowState.isPinnedSectionCollapsed(inSpace: store.activeSpace(in: windowState)?.id) {
-                    PinnedList(store: store, windowState: windowState, tint: spaceTint)
-                        .overlay { if isDragging { bookmarkDropOverlay } }
+            if !windowState.isPrivate {
+                if !store.bookmarkedTabs(in: windowState).isEmpty {
+                    pinnedSectionHeader
+                    if !windowState.isPinnedSectionCollapsed(
+                        inSpace: store.activeSpace(in: windowState)?.id
+                    ) {
+                        PinnedList(store: store, windowState: windowState, tint: spaceTint)
+                            .overlay { if isDragging { bookmarkDropOverlay } }
+                    }
+                } else if isDragging {
+                    firstBookmarkDropZone
                 }
-            } else if isDragging {
-                firstBookmarkDropZone
             }
 
             newTabButton
@@ -94,7 +103,14 @@ struct SidebarView: View {
             // is about which sections exist, and the bottom is where the
             // interaction model this is copying puts it.
             Divider().opacity(0.5)
-            SpaceSwitcher(store: store, windowState: windowState)
+            // A private window is locked to its own throwaway Space, so there is
+            // nothing to switch to and no "+" — the footer says where you are
+            // instead of offering somewhere to go.
+            if windowState.isPrivate {
+                privateFooter
+            } else {
+                SpaceSwitcher(store: store, windowState: windowState)
+            }
         }
         .frame(width: windowState.sidebarWidth)
         .background {
@@ -451,11 +467,41 @@ struct SidebarView: View {
         // Cross-Space drag-and-drop is still to come; the menu is the M2
         // affordance.
         Menu("Move to Space") {
-            ForEach(store.spaces.filter { $0.id != tab.spaceID }) { space in
+            // A tab can only be moved between real Spaces — never into or out
+            // of a private window's throwaway one.
+            ForEach(store.visibleSpaces.filter { $0.id != tab.spaceID }) { space in
                 Button(space.name) { store.moveTab(tab.id, toSpace: space.id, in: windowState) }
             }
         }
-        .disabled(store.spaces.count <= 1)
+        .disabled(store.visibleSpaces.count <= 1)
+    }
+
+    /// What a private window has instead of the Space switcher.
+    ///
+    /// The copy is deliberately in two halves, in the same register as the
+    /// vault's lock text: what this actually does, and — because "incognito" is
+    /// the most over-read word in any browser — what it plainly does not.
+    private var privateFooter: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: "eye.slash.fill")
+                    .font(.system(size: 11, weight: .medium))
+                Text("Private window")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            Text(
+                "Nothing here is written to disk — no history, no saved tabs, no cookies. "
+                    + "Close the window and the session is gone.\n"
+                    + "It does not hide you from the sites you visit or from your network. "
+                    + "Downloads and passwords you fill are real."
+            )
+            .font(.system(size: 10))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     /// Opens the command bar rather than a blank tab, exactly as `Cmd+T` does

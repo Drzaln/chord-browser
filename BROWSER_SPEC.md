@@ -432,6 +432,14 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   `LocalAuthentication`, not a Keychain access-control item: it stops a person at
   your unlocked Mac, not code running as you. Design and threat model in
   `docs/design/password-vault.md`.
+- **Private windows** — `Cmd+Shift+N`. A private window is locked to a throwaway
+  private Space (§3.3's `isPrivate`, so a `.nonPersistent()` data store), created
+  when it opens and destroyed when it closes: no Space switcher, no pinned tiers,
+  fresh cookies. Nothing it does is written — not tabs, Spaces, window layout,
+  interaction state, history, the sweep archive, recently-closed, or site
+  permissions — and the vault fills but never offers to save. "New Blank Tab"
+  moved to `Cmd+Opt+N` to free the conventional binding. The one thing it cannot
+  do is hide the user from the sites they visit, which the window says on itself.
 - **History window** (`Cmd+Y`), per-Space to match the data-store isolation
   (`v6_history_per_space`), with search, grouping by day, and delete.
 - **Settings sheet** (`Cmd+,`) — General, Privacy & Data (clear browsing data

@@ -181,7 +181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // promotion targets), falling back to the primary at a cold launch.
             for extra in webLinks.dropFirst() {
                 guard let store = launch.store else { break }
-                store.newTab(url: extra, in: store.focusedWindow)
+                store.newTab(url: extra, in: store.focusedNonPrivateWindow)
             }
         }
         littleArc?.present(url: url)

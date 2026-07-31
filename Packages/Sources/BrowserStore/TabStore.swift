@@ -39,7 +39,12 @@ public final class TabStore {
     }
 
     /// Whether the primary window has been handed to a scene yet.
-    @ObservationIgnored private var primaryClaimed = false
+    @ObservationIgnored var hasClaimedPrimary = false
+
+    /// Set by ⌘⇧N and consumed by the next `claimWindow()`. See
+    /// `TabStore+Private.swift` for why the channel is a latch rather than a
+    /// `WindowGroup(id:for:)` presentation value.
+    @ObservationIgnored var pendingWindowKind: WindowKind?
 
     /// Vends the state for a newly-opened scene: the primary window the first
     /// time, a fresh registered one after that.
@@ -48,10 +53,26 @@ public final class TabStore {
     /// which is "first", so the scene asks rather than decides. Idempotent per
     /// scene because the caller holds the result in `@State`.
     public func claimWindow() -> WindowState {
-        guard primaryClaimed else {
-            primaryClaimed = true
+        let kind = takeWindowKind()
+        guard hasClaimedPrimary else {
+            hasClaimedPrimary = true
             return primaryWindow
         }
+
+        // A private window (⌘⇧N) is a different thing from here on: it makes its
+        // own throwaway Space, opens a tab in it, and takes no saved layout —
+        // there is never one to take, since a private window is not persisted.
+        if case .private(let url) = kind {
+            let space = makePrivateSpace()
+            spaces.append(space)  // deliberately NOT persisted — see visibleSpaces
+            let window = WindowState(isPrivate: true)
+            window.activeSpaceID = space.id
+            window.privateSpaceID = space.id
+            register(window)
+            newTab(url: url, in: window)
+            return window
+        }
+
         let window = WindowState()
         // A new window opens on the same Space as the one that spawned it, which
         // is what every browser does with Cmd+N.
@@ -85,6 +106,13 @@ public final class TabStore {
     /// Drops a closed window, and compacts any that were deallocated.
     public func unregister(_ window: WindowState) {
         secondaryWindows.removeAll { $0.value == nil || $0.value === window }
+        // Closing a private window ends its session. The window is out of the
+        // registry *first*, on purpose: the teardown's `reconcileWindows()`
+        // would otherwise re-home a window that is on its way out onto a Space
+        // that is on its way out.
+        if let privateSpaceID = window.privateSpaceID {
+            tearDownPrivateSession(privateSpaceID)
+        }
         // A closed window changes the saved layout set (v9): the layout snapshot
         // is rebuilt from the windows that remain.
         scheduleSave()
@@ -101,6 +129,19 @@ public final class TabStore {
     /// nothing tracked which window was current.
     public var focusedWindow: WindowState {
         lastFocusedWindow ?? primaryWindow
+    }
+
+    /// Where a URL handed over by the *OS* lands: the focused window unless it
+    /// is private, and then the first normal one.
+    ///
+    /// A link opened from Mail or Slack has nothing to do with the private
+    /// session that happens to be in front, and silently joining it would put
+    /// that page beyond history, restore, and the vault without the user having
+    /// asked for any of that.
+    public var focusedNonPrivateWindow: WindowState {
+        let focused = focusedWindow
+        guard focused.isPrivate else { return focused }
+        return windows.first { !$0.isPrivate } ?? primaryWindow
     }
 
     /// Records that a window became key, so `focusedWindow` follows the user's
@@ -352,6 +393,9 @@ public final class TabStore {
             Task { _ = await notificationPermissionRequester?() }
         }
         guard let sitePermissions, let spaceID = spaceID(forPane: prompt.paneID) else { return }
+        // The page gets its answer either way; a private session just does not
+        // remember having given one, so the next private window asks again.
+        guard !isPrivate(spaceID: spaceID) else { return }
         let decision: SitePermissionDecision = allow ? .granted : .denied
         Task {
             for kind in prompt.kinds {
@@ -402,6 +446,10 @@ public final class TabStore {
     /// which owns the panel; `nil` (and inert) until then. Used by the link
     /// context-menu action "Open in Little Chord" (non-spec: user-requested).
     @ObservationIgnored public var littleArcPresenter: (@MainActor (URL) -> Void)?
+
+    /// Opens a new browser window. Set by the scene layer, which is the only
+    /// place SwiftUI's `openWindow` exists; the store only ever asks.
+    @ObservationIgnored public var privateWindowPresenter: (@MainActor () -> Void)?
 
     /// Shows (non-nil) or dismisses (nil) the ⌘-hover Peek preview. Injected by
     /// the app layer, which owns the preview panel; inert until then.
@@ -468,8 +516,18 @@ public final class TabStore {
         let state = Log.signposts.beginInterval("restore")
         defer { Log.signposts.endInterval("restore", state) }
 
+        // A claim during restore must not pick up a latch set before it.
+        pendingWindowKind = nil
+
+        var restoredPrivateSpaceIDs: Set<UUID> = []
         do {
-            spaces = try await spaceRepository?.loadSpaces() ?? []
+            let loaded = try await spaceRepository?.loadSpaces() ?? []
+            // Self-healing: nothing writes a private Space today, but a profile
+            // written by a build before this feature's guards existed would
+            // otherwise resurrect one — the single thing private browsing must
+            // never do. Cheaper than trusting that no such profile exists.
+            restoredPrivateSpaceIDs = Set(loaded.filter(\.isPrivate).map(\.id))
+            spaces = loaded.filter { !$0.isPrivate }
         } catch {
             Log.store.error("space restore failed: \(String(describing: error))")
             spaces = []
@@ -498,6 +556,16 @@ public final class TabStore {
             // say so loudly; the file is still on disk and backed up.
             Log.store.error("tab restore failed, starting empty: \(String(describing: error))")
             tabs = []
+        }
+        // The one place a tab is dropped rather than re-homed (7.2 says never
+        // delete user data in a migration, and this is not one): a tab belonging
+        // to a private Space found on disk is the residue of a bug, and adopting
+        // it would put a page from a private session into a real Space.
+        if !restoredPrivateSpaceIDs.isEmpty {
+            let before = tabs.count
+            tabs.removeAll { restoredPrivateSpaceIDs.contains($0.spaceID) }
+            let dropped = before - tabs.count
+            Log.store.notice("dropped \(dropped, privacy: .public) private tab(s)")
         }
         adoptOrphanedTabs()
 
@@ -543,7 +611,11 @@ public final class TabStore {
     /// - Parameter window: the window the tab opens in, defaulting to the primary
     ///   one. A new tab lands in *that* window's Space and becomes *its*
     ///   selection; other windows are untouched.
-    public func newTab(url: URL? = nil, in window: WindowState) {
+    /// - Parameter selecting: whether the new tab becomes the window's
+    ///   selection. False for "Open Link in New Tab", where every browser leaves
+    ///   you on the page you were reading — the point of that item is to queue
+    ///   something up without losing your place.
+    public func newTab(url: URL? = nil, in window: WindowState, selecting: Bool = true) {
         guard let spaceID = activeSpace(in: window)?.id else { return }
         let target = url ?? resolvedNewTabURL
 
@@ -559,9 +631,11 @@ public final class TabStore {
         // avoid withholding its surface for a frame.
         for pane in tab.panes { stateResolution[pane.id] = .resolved }
         let previous = window.selectedTabID
-        window.selectedTabID = tab.id
         extensionHost?.extensionTabDidOpen(tab.id, inSpace: spaceID)
-        extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
+        if selecting {
+            window.selectedTabID = tab.id
+            extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
+        }
         scheduleSave()
     }
 
@@ -614,8 +688,15 @@ public final class TabStore {
 
         // Remember it for Cmd+Shift+T before the panes are torn down, so the
         // reopened tab carries its URLs, title, favicon, and pinned placement.
-        recentlyClosed.append(tabs[index])
-        if recentlyClosed.count > Self.recentlyClosedLimit { recentlyClosed.removeFirst() }
+        //
+        // Never for a private tab: `recentlyClosed` is store-wide, so Cmd+Shift+T
+        // in a *normal* window minutes later would otherwise reopen a page from a
+        // private session that has already ended. The least visible leak in this
+        // feature, and the reason it is closed here rather than at reopen.
+        if !isPrivate(spaceID: tabs[index].spaceID) {
+            recentlyClosed.append(tabs[index])
+            if recentlyClosed.count > Self.recentlyClosedLimit { recentlyClosed.removeFirst() }
+        }
 
         for pane in tabs[index].panes {
             engine.evict(paneID: pane.id)
@@ -711,6 +792,10 @@ public final class TabStore {
     /// Pinning exempts a tab from the ephemeral sweep (4.3). Order is
     /// recomputed within the destination section so the two lists stay dense.
     public func setPinned(_ pinned: Bool, tabID: UUID) {
+        // Pinning is a promise the tab will still be there; a private tab's
+        // Space evaporates with its window. The UI hides these sections, so this
+        // closes the command-bar and menu paths.
+        guard !isPrivate(tabID: tabID) else { return }
         guard let index = tabs.firstIndex(where: { $0.id == tabID }),
               tabs[index].placement.isPinned != pinned
         else { return }
@@ -741,6 +826,10 @@ public final class TabStore {
     /// favourites, Pinned tabs are exempt from the ephemeral sweep. Order is
     /// recomputed within the destination section so both lists stay dense.
     public func setBookmarked(_ bookmarked: Bool, tabID: UUID) {
+        // Pinning is a promise the tab will still be there; a private tab's
+        // Space evaporates with its window. The UI hides these sections, so this
+        // closes the command-bar and menu paths.
+        guard !isPrivate(tabID: tabID) else { return }
         guard let index = tabs.firstIndex(where: { $0.id == tabID }),
               tabs[index].placement.isBookmarked != bookmarked
         else { return }
@@ -997,7 +1086,11 @@ public final class TabStore {
     }
 
     private func performSave() async {
-        let snapshot = tabs
+        // A private window's tabs are never written. `repository.save` replaces
+        // the table wholesale, so filtering the input is the whole guard — and
+        // every `scheduleSave()` caller inherits it here rather than each having
+        // to remember.
+        let snapshot = tabs.filter { !isPrivate(spaceID: $0.spaceID) }
         do {
             try await repository.save(snapshot)
         } catch {
@@ -1128,6 +1221,25 @@ extension TabStore: WebEngineDelegate {
         // `window.open()` from a page: the tab belongs in whichever window is
         // showing the page that asked, not whichever window happens to be first.
         newTab(url: url, in: paneID.map { window(showingPane: $0) } ?? primaryWindow)
+    }
+
+    public func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?) {
+        // Background, and in the window showing the page the link came from. In a
+        // private window that is the private window, so the link stays in the
+        // private session — which is what the user asked for by right-clicking
+        // there.
+        newTab(
+            url: url,
+            in: paneID.map { window(showingPane: $0) } ?? primaryWindow,
+            selecting: false
+        )
+    }
+
+    public func paneRequestedPrivateWindow(url: URL) {
+        // Opening a window is a scene concern, so the store marks the intent and
+        // the app layer performs it — the same shape as `littleArcPresenter`.
+        markNextWindowPrivate(opening: url)
+        privateWindowPresenter?()
     }
 
     public func paneRequestedLittleArc(url: URL) {

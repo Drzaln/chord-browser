@@ -50,6 +50,7 @@ enum Launch {
 struct AppRootView: View {
     let launch: Launch
     let commandBar: CommandBarController?
+    @Environment(\.openWindow) private var openWindow
 
     /// This scene's window state, taken from the store on first appearance: the
     /// primary for the first window, a fresh registered one for each Cmd+N.
@@ -62,6 +63,11 @@ struct AppRootView: View {
             content(environment)
                 .onAppear {
                     if windowState == nil { windowState = environment.store.claimWindow() }
+                    // "Open Link in New Private Window" needs a window opened,
+                    // and `openWindow` exists only in a scene's environment —
+                    // the store marks the intent and this performs it. Set from
+                    // every window, harmlessly: they all do the same thing.
+                    environment.store.privateWindowPresenter = { openWindow(id: "main") }
                 }
                 // Restore is a *session* concern, not a window one, so only the
                 // window that got the primary state kicks it off. `restore()` is
@@ -150,6 +156,12 @@ struct BrowserCommands: Commands {
         guard let store, let windowState else { return }
         action(store, windowState)
     }
+
+    /// Whether the focused window is private, for the items that make no sense
+    /// there — Spaces, pinning, and History (which reads the active Space's
+    /// history and would be a permanently empty list).
+    private var isPrivateWindowFocused: Bool { windowState?.isPrivate == true }
+
     /// Lives in the UI package, so it is owned by the delegate rather than by
     /// `AppEnvironment` — Store must not depend on UI.
     let commandBar: CommandBarController?
@@ -185,8 +197,19 @@ struct BrowserCommands: Commands {
             Button("New Window") { openWindow(id: "main") }
                 .keyboardShortcut("n", modifiers: .command)
 
+            // Cmd+Shift+N is the private-window binding everywhere else, so it
+            // takes it here too and the blank tab moves along to Cmd+Opt+N (it
+            // already moved once, off Cmd+N, when multi-window landed). The
+            // store is marked *before* the window opens: `claimWindow()` reads
+            // the latch, because `openWindow(id:)` carries no value of its own.
+            Button("New Private Window") {
+                store?.markNextWindowPrivate()
+                openWindow(id: "main")
+            }
+            .keyboardShortcut("n", modifiers: [.command, .shift])
+
             Button("New Blank Tab") { withFocusedWindow { $0.newTab(in: $1) } }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .keyboardShortcut("n", modifiers: [.command, .option])
         }
         CommandGroup(after: .newItem) {
             Button("Close Tab") {
@@ -221,6 +244,9 @@ struct BrowserCommands: Commands {
                 }
             }
             .keyboardShortcut("d", modifiers: .command)
+            // A private window has no pinned sections — the Space it would pin
+            // into evaporates when the window closes.
+            .disabled(isPrivateWindowFocused)
 
             Divider()
 
@@ -301,11 +327,14 @@ struct BrowserCommands: Commands {
         CommandMenu("History") {
             Button("Show History") { windowState?.isHistoryPresented = true }
                 .keyboardShortcut("y", modifiers: .command)
-                .disabled(windowState == nil)
+                // History is per-Space, and a private Space records none — the
+                // window would open on a list that is empty by construction.
+                .disabled(windowState == nil || isPrivateWindowFocused)
         }
 
         CommandMenu("Spaces") {
             Button("New Space") { withFocusedWindow { $0.addSpace(in: $1) } }
+                .disabled(isPrivateWindowFocused)
 
             Divider()
 
@@ -319,6 +348,9 @@ struct BrowserCommands: Commands {
                 .keyboardShortcut(
                     KeyEquivalent(Character("\(position)")), modifiers: .command
                 )
+                // A private window is locked to its own Space, so there is
+                // nowhere for Cmd+1…9 to go.
+                .disabled(isPrivateWindowFocused)
             }
         }
     }

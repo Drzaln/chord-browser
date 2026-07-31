@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)**. See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows (no migration)**. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **524 passing** (`swift test`, 80 suites), measured 2026-07-31                                                                                                                                   |
+| **Tests**                        | **543 passing** (`swift test`, 81 suites), measured 2026-07-31                                                                                                                                   |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -234,16 +234,21 @@ Read BROWSER_SPEC.md and CHECKPOINT.md in full before writing any code.
 ago and are verified live. A long run of agreed post-spec additions has landed on
 top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
-UA setting, and — most recently — a **built-in password vault**.
+UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **524 tests**, `./scripts/prepush.sh` green, **schema v13**.
+State: single `main`, **543 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
 ## Where the work is
 
-**Nothing is assigned.** The password vault is **complete — V1 through V7**
+**Nothing is assigned.** The newest work is **private (incognito) windows, ⌘⇧N**
+— read that section before touching any persistence path, because the feature is
+defined by what it does *not* write, and two of its leaks were found only by
+driving the real app. "New Blank Tab" moved to ⌘⌥N to free the binding.
+
+Before it, the password vault was completed **V1 through V7**
 (docs/design/password-vault.md), all of it verified live in the real browser:
-saving, filling, management, and — as of 2026-07-31 — the lock (idle timeout,
-sleep, screen lock, Lock Now, and an unlock required before a fill).
+saving, filling, management, and the lock (idle timeout, sleep, screen lock, Lock
+Now, and an unlock required before a fill).
 
 Open, non-spec, **ask-first** items (§11): a per-site content-blocking whitelist /
 runtime disable toggle, and a per-domain User-Agent override map (§9.6, the UA
@@ -2196,6 +2201,117 @@ keychain, app clean-rebuilt and verified running.
 build. One dialog after a rebuild, none for a build you keep. It does train the
 habit of approving keychain prompts, which is worth revisiting if the vault ever
 ships to anyone but its author. An allow-any-application ACL stays refused.
+
+### Link context menu: Open in New Tab / New Private Window (2026-07-31)
+
+Right-clicking a link offered only WebKit's own menu plus "Open in Little Chord".
+**"Open Link in New Tab" is Safari's item, not WebKit's** — tabs are the app's
+concept, so the engine never provides one. Both new items follow the seam that
+was already there for Little Chord (`ContextLinkMonitor` posts the href from a
+capture-phase listener, `ChordWebView.willOpenMenu` decides visibility from
+WebKit's own menu-item identifiers, the URL is read at click time).
+
+- **Open Link in New Tab** → `paneRequestedBackgroundTab(url:fromPane:)` →
+  `newTab(…, selecting: false)`. Background, and in the window showing the page
+  the link came from — so in a private window it stays private. `newTab` gained
+  a `selecting:` parameter (default true, so nothing else changed); the extension
+  host is told the tab opened but not that it activated, because it did not.
+- **Open Link in New Private Window** → `paneRequestedPrivateWindow(url:)` →
+  `markNextWindowPrivate(opening:)` + a new `privateWindowPresenter`, set by
+  `AppRootView` because SwiftUI's `openWindow` exists only in a scene's
+  environment. Same shape as `littleArcPresenter`.
+
+**The URL rides on the enum case** — `WindowKind.private(url:)` — rather than in
+a second stored property beside the latch. The first cut had both cleared by one
+`defer`, so `claimWindow` read the URL *after* it had been wiped and the window
+opened on the new-tab page. A test caught it; carrying the payload on the case
+makes the pair impossible to separate.
+
+2 tests (543 total, prepush green), the background-tab one verified red against
+sending it to the primary window in the foreground.
+
+**NOT verified live — the one thing this project insists on.** The Mac locked
+mid-session before the menu could be right-clicked on screen. Owed: right-click a
+link and confirm the three items appear in order, that New Tab opens in the
+background in the same window, and that New Private Window opens the *link*
+rather than the new-tab page.
+
+### Private (incognito) windows — ⌘⇧N (2026-07-31)
+
+**A private window is a window locked to a throwaway private `Space`.** That one
+decision is the whole design: everything durable here is already Space-scoped —
+`Tab.spaceID`, history, site permissions, the extension host's window-per-Space
+model, and the data store itself, which `DataStoreRegistry` has built as
+`.nonPersistent()` for an `isPrivate` Space since M2 (§3.3, ADR 006). The engine
+half was already there; **nothing had ever set the flag.** So this was wiring a
+switch that was already installed, plus suppressing every write path.
+
+The Space is created in `claimWindow()`, appended to `spaces` (deliberately, so
+the dozens of "resolve a Space by id" call sites keep working), and destroyed in
+`unregister()`. `visibleSpaces` is what display and persistence enumerate.
+
+**Decisions, made with the user before building:** ⌘⇧N takes the conventional
+binding and "New Blank Tab" moves to ⌘⌥N; the window is locked to its own Space
+(no switcher, no ⌘1…9, no pinned tiers, fresh cookies); the vault **fills but
+never offers to save**.
+
+**The channel is a one-shot latch** (`markNextWindowPrivate()`), not
+`WindowGroup(id:for:)`. Two reasons, both about how this app already opens
+windows: SwiftUI *dedupes* value-based windows, so a second private window with
+an equal value would front the first; and a presentation value participates in
+**scene restoration**, so macOS would hand "private" back at launch — the one
+thing that must never resurrect a private session. The primary window is never
+private, and `restore()` clears the latch.
+
+**Suppression, one guard per funnel:** `persistSpaces` (→ `visibleSpaces`),
+`performSave` (tab filter — both repository writes are delete-all-then-insert, so
+filtering the input is complete), `captureWindowLayouts` (skip + renumber
+ordinals), `captureLiveState`/`persistInteractionState` (a blob carries URL,
+scroll, and form contents), `recordVisit`, the sweep's *candidate* list (not just
+the archive write — `isSelectedByAnyWindow` protects only the selected tab),
+`handleSubmittedLogin`, `recentlyClosed`, `resolveSitePermission`, `setPinned` /
+`setBookmarked`, and a restore-side filter that drops a private Space found on
+disk. Downloads are deliberately **not** suppressed — a saved file is a file.
+
+**`reconcile`'s Space fallback is the most dangerous line in the change.** It was
+a bare `spaces.first`, so a normal window whose Space vanished could adopt the
+private one. Scoped now, and `applyLayout` too.
+
+**`WebKitEngine.removeData(for:)` had a real bug for this feature**: it returned
+early for a private Space *before* `dataStores.forget`, so a closed private
+session's `.nonPersistent()` store stayed cached for the life of the process. The
+forget moved above the guard.
+
+**Two leaks the live drive found that the tests did not:**
+- The private Space appeared in **every other window's Space switcher** — the UI
+  enumerated `store.spaces`. Caught by looking at a screenshot of the normal
+  window while the private one was open.
+- The **command bar ranks open tabs from every Space**, so a normal window could
+  have jumped straight into a private tab. `suggestions(for:in:)` is now scoped
+  by the window's kind, and a private window sees no history or archive.
+
+**Verified live** (screenshots, `sqlite3`, and the AX menu attributes):
+1. File ▸ New Private Window, with the key equivalents read back — New Window ⌘N,
+   New Private Window ⌘⇧N, New Blank Tab ⌘⌥N. The ⌘⇧N *keystroke* is not
+   synthesizable, exactly as recorded for ⌘N; the menu item is.
+2. The private window opens **signed out of Google** while a normal window is
+   signed into the same account — the isolation, in one screenshot.
+3. Its sidebar has no switcher, no favourites, and carries the honest footer.
+4. While it was open: `space where isPrivate=1` → **0**, no `pane` row for its
+   page, no `historyEntry` for it, and `windowLayout` counted only the normal
+   windows.
+5. Closing it left both normal windows painting, with a clean switcher.
+
+Not re-driven by hand: quit-with-a-private-window-open (nothing private is on
+disk, and the restore filter is unit-tested) and the save-bar suppression.
+
+17 tests in `PrivateWindowTests` (541 total, prepush green). Eight were confirmed
+red against deliberate breaks — the latch, the reconcile scoping, the layout
+filter, and the space/tab/history/sweep/vault/command-bar guards. Two of them
+were **found to be passing for the wrong reason** while doing it: the layout test
+discarded its window (windows are held weakly, so there was nothing to filter),
+and the first isolation test never reached the fallback line it claimed to cover.
+Both were rewritten until the break actually turned them red.
 
 ### Password vault V7 — the lock (2026-07-31)
 

@@ -38,18 +38,27 @@ extension TabStore {
 
     /// Ranked results for what the user has typed. Pure ranking, so the
     /// interesting logic is tested without a UI (`CommandBarRanking`).
-    public func suggestions(for query: String) -> [Suggestion] {
-        CommandBarRanking.suggestions(
+    /// - Parameter window: the window the bar was opened over. Its *kind* is
+    ///   what scopes the open-tab results: a normal window must never be able to
+    ///   jump to a private tab (which would put private content on screen in a
+    ///   window every write path treats as ordinary), and a private window has
+    ///   no business offering the tabs of the session it is hiding from.
+    public func suggestions(for query: String, in window: WindowState? = nil) -> [Suggestion] {
+        let isPrivateWindow = window?.isPrivate ?? false
+        let searchableTabs = tabs.filter { isPrivate(spaceID: $0.spaceID) == isPrivateWindow }
+        return CommandBarRanking.suggestions(
             for: CommandBarInput(
                 query: query,
                 // Open tabs from every Space are searchable, not just the
-                // active one (4.4).
-                tabs: tabs,
+                // active one (4.4) — bounded by the window's kind, above.
+                tabs: searchableTabs,
                 spaceNames: Dictionary(
                     uniqueKeysWithValues: spaces.map { ($0.id, $0.name) }
                 ),
-                history: cachedHistory,
-                archived: cachedArchive,
+                // A private window shows no history or archive: both are read
+                // from disk, and neither has anything of this session in it.
+                history: isPrivateWindow ? [] : cachedHistory,
+                archived: isPrivateWindow ? [] : cachedArchive,
                 now: clock.now,
                 searchTemplate: searchEngine.queryTemplate
             )
@@ -120,6 +129,9 @@ extension TabStore {
     /// history stays per-Space.
     func recordVisit(url: URL, title: String, spaceID: UUID) {
         guard let scheme = url.scheme, scheme == "http" || scheme == "https" else { return }
+        // A private Space keeps no history. The guard is here rather than at the
+        // caller so any future caller inherits it — there is exactly one today.
+        guard !isPrivate(spaceID: spaceID) else { return }
 
         let now = clock.now
         Task { [historyRepository] in

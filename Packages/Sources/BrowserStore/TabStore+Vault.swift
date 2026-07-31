@@ -15,6 +15,12 @@ extension TabStore {
     func handleSubmittedLogin(
         origin: String, username: String, password: String, paneID: UUID
     ) async {
+        // A private window never offers to save. This is the first line on
+        // purpose: `lastSubmittedUsernames` is store-wide, so a half-finished
+        // private sign-in must not prime the save bar a normal window shows
+        // later. Filling is deliberately untouched — see `fillCredential`.
+        guard !isPrivate(paneID: paneID) else { return }
+
         // A multi-step login submits the username on one page and the password
         // on the next (Google, Mixpanel). Remember the first half so the second
         // half is not saved with a blank username — which is what V5 did, and

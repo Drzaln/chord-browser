@@ -17,10 +17,15 @@ extension TabStore {
     /// - Parameter window: the window that switches. Only it moves — Cmd+1…9 in
     ///   Arc switches the focused window and leaves the others where they are.
     public func selectSpace(_ spaceID: UUID, in window: WindowState) {
-        guard spaceID != window.activeSpaceID, spaces.contains(where: { $0.id == spaceID })
+        guard spaceID != window.activeSpaceID, let target = spaces.first(where: { $0.id == spaceID })
         else {
             return
         }
+        // A window never crosses the private boundary in either direction: a
+        // private window is locked to the Space it was born with, and a normal
+        // window cannot be steered into one.
+        guard target.isPrivate == window.isPrivate else { return }
+        if window.isPrivate { guard spaceID == window.privateSpaceID else { return } }
 
         let state = Log.signposts.beginInterval("spaceSwitch")
         defer { Log.signposts.endInterval("spaceSwitch", state) }
@@ -51,7 +56,8 @@ extension TabStore {
     /// `Cmd+1...9`. Out-of-range indices are ignored rather than clamped —
     /// Cmd+7 with three Spaces should do nothing, not jump to the last one.
     public func selectSpace(atIndex index: Int, in window: WindowState) {
-        let ordered = spaces.sorted { $0.sortIndex < $1.sortIndex }
+        // `visibleSpaces`: Cmd+1…9 can never land on a private Space.
+        let ordered = visibleSpaces.sorted { $0.sortIndex < $1.sortIndex }
         guard ordered.indices.contains(index) else { return }
         selectSpace(ordered[index].id, in: window)
     }
@@ -96,8 +102,11 @@ extension TabStore {
     /// Closes the Space's tabs and reclaims its disk. Irreversible — callers
     /// must have confirmed with the user first (3.3).
     public func deleteSpace(_ spaceID: UUID, in window: WindowState) async {
-        guard spaces.count > 1, let index = spaces.firstIndex(where: { $0.id == spaceID })
+        guard visibleSpaces.count > 1, let index = spaces.firstIndex(where: { $0.id == spaceID })
         else { return }  // never leave the user with no Space
+        // A private Space is owned by its window and dies with it; there is no
+        // user-facing delete for one.
+        guard !spaces[index].isPrivate else { return }
 
         let space = spaces[index]
 
@@ -115,9 +124,9 @@ extension TabStore {
         spaces.remove(at: index)
         lastSelectedTabBySpace[spaceID] = nil
 
-        if window.activeSpaceID == spaceID {
+        if window.activeSpaceID == spaceID, let first = visibleSpaces.first {
             window.activeSpaceID = nil
-            selectSpace(spaces[0].id, in: window)
+            selectSpace(first.id, in: window)
         }
         // Any other window sitting in the deleted Space is re-homed to the first
         // one, the same rule `adoptOrphanedTabs` uses for a tab.
@@ -137,7 +146,10 @@ extension TabStore {
 
     func persistSpaces() async {
         do {
-            try await spaceRepository?.saveSpaces(spaces)
+            // `visibleSpaces`, never `spaces`: a private Space must not reach the
+            // table, and `saveSpaces` replaces it wholesale, so this one line is
+            // the whole guard for every Space mutation.
+            try await spaceRepository?.saveSpaces(visibleSpaces)
         } catch {
             Log.store.error("space save failed: \(String(describing: error))")
         }

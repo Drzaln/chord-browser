@@ -40,7 +40,13 @@ extension TabStore {
         let now = clock.now
         // Foldered tabs are exempt — a folder is a place to keep tabs, so the
         // sweep never touches them (non-spec: user-requested).
-        let candidates = tabs.filter { $0.folderID == nil }.map { tab in
+        // Private tabs are never swept — not merely never archived. The archive
+        // write records URL and title, and `isSelectedByAnyWindow` only protects
+        // the *selected* tab, so a background private tab would otherwise land on
+        // disk. A private session is bounded by its window, not by an idle clock.
+        let candidates = tabs
+            .filter { $0.folderID == nil && !isPrivate(spaceID: $0.spaceID) }
+            .map { tab in
             SweepPolicy.Candidate(
                 tabID: tab.id,
                 placement: tab.placement,

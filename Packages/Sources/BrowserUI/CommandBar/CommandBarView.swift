@@ -19,7 +19,7 @@ struct CommandBarView: View {
     @State private var highlighted = 0
     @FocusState private var isFocused: Bool
 
-    private var results: [Suggestion] { store.suggestions(for: query) }
+    private var results: [Suggestion] { store.suggestions(for: query, in: windowState) }
 
     var body: some View {
         VStack(spacing: 0) {

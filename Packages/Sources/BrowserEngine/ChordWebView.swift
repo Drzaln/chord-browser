@@ -1,8 +1,13 @@
 import AppKit
 import WebKit
 
-/// A `WKWebView` that adds "Open in Little Chord" to the context menu of a link
-/// (non-spec: user-requested).
+/// A `WKWebView` that adds our own items to the context menu of a link
+/// (non-spec: user-requested): open it in a new tab, in a new private window, or
+/// in Little Chord.
+///
+/// WebKit's own menu offers "Open Link in New Window" and nothing tab-aware —
+/// "Open Link in New Tab" is Safari's, not WebKit's, because tabs are the app's
+/// concept and not the engine's. So it is ours to add.
 ///
 /// Whether the click was on a link is read from the native menu WebKit builds —
 /// it carries stable item identifiers (`WKMenuItemIdentifierOpenLink`,
@@ -16,19 +21,36 @@ final class ChordWebView: WKWebView {
     var contextLinkURL: (() -> URL?)?
     /// Invoked with that URL when the user chooses "Open in Little Chord".
     var onOpenInLittleArc: ((URL) -> Void)?
+    /// "Open Link in New Tab" — a background tab in this pane's own window.
+    var onOpenInNewTab: ((URL) -> Void)?
+    /// "Open Link in New Private Window".
+    var onOpenInPrivateWindow: ((URL) -> Void)?
 
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
         guard menuTargetsLink(menu) else { return }
 
-        let item = NSMenuItem(
-            title: "Open in Little Chord",
-            action: #selector(openInLittleArc(_:)),
-            keyEquivalent: ""
-        )
-        item.target = self
-        menu.insertItem(item, at: 0)
-        menu.insertItem(.separator(), at: 1)
+        // Inserted at the top, in the order other browsers use: the tab first,
+        // because it is the one people reach for constantly.
+        let items = [
+            NSMenuItem(
+                title: "Open Link in New Tab",
+                action: #selector(openInNewTab(_:)), keyEquivalent: ""
+            ),
+            NSMenuItem(
+                title: "Open Link in New Private Window",
+                action: #selector(openInPrivateWindow(_:)), keyEquivalent: ""
+            ),
+            NSMenuItem(
+                title: "Open in Little Chord",
+                action: #selector(openInLittleArc(_:)), keyEquivalent: ""
+            ),
+        ]
+        for (offset, item) in items.enumerated() {
+            item.target = self
+            menu.insertItem(item, at: offset)
+        }
+        menu.insertItem(.separator(), at: items.count)
     }
 
     /// A link context is exactly when WebKit put a link item in the menu.
@@ -43,5 +65,15 @@ final class ChordWebView: WKWebView {
     @objc private func openInLittleArc(_ sender: Any?) {
         guard let url = contextLinkURL?() else { return }
         onOpenInLittleArc?(url)
+    }
+
+    @objc private func openInNewTab(_ sender: Any?) {
+        guard let url = contextLinkURL?() else { return }
+        onOpenInNewTab?(url)
+    }
+
+    @objc private func openInPrivateWindow(_ sender: Any?) {
+        guard let url = contextLinkURL?() else { return }
+        onOpenInPrivateWindow?(url)
     }
 }

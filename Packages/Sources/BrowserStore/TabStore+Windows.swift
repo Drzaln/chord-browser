@@ -78,9 +78,19 @@ extension TabStore {
         // tab: re-home rather than blank out. A window that never had one — a
         // scene macOS restored before `restore()` had loaded any Spaces — is the
         // same case, and used to be missed because `nil` is not "invalid".
-        let known = window.activeSpaceID.map { id in spaces.contains { $0.id == id } } ?? false
+        // Scoped to the Spaces *this* window may show. Unscoped, this is the
+        // line that lets a normal window whose Space was deleted adopt a private
+        // Space and put a private tab on screen — and a private tab reached
+        // through a normal window is one every write path would then treat as
+        // ordinary. A private window's candidate set is exactly its own Space.
+        let candidateSpaces =
+            window.isPrivate
+            ? spaces.filter { $0.id == window.privateSpaceID }
+            : visibleSpaces
+        let known =
+            window.activeSpaceID.map { id in candidateSpaces.contains { $0.id == id } } ?? false
         if !known {
-            window.activeSpaceID = spaces.first?.id
+            window.activeSpaceID = candidateSpaces.first?.id
             window.selectedTabID = nil
         }
 
@@ -147,8 +157,11 @@ extension TabStore {
     /// so the caller falls back to a reconcile.
     @discardableResult
     func applyLayout(_ layout: WindowLayout, to window: WindowState) -> Bool {
+        // `visibleSpaces`: a layout can only ever name a normal Space, and a
+        // stale one naming a private Space (written by a build before those were
+        // filtered out) must be refused rather than followed.
         guard let spaceID = layout.activeSpaceID,
-              spaces.contains(where: { $0.id == spaceID })
+              visibleSpaces.contains(where: { $0.id == spaceID })
         else { return false }
 
         window.activeSpaceID = spaceID
@@ -175,7 +188,10 @@ extension TabStore {
 
     /// A snapshot of the open windows' layouts, in window order, for persistence.
     func captureWindowLayouts() -> [WindowLayout] {
-        windows.enumerated().map { index, window in
+        // Private windows are not in the snapshot at all, and the survivors are
+        // renumbered so the ordinals stay 0..n — the ordinal *is* the identity a
+        // restored scene is matched by (v9).
+        windows.filter { !$0.isPrivate }.enumerated().map { index, window in
             WindowLayout(
                 ordinal: index,
                 activeSpaceID: window.activeSpaceID,

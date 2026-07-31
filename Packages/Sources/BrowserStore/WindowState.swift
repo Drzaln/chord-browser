@@ -93,6 +93,20 @@ public final class WindowState {
     /// the page. Volatile: a session mode, not a saved preference.
     public var isPresentationMode: Bool = false
 
+    /// Whether this is a private (incognito) window — ⌘⇧N.
+    ///
+    /// Volatile and immutable, in the same class of state as
+    /// `isPresentationMode`: a window is born private or is not, and nothing
+    /// about it is ever written to disk. **Persistence never reads this** — the
+    /// suppression guards all ask `TabStore.isPrivate(spaceID:)` instead, since
+    /// a private *Space* is the thing that owns the tabs and the data store. See
+    /// `TabStore+Private.swift`.
+    public let isPrivate: Bool
+
+    /// The throwaway Space this window owns, when it is private. Kept apart from
+    /// `activeSpaceID` so teardown stays unambiguous.
+    public internal(set) var privateSpaceID: UUID?
+
     /// The Spaces whose Pinned-tabs section is collapsed in *this* window
     /// (non-spec: user-requested). Per-Space and now per-window, so two windows
     /// in the same Space can disagree.
@@ -141,7 +155,10 @@ public final class WindowState {
     /// persisted values are app-wide defaults that each window seeds from and
     /// then owns. Windows have no durable identity to key on until layout
     /// persistence exists, and inheriting is what Arc appears to do.
-    public init(defaults: any PreferenceStore = UserDefaults.standard) {
+    public init(
+        defaults: any PreferenceStore = UserDefaults.standard, isPrivate: Bool = false
+    ) {
+        self.isPrivate = isPrivate
         self.defaults = defaults
         self.isSidebarCollapsed = Preferences.loadSidebarCollapsed(defaults)
         self.sidebarWidth = Preferences.loadSidebarWidth(defaults)

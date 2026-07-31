@@ -14,7 +14,9 @@ struct SpaceSwitcher: View {
         HStack(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(store.spaces.sorted { $0.sortIndex < $1.sortIndex }) { space in
+                    // `visibleSpaces`: a private window's throwaway Space belongs to that
+                    // window alone and must not appear in anyone else's switcher.
+                    ForEach(store.visibleSpaces.sorted { $0.sortIndex < $1.sortIndex }) { space in
                         spaceButton(space)
                     }
                 }
@@ -79,7 +81,7 @@ struct SpaceSwitcher: View {
             Button("Edit Space…") { windowState.editingSpaceID = space.id }
             Divider()
             Button("Delete Space…", role: .destructive) { windowState.deletingSpaceID = space.id }
-                .disabled(store.spaces.count <= 1)
+                .disabled(store.visibleSpaces.count <= 1)
         }
     }
 

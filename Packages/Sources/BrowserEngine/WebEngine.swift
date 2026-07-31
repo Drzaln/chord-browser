@@ -66,6 +66,13 @@ public protocol WebEngineDelegate: AnyObject {
     func paneRequestedNewTab(url: URL, fromPane paneID: UUID?)
     /// A link's context menu asked to open it in the Little Arc panel (non-spec:
     /// user-requested).
+    /// "Open Link in New Tab" from a link's context menu: a tab in the window
+    /// showing that page, left in the background.
+    func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?)
+
+    /// "Open Link in New Private Window" from a link's context menu.
+    func paneRequestedPrivateWindow(url: URL)
+
     func paneRequestedLittleArc(url: URL)
     /// The ⌘-hover Peek preview should show `url`, or dismiss when `nil`
     /// (non-spec: user-requested).
@@ -102,6 +109,8 @@ public protocol WebEngineDelegate: AnyObject {
 extension WebEngineDelegate {
     /// Defaults so delegates that predate these features (and test doubles) need
     /// not implement them.
+    public func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?) {}
+    public func paneRequestedPrivateWindow(url: URL) {}
     public func paneRequestedLittleArc(url: URL) {}
     public func paneRequestedPeek(url: URL?) {}
     public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {}

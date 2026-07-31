@@ -979,3 +979,50 @@ here is a selector to update, not a regression in the browser.
       Expected today: **AV1 `sw`**, VP9 / HEVC / H.264 `hw`. If AV1 ever reads
       `hw` on a future macOS, YouTube should start serving AV1 and the Reels
       softness should go — worth re-checking after an OS update
+
+## Private windows (added 2026-07-31)
+
+⌘⇧N. Every item below was checked in the real app when the feature landed; the
+`sqlite3` ones are the point of the feature, so re-run them after touching any
+persistence path.
+
+- [x] File ▸ **New Private Window** exists and its key equivalents are right —
+      New Window ⌘N, New Private Window ⌘⇧N, New Blank Tab ⌘⌥N (read back from
+      `AXMenuItemCmdChar` / `AXMenuItemCmdModifiers`; the ⌘⇧N *keystroke* is not
+      synthesizable, same as ⌘N — see the multi-window notes)
+- [x] The private window's sidebar has **no Space switcher, no favourites, no
+      Pinned section**, and shows the "Private window" footer with its honest
+      copy
+- [x] **Signed out**: Google in the private window offers "Sign in" while a
+      normal window is signed into the same account — the `.nonPersistent()`
+      store, live
+- [x] The private Space appears in **no other window's** Space switcher
+- [x] Nothing on disk, checked while the window was open:
+      `select count(*) from space where isPrivate=1` → **0**,
+      no `pane` row for the private page, no `historyEntry` for it, and
+      `windowLayout` counts only the normal windows
+- [x] Closing the private window leaves every other window **painting**, with
+      the switcher unchanged
+- [ ] Quit with a private window open, relaunch → only the normal windows come
+      back. Not re-run by hand; nothing private is on disk (above), and the
+      restore-side filter is unit-tested
+- [ ] A sign-in in a private window raises **no save bar**, while the fill key
+      still works (unit-tested; not driven live)
+
+## Link context menu (added 2026-07-31)
+
+Driven live on 2026-08-01.
+
+- [x] Right-click a link → **Open Link in New Tab**, **Open Link in New Private
+      Window**, **Open in Little Chord**, then a separator, above WebKit's own items
+- [ ] Right-click on a *non-link* → none of the three appear (not re-checked; the
+      visibility test is WebKit's own menu-item identifiers, unchanged since
+      Little Chord shipped)
+- [x] Open Link in New Tab lands in **the same window**, in the **background**
+      (you stay on the page you were reading). **Check the DB, not the sidebar**:
+      if the current page is a favourite it renders in the grid, and a background
+      tab has no title or favicon until it is selected — that combination looks
+      like nothing happened
+- [ ] The same item inside a private window keeps the link **in that private
+      window** (unit-tested; not driven)
+- [x] Open Link in New Private Window opens **the link**, not the new-tab page

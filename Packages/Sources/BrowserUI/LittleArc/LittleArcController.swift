@@ -56,7 +56,7 @@ public final class LittleArcController {
         // store's `focusedWindow` still names the browser window that was current
         // when the link arrived. A URL opened at a cold launch has no focused
         // window and falls back to the primary.
-        let target = store.focusedWindow
+        let target = store.focusedNonPrivateWindow
         store.promoteLittleArc(pane, in: target)
 
         closePanel()

@@ -101,8 +101,13 @@ public final class WebKitEngine: WebEngine {
     }
 
     public func removeData(for space: Space) async throws {
-        guard !space.isPrivate else { return }  // nothing on disk to reclaim
+        // The registry is dropped first, and for a private Space that is the
+        // *whole* job: a `.nonPersistent()` store has nothing on disk, but it is
+        // still cached here, so leaving it would keep a closed private session's
+        // cookies in memory for the life of the process. The early return used
+        // to sit above this line.
         dataStores.forget(spaceID: space.id)
+        guard !space.isPrivate else { return }  // nothing on disk to reclaim
         try await dataStores.removePersistentStore(dataStoreID: space.dataStoreID)
     }
 
@@ -244,6 +249,17 @@ public final class WebKitEngine: WebEngine {
         }
         webView.onOpenInLittleArc = { [weak self] url in
             self?.delegate?.paneRequestedLittleArc(url: url)
+        }
+        // The pane is named so the tab lands in the window showing this page —
+        // the same reason `window.open()` carries it.
+        webView.onOpenInNewTab = { [weak self, weak webView] url in
+            guard let self, let webView else { return }
+            self.delegate?.paneRequestedBackgroundTab(
+                url: url, fromPane: self.paneID(for: webView)
+            )
+        }
+        webView.onOpenInPrivateWindow = { [weak self] url in
+            self?.delegate?.paneRequestedPrivateWindow(url: url)
         }
         return webView
     }

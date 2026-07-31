@@ -275,11 +275,16 @@ public struct RootView: View {
             RootSheets(store: store, windowState: windowState, extensions: extensions)
         )
         .onAppear {
-            let monitor = SpaceSwipeMonitor(store: store, windowState: windowState)
-            monitor.engageMaxX = sidebarEngageWidth
-            monitor.window = window
-            monitor.start()
-            swipeMonitor = monitor
+            // No Space-switch swipe in a private window: it is locked to one
+            // Space, so there is no neighbour to swipe to, and the gesture would
+            // rubber-band against nothing.
+            if !windowState.isPrivate {
+                let monitor = SpaceSwipeMonitor(store: store, windowState: windowState)
+                monitor.engageMaxX = sidebarEngageWidth
+                monitor.window = window
+                monitor.start()
+                swipeMonitor = monitor
+            }
 
             let titlebar = TitlebarDoubleClickMonitor()
             titlebar.window = window
@@ -291,6 +296,12 @@ public struct RootView: View {
             swipeMonitor = nil
             titlebarMonitor?.stop()
             titlebarMonitor = nil
+            // The private Space goes away with the window, so its cached
+            // gradient should too. The Store cannot do this — the cache is a UI
+            // concern and Store imports no UI.
+            if let privateSpaceID = windowState.privateSpaceID {
+                SpaceTheme.forget(spaceID: privateSpaceID)
+            }
         }
         // Keep the swipe gesture scoped to the sidebar as its width and
         // visibility change, and hand both monitors the window once it exists.

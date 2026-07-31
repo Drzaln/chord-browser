@@ -75,7 +75,10 @@ extension TabStore {
     /// Only panes with a live view have anything newer than what is on disk.
     private func captureLiveState() -> [(paneID: UUID, state: Data)] {
         var captured: [(paneID: UUID, state: Data)] = []
-        for tab in tabs {
+        // A private pane's blob is never captured — an interaction state carries
+        // the URL, the scroll position, and form contents, which is most of what
+        // private browsing exists to not write down.
+        for tab in tabs where !isPrivate(spaceID: tab.spaceID) {
             for pane in tab.panes where engine.hasLiveView(paneID: pane.id) {
                 guard let state = engine.interactionState(for: pane.id) else { continue }
                 captured.append((pane.id, state))
@@ -104,6 +107,7 @@ extension TabStore {
     }
 
     private func persistInteractionState(_ state: Data, paneID: UUID) {
+        guard !isPrivate(paneID: paneID) else { return }
         Task { [repository] in
             await Self.write([(paneID, state)], to: repository)
         }
@@ -121,6 +125,12 @@ extension TabStore {
 
         for pane in tab.panes {
             guard stateResolution[pane.id] == nil else { continue }
+            // Nothing was ever stored for a private pane, so a disk read could
+            // only come back nil after withholding the surface for a frame.
+            guard !isPrivate(spaceID: tab.spaceID) else {
+                markInteractionStateResolved(pane.id)
+                continue
+            }
             guard !engine.hasLiveView(paneID: pane.id) else {
                 stateResolution[pane.id] = .resolved
                 continue
