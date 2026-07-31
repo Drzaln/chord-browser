@@ -10,6 +10,7 @@ enum Preferences {
     private static let newTabBehaviorKey = "prefs.newTabBehavior"
     private static let idleWindowKey = "prefs.idleWindow"
     private static let userAgentKey = "prefs.userAgent"
+    private static let vaultLockTimeoutKey = "prefs.vaultLockTimeout"
     private static let collapsedPinnedSpacesKey = "prefs.collapsedPinnedSpaces"
     // Unprefixed, unlike the rest: these two predate this file and were written
     // straight from `TabStore`. Kept verbatim so an existing profile does not
@@ -63,6 +64,21 @@ enum Preferences {
         _ userAgent: UserAgentPreference, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         encode(userAgent, forKey: userAgentKey, to: defaults)
+    }
+
+    /// How long the vault stays unlocked when idle (V7). A choice, like the
+    /// others here — the vault's *data* is in SQLite and the Keychain, and this
+    /// is neither.
+    static func loadVaultLockTimeout(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> VaultLockTimeout {
+        decode(VaultLockTimeout.self, forKey: vaultLockTimeoutKey, from: defaults) ?? .default
+    }
+
+    static func save(
+        _ timeout: VaultLockTimeout, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(timeout, forKey: vaultLockTimeoutKey, to: defaults)
     }
 
     /// The Spaces whose Pinned-tabs section is collapsed (non-spec:

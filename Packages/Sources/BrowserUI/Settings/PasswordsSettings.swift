@@ -21,6 +21,10 @@ struct PasswordsSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            lockSection
+
+            Divider().padding(.vertical, 4)
+
             Text("Saved Passwords")
                 .font(.system(size: 13, weight: .semibold))
 
@@ -39,7 +43,10 @@ struct PasswordsSettings: View {
 
             Spacer(minLength: 0)
         }
-        .task { await reload() }
+        .task {
+            store.refreshVaultLock()
+            await reload()
+        }
         .confirmationDialog(
             "Delete the saved password for \(pendingDelete?.username ?? "")?",
             isPresented: .init(
@@ -59,6 +66,47 @@ struct PasswordsSettings: View {
         } message: {
             Text("This removes the password from the Keychain. It cannot be undone.")
         }
+    }
+
+    /// The lock (V7). Says what the lock does and does not protect, because a
+    /// Touch ID prompt implies an OS-enforced guarantee this one does not have:
+    /// the items are ordinary Keychain items, readable by anything running as
+    /// this user. See `BiometricAuthenticator`.
+    private var lockSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: store.isVaultLocked ? "lock.fill" : "lock.open")
+                    .foregroundStyle(store.isVaultLocked ? Color.secondary : Color.green)
+                Text(store.isVaultLocked ? "Vault locked" : "Vault unlocked")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Button("Lock Now") { store.lockVault() }
+                    .font(.system(size: 11))
+                    .disabled(store.isVaultLocked)
+            }
+
+            Picker("Lock the vault", selection: lockTimeout) {
+                ForEach(VaultLockTimeout.presets, id: \.self) { preset in
+                    Text(preset.displayName).tag(preset)
+                }
+            }
+            .pickerStyle(.menu)
+            .font(.system(size: 12))
+
+            Text(
+                "Filling a saved password asks for Touch ID (or your Mac's password) "
+                    + "when the vault is locked. It also locks on sleep and screen lock. "
+                    + "This keeps someone at your unlocked Mac out of your passwords; "
+                    + "it is not encryption."
+            )
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var lockTimeout: Binding<VaultLockTimeout> {
+        .init(get: { store.vaultLockTimeout }, set: { store.vaultLockTimeout = $0 })
     }
 
     private var credentialList: some View {

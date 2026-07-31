@@ -80,6 +80,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Locks the password vault when the user has demonstrably walked away (V7).
+    ///
+    /// Three signals, because no one of them covers the others: closing the lid
+    /// or the machine sleeping (`willSleep`), the display sleeping on its own
+    /// (`screensDidSleep`, which is also what a "require password after screen
+    /// saver" lock looks like from in here), and fast user switching
+    /// (`sessionDidResignActive`). The idle timeout in Settings is the fourth,
+    /// and it lives in the store because it is arithmetic, not an event.
+    ///
+    /// `com.apple.screenIsLocked` is the direct screen-lock signal and is
+    /// observed too, but it is a *distributed* notification and a sandboxed app
+    /// is not guaranteed to receive it — which is why the workspace signals
+    /// above are the ones being relied on rather than a nicety beside it.
+    func attachVaultLockObservers() {
+        guard let store = launch.store else { return }
+
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name: NSNotification.Name in [
+            NSWorkspace.willSleepNotification,
+            NSWorkspace.screensDidSleepNotification,
+            NSWorkspace.sessionDidResignActiveNotification,
+        ] {
+            workspace.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { store.lockVault() }
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { store.lockVault() }
+        }
+    }
+
     /// Turns off native window tabbing.
     ///
     /// We have our own vertical tabs; the system "Show Tab Bar" item and its
@@ -93,6 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         disableWindowTabbing()
+        attachVaultLockObservers()
 
         // "Open in Little Chord" from a link's context menu routes here: the engine
         // asks the store, the store forwards to this presenter, which owns the

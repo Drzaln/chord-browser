@@ -17,10 +17,10 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — V1–V6 done, V7 (lock UI + auto-lock) next, stop for review.** Save bar and fill button both **verified live**. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V6 (v12, v13)**. See §4.9 of the spec and the dated sections below. |
+| **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)**. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **512 passing** (`swift test`, 79 suites), measured 2026-07-31                                                                                                                                   |
+| **Tests**                        | **524 passing** (`swift test`, 80 suites), measured 2026-07-31                                                                                                                                   |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -236,22 +236,22 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, and — most recently — a **built-in password vault**.
 
-State: single `main`, **512 tests**, `./scripts/prepush.sh` green, **schema v13**.
+State: single `main`, **524 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
 ## Where the work is
 
-**The password vault is V1–V6 of 7** (docs/design/password-vault.md). It is wired
-into `AppEnvironment` and usable: saving, filling, and management all work and are
-verified live in the real browser.
+**Nothing is assigned.** The password vault is **complete — V1 through V7**
+(docs/design/password-vault.md), all of it verified live in the real browser:
+saving, filling, management, and — as of 2026-07-31 — the lock (idle timeout,
+sleep, screen lock, Lock Now, and an unlock required before a fill).
 
-**V7 is the only phase left: the lock UI and auto-lock policy.** `VaultLockPolicy`
-already exists and is unit-tested (idle arithmetic); what is missing is the UI and
-the wiring — locking on idle, on sleep, and on screen lock, and requiring an unlock
-before a fill. **Do not start it without the user asking** (§11).
+Open, non-spec, **ask-first** items (§11): a per-site content-blocking whitelist /
+runtime disable toggle, and a per-domain User-Agent override map (§9.6, the UA
+setting is global today).
 
-Nothing else is assigned. Other open, non-spec, ask-first items: a per-site
-content-blocking whitelist / runtime disable toggle, and a per-domain User-Agent
-override map (§9.6, the UA setting is global today).
+The honest measurement gap: **no 30-minute soak since 2026-07-25**, and several
+subsystems have landed since (notifications, site permissions, the vault). If the
+§6.1 gate is meant to still mean something, that is the thing to re-run.
 
 ## Vault rules you must not break
 
@@ -271,6 +271,9 @@ override map (§9.6, the UA setting is global today).
   form submits an empty string.
 - `CredentialOrigin.Policy` is `.strict` everywhere in the app. Only `E2EHarness`
   relaxes it, and two tests exist to keep it that way.
+- **The lock is evaluated lazily, never polled**, and a vault with no biometry and
+  no device passcode fills rather than becoming unusable — reveal still refuses.
+  Both are deliberate; see "Password vault V7".
 
 ## Traps that have already cost time here
 
@@ -2193,6 +2196,77 @@ keychain, app clean-rebuilt and verified running.
 build. One dialog after a rebuild, none for a build you keep. It does train the
 habit of approving keychain prompts, which is worth revisiting if the vault ever
 ships to anyone but its author. An allow-any-application ACL stays refused.
+
+### Password vault V7 — the lock (2026-07-31)
+
+The last phase. The vault now locks, and a locked vault will not fill.
+
+**Three ways it locks, and only the first is configurable.** An idle timeout
+(`VaultLockTimeout` in Core, Settings → Passwords, default 15 minutes, with an
+honest "Only on sleep or screen lock" instead of a "Never"), plus sleep, screen
+lock, and fast user switching — those three are not settings, because they are
+the cases where the user has demonstrably walked away. The event locks are wired
+in `AppDelegate.attachVaultLockObservers` (`NSWorkspace.willSleep` /
+`screensDidSleep` / `sessionDidResignActive`, plus the distributed
+`com.apple.screenIsLocked`), which is where they belong: `BrowserStore` imports
+no AppKit.
+
+**Nothing polls.** `isVaultLocked` is recomputed at each vault touchpoint and
+when a view asks (`refreshVaultLock()`), never on a timer — a repeating timer
+writing observable state would redraw the chrome forever for a value that only
+matters at the moment someone uses the vault (§6.4).
+
+**The one judgement call worth not reversing by accident: `.unavailable` fills.**
+With no biometry *and* no device passcode there is nothing to authenticate
+against, so the fill proceeds rather than the vault becoming permanently
+unusable — the attacker such a gate would stop already has the machine. `reveal`
+still refuses in that case, because it is the one place a password becomes text
+on screen. Both halves have a test.
+
+`fillCredential` now returns **`CredentialFillResult`** (Store) rather than the
+engine's `LoginFillOutcome`: a locked vault is not something the engine knows
+about, and "the lock stopped this" needs saying differently to "the fields are
+gone". Its `.filled(username:password:)` and `.originMismatch` cases keep the old
+shapes, so the V4 e2e tests were untouched.
+
+**A V6 bug the live drive found:** after saving a password, the fill key stayed
+hidden until the tab navigated again — the per-pane refresh is driven by the page
+*reporting* something new, and saving changes the answer with the page unchanged.
+`refreshFillableCredentialsEverywhere()` now runs after a save and after a
+delete. Verified red against the bug.
+
+**Verified live in the real app**, each step screenshotted, using a throwaway
+credential saved on `the-internet.herokuapp.com` (a public test login page with
+published dummy credentials; deleted afterwards, `credential` back to 0 rows):
+
+1. The vault is **locked at launch**; the toolbar key renders as `key.slash`.
+2. Clicking it raises the real prompt — *"Chord is trying to unlock your saved
+   passwords"*, with **Use Password…** beside Touch ID, which is the passcode
+   fallback the done-when asks for.
+3. Authenticating fills the form and the key turns unlocked.
+4. **Cancelling fills nothing and says so** — the popover reads "Chord did not
+   fill anything — the vault stayed locked because authentication was cancelled."
+   It shipped clipped to one truncated line first: a popover sizes to its
+   content, and `Text` given only a `maxWidth` collapses to the 24 pt anchor. It
+   needs a fixed `frame(width:)`. Only visible on screen.
+5. **Lock Now**, the **idle timeout** (a 1-minute setting locked it while a
+   dialog sat on screen), **screen lock**, and **display sleep** each flipped an
+   unlocked vault to locked, watched in Settings. Screen lock was driven by
+   posting `com.apple.screenIsLocked` from a separate process — it *does* reach
+   this sandboxed app — and sleep by `pmset displaysleepnow`.
+6. The timeout preference survives a rebuild (`prefs.vaultLockTimeout`).
+
+Steps 3 and 5 need an *unlocked* vault, which needs a real fingerprint, so they
+were driven with a temporary auto-approving `VaultAuthenticator` in
+`AppEnvironment` — **since reverted and clean-rebuilt** (the same scaffold-then-
+revert shape as 7.5c). The keychain dialog appeared on each rebuild exactly as
+documented; it was **denied**, not answered with a password, which is why the
+fill in that run wrote nothing — the lock state is decided before the Keychain is
+ever read, so the check still held.
+
+11 new tests (524 total, prepush green), and three of them were confirmed red
+against deliberate breaks: the fill gate removed, the idle clock frozen, and
+`lockVault()` made a no-op.
 
 ### Password vault V6 — fill affordance, multi-step logins, and management (2026-07-31)
 

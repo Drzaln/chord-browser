@@ -224,6 +224,34 @@ public final class TabStore {
     /// unavailable, which is the safe way to be missing.
     @ObservationIgnored public var authenticator: (any VaultAuthenticator)?
 
+    /// How long the vault stays unlocked when idle (V7). Persisted through
+    /// `preferenceStore`, which is injectable purely so a test can change this
+    /// without writing to the real `~/Library/Preferences`.
+    public var vaultLockTimeout: VaultLockTimeout = Preferences.loadVaultLockTimeout() {
+        didSet {
+            Preferences.save(vaultLockTimeout, to: preferenceStore)
+            refreshVaultLock()
+        }
+    }
+
+    /// Where `vaultLockTimeout` is persisted. `UserDefaults` in the app.
+    @ObservationIgnored public var preferenceStore: any PreferenceStore = UserDefaults.standard
+
+    /// Whether the vault is locked right now (V7). Observed, because the fill
+    /// button and Settings both show it.
+    ///
+    /// **Evaluated lazily**, at every vault touchpoint and whenever the UI asks
+    /// (`refreshVaultLock()`), rather than by a timer: a repeating timer that
+    /// writes observable state would redraw the chrome forever for a value that
+    /// only matters at the moment someone uses the vault (§6.4).
+    public internal(set) var isVaultLocked: Bool = true
+
+    /// When the vault was last unlocked, and when it was last *used*. Any use
+    /// restarts the idle clock; without one, the unlock itself does. Not
+    /// observed — they are inputs to `isVaultLocked`, which is.
+    @ObservationIgnored var vaultUnlockedAt: Date?
+    @ObservationIgnored var vaultLastActivity: Date?
+
     /// An offer to save a submitted login, awaiting an answer (V5). Observed by
     /// the save bar.
     public internal(set) var pendingCredentialSave: CredentialSavePrompt?

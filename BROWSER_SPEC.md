@@ -425,8 +425,13 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   LocalAuthentication. Fill requires an exact origin match and a user gesture;
   reveal is gated on Touch ID. Built because the alternatives were measured shut:
   WebKit exposes no autofill API, passkeys need an entitlement a free account
-  cannot hold, and MV3 password managers die on `chrome.offscreen`. Design and
-  threat model in `docs/design/password-vault.md`.
+  cannot hold, and MV3 password managers die on `chrome.offscreen`. The vault
+  **locks** — on an idle timeout (Settings → Passwords, default 15 minutes), on
+  sleep, on screen lock, and on demand — and a locked vault must be unlocked
+  before a fill, on the same click that asked for it. The gate is app-level
+  `LocalAuthentication`, not a Keychain access-control item: it stops a person at
+  your unlocked Mac, not code running as you. Design and threat model in
+  `docs/design/password-vault.md`.
 - **History window** (`Cmd+Y`), per-Space to match the data-store isolation
   (`v6_history_per_space`), with search, grouping by day, and delete.
 - **Settings sheet** (`Cmd+,`) — General, Privacy & Data (clear browsing data

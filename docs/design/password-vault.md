@@ -1,8 +1,8 @@
 # Design proposal — built-in password vault
 
-**Status: proposal, not accepted. Nothing is built.** §11 forbids starting
-without an explicit go-ahead; this exists to be argued with first. Open questions
-are at the end and three of them change the shape of the work.
+**Status: accepted and shipped, V1–V7 (2026-07-31).** The text below is kept as
+written, because the reasoning is what makes the code readable; where reality
+turned out differently it is marked, in place, with what was measured.
 
 ## Why this exists
 
@@ -235,6 +235,18 @@ shape that has worked here.
 | **V5** | Capture + save bar | Logging in on the test page offers to save; relaunch offers it back |
 | **V6** | Settings management: list, reveal (gated), delete, "never" list | Every stored item is visible and removable; nothing is reachable that the list does not show |
 | **V7** | Lock UI + auto-lock policy (the storage half landed in V1) | Idle, sleep, and screen-lock all lock the vault; a denied or cancelled auth fills nothing and says so; no enrolled biometry falls back to the device passcode |
+
+**All seven phases have shipped.** V7 landed 2026-07-31 and is verified live: see
+`CHECKPOINT.md`, "Password vault V7". Two things in it differ from what this
+document assumed and are worth reading before changing the lock:
+
+- **`.unavailable` does not lock the vault out.** With no biometry *and* no device
+  passcode there is nothing to authenticate against, so filling proceeds rather
+  than becoming permanently impossible. Reveal still refuses, because that one
+  puts a password on screen as text. A gate nothing can open stops only the owner.
+- **The idle clock is evaluated lazily**, at each vault touchpoint and when the UI
+  asks, never by a timer — a repeating timer writing observable state would redraw
+  the chrome forever for a value that matters only at the moment of use (§6.4).
 
 V1–V2 are quiet plumbing. **V3–V4 are the risky ones** — form heuristics are where
 this kind of feature usually disappoints, and they are also where the e2e suite

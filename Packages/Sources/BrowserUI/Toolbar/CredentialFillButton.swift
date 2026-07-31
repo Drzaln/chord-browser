@@ -44,6 +44,9 @@ struct CredentialFillButton: View {
                 content
             }
         }
+        // Nothing polls the idle clock (§6.4), so the lock is re-evaluated when
+        // the button is about to be looked at.
+        .onAppear { store.refreshVaultLock() }
     }
 
     @ViewBuilder private var content: some View {
@@ -76,13 +79,47 @@ struct CredentialFillButton: View {
     }
 
     private var icon: some View {
-        Image(systemName: status == .filled ? "key.fill" : "key")
+        Image(systemName: iconName)
             .font(.system(size: 12, weight: .medium))
             // Green only briefly, as an acknowledgement: a fill is otherwise
             // invisible when the page renders dots.
             .foregroundStyle(status == .filled ? Color.green : Color.secondary)
             .contentShape(Rectangle())
             .accessibilityLabel("Fill saved password")
+            // A refusal has to *say* something: a fill that quietly does nothing
+            // is indistinguishable from a fill that worked, since the page shows
+            // dots either way. Dismissible, and it goes on its own after a while.
+            .popover(isPresented: failureBinding, arrowEdge: .bottom) {
+                // A fixed width, not a max: a popover takes its size from the
+                // content, and a `Text` given only a maximum width collapses to
+                // the anchor button's 24 pt and truncates the sentence to
+                // nothing. Found by reading it on screen.
+                Text(failureMessage ?? "")
+                    .font(.system(size: 11))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 220, alignment: .leading)
+                    .padding(12)
+            }
+    }
+
+    /// A key, a *locked* key when the vault is locked, a filled key on success.
+    /// The locked state is shown rather than hidden so the click that follows is
+    /// not a surprise prompt.
+    private var iconName: String {
+        if status == .filled { return "key.fill" }
+        return store.isVaultLocked ? "key.slash" : "key"
+    }
+
+    private var failureMessage: String? {
+        if case .failed(let message) = status { return message }
+        return nil
+    }
+
+    private var failureBinding: Binding<Bool> {
+        .init(
+            get: { failureMessage != nil },
+            set: { if !$0 { status = nil } }
+        )
     }
 
     private func fill(_ credential: Credential) async {
@@ -97,6 +134,11 @@ struct CredentialFillButton: View {
             // a mode.
             try? await Task.sleep(for: .seconds(2))
             if status == .filled { status = nil }
+        case .vaultLocked:
+            status = .failed(
+                "Chord did not fill anything — the vault stayed locked because "
+                    + "authentication was cancelled."
+            )
         case .originMismatch:
             status = .failed("This page is no longer the site that password belongs to")
         case .fieldsUnavailable:
