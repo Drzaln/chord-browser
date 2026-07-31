@@ -1088,6 +1088,7 @@ never fires. The scratchpad script `cmdhover.swift` does it.
 - [ ] The same link, clicked normally in a tab, still downloads (covered by an
       e2e test; not re-driven by hand)
 
-**Known, unfixed:** downloads land in the sandbox container's Downloads folder,
-not the real `~/Downloads`, so Finder shows nothing. The popover also reports
-"Zero kB" for a file that is not.
+**Fixed 2026-08-01:** downloads land in the real `~/Downloads` again (they were
+going to the sandbox container). Re-check by downloading a file in the real app
+and looking in Finder — `swift test` runs unsandboxed and cannot see this.
+**Still wrong:** the popover reports "Zero kB" for a file that is not.

@@ -39,8 +39,32 @@ public final class DownloadCoordinator: NSObject {
     /// `NSProgressReporting`, so there is no byte counting to do by hand.
     private var progressObservations: [UUID: NSKeyValueObservation] = [:]
 
+    /// The user's **real** `~/Downloads`.
+    ///
+    /// `FileManager.urls(for: .downloadsDirectory…)` looks right and is wrong
+    /// under the sandbox: it returns the *container's* Downloads,
+    /// `~/Library/Containers/com.rizal.browser/Data/Downloads`, so every
+    /// downloaded file landed somewhere Finder's Downloads never shows. The
+    /// entitlement (`files.downloads.read-write`) grants the real folder; it is
+    /// the *path lookup* that the sandbox rewrites, not the permission.
+    ///
+    /// `getpwuid` reads the password database, which is not rewritten, so it
+    /// gives the true home directory in both a sandboxed app and a plain test
+    /// process. Falls back to the old lookup if that ever fails — a wrong
+    /// directory is better than no downloads at all.
+    public nonisolated static func userDownloadsDirectory() -> URL {
+        if let entry = getpwuid(getuid()), let home = entry.pointee.pw_dir {
+            let path = String(cString: home)
+            if !path.isEmpty {
+                return URL(fileURLWithPath: path, isDirectory: true)
+                    .appending(path: "Downloads", directoryHint: .isDirectory)
+            }
+        }
+        return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+    }
+
     public init(
-        directory: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0],
+        directory: URL = DownloadCoordinator.userDownloadsDirectory(),
         now: @escaping () -> Date = Date.init
     ) {
         self.directory = directory

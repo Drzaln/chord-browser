@@ -20,7 +20,7 @@ only the current position within it.
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** (neither needs a migration). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **556 passing** (`swift test`, 82 suites), measured 2026-08-01                                                                                                                                   |
+| **Tests**                        | **558 passing** (`swift test`, 83 suites), measured 2026-08-01                                                                                                                                   |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -236,7 +236,7 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **556 tests**, `./scripts/prepush.sh` green, **schema v13**.
+State: single `main`, **558 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
 ## Where the work is
 
@@ -2239,6 +2239,35 @@ link and confirm the three items appear in order, that New Tab opens in the
 background in the same window, and that New Private Window opens the *link*
 rather than the new-tab page.
 
+### Downloads land in the real ~/Downloads again (2026-08-01)
+
+Found while probing Peek. Every downloaded file was going to
+`~/Library/Containers/com.rizal.browser/Data/Downloads/` — a path Finder's
+Downloads never shows — so a download looked like it had silently failed.
+
+**The entitlement was never the problem; the path lookup was.**
+`FileManager.urls(for: .downloadsDirectory, in: .userDomainMask)` is rewritten by
+the sandbox to the container, while `files.downloads.read-write` grants the real
+folder. `DownloadCoordinator.userDownloadsDirectory()` now reads the home
+directory from `getpwuid`, which the sandbox does not rewrite, and falls back to
+the old lookup if that ever fails — a wrong directory beats no downloads.
+
+M4's checklist recorded a live download to `~/Downloads`; either that check
+looked at the container path too, or the behaviour changed under it. Worth
+knowing that a green checklist line does not always mean what it says.
+
+**`swift test` cannot catch this class of bug** — it runs unsandboxed, where the
+old lookup returns the right answer. The 2 unit tests assert what is checkable
+without a sandbox (the resolution names no `Library/Containers` path, and an
+explicit directory still wins, which is what `E2EHarness` relies on); the proof
+is the live run: an 8 KB file downloaded in the real app landed in `~/Downloads`,
+byte-identical by `shasum`, with nothing in the container.
+
+**Still wrong, not fixed:** the popover reads "Completed — **Zero kB**" for a file
+that is 8 KB on disk. `updateBytes` guards on `item.isActive`, so the final KVO
+tick is dropped when it arrives after the item is marked finished. The fix is to
+record the byte count in `finish(id:state:)` rather than only from progress.
+
 ### Peek: a hover was downloading files, and firing on links you passed over (2026-08-01)
 
 Two fixes to the ⌘-hover preview, both from a probe rather than a hunch: a local
@@ -2276,15 +2305,8 @@ fast sweeps across both links open nothing at all.
 pane still downloads, so the guard cannot quietly become a blanket ban. The first
 was verified red against the original bug.
 
-**Found while probing, NOT fixed, needs a decision:** downloads land in
-`~/Library/Containers/com.rizal.browser/Data/Downloads/`, not the user's real
-`~/Downloads` — `DownloadCoordinator`'s default is
-`FileManager.urls(for: .downloadsDirectory…)`, which the sandbox redirects into
-the container even with `files.downloads.read-write` granted. M4's live check
-recorded the opposite; either it checked the container path too, or something
-changed. Either way a downloaded file is currently invisible in Finder's
-Downloads. Related: the popover says "Completed — **Zero kB**" for a file that is
-4 KB on disk.
+**Found while probing, since fixed (below):** downloads were landing in the
+sandbox container, not `~/Downloads`.
 
 ### 30-minute soak re-run — the §6.1 gate means something again (2026-08-01)
 
