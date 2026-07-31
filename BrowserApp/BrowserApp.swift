@@ -343,7 +343,13 @@ struct BrowserCommands: Commands {
             // the store ignores an index that does not exist.
             ForEach(1...9, id: \.self) { position in
                 Button("Space \(position)") {
-                    withFocusedWindow { $0.selectSpace(atIndex: position - 1, in: $1) }
+                    withFocusedWindow { store, window in
+                        SpaceSwitchAnimator.switchSpace(
+                            toIndex: position - 1, in: window, store: store,
+                            reduceMotion: NSWorkspace.shared
+                                .accessibilityDisplayShouldReduceMotion
+                        )
+                    }
                 }
                 .keyboardShortcut(
                     KeyEquivalent(Character("\(position)")), modifiers: .command

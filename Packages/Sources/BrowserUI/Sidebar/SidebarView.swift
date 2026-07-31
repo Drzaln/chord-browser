@@ -53,50 +53,26 @@ struct SidebarView: View {
             .padding(.horizontal, 10)
             .padding(.bottom, 8)
 
-            // §4.1's sections, in order. The pinned grid is skipped entirely
-            // when empty rather than left as a gap — an empty grid in a fresh
-            // Space reads as something failing to load. During a drag an empty
-            // section still shows a drop zone, so the first favourite can be
-            // made by dragging.
-            // A private window has neither pinned tier and no drop zones for
-            // them: both promise the tab will still be there, and its Space
-            // evaporates when the window closes (`TabStore+Private`).
-            if !windowState.isPrivate {
-                if !store.pinnedTabs(in: windowState).isEmpty {
-                    PinnedGrid(store: store, windowState: windowState)
-                        .overlay { if isDragging { pinnedDropOverlay } }
-                } else if isDragging {
-                    firstPinDropZone
-                }
-            }
-
-            // Arc's "Pinned" tabs — a list section under the favourites grid and
-            // above the New Tab affordance. It has a collapsible header so a long
-            // list does not push the ephemeral tabs off-screen. Skipped entirely
-            // when empty except during a drag, when a drop zone lets the first
-            // Pinned tab be made.
-            if !windowState.isPrivate {
-                if !store.bookmarkedTabs(in: windowState).isEmpty {
-                    pinnedSectionHeader
-                    if !windowState.isPinnedSectionCollapsed(
-                        inSpace: store.activeSpace(in: windowState)?.id
-                    ) {
-                        PinnedList(store: store, windowState: windowState, tint: spaceTint)
-                            .overlay { if isDragging { bookmarkDropOverlay } }
-                    }
-                } else if isDragging {
-                    firstBookmarkDropZone
-                }
-            }
-
-            newTabButton
-
-            // Fills the space down to the Space switcher rather than hugging its
-            // rows, so its overlaid drop target covers the empty area below the
-            // last tab too — a drop there appends, the way most browsers accept a
-            // drop anywhere in the list. (The old `Spacer(minLength: 0)` here
-            // split that slack with the list and left the gap undroppable.)
-            ephemeralList
+            spaceScopedSections
+                // The Space switch, made visible (4.2). Everything below the
+                // address bar belongs to *this* Space, so it is what travels;
+                // the header and the switcher stay put, the way a window frame
+                // stays put while its contents change.
+                //
+                // Driven by `spaceSwipeProgress` — which a trackpad swipe moves
+                // continuously and `SpaceSwitchAnimator` springs for ⌘1…9 and a
+                // click in the switcher — so all three paths are the *same*
+                // movement rather than three that merely resemble each other.
+                //
+                // The web content card is deliberately not animated: it hosts a
+                // live `WKWebView`, and §5 is explicit that layer transforms
+                // there cost the compositor fast path. Arc slides its sidebar
+                // too.
+                .offset(x: -windowState.spaceSwipeProgress * Self.spaceSlideDistance)
+                .opacity(1 - min(1, abs(windowState.spaceSwipeProgress)) * 0.6)
+                // Clipped, or the travelling list paints over the page for the
+                // length of the animation.
+                .clipped()
 
             // Arc keeps the Space switcher on the bottom bar, under the tab
             // list, rather than above it. §4.1 lists it first; the order there
@@ -502,6 +478,64 @@ struct SidebarView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+    }
+
+    /// How far the Space-scoped sections travel at full progress. The sidebar's
+    /// own width, so a switch reads as this Space leaving and the next arriving
+    /// rather than a nudge.
+    private static let spaceSlideDistance: CGFloat = Metrics.sidebarWidth
+
+    /// Everything that belongs to the active Space, and so everything that
+    /// moves when the Space changes.
+    @ViewBuilder
+    private var spaceScopedSections: some View {
+        VStack(spacing: 0) {
+            // §4.1's sections, in order. The pinned grid is skipped entirely
+            // when empty rather than left as a gap — an empty grid in a fresh
+            // Space reads as something failing to load. During a drag an empty
+            // section still shows a drop zone, so the first favourite can be
+            // made by dragging.
+            // A private window has neither pinned tier and no drop zones for
+            // them: both promise the tab will still be there, and its Space
+            // evaporates when the window closes (`TabStore+Private`).
+            if !windowState.isPrivate {
+                if !store.pinnedTabs(in: windowState).isEmpty {
+                    PinnedGrid(store: store, windowState: windowState)
+                        .overlay { if isDragging { pinnedDropOverlay } }
+                } else if isDragging {
+                    firstPinDropZone
+                }
+            }
+
+            // Arc's "Pinned" tabs — a list section under the favourites grid and
+            // above the New Tab affordance. It has a collapsible header so a long
+            // list does not push the ephemeral tabs off-screen. Skipped entirely
+            // when empty except during a drag, when a drop zone lets the first
+            // Pinned tab be made.
+            if !windowState.isPrivate {
+                if !store.bookmarkedTabs(in: windowState).isEmpty {
+                    pinnedSectionHeader
+                    if !windowState.isPinnedSectionCollapsed(
+                        inSpace: store.activeSpace(in: windowState)?.id
+                    ) {
+                        PinnedList(store: store, windowState: windowState, tint: spaceTint)
+                            .overlay { if isDragging { bookmarkDropOverlay } }
+                    }
+                } else if isDragging {
+                    firstBookmarkDropZone
+                }
+            }
+
+            newTabButton
+
+            // Fills the space down to the Space switcher rather than hugging its
+            // rows, so its overlaid drop target covers the empty area below the
+            // last tab too — a drop there appends, the way most browsers accept a
+            // drop anywhere in the list. (The old `Spacer(minLength: 0)` here
+            // split that slack with the list and left the gap undroppable.)
+            ephemeralList
+
+        }
     }
 
     /// Opens the command bar rather than a blank tab, exactly as `Cmd+T` does

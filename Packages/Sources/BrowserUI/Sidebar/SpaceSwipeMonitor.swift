@@ -131,7 +131,13 @@ final class SpaceSwipeMonitor {
                 // stops; committing there is a no-op on the pixels.
                 store.setSpaceSwipeProgress(Double(direction), in: windowState)
             } completion: {
-                self.store.commitSpaceSwipe(direction: direction, in: self.windowState)
+                // Commit *and* bring the next Space in from the far side. The
+                // gesture used to stop here, which left the new Space simply
+                // present rather than arriving.
+                SpaceSwitchAnimator.finishSwipe(
+                    direction: direction, in: self.windowState,
+                    store: self.store, reduceMotion: reduceMotion
+                )
             }
         } else {
             withAnimation(animation) {

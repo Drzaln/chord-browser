@@ -46,11 +46,11 @@ struct SpaceSwitcher: View {
         let isDragging = store.draggingTabID != nil
 
         return Button {
-            withAnimation(Motion.respectingReduceMotion(
-                Motion.spaceSwitch, reduceMotion: reduceMotion
-            )) {
-                store.selectSpace(space.id, in: windowState)
-            }
+            // Through the animator, not straight to the store: a click and a
+            // swipe should be the same movement (4.2).
+            SpaceSwitchAnimator.switchSpace(
+                to: space.id, in: windowState, store: store, reduceMotion: reduceMotion
+            )
         } label: {
             icon(for: space)
                 .frame(width: 24, height: 24)

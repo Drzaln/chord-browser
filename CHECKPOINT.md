@@ -2239,6 +2239,41 @@ link and confirm the three items appear in order, that New Tab opens in the
 background in the same window, and that New Private Window opens the *link*
 rather than the new-tab page.
 
+### The Space switch now moves (2026-08-01)
+
+Switching Space only ever cross-faded the sidebar *gradient* — nothing travelled,
+including during a swipe, where the finger dragged a colour blend and no content.
+All three ways of switching now slide horizontally.
+
+**One mechanism, deliberately.** `SpaceSwitchAnimator` drives the same
+`spaceSwipeProgress` the trackpad gesture already drives, so a keyboard switch, a
+click in the switcher, and a swipe are the *same* movement and cannot drift apart
+as any of them is tuned. `SidebarView` turns that value into an offset and a
+fade; nothing else knows how it is drawn.
+
+**A switch is two phases**, because one does not read as travel: spring the
+outgoing Space out to `±1`, commit, then *jump* the progress to the far side
+(unanimated, off screen) and spring back to rest. Without the second phase the
+new Space is simply present rather than arriving — a cut. The jump is invisible
+because it happens to content already outside the sidebar. The swipe's release
+path calls the same second phase, which it never had: a committed swipe used to
+stop at "gone" and let the next Space appear.
+
+**Only the sidebar moves.** The web content card hosts a live `WKWebView`, and §5
+is explicit that layer transforms there cost the compositor fast path — so it
+swaps as before. Arc slides its sidebar too. The travelling sections are
+`.clipped()`, or they paint over the page for the length of the animation.
+
+Reduce Motion collapses both phases to near-instant through the existing
+`Motion.respectingReduceMotion`, so the setting still means what it says.
+
+**Verified by the user by hand** — the honest form of verification for an
+animation. Worth recording for the next attempt: `screencapture` cannot catch a
+0.32 s spring (each still takes ~0.4 s, so the first frame already shows the
+destination at rest). Slowing `Motion.spaceSwitch` to ~2.4 s, capturing, and
+restoring it is the way to photograph one — and the restore is the step to not
+forget.
+
 ### Downloads land in the real ~/Downloads again (2026-08-01)
 
 Found while probing Peek. Every downloaded file was going to

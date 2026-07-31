@@ -1096,3 +1096,20 @@ The popover reports the real size ("Completed — 66 kB" for a 64 KiB file).
 after a rebuild** — the ad-hoc signature changes each build, so TCC treats it as
 a new app. An unanswered prompt makes that download time out; click Allow and
 retry.
+
+## Space-switch animation (added 2026-08-01)
+
+All three paths share one driver (`spaceSwipeProgress`), so if one of these is
+wrong they are all wrong.
+
+- [x] ⌘1…9 slides the sidebar's Space-scoped sections out and the next Space in
+- [x] Clicking a Space in the switcher does the same
+- [x] A committed two-finger swipe now *finishes* the movement — the next Space
+      arrives rather than appearing
+- [ ] Direction matches the switcher order (a later Space comes in from the
+      right) — checked by eye during development, not re-run
+- [ ] Reduce Motion collapses it to near-instant (routed through
+      `Motion.respectingReduceMotion`, never toggled live — the standing gap)
+- **Photographing it:** `screencapture` is far too slow for a 0.32 s spring; the
+  first still already shows the destination. Slow `Motion.spaceSwitch` to ~2.4 s,
+  capture, then **restore it**.
