@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Password vault — V1–V6 done, V7 (lock UI + auto-lock) next, stop for review.** Save bar and fill button both **verified live**. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V6 (v12, v13)**. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **503 passing** (`swift test`, 78 suites), measured 2026-07-31                                                                                                                                   |
+| **Tests**                        | **512 passing** (`swift test`, 79 suites), measured 2026-07-31                                                                                                                                   |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -230,67 +230,87 @@ one of them has already cost a session here.
 ```
 Read BROWSER_SPEC.md and CHECKPOINT.md in full before writing any code.
 
-**Every spec milestone is done.** M1–M7 (Extensions) and the content-blocking
-milestone (§4.8) have all shipped on `main`, verified live. Both extensions and
-content blocking are ON by default — the `FeatureFlags` struct was deleted (§7.4).
-A run of agreed post-spec additions has landed since (BROWSER_SPEC §4.9): multiple
-windows, folders, per-Space history, per-site camera/mic/notification permissions,
-web notifications, YouTube ad skipping, and the General settings pane.
-Single `main` branch, **423 tests** passing, `./scripts/prepush.sh` green,
-**schema v11**.
+**Every spec milestone is done.** M1–M7 and content blocking (§4.8) shipped long
+ago and are verified live. A long run of agreed post-spec additions has landed on
+top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
+camera/mic/notification permissions, web notifications, YouTube ad skipping, the
+UA setting, and — most recently — a **built-in password vault**.
 
-There is **no assigned next task** — wait for the user to pick one. The only
-follow-ups on the board are NON-SPEC UI features, so do NOT start any of them
-without the user asking (§11 forbids adding out-of-scope features):
-  - **Per-site whitelist / disable** — the machinery exists: add an
-    `ignore-previous-rules` `WKContentRuleList` keyed to the current host, or clear
-    lists on that host. See `ContentBlocker` / `WebKitEngine.applyContentRuleLists`.
-  - **Runtime settings toggle** for content blocking (and/or extensions) — a small
-    settings surface that re-attaches or clears the lists via
-    `engine.applyContentRuleLists`.
-  - **Per-domain User-Agent override map** (§9.6) — the UA setting is global today.
-Also open, both non-blocking: the full Instruments GUI trace (SwiftUI body counts,
-Energy Log — not automatable here; the §6.7 Leaks pass is done and clean), and
-sidebar-scroll fps. Content blocking's tail-coverage is already handled (the full
-~137k rules are chunked in, not capped at 50k).
+State: single `main`, **512 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
-If the user does pick up content-blocking work, the design and live findings are
-under "How content blocking works" in this file — especially: WebKit's url-filter
-rejects disjunctions, compiling the whole list at once can hit an uncatchable
-signal-6 abort (hence 50k chunks), and the compile completion handler is on the
-main queue (a main-thread-blocking wait deadlocks — use await).
+## Where the work is
 
-Stage with `git add -A ':!Browser.xcodeproj/project.pbxproj'` and commit/push
-ONLY when the user asks.
+**The password vault is V1–V6 of 7** (docs/design/password-vault.md). It is wired
+into `AppEnvironment` and usable: saving, filling, and management all work and are
+verified live in the real browser.
 
-Follow Section 11 strictly. In particular:
+**V7 is the only phase left: the lock UI and auto-lock policy.** `VaultLockPolicy`
+already exists and is unit-tested (idle arithmetic); what is missing is the UI and
+the wiring — locking on idle, on sleep, and on screen lock, and requiring an unlock
+before a fill. **Do not start it without the user asking** (§11).
+
+Nothing else is assigned. Other open, non-spec, ask-first items: a per-site
+content-blocking whitelist / runtime disable toggle, and a per-domain User-Agent
+override map (§9.6, the UA setting is global today).
+
+## Vault rules you must not break
+
+- **Secrets never enter SQLite, logs, or observable state.** Metadata rows in
+  `credential`; passwords in the Keychain via `BrowserSecrets`, joined by id.
+  `CredentialSavePrompt` deliberately has no password field — the secret sits in a
+  private side table on `TabStore`.
+- **Fill matching is exact origin equality** (scheme + host + port). No
+  parent-domain matching, ever. The near-miss test table is longer than the happy
+  path for a reason.
+- **Never fill without a user gesture.** No fill on load, no fill on focus. There
+  is exactly one caller of `fillCredential`, and it is a button.
+- **The origin is re-checked inside the engine**, against the live `WKWebView`, at
+  the moment of writing — not trusted from when the offer was made.
+- **Filling uses the prototype value setter**, not `el.value =`. A direct
+  assignment is swallowed by React's value tracker: the field looks filled and the
+  form submits an empty string.
+- `CredentialOrigin.Policy` is `.strict` everywhere in the app. Only `E2EHarness`
+  relaxes it, and two tests exist to keep it that way.
+
+## Traps that have already cost time here
 
 **Never invent WebKit API.** Check the SDK headers under
 $(xcrun --sdk macosx --show-sdk-path)/System/Library/Frameworks/WebKit.framework/Headers/
-rather than assuming a symbol or a signature, and tell me when something does
-not exist instead of guessing. That is how M4 learned `decidePlaceholderPolicy`
-is iOS-only, and how M6 learned `WKFindResult` reports only `matchFound` — so a
-"3 of 12" find counter is not buildable and the find bar does not pretend.
+That is how M4 learned `decidePlaceholderPolicy` is iOS-only and M6 learned
+`WKFindResult` reports only `matchFound`.
 
-**Verify UI work by driving the real app, not by reasoning about it.** Screen
-recording and accessibility are granted and `cliclick` is installed:
-`screencapture -x -o out.png`, `osascript` for keys, `cliclick` for the pointer.
-Use `dm:` (not `m:`) between `dd:` and `du:`. Get a window's real frame from
-`osascript ... get position of window 1` rather than estimating it off a
-screenshot — M6 aimed at a 6-point edge strip from a guess and missed it twice.
-Reading one pixel (`screencapture -x -R<x>,<y>,4,4`) is a cheap way to assert
-"is the sidebar showing" without spending a screenshot.
+**Verify UI work by driving the real app.** `screencapture -x -o out.png`,
+`osascript` for keys, `cliclick` for the pointer (`dm:` not `m:` between `dd:` and
+`du:`). `os.Logger` is NOT readable on this machine — if you need to see state,
+render it on screen temporarily. That is how the V6 fill-button bug was found:
+both its conditions were true, but the view computed matches in a `.task(id:)`
+that raced the page load. **Page URL and login report arrive as separate
+snapshots** — never key a task on both and assume they settle together.
 
-**Before trusting a regression test, verify it fails against the bug.** Two
-tests in this repo passed against the very bug they claimed to cover — one
-because a redundant condition masked the real guard, one because a synchronous
-fake made the race impossible to stage. Break the fix, watch the test go red,
-put it back.
+**Before trusting a regression test, watch it fail against the bug.** This has paid
+for itself repeatedly: it caught a loose origin matcher, an untested tokenising
+rule, a missing shadow-DOM walk, and the naive `el.value =` fill. Break the fix,
+see red, put it back.
 
-**`swift test` runs UNSANDBOXED**, so it cannot verify anything
-entitlement-dependent; that needs a manual check against the real app.
+**`swift test` runs UNSANDBOXED**, so it proves nothing about entitlements, the
+Keychain under sandbox, or Hardened Runtime. Those need a real app, and Release
+differs from Debug (the microphone needed a *second* entitlement key, ADR 014).
 
-Update CHECKPOINT.md in the same commit as the work it describes.
+**Two test files assert `Migrations.currentVersion` literally.** A migration that
+updates only one leaves prepush red after everything else looks finished.
+
+**Do not repair a broken app bundle by re-signing it** — `xcodebuild ... clean
+build`. Manual `codesign --force` cannot put it back, and the only place the real
+reason appears is `~/Library/Logs/DiagnosticReports/Chord-*.ips`.
+
+**The keychain dialog after a rebuild is expected**, not a bug: ad-hoc signatures
+change every build and the item's ACL trusts the creating identity. Click "Always
+Allow". Self-signed signing was tried and reverted — read that section before
+suggesting it again.
+
+Stage with `git add -A ':!Browser.xcodeproj/project.pbxproj'` and commit/push ONLY
+when the user asks. Update CHECKPOINT.md in the same commit as the work it
+describes.
 ```
 
 ## Build and verify

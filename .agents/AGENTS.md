@@ -44,6 +44,7 @@ This is **Chord Browser**, a native macOS browser in Swift on `WKWebView`. It re
 ```
 BrowserCore          ← Foundation only, no WebKit, no SwiftUI
 BrowserSecrets       ← Core + Security/LocalAuthentication (the ONLY importer of those)
+                       The password vault's secret half — ADR 016
 BrowserPersistence   ← Core + GRDB
 BrowserEngine        ← Core + WebKit (the ONLY WebKit importer, with BrowserExtensions)
 BrowserExtensions    ← Core + Engine + WebKit

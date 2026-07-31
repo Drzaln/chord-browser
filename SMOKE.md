@@ -10,7 +10,7 @@ check that still applies.
 ```
 
 Builds all packages, runs all tests, and builds the app — warnings as errors.
-Baseline as of 2026-07-31: **423 tests in 68 suites**, schema **v11**.
+Baseline as of 2026-07-31: **512 tests in 79 suites**, schema **v13**.
 
 A reminder that decides what belongs on this page at all: `swift test` runs
 **unsandboxed**, so anything gated by an entitlement or an OS permission —
@@ -832,6 +832,58 @@ Still true: with no window key at all, both fall back to the first window.
   a stale entry compacts itself.
 
 ---
+
+## Password vault (added 2026-07-31)
+
+Save and fill are verified live on github.com; the rest of this list is what a
+change to the vault should re-check. Use a throwaway account — never a real
+password — since a failed sign-in is fine for exercising capture.
+
+**Expect a login-keychain dialog the first time each new build reads a saved
+password.** That is macOS noticing an ad-hoc rebuild, not a bug: click **Always
+Allow**. See the design doc before trying to "fix" it with signing.
+
+### Save
+
+- [x] Signing in offers **Save password?** with Save / Not Now / Never
+      (verified live 2026-07-31 on github.com)
+- [x] **Not Now** saves nothing (`SELECT COUNT(*) FROM credential` stays 0)
+- [ ] **Save** stores it; Settings → Passwords lists it
+- [ ] Signing in again with the **same** password offers nothing
+- [ ] Signing in with a **changed** password offers **Update**, and does not
+      create a second entry
+- [ ] **Never** silences the site; it appears under Settings → Passwords →
+      Never Saved, and **Ask Again** un-silences it
+- [ ] A **multi-step** login (Google: email page, then password page) saves with
+      the username from the *first* step, not blank
+
+### Fill
+
+- [x] A **key button** appears in the sidebar next to reload, only on a page with
+      a saved login (verified live 2026-07-31)
+- [x] Clicking it fills the form (verified live)
+- [ ] With **two** accounts saved for one site, the key opens a menu and the
+      chosen account is the one filled
+- [ ] Nothing fills on page load or on focus — only on the click
+- [ ] After filling, submitting actually signs in (the values are really in the
+      form, not just painted into it)
+- [ ] The key does **not** appear on a site with nothing saved, nor on a page
+      with no login form
+
+### Manage
+
+- [ ] Settings → Passwords lists site, account, and last use
+- [ ] **Reveal** prompts for Touch ID and then shows the password; cancelling
+      shows nothing
+- [ ] **Trash** deletes it after a confirmation, and it disappears from the list
+- [ ] A deleted credential no longer offers to fill on its site
+
+### Refusals — none of these may fill
+
+- [ ] A saved password is **not** offered on a subdomain
+      (`https://sub.example.com` for something saved at `https://example.com`)
+- [ ] Nor on plain **http://**
+- [ ] Nor after the page navigates elsewhere between the offer and the click
 
 ## Site permissions — camera, microphone, notifications (added 2026-07-31)
 

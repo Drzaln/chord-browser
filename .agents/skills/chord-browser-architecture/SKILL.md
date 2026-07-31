@@ -11,7 +11,7 @@ This skill contains distilled knowledge from README.md, BROWSER_SPEC.md, and CHE
 
 Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replicates Arc's interaction model (Spaces, vertical tabs, command bar, ephemeral tabs, split view, Little Arc) while running on Apple's WebKit engine. All spec milestones (M1–M7) plus native content blocking are shipped and verified.
 
-**Status:** 423 tests in 68 suites. Schema **v11**. `./scripts/prepush.sh` green. Post-spec additions have landed on top of M1–M7 (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site permissions, web notifications, YouTube ad skipping, General settings.
+**Status:** 512 tests in 79 suites. Schema **v13**. `./scripts/prepush.sh` green. Post-spec additions have landed on top of M1–M7 (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site permissions, web notifications, YouTube ad skipping, General settings, and the password vault (V1–V6).
 
 ## Project Layout
 
@@ -19,6 +19,7 @@ Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replic
 BrowserApp/              @main, AppDelegate, debug overlay (Cmd+Ctrl+P, DEBUG only)
 Packages/Sources/
   BrowserCore/           Value types + pure logic (ranking, sweep policy). Foundation only.
+  BrowserSecrets/        Keychain + LocalAuthentication. The vault's secret half.
   BrowserPersistence/    GRDB, migrations, row types, mappers
   BrowserEngine/         The ONLY package importing WebKit (with BrowserExtensions)
   BrowserExtensions/     WKWebExtension host + .crx unpack
@@ -134,6 +135,28 @@ persists (`v9_window_layout`).
 - **Entitlements differ between Debug and Release.** Hardened Runtime (Release
   only) gates the mic behind `com.apple.security.device.audio-input`, not the
   sandbox's `com.apple.security.device.microphone`. Declare both.
+
+## Password vault (V1–V6, ADR 016)
+
+`docs/design/password-vault.md` is the source of truth. The load-bearing rules:
+
+- **Metadata in SQLite (`credential`, v12), password in the Keychain** via
+  `BrowserSecrets` — the only importer of Security/LocalAuthentication. A secret
+  must never reach the database, a log, or observable state
+  (`CredentialSavePrompt` has no password field by design).
+- **Exact origin equality** for every fill — scheme + host + port, never
+  parent-domain. `CredentialOrigin.Policy` is `.strict` in the app; only
+  `E2EHarness` relaxes it.
+- **No fill without a user gesture**, and the origin is re-checked inside the
+  engine against the live `WKWebView` at the moment of writing.
+- **Fill through the prototype value setter** — `el.value =` is swallowed by
+  React's value tracker.
+- **Invisible fields are never touched**, which is what defeats Google's decoy
+  password field and GitHub's honeypots in one rule.
+- Detection is `PasswordFormMonitor` (collects, pierces open shadow roots,
+  re-runs on mutation) → `LoginFormClassifier` (decides, pure, corpus-tested).
+- V7 (lock UI + auto-lock) is the only phase not built. `VaultLockPolicy` exists
+  and is tested; the UI and wiring are not.
 
 ## In-page monitors (the pattern)
 

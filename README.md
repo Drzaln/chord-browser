@@ -14,7 +14,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > **Status:** all spec milestones (M1–M7) plus native content blocking are
 > shipped on `main` and verified live, along with a run of post-spec additions
 > (multiple windows, folders, per-site permissions, notifications, YouTube ad
-> skipping). 423 tests pass; schema is at v11; `./scripts/prepush.sh` is green.
+> skipping, and a built-in password vault). 512 tests pass; schema is at v13;
+> `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
@@ -64,6 +65,13 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   (Google, DuckDuckGo, Bing, Brave, or a custom `%s` template), what a new tab
   opens to (blank, the search engine's home, or a specific page), and how long
   before idle tabs are archived — all from **Settings → General**.
+- **Password vault** — saves logins, offers them back, and fills on a click.
+  Metadata lives in SQLite; the password itself lives in the **macOS Keychain**,
+  never in the database. Filling requires an exact origin match and a deliberate
+  click — never on page load. Manage or delete anything saved in **Settings →
+  Passwords**, where revealing a password is gated behind Touch ID. Design,
+  threat model, and phases in
+  [docs/design/password-vault.md](docs/design/password-vault.md).
 - **Site permissions** — camera, microphone, and web notifications are asked for
   **once per site, per Space**, then remembered, and are reviewable/revocable in
   Settings ([ADR 014](docs/adr/014-site-permissions-asked-once-per-space.md)).
@@ -131,6 +139,12 @@ recorded where it was diagnosed so it is not re-litigated:
   (ADR 012).
 - **No first-party video-ad blocking through content rules** — see above; the
   YouTube case is handled by its own script (ADR 013).
+- **No passkeys.** A plain `WKWebView` reports no platform authenticator, and the
+  native path needs an Associated Domains entitlement per relying-party domain —
+  impossible for sites you do not own. Measured, not assumed.
+- **No password-manager extensions.** Bitwarden's MV3 build dies at startup
+  because Apple's runtime does not implement `chrome.offscreen`; most MV3
+  managers use it. The built-in vault above exists because of this.
 
 ---
 

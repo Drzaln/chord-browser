@@ -419,6 +419,14 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   User-Agent** — Settings → General. The per-domain UA override map §9.6
   imagined is still not built; the setting is global and takes effect on the next
   load.
+- **Password vault** — saves and fills logins. Metadata in SQLite
+  (`v12_credentials`, `v13_credential_never_save`), secrets in the Keychain via a
+  new `BrowserSecrets` package, which is the only importer of Security and
+  LocalAuthentication. Fill requires an exact origin match and a user gesture;
+  reveal is gated on Touch ID. Built because the alternatives were measured shut:
+  WebKit exposes no autofill API, passkeys need an entitlement a free account
+  cannot hold, and MV3 password managers die on `chrome.offscreen`. Design and
+  threat model in `docs/design/password-vault.md`.
 - **History window** (`Cmd+Y`), per-Space to match the data-store isolation
   (`v6_history_per_space`), with search, grouping by day, and delete.
 - **Settings sheet** (`Cmd+,`) — General, Privacy & Data (clear browsing data

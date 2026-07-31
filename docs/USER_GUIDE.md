@@ -83,7 +83,7 @@ Space_.
 | `Cmd+S`       | Toggle the sidebar                                           |
 | `Cmd+Ctrl+S`  | Toggle **Presentation mode** (hide all chrome — for sharing) |
 | `Cmd+Y`       | Open the **History** window                                  |
-| `Cmd+,`       | Open **Settings** (General, clear browsing data, extensions) |
+| `Cmd+,`       | Open **Settings** (General, Passwords, Privacy & Data, extensions) |
 
 Find works whether or not the find field has focus, so you can find, click into
 the page, and keep stepping through matches with `Cmd+G`.
@@ -139,6 +139,49 @@ windows and you get two back.
 Two things stay on the first window rather than the focused one: **Little Chord**
 panels and URLs opened from another app go where the store's focused window is
 tracked, so if focus is ambiguous (no window key), they fall back to the first.
+
+## Passwords
+
+Chord has a built-in password vault. It offers to save a login when you sign in,
+and fills it back on a click.
+
+**Saving.** Sign in to a site and a bar appears at the top of the window: *Save
+password?* with **Save**, **Not Now**, and **Never**. "Not Now" declines this one
+time; **"Never" is remembered** and that site stops asking. Signing in again with
+the *same* password says nothing at all — you are only asked when something is
+new or changed, and a changed password offers **Update** rather than Save.
+
+**Filling.** On a page with a saved login, a small **key** appears in the sidebar
+next to the reload button. Click it to fill. With more than one account saved for
+that site, the key opens a menu so you pick. Nothing is ever filled
+automatically — no fill on page load, no fill when a field takes focus. A click
+is always required.
+
+**Where passwords live.** The username and site go in Chord's database; **the
+password itself goes in the macOS Keychain**, never in the database. That means a
+database backup, or anyone poking at the file, cannot contain your passwords.
+
+**Managing them.** **Settings → Passwords** lists everything saved, with the site,
+the account, and when it was last used. **Reveal** shows a password after Touch ID
+(or your Mac's password); **the trash** deletes it, from the Keychain too. Sites
+you told "Never" are listed at the bottom with an **Ask Again** button.
+
+**What it will not do:**
+
+- **Fill on a look-alike site.** A saved password is offered only on an *exact*
+  origin match — same scheme, same host, same port. `evil.example.com` never sees
+  a password saved for `example.com`.
+- **Work over plain HTTP.** Saving and filling are HTTPS-only.
+- **Fill inside an embedded frame**, which is the classic way credentials get
+  stolen.
+- **Sync anywhere.** Passwords stay on this Mac, like everything else in Chord.
+- **Replace passkeys.** Chord cannot do passkeys at all — see
+  [Capability summary](#capability-summary).
+
+> **A dialog you may see:** after Chord is rebuilt from source, macOS may ask for
+> your **login keychain password** the first time it reads a saved password. That
+> is macOS noticing the app was rebuilt, not something being wrong. Click **Always
+> Allow** and it stops for that build.
 
 ## Site permissions — camera, microphone, notifications
 
@@ -412,9 +455,9 @@ specific site; both are noted as possible future additions.
 ## Settings
 
 Open Settings with `Cmd+,` (or the app menu → _Settings…_). It's a sheet with
-three sections: **General** (search engine, new-tab behaviour, User-Agent, archive
-timing — described [above](#general-settings)), **Privacy & Data**, and
-**Extensions**.
+four sections: **General** (search engine, new-tab behaviour, User-Agent, archive
+timing — described [above](#general-settings)), **Passwords** (see
+[Passwords](#passwords)), **Privacy & Data**, and **Extensions**.
 
 ### Privacy & Data — clear browsing data
 
@@ -496,6 +539,9 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | Tabbed browsing, favicons, titles                         | ✅                                      |
 | Multiple windows (`Cmd+N`), cross-window tab drag         | ✅ (Space/tab per window restored)      |
 | Camera & microphone, asked once per site and Space        | ✅                                      |
+| Saving and filling passwords, with a Keychain-backed vault | ✅                                     |
+| Passkeys                                                  | ❌ not available to a WKWebView app     |
+| Password-manager extensions (Bitwarden, 1Password)        | ❌ MV3 APIs missing; use the built-in vault |
 | Web notifications while the page is open                  | ✅ (per-site, per-Space)                |
 | Background Web Push (site closed)                         | ❌ Safari-gated, not available to WKWebView |
 | YouTube / YouTube Music ad skipping (built-in script)     | ✅ best-effort                          |
