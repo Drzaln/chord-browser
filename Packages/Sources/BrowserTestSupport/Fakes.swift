@@ -73,6 +73,35 @@ public final class FakeWebEngine: WebEngine {
         customUserAgentSetCount += 1
     }
 
+    /// What the last `fillLogin` was asked to do, so a test can assert the store
+    /// passed the right credential to the right pane without a real page.
+    public struct RecordedFill: Equatable, Sendable {
+        public let paneID: UUID
+        public let expectedOrigin: String
+        public let username: String
+        public let password: String
+    }
+    public private(set) var fills: [RecordedFill] = []
+    /// What `fillLogin` should report. Defaults to a full success.
+    public var fillOutcome: LoginFillOutcome = .filled(username: true, password: true)
+
+    public func fillLogin(
+        paneID: UUID,
+        expectedOrigin: String,
+        usernameFieldID: String?,
+        username: String,
+        passwordFieldID: String?,
+        password: String
+    ) async -> LoginFillOutcome {
+        fills.append(
+            RecordedFill(
+                paneID: paneID, expectedOrigin: expectedOrigin,
+                username: username, password: password
+            )
+        )
+        return fillOutcome
+    }
+
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
     public private(set) var notificationClicks: [(jsID: String, paneID: UUID)] = []

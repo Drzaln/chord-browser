@@ -13,6 +13,11 @@ import Foundation
 @MainActor
 final class E2EHarness {
     let store: TabStore
+    /// The one open connection to this harness's database. Exposed because a
+    /// second `BrowserDatabase` over the same file contends for the WAL and
+    /// fails with "database is locked" — a test needing its own repository must
+    /// share this, not open another.
+    let database: BrowserDatabase
     let server: TestHTTPServer
     let directory: URL
     private(set) var clock: MutableClock
@@ -23,12 +28,14 @@ final class E2EHarness {
 
     private init(
         store: TabStore,
+        database: BrowserDatabase,
         server: TestHTTPServer,
         directory: URL,
         clock: MutableClock,
         downloads: DownloadsStore
     ) {
         self.store = store
+        self.database = database
         self.server = server
         self.directory = directory
         self.clock = clock
@@ -49,6 +56,7 @@ final class E2EHarness {
         let built = try makeStore(directory: directory, clock: clock)
         return E2EHarness(
             store: built.store,
+            database: built.database,
             server: server,
             directory: directory,
             clock: clock,
@@ -64,7 +72,7 @@ final class E2EHarness {
 
     private static func makeStore(
         directory: URL, clock: MutableClock
-    ) throws -> (store: TabStore, downloads: DownloadsStore) {
+    ) throws -> (store: TabStore, downloads: DownloadsStore, database: BrowserDatabase) {
         let database = try BrowserDatabase.open(
             at: directory.appending(path: "browser.sqlite")
         )
@@ -80,6 +88,11 @@ final class E2EHarness {
             )
         )
 
+        // The vault refuses non-HTTPS origins (threat-model rule 2), and this
+        // server is plain HTTP on loopback. This is the "explicit developer
+        // opt-in" the design allows, made in exactly one place, in test code.
+        engine.loginOriginPolicy = .allowingInsecureLoopback
+
         let store = TabStore(
             engine: engine,
             repository: repository,
@@ -88,7 +101,8 @@ final class E2EHarness {
             archiveRepository: history,
             clock: clock
         )
-        return (store, DownloadsStore(coordinator: engine.downloads))
+        store.loginOriginPolicy = .allowingInsecureLoopback
+        return (store, DownloadsStore(coordinator: engine.downloads), database)
     }
 
     func tearDown() async {

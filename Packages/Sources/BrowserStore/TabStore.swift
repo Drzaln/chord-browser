@@ -208,6 +208,16 @@ public final class TabStore {
     /// conformance to `ExtensionTabModel` (TabStore+Extensions.swift) is inert.
     @ObservationIgnored public weak var extensionHost: (any ExtensionHost)?
 
+    /// The password vault (V4), when one is wired. Optional because the
+    /// subsystem is built in phases and the app does not wire it until the UI
+    /// phases land — a nil vault simply offers nothing, which is what every
+    /// caller already handles.
+    @ObservationIgnored public var vault: CredentialVault?
+
+    /// Which origins may hold a credential (`.strict` in the app — see
+    /// `CredentialOrigin.Policy`). Set alongside `vault`.
+    @ObservationIgnored public var loginOriginPolicy: CredentialOrigin.Policy = .strict
+
     /// Bumped whenever an extension updates its toolbar action (M7, 7.5a).
     /// `AppEnvironment` wires the host's `onActionsChanged` to increment this, so
     /// a SwiftUI view that reads it re-renders and re-queries

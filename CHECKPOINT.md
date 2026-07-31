@@ -17,10 +17,10 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — V1–V3 done, V4 next, stop for review.** V4 is fill-on-gesture, including the framework-setter path. Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Password vault — V1–V4 done, V5 next, stop for review.** V5 is capture + the save bar, and it is the first phase with UI. **The vault is still not wired into `AppEnvironment`** — the mechanism is proven end-to-end but invisible in the app until V5–V6. Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **492 passing** (`swift test`, 76 suites), measured 2026-07-31                                                                                                                                   |
+| **Tests**                        | **498 passing** (`swift test`, 77 suites), measured 2026-07-31                                                                                                                                   |
 | **Schema**                       | **v12** — `v1_initial` … `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`                                                                          |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -2142,6 +2142,50 @@ follows the commits.
   would present as a crash at first web view, and no test covers it, because
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
+
+### Password vault V4 — filling (2026-07-31)
+
+`LoginFormFiller` + `WebEngine.fillLogin` + `TabStore.fillCredential`. The
+mechanism is proven end to end; **nothing is wired into `AppEnvironment` yet**, so
+none of it is reachable in the app until V5–V6 add UI.
+
+**The whole difficulty is that `input.value = x` does not work on a modern page.**
+React (and anything with a value tracker) installs an *instance* property
+override that caches the last value it saw, and ignores an `input` event whose
+value matches the cache. A direct assignment goes through that override, updates
+the cache, and the framework concludes nothing happened — the field *looks*
+filled and the app submits an empty string. The fix is to call the **prototype**
+setter, which bypasses the instance override and leaves the tracker stale, then
+dispatch `input` and `change` by hand because a programmatic change fires
+nothing.
+
+The e2e page reproduces that tracker exactly. **Verified failing against both
+bugs**, and the shape of the failure is the point:
+
+- naive `el.value = x` → the plain form still **passes**, the tracked form fails.
+  That is precisely how this bug behaves in the wild: fine on simple sites,
+  silently broken on React.
+- no events dispatched → both fail.
+
+**The origin is re-checked inside the engine, against the live `WKWebView`, at
+the moment of writing** — not trusted from the offer. A page can navigate between
+the two, and trusting the earlier decision is how a manager fills a bank password
+into whatever loaded next. Rule 5 is re-checked in the page too: a field hidden
+since the report is not filled.
+
+**Threat-model rule 2 versus the test server.** The e2e server is plain HTTP on
+loopback, and the vault refuses non-HTTPS origins. Rather than weaken the rule or
+hide a `#if DEBUG` inside it, there is now an explicit `CredentialOrigin.Policy`:
+`.strict` everywhere (the default argument, and what the app constructs) and
+`.allowingInsecureLoopback` set in exactly one place, `E2EHarness`. Two unit tests
+exist solely to stop that opt-in becoming the default, and to keep it narrow —
+`http://localhost.evil.com` is still refused.
+
+**Snag worth knowing:** a second `BrowserDatabase` over the same file fails with
+"database is locked" (WAL contention). `E2EHarness` now exposes its `database` so
+a test needing its own repository shares the one connection.
+
+6 new tests (498 total, prepush green).
 
 ### Password vault V3b — the page-side collector (2026-07-31)
 

@@ -53,6 +53,32 @@ public struct Credential: Identifiable, Equatable, Sendable {
 /// Keychain, no web view, and no browser (§3.5).
 public enum CredentialOrigin {
 
+    /// Where a credential may live at all.
+    ///
+    /// Exists for exactly one reason: the end-to-end suite serves plain HTTP from
+    /// `127.0.0.1`, and the fill path cannot be proved against a real page
+    /// without it. The design allows this as "an explicit developer opt-in", and
+    /// this is that opt-in made explicit rather than a quiet `#if DEBUG` inside
+    /// the rule itself.
+    ///
+    /// **`.strict` is the default everywhere**, it is what the app constructs,
+    /// and `defaultIsStrict` in the tests exists to keep it that way.
+    public struct Policy: Equatable, Sendable {
+        /// Allow `http://` on loopback hosts. Never true in the app.
+        public var allowsInsecureLoopback: Bool
+
+        public init(allowsInsecureLoopback: Bool = false) {
+            self.allowsInsecureLoopback = allowsInsecureLoopback
+        }
+
+        /// HTTPS only. The only policy the shipping browser uses.
+        public static let strict = Policy()
+        /// HTTPS, plus plain HTTP on loopback. **Tests only.**
+        public static let allowingInsecureLoopback = Policy(allowsInsecureLoopback: true)
+    }
+
+    private static let loopbackHosts: Set<String> = ["localhost", "127.0.0.1", "[::1]", "::1"]
+
     /// The canonical origin string for a page URL, or nil if the URL is not
     /// somewhere a credential may ever be stored or filled.
     ///
@@ -64,19 +90,22 @@ public enum CredentialOrigin {
     ///
     /// Normalises: lowercases scheme and host, drops the default port, drops
     /// path, query, fragment, and any embedded credentials.
-    public static func canonical(for url: URL) -> String? {
+    public static func canonical(for url: URL, policy: Policy = .strict) -> String? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
             let scheme = components.scheme?.lowercased(),
-            scheme == "https",
             let host = components.host?.lowercased(),
             !host.isEmpty
+        else { return nil }
+
+        let isLoopback = loopbackHosts.contains(host)
+        guard scheme == "https" || (policy.allowsInsecureLoopback && scheme == "http" && isLoopback)
         else { return nil }
 
         // A trailing dot is the same host to DNS ("example.com." == "example.com")
         // but a different string, which would silently create a second entry.
         let normalisedHost = host.hasSuffix(".") ? String(host.dropLast()) : host
 
-        if let port = components.port, port != 443 {
+        if let port = components.port, port != (scheme == "https" ? 443 : 80) {
             return "\(scheme)://\(normalisedHost):\(port)"
         }
         return "\(scheme)://\(normalisedHost)"
@@ -86,8 +115,10 @@ public enum CredentialOrigin {
     ///
     /// Both sides are canonicalised first, so this is safe to call with raw page
     /// URLs. Exact match only, by design.
-    public static func matches(stored: String, candidate: URL) -> Bool {
-        guard let canonicalCandidate = canonical(for: candidate) else { return false }
+    public static func matches(stored: String, candidate: URL, policy: Policy = .strict) -> Bool {
+        guard let canonicalCandidate = canonical(for: candidate, policy: policy) else {
+            return false
+        }
         return stored == canonicalCandidate
     }
 }

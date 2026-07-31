@@ -332,6 +332,51 @@ public final class WebKitEngine: WebEngine {
         handleSnapshot(live.snapshot, for: paneID)
     }
 
+    /// Fills a credential into the fields the page reported (V4). See the
+    /// protocol for why the origin is re-checked here rather than trusted.
+    /// Which origins may hold a credential. `.strict` in the app; the e2e suite
+    /// relaxes it to reach its loopback HTTP server. See `CredentialOrigin.Policy`.
+    public var loginOriginPolicy: CredentialOrigin.Policy = .strict
+
+    public func fillLogin(
+        paneID: UUID,
+        expectedOrigin: String,
+        usernameFieldID: String?,
+        username: String,
+        passwordFieldID: String?,
+        password: String
+    ) async -> LoginFillOutcome {
+        guard let live = pool.peek(paneID) else { return .noPane }
+
+        // The check that matters, and it is deliberately *here* — the last point
+        // before the secret enters the page, against the URL the view is
+        // actually showing right now.
+        guard let current = live.webView.url,
+            CredentialOrigin.matches(
+                stored: expectedOrigin, candidate: current, policy: loginOriginPolicy
+            )
+        else {
+            Log.engine.notice("refused a login fill: origin no longer matches")
+            return .originMismatch
+        }
+
+        let script = LoginFormFiller.script(
+            usernameFieldID: usernameFieldID, username: username,
+            passwordFieldID: passwordFieldID, password: password
+        )
+        // Reduce to a String inside the callback: `Any?` is not Sendable, so
+        // handing the raw result across the continuation trips strict
+        // concurrency — and the script only ever returns JSON text anyway.
+        let json: String? = await withCheckedContinuation { continuation in
+            live.webView.evaluateJavaScript(script) { value, _ in
+                continuation.resume(returning: value as? String)
+            }
+        }
+        let filled = LoginFormFiller.result(from: json)
+        guard filled.username || filled.password else { return .fieldsUnavailable }
+        return .filled(username: filled.username, password: filled.password)
+    }
+
     /// Stops every display-capture stream the pane holds, ending screen sharing.
     /// A no-op without a live view — a page that is gone cannot be sharing. The
     /// page reports the resulting `sharing:false` itself, which clears the state.

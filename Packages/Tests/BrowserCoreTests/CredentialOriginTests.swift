@@ -113,6 +113,43 @@ struct CredentialOriginTests {
         )
     }
 
+    // MARK: - The loopback opt-in
+
+    /// The e2e suite serves plain HTTP from loopback, so the vault has an opt-in
+    /// for it. These tests exist to keep that opt-in from becoming the default
+    /// by accident — which would make every `http://` page fillable.
+    @Test("The default policy is strict")
+    func defaultIsStrict() {
+        #expect(CredentialOrigin.Policy.strict.allowsInsecureLoopback == false)
+        #expect(CredentialOrigin.Policy().allowsInsecureLoopback == false)
+        // The default argument, which is what every production call site uses.
+        #expect(CredentialOrigin.canonical(for: URL(string: "http://127.0.0.1:8080/")!) == nil)
+    }
+
+    @Test("The opt-in allows loopback HTTP and nothing else")
+    func loopbackOptInIsNarrow() {
+        let policy = CredentialOrigin.Policy.allowingInsecureLoopback
+        #expect(
+            CredentialOrigin.canonical(for: URL(string: "http://127.0.0.1:8080/")!, policy: policy)
+                == "http://127.0.0.1:8080"
+        )
+        #expect(
+            CredentialOrigin.canonical(for: URL(string: "http://localhost/")!, policy: policy)
+                == "http://localhost"
+        )
+        // Still not a licence for plain HTTP anywhere else.
+        #expect(
+            CredentialOrigin.canonical(for: URL(string: "http://example.com/")!, policy: policy)
+                == nil
+        )
+        // Nor for a host that merely looks local.
+        #expect(
+            CredentialOrigin.canonical(
+                for: URL(string: "http://localhost.evil.com/")!, policy: policy
+            ) == nil
+        )
+    }
+
     @Test("A non-fillable URL matches nothing, even an identical-looking store")
     func unfillableCandidateNeverMatches() {
         #expect(

@@ -108,6 +108,24 @@ extension WebEngineDelegate {
     public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> Bool { false }
 }
 
+/// Why a fill did or did not happen. Distinguished because "we refused" and
+/// "the page moved" call for different things being said to the user, and
+/// because silently doing nothing is the failure mode a password manager must
+/// never have.
+public enum LoginFillOutcome: Equatable, Sendable {
+    /// At least one field took the value.
+    case filled(username: Bool, password: Bool)
+    /// The pane is not showing the origin the credential belongs to. The
+    /// interesting case: a page navigated between the offer and the click, so
+    /// the credential would have gone to the wrong site.
+    case originMismatch
+    /// The fields are gone or no longer visible — a single-page app re-rendered,
+    /// or the page hid them.
+    case fieldsUnavailable
+    /// No live web view for that pane.
+    case noPane
+}
+
 /// The seam between the app and WebKit.
 @MainActor
 public protocol WebEngine: AnyObject {
@@ -156,6 +174,25 @@ public protocol WebEngine: AnyObject {
     /// views built afterwards and to any already live (they take effect on the
     /// next load). See `UserAgentPreference`.
     func setCustomUserAgent(_ userAgent: String?)
+
+    /// Fills a credential into the fields the page reported (V4 of the password
+    /// vault).
+    ///
+    /// `expectedOrigin` is checked against the pane's **current** URL inside the
+    /// engine, immediately before writing. That re-check is the point: the offer
+    /// was made against the origin at report time, and a page can navigate
+    /// between the offer and the click. Trusting the caller's earlier decision is
+    /// how a manager fills someone's bank password into whatever loaded next.
+    ///
+    /// Only ever called in response to a user gesture (threat-model rule 4).
+    func fillLogin(
+        paneID: UUID,
+        expectedOrigin: String,
+        usernameFieldID: String?,
+        username: String,
+        passwordFieldID: String?,
+        password: String
+    ) async -> LoginFillOutcome
 
     /// Fires the page-side `Notification` instance's `onclick` after its banner
     /// was clicked (non-spec: user-requested). A no-op if the pane has no live

@@ -29,7 +29,7 @@ This is **Chord Browser**, a native macOS browser in Swift on `WKWebView`. It re
 9. **Decoding is defensive.** A corrupt row costs one tab, never a launch.
 10. **Migrations are forward-only, named, never edited once shipped.** A migration that re-scopes data adopts existing rows (v6, v11); it never drops them.
 11. **A capability a page asks for is decided per (Space, origin), asked once, remembered, and revocable in Settings** — camera, microphone, notifications (ADR 014). Never re-introduce a blanket grant.
-12. **A password secret never leaves `BrowserSecrets`.** Metadata (origin, username, timestamps) goes in SQLite; the secret goes in the Keychain, joined by `Credential.id`. Fill matching is **exact origin equality** — never parent-domain, never scheme-relaxed.
+12. **A password secret never leaves `BrowserSecrets`.** Metadata (origin, username, timestamps) goes in SQLite; the secret goes in the Keychain, joined by `Credential.id`. Fill matching is **exact origin equality** — never parent-domain, never scheme-relaxed. Filling uses the **prototype** value setter (a direct `el.value =` is swallowed by React's value tracker), and the origin is re-checked inside the engine at the moment of writing.
 13. **Anything device-gated needs checking in a Release build.** Hardened Runtime (Release only) uses different entitlement keys from App Sandbox — the microphone needs `device.audio-input` *and* `device.microphone`. Debug cannot see this class of bug and neither can `swift test`.
 
 ## Build & Test
@@ -54,7 +54,7 @@ BrowserTestSupport   ← fakes, fixtures, builders (test-only)
 
 ## Schema
 
-Current version: **v12**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, `v6_history_per_space`, `v7_folders`, `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`. Each migration has a fixture test, and **two test files assert `Migrations.currentVersion` literally** — update both. Test baseline: **492** (`swift test`).
+Current version: **v12**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, `v6_history_per_space`, `v7_folders`, `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`. Each migration has a fixture test, and **two test files assert `Migrations.currentVersion` literally** — update both. Test baseline: **498** (`swift test`).
 
 ## Git
 
