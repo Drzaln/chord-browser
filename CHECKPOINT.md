@@ -17,11 +17,11 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — V1 done, V2 next, stop for review.** Plan in [docs/design/password-vault.md](docs/design/password-vault.md). V2 is the metadata schema (v12) + repository; do not start it without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Password vault — V1–V2 done, V3 next, stop for review.** Plan in [docs/design/password-vault.md](docs/design/password-vault.md). V3 is the form-detection user script — the first risky phase; consider spiking it against real login pages before building more. Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **423 passing** (`swift test`, 68 suites), measured 2026-07-31                                                                                                                                   |
-| **Schema**                       | **v11** — `v1_initial` … `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`                                                                       |
+| **Tests**                        | **474 passing** (`swift test`, 74 suites), measured 2026-07-31                                                                                                                                   |
+| **Schema**                       | **v12** — `v1_initial` … `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`                                                                          |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
 After the two fixes below, **Enhancer for YouTube works** (content script) and
@@ -2142,6 +2142,43 @@ follows the commits.
   would present as a crash at first web view, and no test covers it, because
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
+
+### Password vault V2 — metadata schema and the join (2026-07-31)
+
+Schema **v12** (`v12_credentials`), the repository, and `CredentialVault` — the
+one thing allowed to write both halves. Still no UI and nothing wired into the
+app; V3 (form detection) stops for review first.
+
+**Two schema decisions worth not re-litigating later:**
+
+- `lastUsedSpaceId` **nulls** on Space deletion (`onDelete: .setNull`), it does
+  not cascade. The vault is global by design, so the Space is a *hint* for
+  ordering the picker, never ownership — deleting a Space must never delete a
+  password. There is a migration test that deletes a Space and asserts the
+  credential survives with a null hint.
+- `(origin, username)` is unique, and `upsert` **keeps the existing id** on
+  collision. That is not tidiness: a new id on re-save would leave the old
+  Keychain item behind as a password the user can no longer see or delete.
+
+**`CredentialVault` writes in a deliberate order in each direction.** Save writes
+metadata *then* the secret; delete removes the secret *then* the metadata. Both
+orders are chosen so an interruption leaves the *recoverable* state — a visible
+credential the user can fix by saving again — rather than an invisible secret
+nothing in the UI can reach. `reconcile()` drops secrets with no row, and
+deliberately keeps rows whose secret has gone: which account you had on a site is
+worth keeping even when the password is not.
+
+A failed secret write rolls the metadata back **only for a newly created
+credential**. Rolling back an update would delete a credential the user already
+had because a re-save failed — the one rollback that must not happen, and it has
+its own test.
+
+25 new tests (474 total, prepush green). **Verified failing against the bug:**
+making `upsert` mint a fresh id turns both orphan guards red.
+
+**Snag worth knowing:** the schema version is asserted literally in *two* test
+files (`ExtensionEnablementTests`, `GrantedPermissionsTests`), so every migration
+has to update both or prepush goes red after everything else looks done.
 
 ### Password vault V1 — the secret half (2026-07-31)
 

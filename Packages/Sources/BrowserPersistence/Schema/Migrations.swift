@@ -26,11 +26,12 @@ enum Migrations {
         migrator.registerMigration(
             "v11_site_permissions_per_space", migrate: v11SitePermissionsPerSpace
         )
+        migrator.registerMigration("v12_credentials", migrate: v12Credentials)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 11
+    static let currentVersion = 12
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -205,6 +206,35 @@ enum Migrations {
         }
         try db.drop(table: "sitePermission")
         try db.rename(table: "sitePermission_new", to: "sitePermission")
+    }
+
+    /// The password vault's **metadata** half (V2 — docs/design/password-vault.md).
+    ///
+    /// What is deliberately *not* here: the password. Secrets live in the
+    /// Keychain, reached only through `BrowserSecrets`, joined to these rows by
+    /// `id`. That split is the reason a database backup, a `.recover` dump, or a
+    /// stray `sqlite3` session can never contain a credential.
+    ///
+    /// `lastUsedSpaceId` is a *hint* for ordering the picker (offer the account
+    /// you last used in this Space first), not ownership — the vault is global by
+    /// design, so this **nulls** rather than cascades when a Space is deleted.
+    /// Deleting a Space must never delete a password.
+    ///
+    /// `(origin, username)` is unique: saving the same login twice updates it
+    /// rather than growing a duplicate the picker would show twice.
+    private static func v12Credentials(_ db: Database) throws {
+        try db.create(table: "credential") { t in
+            t.primaryKey("id", .text)
+            t.column("origin", .text).notNull()
+            t.column("username", .text).notNull()
+            t.column("createdAt", .datetime).notNull()
+            t.column("lastUsedAt", .datetime)
+            t.column("lastUsedSpaceId", .text)
+                .references("space", onDelete: .setNull)
+            t.uniqueKey(["origin", "username"])
+        }
+        // The lookup on every page load with a login form: by origin.
+        try db.create(index: "credential_origin", on: "credential", columns: ["origin"])
     }
 
     private static func v5GrantedPermissions(_ db: Database) throws {

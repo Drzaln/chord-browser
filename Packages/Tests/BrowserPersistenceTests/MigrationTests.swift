@@ -341,6 +341,82 @@ struct MigrationTests {
         #expect(storedTab == nil, "a null tab reference is allowed")
     }
 
+    @Test("v12 adds the credential table, and a deleted Space nulls rather than deletes")
+    func v12AddsCredentials() throws {
+        var config = Configuration()
+        config.foreignKeysEnabled = true
+        let queue = try DatabaseQueue(configuration: config)
+        let migrator = Migrations.makeMigrator()
+        // The fixture is the prior version: everything up to v11, no credentials.
+        try migrator.migrate(queue, upTo: "v11_site_permissions_per_space")
+        #expect(try queue.read { try $0.tableExists("credential") } == false)
+
+        let spaceID = try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1")
+        } ?? ""
+
+        try migrator.migrate(queue)
+        #expect(try queue.read { try $0.tableExists("credential") })
+
+        let credentialID = UUID().uuidString
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO credential
+                        (id, origin, username, createdAt, lastUsedAt, lastUsedSpaceId)
+                    VALUES (?, 'https://example.com', 'me@example.com', ?, ?, ?)
+                    """,
+                arguments: [credentialID, Date(), Date(), spaceID]
+            )
+        }
+
+        // Deleting a Space must NOT delete a password — the vault is global, and
+        // lastUsedSpaceId is only a hint for ordering the picker.
+        try queue.write { db in
+            try db.execute(sql: "DELETE FROM space WHERE id = ?", arguments: [spaceID])
+        }
+
+        let (rowCount, hint) = try queue.read { db in
+            (
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM credential") ?? 0,
+                try String.fetchOne(
+                    db, sql: "SELECT lastUsedSpaceId FROM credential WHERE id = ?",
+                    arguments: [credentialID]
+                )
+            )
+        }
+        #expect(rowCount == 1, "deleting a Space must never delete a credential")
+        #expect(hint == nil, "the Space hint nulls out")
+    }
+
+    @Test("v12 keeps one row per (origin, username)")
+    func v12EnforcesUniqueLogin() throws {
+        let queue = try DatabaseQueue()
+        try Migrations.makeMigrator().migrate(queue)
+
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO credential (id, origin, username, createdAt)
+                    VALUES (?, 'https://example.com', 'me@example.com', ?)
+                    """,
+                arguments: [UUID().uuidString, Date()]
+            )
+        }
+        // A second row for the same login would show as a duplicate in the picker.
+        #expect(throws: (any Error).self) {
+            try queue.write { db in
+                try db.execute(
+                    sql: """
+                        INSERT INTO credential (id, origin, username, createdAt)
+                        VALUES (?, 'https://example.com', 'me@example.com', ?)
+                        """,
+                    arguments: [UUID().uuidString, Date()]
+                )
+            }
+        }
+    }
+
     @Test("v10 adds the sitePermission table")
     func v10AddsSitePermissions() throws {
         let queue = try DatabaseQueue()

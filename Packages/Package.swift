@@ -63,7 +63,10 @@ let package = Package(
 
         .target(
             name: "BrowserStore",
-            dependencies: ["BrowserCore", "BrowserEngine", "BrowserExtensions", "BrowserPersistence"],
+            dependencies: [
+                "BrowserCore", "BrowserEngine", "BrowserExtensions", "BrowserPersistence",
+                "BrowserSecrets",
+            ],
             swiftSettings: strict
         ),
 
@@ -124,7 +127,7 @@ let package = Package(
         ),
         .testTarget(
             name: "BrowserStoreTests",
-            dependencies: ["BrowserStore", "BrowserTestSupport"],
+            dependencies: ["BrowserStore", "BrowserSecrets", "BrowserTestSupport"],
             swiftSettings: strict
         ),
     ]
