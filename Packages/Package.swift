@@ -18,6 +18,7 @@ let package = Package(
         .library(name: "BrowserExtensions", targets: ["BrowserExtensions"]),
         .library(name: "BrowserStore", targets: ["BrowserStore"]),
         .library(name: "BrowserUI", targets: ["BrowserUI"]),
+        .library(name: "BrowserSecrets", targets: ["BrowserSecrets"]),
         .library(name: "BrowserTestSupport", targets: ["BrowserTestSupport"]),
     ],
     dependencies: [
@@ -47,6 +48,16 @@ let package = Package(
         .target(
             name: "BrowserExtensions",
             dependencies: ["BrowserCore", "BrowserEngine"],
+            swiftSettings: strict
+        ),
+
+        // The password vault's secret half (V1). The ONLY importer of Security /
+        // LocalAuthentication — the same "one target per OS-framework boundary"
+        // rule that gave BrowserExtensions its own target (ADR 011). No secret
+        // reaches SQLite, and no Keychain type leaves this package.
+        .target(
+            name: "BrowserSecrets",
+            dependencies: ["BrowserCore"],
             swiftSettings: strict
         ),
 
@@ -104,6 +115,11 @@ let package = Package(
         .testTarget(
             name: "BrowserUITests",
             dependencies: ["BrowserUI", "BrowserTestSupport"],
+            swiftSettings: strict
+        ),
+        .testTarget(
+            name: "BrowserSecretsTests",
+            dependencies: ["BrowserSecrets", "BrowserCore"],
             swiftSettings: strict
         ),
         .testTarget(

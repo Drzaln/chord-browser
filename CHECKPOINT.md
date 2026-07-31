@@ -17,7 +17,7 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — scoped, not started.** Proposal in [docs/design/password-vault.md](docs/design/password-vault.md); unlock/fill/scope decided 2026-07-31, V1 awaits an explicit go-ahead (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Password vault — V1 done, V2 next, stop for review.** Plan in [docs/design/password-vault.md](docs/design/password-vault.md). V2 is the metadata schema (v12) + repository; do not start it without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
 | **Tests**                        | **423 passing** (`swift test`, 68 suites), measured 2026-07-31                                                                                                                                   |
@@ -2142,6 +2142,54 @@ follows the commits.
   would present as a crash at first web view, and no test covers it, because
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
+
+### Password vault V1 — the secret half (2026-07-31)
+
+Scope and reasoning: [docs/design/password-vault.md](docs/design/password-vault.md).
+**V1 only** — storage, models, and the origin rule. No UI, no schema, no fill, and
+nothing wired into the app yet; V2 (metadata schema v12) waits for review.
+
+**Two pre-V1 checks, measured against a Release build** (sandbox + Hardened
+Runtime + ad-hoc signature, `TeamIdentifier=not set`) with a temporary probe that
+was then removed. `swift test` runs unsandboxed and could prove neither:
+
+- **Plain Keychain items work with no entitlement**, and survive relaunch *and* a
+  rebuild that changes the code signature. A vault will not be lost on every
+  build, which for a project rebuilt several times a day was the real risk.
+- **`SecAccessControl(.userPresence)` is unavailable**: `SecItemAdd` →
+  `-34018 errSecMissingEntitlement`. Biometry itself is fine
+  (`canEvaluatePolicy` true, Touch ID present) — it is the *protected item* that
+  needs the data-protection keychain and an application-identifier entitlement,
+  i.e. a real signing identity.
+
+That second result **overturned the design's own recommendation**. The plan called
+for an OS-enforced gate (the Keychain refusing to release an item without
+biometry) precisely because it survives our own bugs. Not available here, so the
+Touch ID gate is app-level: `VaultLock` evaluates `LAContext`, then reads an
+ordinary item. **It is a UI lock, not a cryptographic one** — it stops a person at
+your unlocked Mac, not code running as you — and that sentence belongs anywhere
+the feature is described to the user. Moving to access-control items if a paid
+identity ever exists is a re-write of every item, not a redesign; the note is in
+`KeychainSecretStore`.
+
+**What landed:**
+
+- **`BrowserSecrets`**, a new package and the only importer of Security /
+  LocalAuthentication — the same one-target-per-OS-boundary rule that gave
+  `BrowserExtensions` its own target (ADR 011). `SecretStore` protocol,
+  `KeychainSecretStore`, `VaultLockPolicy` (pure idle arithmetic),
+  `VaultAuthenticator` + `BiometricAuthenticator`.
+- **`Credential`** and **`CredentialOrigin`** in `BrowserCore` — metadata only,
+  Foundation only. The secret never appears on the model, which is what keeps a
+  password out of `browser.sqlite`, backups, and `.recover` dumps.
+- **Matching is exact origin equality** (scheme + host + port), and the test table
+  of near-misses is longer than the happy path: subdomains, suffix attacks
+  (`example.com.evil.com`), scheme downgrade, port changes, punycode. **Verified
+  failing against the bug** — swapping in the classic suffix match turns the
+  subdomain cases red.
+- 25 new tests (453 total, prepush green). The Keychain tests hit the **real**
+  Keychain under a per-run unique service name, so they never touch the real
+  vault and cannot collide between runs.
 
 ### Extension popups pin the sidebar open (2026-07-31)
 

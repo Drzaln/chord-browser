@@ -95,30 +95,48 @@ data" paths cannot accidentally take the vault with them.
 ## Storage and crypto
 
 - One Keychain item per credential, `kSecClassInternetPassword`, keyed by server +
-  account, with `kSecAttrAccessibleWhenUnlocked`. This is the boring path and it
-  is available on a free personal team — no entitlement, no paid membership.
+  account, with `kSecAttrAccessibleWhenUnlocked`. **Measured against a sandboxed,
+  Hardened-Runtime, ad-hoc-signed Release build on 2026-07-31** rather than
+  assumed — `swift test` runs unsandboxed and cannot see any of this:
+  - add, read, and round-trip all return `errSecSuccess`. No
+    `keychain-access-groups` entitlement is needed, and none is added.
+  - the item survives **relaunch** and, importantly for a project rebuilt several
+    times a day, a **rebuild with a different ad-hoc code signature** — access is
+    by bundle id inside the sandbox container, with no re-authorisation prompt. A
+    vault would not be lost on every build.
 - **No app-level master password.** A second password protects against a threat
   the Keychain already covers, and a home-grown KDF is exactly the sort of crypto
   this project should not be writing.
-- **Touch ID gate, decided 2026-07-31.** The vault locks on idle and on
-  screen-lock, and unlocking is `LAContext` biometry with device-passcode
-  fallback. Two ways to build it, and the choice is not cosmetic:
-  - *App-level gate* — we ask `LAContext` ourselves, then read an ordinary
-    Keychain item. Simple, testable, and honest about its limit: the item is
-    readable without biometry by anything running as the user, so the gate is a UI
-    lock, not a cryptographic one.
-  - *Access-control gate* — the item itself carries
-    `SecAccessControlCreateWithFlags(..., .userPresence, ...)`, so **the Keychain**
-    refuses to hand it over without biometry. Stronger, and it survives our own
-    bugs, but every read becomes an async authenticated call, and the failure modes
-    (no enrolled biometry, denied auth, changed biometric set) have to be handled
-    on every fill.
+- **Touch ID gate, decided 2026-07-31 — app-level, because the stronger form is
+  not available to us.** The recommendation here was originally an
+  *access-control* gate: mark the item with
+  `SecAccessControlCreateWithFlags(..., .userPresence, ...)` so the **Keychain**
+  itself refuses to hand it over without biometry, and our own bugs cannot bypass
+  the lock. Measured against a Release build, that is impossible on this signing
+  setup:
 
-  Recommendation: **access-control**, because a lock that our own code can bypass
-  by accident is the kind that quietly stops being a lock. Cost: V7 stops being a
-  bolt-on and has to be designed into V1's storage shape, since it changes how
-  items are written. That is a reason to decide it now rather than later, which is
-  what this note does.
+  ```
+  SecAccessControlCreateWithFlags: ok
+  SecItemAdd (guarded): -34018 (A required entitlement isn't present.)
+  ```
+
+  `errSecMissingEntitlement`. Biometry itself is fine — `canEvaluatePolicy`
+  returns true and Touch ID is present — it is the protected *item* that is
+  refused, because that path needs the data-protection keychain and an
+  application-identifier entitlement, which comes with a real signing identity.
+  The app is ad-hoc signed with `TeamIdentifier=not set` (§Requirements: no paid
+  account), so the entitlement cannot be had.
+
+  So the gate is **app-level**: we evaluate `LAContext` ourselves, then read an
+  ordinary Keychain item. Its limit must be stated wherever the feature is
+  described, not buried here — *the lock is a UI lock, not a cryptographic one.*
+  It stops someone sitting at your unlocked Mac from reading your passwords out of
+  Chord. It does not stop code running as you, which can read the same item
+  without ever asking us.
+
+  If a paid account ever appears, moving to access-control items is a migration
+  (re-write every item with the flag), not a redesign — worth leaving a note in
+  the storage layer to that effect.
 - Auto-lock needs a **timeout preference** (default: 15 minutes idle) and must
   also trip on `NSWorkspace.willSleepNotification` and screen lock.
 - Consequence to state out loud even with the gate: while unlocked, a filled
@@ -208,15 +226,15 @@ this kind of feature usually disappoints, and they are also where the e2e suite
    section in the UI, separate storage, since one is a capability grant and the
    other a vault preference. Not blocking: it is a V5 decision.
 
-## If this is approved
+## Pre-V1 checks — done 2026-07-31
 
-The first commit is V1 and nothing else, per §8's one-milestone-at-a-time rule,
-and it stops for review. Before writing it, two things need checking against the
-SDK rather than assumed, in the spirit of §11:
+Both questions were answered by a temporary probe inside a **Release** build
+(sandbox + Hardened Runtime + ad-hoc signature), then removed:
 
-- That a `.userPresence` access-control item behaves under **App Sandbox +
-  Hardened Runtime in a Release build** — `swift test` is unsandboxed and cannot
-  tell us. This is the microphone trap (ADR 014) waiting to happen again.
-- Whether a keychain access group is needed at all for a single sandboxed app with
-  no paid team, or whether the default application group is enough. If it is not,
-  the whole storage half needs rethinking before V1 is written, not after.
+| Question | Answer |
+|---|---|
+| Is a `keychain-access-groups` entitlement needed without a paid team? | **No.** Plain items add and read cleanly, and survive relaunch *and* rebuild. |
+| Does a `.userPresence` access-control item work? | **No** — `SecItemAdd` → `-34018 errSecMissingEntitlement`. Needs a real signing identity. |
+
+Net effect on the plan: storage is plain Keychain items (V1 unchanged in shape),
+and the Touch ID gate is app-level and honestly labelled. Nothing else moved.
