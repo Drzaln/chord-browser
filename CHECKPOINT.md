@@ -17,7 +17,7 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — V1–V2 done, V3 next, stop for review.** Plan in [docs/design/password-vault.md](docs/design/password-vault.md). V3 is the form-detection user script — the first risky phase; consider spiking it against real login pages before building more. Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Password vault — V1–V2 done, V3 half done (classifier + corpus), stop for review.** Remaining in V3: the page-side collector (`PasswordFormMonitor`) + its e2e test. Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
 | **Tests**                        | **474 passing** (`swift test`, 74 suites), measured 2026-07-31                                                                                                                                   |
@@ -2142,6 +2142,49 @@ follows the commits.
   would present as a crash at first web view, and no test covers it, because
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
+
+### Password vault V3a — the classifier, and what real login pages look like (2026-07-31)
+
+The risky half of V3, done first and deliberately: **decide** which fields are a
+login, validated against a corpus captured from the sites the user actually logs
+into. The page-side collector is still to come.
+
+**A spike loaded eight real login pages in a real `WKWebView` and dumped a
+descriptor per input.** Every rule in `LoginFormClassifier` traces to one of these
+findings — none of it is from reading the HTML spec:
+
+| Site | What it actually does |
+|---|---|
+| **Reddit** | **0 inputs in the light DOM.** 46 shadow hosts; the fields exist only inside open shadow roots. Without shadow traversal the page is invisible to us. |
+| **Google** | Renders a **hidden decoy** password field (`hiddenPassword`) on the username step. |
+| **GitHub** | Ships three invisible `required_field_*` **honeypots**. Filling one is how a password manager gets its user flagged as a bot. |
+| **Instagram / Facebook** | `autocomplete="username webauthn"` — multi-token, so `autocomplete == "username"` finds nothing. |
+| **Mixpanel** | Password field is in the DOM from the start but invisible until the email step passes. |
+| **npm** | **No `autocomplete` attributes at all** — name and label are the only signals. |
+| **GitLab** | Served no login form to an automated WKWebView at all (bot wall). Not in the corpus. |
+
+**The load-bearing rule is one line: invisible fields are ignored entirely.** That
+single filter defeats Google's decoy, GitHub's honeypots, and Mixpanel's
+not-yet-revealed field at once, and it is threat-model rule 5.
+
+Also handled: multi-step logins (a username-only step and a password-only step are
+both fillable, `isMultiStep`), signup/change-password forms (`new-password`, or two
+visible password boxes — never filled from the vault), and one-time-code fields,
+which must never be treated as a password even when rendered as `type=password`.
+
+13 tests, 487 total, prepush green.
+
+**Worth recording, because it is the working agreement earning its keep:** breaking
+the classifier two ways showed the visibility filter was properly covered but
+**tokenising was not** — the Instagram fixture passed even with `autocomplete`
+compared as one string, because that field is *also* called `email` and keyword
+fallback rescued it. A test whose only signal is the multi-token attribute was
+added, and *that* one goes red. Without deliberately breaking the code, the suite
+would have looked complete while proving less than it claimed.
+
+**For the collector (V3b):** it must walk open shadow roots (Reddit), report live
+visibility from rects + computed style, and re-run on DOM mutation (every SPA
+here). Main frame only.
 
 ### Password vault V2 — metadata schema and the join (2026-07-31)
 

@@ -146,11 +146,28 @@ data" paths cannot accidentally take the vault with them.
 ## How filling actually works
 
 1. `PasswordFormMonitor` (user script, `atDocumentStart`, **main frame only**)
-   classifies fields on load and on DOM mutation: username-ish, password,
-   new-password, one-time-code. Pure heuristics — `autocomplete` attributes first,
-   then type/name/id/label signals — and the heuristic itself lives in
-   `BrowserCore` as a pure function, so it is unit-testable against a corpus of
-   real login markup with no browser involved.
+   *collects* a descriptor per input — type, `autocomplete`, name, id, label,
+   visibility — and posts them. It makes no decisions: `LoginFormClassifier` in
+   `BrowserCore` does, so the judgement is testable against captured markup with
+   no browser involved.
+
+   **What a spike against real sites found (2026-07-31)**, each of which would
+   break a spec-reading implementation:
+
+   | Site | Reality |
+   |---|---|
+   | Reddit | **Zero inputs in the light DOM** — 46 shadow hosts; the collector *must* pierce open shadow roots or the page is invisible |
+   | Google | A **hidden decoy** password field on the username step |
+   | GitHub | Three invisible `required_field_*` **honeypots**; filling one flags a bot |
+   | Instagram / Facebook | `autocomplete="username webauthn"` — **multi-token** |
+   | Mixpanel | Password field present but invisible until the email step passes |
+   | npm | **No `autocomplete` at all**; only name and label |
+   | GitLab | Served no form at all to an automated WKWebView (bot wall) |
+
+   Two consequences for the collector: it must **walk open shadow roots**, and it
+   must report **live visibility** (rects + computed style), because ignoring
+   invisible fields is what defeats the decoy, the honeypots, and the
+   not-yet-revealed field in one rule.
 2. If a credential exists for the exact origin, the field gets a small affordance.
    Clicking it — a user gesture, rule 4 — asks the store, which asks
    `BrowserSecrets`, which returns the secret for exactly one fill.
