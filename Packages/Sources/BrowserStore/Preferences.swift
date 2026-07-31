@@ -10,6 +10,7 @@ enum Preferences {
     private static let newTabBehaviorKey = "prefs.newTabBehavior"
     private static let idleWindowKey = "prefs.idleWindow"
     private static let userAgentKey = "prefs.userAgent"
+    private static let userAgentOverridesKey = "prefs.userAgentOverrides"
     private static let vaultLockTimeoutKey = "prefs.vaultLockTimeout"
     private static let collapsedPinnedSpacesKey = "prefs.collapsedPinnedSpaces"
     // Unprefixed, unlike the rest: these two predate this file and were written
@@ -64,6 +65,21 @@ enum Preferences {
         _ userAgent: UserAgentPreference, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         encode(userAgent, forKey: userAgentKey, to: defaults)
+    }
+
+    /// Per-domain User-Agent rules (§9.6). A list of choices, like the global
+    /// setting beside it — not schema-bound user data.
+    static func loadUserAgentOverrides(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> [UserAgentOverride] {
+        decode([UserAgentOverride].self, forKey: userAgentOverridesKey, from: defaults) ?? []
+    }
+
+    static func save(
+        _ overrides: [UserAgentOverride],
+        to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(overrides, forKey: userAgentOverridesKey, to: defaults)
     }
 
     /// How long the vault stays unlocked when idle (V7). A choice, like the

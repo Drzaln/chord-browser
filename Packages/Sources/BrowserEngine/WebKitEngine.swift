@@ -58,10 +58,11 @@ public final class WebKitEngine: WebEngine {
     /// split across several immutable compiled lists, all attached together.
     private var contentRuleLists: [WKContentRuleList] = []
 
-    /// The user's chosen User-Agent override (non-spec: user-requested), or `nil`
-    /// for the browser's own completed Safari UA. Applied to every web view built
-    /// afterwards and pushed onto any already live. See `UserAgentPreference`.
-    private var customUserAgent: String?
+    /// The User-Agent policy (§9.6): the global preference, plus the per-domain
+    /// overrides that beat it. Which one applies is resolved per navigation from
+    /// the URL — see `applyUserAgent(to:for:)`.
+    private var globalUserAgent: UserAgentPreference = .default
+    private var userAgentOverrides: [UserAgentOverride] = []
 
     /// Retained so an evicted or crashed pane can be revived without the model
     /// layer having to hand its state back.
@@ -150,6 +151,9 @@ public final class WebKitEngine: WebEngine {
         if let existing = pool.view(for: pane.id) { return existing }
 
         let webView = makeWebView(for: space)
+        // The UA is resolved against the page this pane is on, not globally
+        // (§9.6): a per-domain rule has to be in place before the first request.
+        applyUserAgent(to: webView, for: pane.url)
         let live = LiveWebView(
             paneID: pane.id, webView: webView, cornerRadius: configuration.cornerRadius
         )
@@ -236,7 +240,6 @@ public final class WebKitEngine: WebEngine {
         webView.allowsBackForwardNavigationGestures = true
         webView.configuration.preferences.setValue(true, forKey: "fullScreenEnabled")
         webView.allowsMagnification = true
-        webView.customUserAgent = customUserAgent
         webView.navigationDelegate = coordinator
         webView.uiDelegate = coordinator
 
@@ -286,11 +289,35 @@ public final class WebKitEngine: WebEngine {
     /// built later inherit it, and pushed onto every live view now. `nil` on a
     /// live view restores the engine's default UA (the `applicationNameForUserAgent`
     /// completion still applies, since that lives on the configuration).
-    public func setCustomUserAgent(_ userAgent: String?) {
-        customUserAgent = userAgent
+    public func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride]) {
+        globalUserAgent = global
+        userAgentOverrides = overrides
+        // Live views are re-resolved against the page each is *currently* on, so
+        // changing the rule for one site does not restamp every other tab with
+        // the wrong UA. It takes effect on their next load, as before.
         for live in pool.liveViews {
-            live.webView.customUserAgent = userAgent
+            applyUserAgent(to: live.webView, for: live.webView.url)
         }
+    }
+
+    /// Points one web view at the UA its URL should get. Returns whether it
+    /// changed, which the navigation policy uses to decide whether a request
+    /// already in flight has to be re-issued.
+    @discardableResult
+    func applyUserAgent(to webView: WKWebView, for url: URL?) -> Bool {
+        let resolved = UserAgentRules.resolve(
+            url: url, overrides: userAgentOverrides, global: globalUserAgent
+        )
+        // **`customUserAgent` reads back as `""`, not `nil`, when it is unset.**
+        // Comparing against `nil` therefore always reports a change, and the
+        // navigation policy above — which cancels and re-issues on a change —
+        // cancelled every load forever. It presents as a page that simply never
+        // arrives, with no error: the e2e UA test caught it, and a print in the
+        // policy is what showed the same URL being decided seven times.
+        let current = (webView.customUserAgent?.isEmpty ?? true) ? nil : webView.customUserAgent
+        guard current != resolved else { return false }
+        webView.customUserAgent = resolved
+        return true
     }
 
     /// Completes the User-Agent so it looks like the browser it actually is.

@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows (no migration)**. See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** (neither needs a migration). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **543 passing** (`swift test`, 81 suites), measured 2026-07-31                                                                                                                                   |
+| **Tests**                        | **554 passing** (`swift test`, 82 suites), measured 2026-08-01                                                                                                                                   |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -236,11 +236,14 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **543 tests**, `./scripts/prepush.sh` green, **schema v13**.
+State: single `main`, **554 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
 ## Where the work is
 
-**Nothing is assigned.** The newest work is **private (incognito) windows, ⌘⇧N**
+**Nothing is assigned.** The newest work is **per-domain User-Agent rules**
+(§9.6, 2026-08-01) — read that section for the two traps it turned up, one of
+which (`customUserAgent` reading back as `""`) breaks navigation outright. Before
+it, **private (incognito) windows, ⌘⇧N**
 — read that section before touching any persistence path, because the feature is
 defined by what it does *not* write, and two of its leaks were found only by
 driving the real app. "New Blank Tab" moved to ⌘⌥N to free the binding.
@@ -251,8 +254,7 @@ saving, filling, management, and the lock (idle timeout, sleep, screen lock, Loc
 Now, and an unlock required before a fill).
 
 Open, non-spec, **ask-first** items (§11): a per-site content-blocking whitelist /
-runtime disable toggle, and a per-domain User-Agent override map (§9.6, the UA
-setting is global today).
+runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.)
 
 The honest measurement gap: **no 30-minute soak since 2026-07-25**, and several
 subsystems have landed since (notifications, site permissions, the vault). If the
@@ -2235,6 +2237,57 @@ mid-session before the menu could be right-clicked on screen. Owed: right-click 
 link and confirm the three items appear in order, that New Tab opens in the
 background in the same window, and that New Private Window opens the *link*
 rather than the new-tab page.
+
+### Per-domain User-Agent rules — §9.6, at last (2026-08-01)
+
+The spec asked for this in §9.6 ("add a per-domain user-agent override map
+**rather than a global spoof**") and what shipped first was the global spoof. It
+fixes one site and breaks another — Google Meet refusing to start a call under
+the Firefox UA is the standing example, and it has cost this project time twice.
+
+- **`UserAgentRules`** (Core, pure): `normalise` accepts a pasted URL or a bare
+  domain; `match` covers subdomains but **only on a dot boundary**, so
+  `google.com` never matches `evil-google.com`; **the most specific rule wins**,
+  so `meet.google.com → Default` carves an exception out of `google.com →
+  Chrome`. `resolve` falls back to the global setting.
+- **Applied per navigation**, in a new `decidePolicyFor navigationAction` on
+  `NavigationCoordinator`. `customUserAgent` is read when the request is built,
+  so setting it in the policy is too late for *that* request: when the UA
+  changes, the navigation is cancelled and re-issued. Only for **GET** in the
+  **main frame** — re-issuing a POST would silently drop the body.
+- Settings → General → **Per-Site Rules**: domain field, preset picker, add and
+  delete.
+
+**Two bugs found while building it, both worth remembering:**
+
+- **`customUserAgent` reads back as `""`, not `nil`, when unset.** So "did the UA
+  change?" was always true, and the policy cancelled and re-issued *every*
+  navigation forever. It presents as a page that never arrives, with no error.
+  The e2e UA test caught it; a `print` in the policy showed the same URL being
+  decided seven times. `applyUserAgent` now normalises empty to nil.
+- **The settings sheet was silently clipping its own content.** `GeneralSettings`
+  ended in `Spacer(minLength: 0)`, which inside the sheet's `ScrollView` absorbs
+  the overflow instead of letting it scroll — the new section was rendered and
+  unreachable. Removed. The other three sections still have that spacer and are
+  short enough not to notice; they are a papercut waiting for the next addition.
+- **An e2e test wrote to the developer's real `UserDefaults`.** `E2EHarness` now
+  swaps in an `InMemoryPreferenceStore` *and* clears what the property
+  initialisers already loaded from the real one — the initialisers run before any
+  injection can happen. The symptom was a UA test failing on a rule it never set,
+  left behind by a different test in an earlier run.
+
+**Verified live (2026-08-01)** against `postman-echo.com/get`, which echoes the
+request headers, with the global setting left on Default throughout:
+a rule of **Chrome** → the echo reports Chrome; switching the same rule to
+**Safari — iPhone** → the echo reports the iPhone UA on the next load; **deleting**
+the rule → back to the browser's own `Version/26.5 Safari/605.1.15`.
+
+12 tests (554 total, prepush green): 10 in `UserAgentRulesTests` (normalising,
+the near-miss table, most-specific-wins, per-domain Default beating a global
+spoof), 1 store test, and 1 **e2e** test asserting the header on the wire — the
+only layer that can prove the resolved UA survives the navigation policy. The
+matcher was verified red against both a bare `hasSuffix` and a first-match-wins,
+and the e2e test against the empty-string bug.
 
 ### Private (incognito) windows — ⌘⇧N (2026-07-31)
 

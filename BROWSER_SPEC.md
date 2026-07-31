@@ -718,8 +718,10 @@ Flag these early rather than discovering them late:
 4. Content process termination and reload-on-crash.
 5. Keychain/autofill behaves inconsistently in `WKWebView` versus Safari. Do not
    attempt to force parity; document what works.
-6. ~2% of sites are Chrome-only tested. Add a per-domain user-agent override map
-   rather than a global spoof.
+6. ~~2% of sites are Chrome-only tested. Add a per-domain user-agent override map
+   rather than a global spoof.~~ **Done (2026-08-01)** — `UserAgentRules`, applied
+   per navigation in `NavigationCoordinator`. The global setting stays for the
+   blunt case; the map is what §9.6 actually asked for.
 
 ---
 
@@ -785,6 +787,10 @@ Raise these when the relevant milestone starts; do not decide unilaterally.
 - ~~Whether camera/mic/notification permission is global or per-Space.~~
   Resolved: per (Space, origin), asked once and remembered (ADR 014).
 
+- ~~Per-domain User-Agent overrides (§9.6).~~ Resolved: shipped 2026-08-01,
+  Settings → General → Per-Site Rules. A rule covers a domain and its
+  subdomains, the most specific wins, and a per-domain "Default" turns a global
+  spoof back off for that one site.
+
 Still open, and **not to be started without asking** (§11): a per-site
-content-blocking whitelist / runtime disable toggle, and a per-domain User-Agent
-override map (§9.6) now that a global UA setting exists.
+content-blocking whitelist / runtime disable toggle.

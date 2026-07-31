@@ -187,11 +187,12 @@ public protocol WebEngine: AnyObject {
     /// view — a page that is gone cannot be sharing. See `ScreenShareMonitor`.
     func stopScreenSharing(paneID: UUID)
 
-    /// Sets the User-Agent every web view presents (non-spec: user-requested),
-    /// or `nil` to restore the browser's own completed Safari UA. Applies to
-    /// views built afterwards and to any already live (they take effect on the
-    /// next load). See `UserAgentPreference`.
-    func setCustomUserAgent(_ userAgent: String?)
+    /// Sets the User-Agent policy: the global preference plus any per-domain
+    /// overrides (§9.6). The engine resolves which one applies at the moment of
+    /// navigation, since it is the only layer that sees the URL a request is
+    /// actually going to. Applies to views built afterwards and to any already
+    /// live. See `UserAgentRules`.
+    func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride])
 
     /// Fills a credential into the fields the page reported (V4 of the password
     /// vault).

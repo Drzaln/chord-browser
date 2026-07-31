@@ -176,8 +176,42 @@ public final class TabStore {
     public var userAgent: UserAgentPreference = Preferences.loadUserAgent() {
         didSet {
             Preferences.save(userAgent)
-            engine.setCustomUserAgent(userAgent.resolvedUserAgent)
+            pushUserAgent()
         }
+    }
+
+    /// Per-domain User-Agent overrides (§9.6). These beat `userAgent` for the
+    /// sites they name, including a per-domain `.default` that turns a global
+    /// spoof back off — the Google Meet case.
+    public var userAgentOverrides: [UserAgentOverride] = Preferences.loadUserAgentOverrides() {
+        didSet {
+            Preferences.save(userAgentOverrides, to: preferenceStore)
+            pushUserAgent()
+        }
+    }
+
+    /// Hands the engine the whole policy at once. It resolves which UA a
+    /// navigation gets, because it is the only layer that sees the URL.
+    func pushUserAgent() {
+        engine.setUserAgent(userAgent, overrides: userAgentOverrides)
+    }
+
+    /// Adds or replaces a rule, normalising what the user typed. Returns false
+    /// when there is no usable domain in it, so the UI can say so rather than
+    /// storing a rule that matches nothing.
+    @discardableResult
+    public func setUserAgentOverride(
+        domain: String, preference: UserAgentPreference
+    ) -> Bool {
+        guard let normalised = UserAgentRules.normalise(domain) else { return false }
+        var updated = userAgentOverrides.filter { $0.domain != normalised }
+        updated.append(UserAgentOverride(domain: normalised, preference: preference))
+        userAgentOverrides = updated.sorted { $0.domain < $1.domain }
+        return true
+    }
+
+    public func removeUserAgentOverride(domain: String) {
+        userAgentOverrides.removeAll { $0.domain == domain }
     }
 
     /// The URL a `newTab()` with no explicit destination lands on, derived from
@@ -496,9 +530,10 @@ public final class TabStore {
         self.windowLayoutRepository = windowLayoutRepository
         self.clock = clock
         self.engine.delegate = self
-        // Apply the persisted UA up front — the property's didSet does not fire
-        // for its initial value, so the engine would otherwise start on default.
-        self.engine.setCustomUserAgent(userAgent.resolvedUserAgent)
+        // Apply the persisted UA policy up front — the properties' `didSet` does
+        // not fire for their initial values, so the engine would otherwise start
+        // on the default with no per-domain rules.
+        self.pushUserAgent()
     }
 
     // MARK: - Lifecycle

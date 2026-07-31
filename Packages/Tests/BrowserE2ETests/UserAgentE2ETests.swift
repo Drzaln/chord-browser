@@ -40,4 +40,25 @@ struct UserAgentE2ETests {
         #expect(agent.contains("Version/"), "no Version token: \(agent)")
         #expect(agent.contains("Safari/"), "no Safari token: \(agent)")
     }
+
+    @Test("A per-domain rule is what actually goes on the wire")
+    func perDomainOverrideReachesTheServer() async throws {
+        let harness = try await E2EHarness.make(
+            routes: [.page(path: "/", title: "Home Page", body: "<h1>Home</h1>")]
+        )
+        defer { Task { await harness.tearDown() } }
+        await harness.store.restore()
+
+        // The rule names the loopback host the test server runs on. Everything
+        // else here is the ordinary path: no test hooks, no injection.
+        #expect(harness.store.setUserAgentOverride(domain: "127.0.0.1", preference: .chrome))
+
+        _ = await harness.openAndLoad(await harness.server.url(""))
+
+        let agent = try #require(await harness.server.header("user-agent", forPath: "/"))
+        // The decisive assertion: the header, not the property. The unit tests
+        // prove the matching rules; only this proves the resolved UA survives
+        // the trip through the navigation policy and onto the request.
+        #expect(agent.contains("Chrome/"), "per-domain rule did not reach the wire: \(agent)")
+    }
 }

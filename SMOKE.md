@@ -1026,3 +1026,22 @@ Driven live on 2026-08-01.
 - [ ] The same item inside a private window keeps the link **in that private
       window** (unit-tested; not driven)
 - [x] Open Link in New Private Window opens **the link**, not the new-tab page
+
+## Per-domain User-Agent rules (added 2026-08-01)
+
+Driven live against `postman-echo.com/get`, which echoes the request headers back
+— the only way to see what was actually sent. Keep the global setting on Default
+while doing this, or you cannot tell which layer answered.
+
+- [x] Settings → General → **Per-Site Rules**: add `postman-echo.com` → Google
+      Chrome, load the echo, and the reported `user-agent` is Chrome's
+- [x] Switch that rule to **Safari — iPhone**, reload → the echo reports the
+      iPhone UA
+- [x] **Delete** the rule, reload → back to the browser's own
+      `Version/26.5 Safari/605.1.15`
+- [ ] The real motivating case: global UA **Firefox** + a rule of
+      `meet.google.com` → **Default**, then start a Meet call. Not run — it needs
+      a real call
+- **Watch out:** the General section is long enough to scroll now. If a new
+  setting seems missing, scroll — and never end that view in a greedy `Spacer`,
+  which silently eats the overflow inside the sheet's `ScrollView`

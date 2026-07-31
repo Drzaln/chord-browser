@@ -68,9 +68,20 @@ public final class FakeWebEngine: WebEngine {
 
     public private(set) var customUserAgent: String?
     public private(set) var customUserAgentSetCount = 0
-    public func setCustomUserAgent(_ userAgent: String?) {
-        customUserAgent = userAgent
+    public private(set) var userAgentOverrides: [UserAgentOverride] = []
+    public func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride]) {
+        customUserAgent = global.resolvedUserAgent
+        userAgentOverrides = overrides
         customUserAgentSetCount += 1
+    }
+
+    /// What a URL would actually be sent with, so a test can assert the policy
+    /// without a web view.
+    public func resolvedUserAgent(for url: URL?) -> String? {
+        UserAgentRules.resolve(
+            url: url, overrides: userAgentOverrides,
+            global: customUserAgent.map { .custom($0) } ?? .default
+        )
     }
 
     /// What the last `fillLogin` was asked to do, so a test can assert the store

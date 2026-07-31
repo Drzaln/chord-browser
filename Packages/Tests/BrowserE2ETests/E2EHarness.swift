@@ -102,6 +102,15 @@ final class E2EHarness {
             clock: clock
         )
         store.loginOriginPolicy = .allowingInsecureLoopback
+        // Preferences go to memory, never to the developer's real
+        // `~/Library/Preferences`. Found the hard way: an e2e test that set a
+        // per-domain UA rule wrote it to the real defaults, and the *next* test
+        // in the suite loaded it back and failed on a UA it never set.
+        store.preferenceStore = InMemoryPreferenceStore()
+        // ...and the *loaded* values are dropped too: the property initialisers
+        // read `UserDefaults.standard` before the line above can redirect them,
+        // so a rule written by an earlier run would otherwise arrive here.
+        store.userAgentOverrides = []
         return (store, DownloadsStore(coordinator: engine.downloads), database)
     }
 

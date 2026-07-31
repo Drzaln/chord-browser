@@ -24,6 +24,12 @@ struct GeneralSettings: View {
     @State private var isCustomUA = false
     @State private var customUA = ""
 
+    // Per-domain rules (§9.6): the domain being typed into the add field, and
+    // the preset chosen beside it.
+    @State private var newOverrideDomain = ""
+    @State private var newOverridePreset: UserAgentPreference = .chrome
+    @State private var overrideError = false
+
     private enum NewTabKind: String, CaseIterable, Identifiable {
         case blank, searchEngine, custom
         var id: String { rawValue }
@@ -45,7 +51,10 @@ struct GeneralSettings: View {
             userAgentSection
             Divider()
             hibernationSection
-            Spacer(minLength: 0)
+            // No trailing `Spacer` here. Inside the sheet's `ScrollView` a
+            // greedy spacer absorbs the overflow instead of letting it scroll,
+            // so the section below the fold — the per-site UA rules — was
+            // rendered and simply unreachable.
         }
         .onAppear(perform: syncFromStore)
     }
@@ -176,7 +185,101 @@ struct GeneralSettings: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 360)
             }
+
+            perDomainRules
         }
+    }
+
+    /// The per-domain map §9.6 asked for. It beats the global setting above,
+    /// including a per-domain "Default", which is how you carve out the one site
+    /// a global spoof breaks — Google Meet under the Firefox UA being the
+    /// standing example.
+    @ViewBuilder
+    private var perDomainRules: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Per-Site Rules")
+                .font(.system(size: 12, weight: .semibold))
+                .padding(.top, 6)
+            Text(
+                "A rule covers the domain and its subdomains, and beats the setting "
+                    + "above. Set a site to “Default” to keep your own User-Agent there "
+                    + "while everywhere else is overridden."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            if !store.userAgentOverrides.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(store.userAgentOverrides) { override in
+                        HStack(spacing: 8) {
+                            Text(override.domain)
+                                .font(.system(size: 12, weight: .medium))
+                            Spacer()
+                            Picker("", selection: presetBinding(for: override)) {
+                                ForEach(UserAgentPreference.presets, id: \.self) { preset in
+                                    Text(preset.displayName).tag(preset.displayName)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 190)
+
+                            Button {
+                                store.removeUserAgentOverride(domain: override.domain)
+                            } label: {
+                                Image(systemName: "trash").foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Remove this rule")
+                        }
+                        .padding(.vertical, 5)
+                        if override.id != store.userAgentOverrides.last?.id { Divider() }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                .frame(maxWidth: 460)
+            }
+
+            HStack(spacing: 8) {
+                TextField("example.com", text: $newOverrideDomain)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 180)
+                    .onSubmit(addOverride)
+                Picker("", selection: $newOverridePreset) {
+                    ForEach(UserAgentPreference.presets, id: \.self) { preset in
+                        Text(preset.displayName).tag(preset)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 190)
+                Button("Add", action: addOverride)
+                    .disabled(newOverrideDomain.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+
+            if overrideError {
+                Text("That does not look like a domain — try example.com.")
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func presetBinding(for override: UserAgentOverride) -> Binding<String> {
+        Binding(
+            get: { override.preference.displayName },
+            set: { name in
+                guard let preset = UserAgentPreference.presets.first(where: {
+                    $0.displayName == name
+                }) else { return }
+                store.setUserAgentOverride(domain: override.domain, preference: preset)
+            }
+        )
+    }
+
+    private func addOverride() {
+        overrideError = !store.setUserAgentOverride(
+            domain: newOverrideDomain, preference: newOverridePreset
+        )
+        if !overrideError { newOverrideDomain = "" }
     }
 
     /// Binds the picker to a string tag so the presets and "Custom" coexist,

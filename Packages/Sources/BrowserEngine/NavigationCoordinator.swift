@@ -64,6 +64,42 @@ extension NavigationCoordinator: WKNavigationDelegate {
         }
     }
 
+    /// Stamps the right User-Agent on a main-frame navigation before it goes out
+    /// (§9.6), then allows it.
+    ///
+    /// **Why a cancel-and-reload rather than just setting the property.**
+    /// `customUserAgent` is read when the request is built, so a change made
+    /// here arrives too late for *this* request — the page would load under the
+    /// previous site's UA and only correct itself on the next navigation, which
+    /// is exactly the confusing half-fix this feature exists to avoid. So when
+    /// the UA actually changes, the navigation is cancelled and re-issued.
+    ///
+    /// Two guards keep that from being destructive:
+    /// - it only re-issues **GET** requests in the **main frame**. Re-loading a
+    ///   POST would silently drop the body — a re-submitted form, a lost
+    ///   comment — and no UA is worth that, so a non-GET keeps the new UA for
+    ///   next time and proceeds.
+    /// - `applyUserAgent` returns false when nothing changed, so the re-issued
+    ///   request matches on the second pass and is allowed. There is no state to
+    ///   get wrong and no way to loop.
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction
+    ) async -> WKNavigationActionPolicy {
+        guard navigationAction.targetFrame?.isMainFrame == true,
+            let engine,
+            engine.applyUserAgent(to: webView, for: navigationAction.request.url)
+        else { return .allow }
+
+        guard navigationAction.request.httpMethod == "GET",
+            navigationAction.request.httpBody == nil
+        else { return .allow }
+
+        let request = navigationAction.request
+        webView.load(request)
+        return .cancel
+    }
+
     /// Turns a response the web view cannot display into a download.
     ///
     /// Without this, clicking a `.zip` or `.dmg` link does nothing at all —
