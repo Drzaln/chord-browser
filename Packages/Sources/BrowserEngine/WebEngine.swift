@@ -194,6 +194,15 @@ public protocol WebEngine: AnyObject {
     /// live. See `UserAgentRules`.
     func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride])
 
+    /// Marks a pane as a **preview** surface — the ⌘-hover Peek panel.
+    ///
+    /// A preview is opened by a hover, not a click, so it must never do anything
+    /// a hover cannot consent to: a response it cannot display is cancelled
+    /// rather than turned into a download. Verified live before this existed —
+    /// ⌘-hovering a link to a binary wrote the file to disk, three hovers, three
+    /// files, no click involved.
+    func setPreviewOnly(_ isPreviewOnly: Bool, paneID: UUID)
+
     /// Fills a credential into the fields the page reported (V4 of the password
     /// vault).
     ///

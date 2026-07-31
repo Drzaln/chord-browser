@@ -188,4 +188,62 @@ struct DownloadsE2ETests {
 
         store.stopSweep()
     }
+
+    /// The ⌘-hover Peek preview must never write a file.
+    ///
+    /// Found live before this test existed: hovering a link to a binary
+    /// downloaded it — three hovers, three files in the container's Downloads
+    /// folder, no click anywhere. A hover cannot consent to a download.
+    @Test("A preview pane cancels a download instead of writing it")
+    func previewPaneNeverDownloads() async throws {
+        let harness = try await E2EHarness.make(routes: [
+            .page(path: "/", title: "Home"),
+            TestHTTPServer.attachment(path: "/peek.bin", filename: "peek.bin", body: "payload"),
+        ])
+        defer { Task { await harness.tearDown() } }
+
+        let store = harness.store
+        await store.restore()
+
+        // Exactly what PeekController does: a pane in no tab, marked preview,
+        // pointed at the link under the pointer.
+        let pane = store.makeLittleArcPane(url: await harness.server.url("/peek.bin"))
+        _ = store.peekSurface(for: pane)
+
+        // Long enough that a 7-byte file would have finished several times over.
+        let downloaded = await harness.wait(timeout: .seconds(6)) {
+            !harness.downloads.downloads.isEmpty
+        }
+        #expect(downloaded == false, "a hover must not start a download")
+        #expect(
+            (try? FileManager.default.contentsOfDirectory(
+                atPath: harness.downloadsDirectory.path
+            ).isEmpty) ?? true,
+            "and must not write a file"
+        )
+
+        store.discardLittleArc(pane)
+        store.stopSweep()
+    }
+
+    @Test("A normal pane still downloads — the guard is not a blanket ban")
+    func normalPaneStillDownloads() async throws {
+        let harness = try await E2EHarness.make(routes: [
+            .page(path: "/", title: "Home"),
+            TestHTTPServer.attachment(path: "/keep.bin", filename: "keep.bin", body: "payload"),
+        ])
+        defer { Task { await harness.tearDown() } }
+
+        let store = harness.store
+        await store.restore()
+        #expect(await harness.openAndLoad(await harness.server.url("/")))
+        store.navigate(to: await harness.server.url("/keep.bin"))
+
+        let finished = await harness.wait(timeout: .seconds(15)) {
+            harness.downloads.downloads.contains { $0.state == .finished }
+        }
+        #expect(finished, "the preview guard must not have disabled downloads at large")
+
+        store.stopSweep()
+    }
 }

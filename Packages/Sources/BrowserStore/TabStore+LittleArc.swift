@@ -52,7 +52,19 @@ extension TabStore {
 
     /// Esc, or the panel closing. Tears the web view down: nothing else refers
     /// to this pane, so without it the view would leak for the app's lifetime.
+    /// The surface for a ⌘-hover Peek preview.
+    ///
+    /// Identical to `littleArcSurface` but for one thing: the pane is marked
+    /// preview-only first, so a response WebKit cannot render is cancelled
+    /// instead of downloaded. A Little Arc panel keeps the ordinary behaviour —
+    /// you *clicked* a link to get there, and can click one inside it.
+    public func peekSurface(for pane: Pane) -> AnyWebSurface? {
+        engine.setPreviewOnly(true, paneID: pane.id)
+        return littleArcSurface(for: pane)
+    }
+
     public func discardLittleArc(_ pane: Pane) {
+        engine.setPreviewOnly(false, paneID: pane.id)
         engine.evict(paneID: pane.id)
         runtimes[pane.id] = nil
         forgetStateResolution(forPanes: [pane.id])

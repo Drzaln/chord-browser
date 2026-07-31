@@ -1072,3 +1072,22 @@ tabs, 40 panes**, spanning both pinned tiers and a 4-pane split, driven with
   and content-blocking soaks. The target is a no-animation baseline; this
   fixture has live pages in it.
 - Samples: `/tmp/soak-022741.tsv`.
+
+## Peek (⌘-hover preview) — 2026-08-01
+
+Driving this needs `CGEvent` mouse moves with `.maskCommand` set: a `cliclick`
+move does **not** carry the modifier, the page sees `metaKey == false`, and Peek
+never fires. The scratchpad script `cmdhover.swift` does it.
+
+- [x] Rest on a link with ⌘ held → the preview opens after ~250 ms
+- [x] Sweep across several links with ⌘ held without resting → **nothing opens**
+- [x] Rest on a link to a non-renderable file (`application/octet-stream`) → the
+      preview opens blank, **no file is written and no download entry appears**.
+      Check `~/Library/Containers/com.rizal.browser/Data/Downloads/`, not just
+      `~/Downloads` — see the note below
+- [ ] The same link, clicked normally in a tab, still downloads (covered by an
+      e2e test; not re-driven by hand)
+
+**Known, unfixed:** downloads land in the sandbox container's Downloads folder,
+not the real `~/Downloads`, so Finder shows nothing. The popover also reports
+"Zero kB" for a file that is not.

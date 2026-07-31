@@ -38,6 +38,18 @@ enum PeekLinkMonitor {
         if (!handler) { return; }
 
         var lastHref = null;
+        // A hover is the weakest signal of intent there is, and each preview
+        // builds a real web view and fetches the page. Without a settle the
+        // pointer merely *crossing* a list of links with Cmd down opens one per
+        // link. 250ms is long enough that only a deliberate rest triggers it,
+        // short enough that a deliberate rest does not feel stalled.
+        var DWELL_MS = 250;
+        var pending = null;
+        var pendingHref = null;
+
+        function cancelPending() {
+            if (pending !== null) { clearTimeout(pending); pending = null; pendingHref = null; }
+        }
 
         function anchor(node) {
             while (node && node.tagName !== 'A') { node = node.parentElement; }
@@ -45,6 +57,7 @@ enum PeekLinkMonitor {
         }
 
         function hide() {
+            cancelPending();
             if (lastHref !== null) { lastHref = null; handler.postMessage(''); }
         }
 
@@ -52,10 +65,19 @@ enum PeekLinkMonitor {
             if (!event.metaKey) { hide(); return; }
             var link = anchor(event.target);
             if (link && link.href) {
-                if (link.href !== lastHref) {
-                    lastHref = link.href;
-                    handler.postMessage(link.href);
-                }
+                // Already showing this one: nothing to do, and do not restart
+                // the clock — a twitch inside the link must not re-open it.
+                if (link.href === lastHref) { return; }
+                if (link.href === pendingHref) { return; }
+                cancelPending();
+                pendingHref = link.href;
+                pending = setTimeout(function () {
+                    pending = null;
+                    var href = pendingHref;
+                    pendingHref = null;
+                    lastHref = href;
+                    handler.postMessage(href);
+                }, DWELL_MS);
             } else {
                 hide();
             }

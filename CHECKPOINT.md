@@ -20,7 +20,7 @@ only the current position within it.
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** (neither needs a migration). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **554 passing** (`swift test`, 82 suites), measured 2026-08-01                                                                                                                                   |
+| **Tests**                        | **556 passing** (`swift test`, 82 suites), measured 2026-08-01                                                                                                                                   |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -236,7 +236,7 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **554 tests**, `./scripts/prepush.sh` green, **schema v13**.
+State: single `main`, **556 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
 ## Where the work is
 
@@ -2238,6 +2238,53 @@ mid-session before the menu could be right-clicked on screen. Owed: right-click 
 link and confirm the three items appear in order, that New Tab opens in the
 background in the same window, and that New Private Window opens the *link*
 rather than the new-tab page.
+
+### Peek: a hover was downloading files, and firing on links you passed over (2026-08-01)
+
+Two fixes to the ⌘-hover preview, both from a probe rather than a hunch: a local
+page with a link to a 4 KB `application/octet-stream` file, a logging server, and
+`CGEvent` mouse moves that actually carry the Command flag (a plain `cliclick`
+move does not, so the page sees `metaKey == false` and Peek never fires — that
+cost the first attempt).
+
+**1. A ⌘-hover downloaded the file.** No click anywhere. Three hovers produced
+three files — `peek-probe.bin`, `-1`, `-2` — and three entries in the Downloads
+popover. The peek pane is an ordinary pane, so its navigation hit the response
+policy, which turns anything WebKit cannot render into a `WKDownload`.
+
+Fixed with a pane-level flag: `WebEngine.setPreviewOnly(_:paneID:)`, set by a new
+`TabStore.peekSurface(for:)` and cleared in `discardLittleArc`. The response
+policy cancels instead of downloading for those panes. **Little Arc keeps the
+ordinary behaviour** — you clicked a link to get there, and can click one inside
+it; a hover cannot consent to anything.
+
+The fetch itself still happens, and cannot not happen: WebKit has to make the
+request to learn the MIME type. So a peek is a real visit — worth remembering
+next to "glance".
+
+**2. No dwell delay.** `PeekLinkMonitor` posted on the *first* `mousemove` over a
+link with ⌘ down, so sweeping across a list of links opened a preview per link,
+each a real web view and a real page load. Now a 250 ms settle, cancelled if the
+pointer moves on, and a twitch inside the link being previewed does not restart
+it.
+
+**Verified live after the fix**: the hover still previews on a deliberate rest;
+the binary link fetches but writes nothing and creates no download entry; three
+fast sweeps across both links open nothing at all.
+
+2 e2e tests (556 total, prepush green) — the preview pane cancels, and a *normal*
+pane still downloads, so the guard cannot quietly become a blanket ban. The first
+was verified red against the original bug.
+
+**Found while probing, NOT fixed, needs a decision:** downloads land in
+`~/Library/Containers/com.rizal.browser/Data/Downloads/`, not the user's real
+`~/Downloads` — `DownloadCoordinator`'s default is
+`FileManager.urls(for: .downloadsDirectory…)`, which the sandbox redirects into
+the container even with `files.downloads.read-write` granted. M4's live check
+recorded the opposite; either it checked the container path too, or something
+changed. Either way a downloaded file is currently invisible in Finder's
+Downloads. Related: the popover says "Completed — **Zero kB**" for a file that is
+4 KB on disk.
 
 ### 30-minute soak re-run — the §6.1 gate means something again (2026-08-01)
 

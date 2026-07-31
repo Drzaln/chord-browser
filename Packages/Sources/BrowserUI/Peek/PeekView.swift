@@ -13,7 +13,7 @@ struct PeekView: View {
         VStack(spacing: 0) {
             ZStack {
                 Color(nsColor: .textBackgroundColor)
-                if let surface = store.littleArcSurface(for: pane) {
+                if let surface = store.peekSurface(for: pane) {
                     surface.id(pane.id)
                 }
             }

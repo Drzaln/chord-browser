@@ -109,8 +109,18 @@ extension NavigationCoordinator: WKNavigationDelegate {
         decidePolicyFor navigationResponse: WKNavigationResponse
     ) async -> WKNavigationResponsePolicy {
         // `canShowMIMEType` is false for anything WebKit has no renderer for,
-        // which is exactly the set that should download instead.
-        navigationResponse.canShowMIMEType ? .allow : .download
+        // which is exactly the set that should download instead — unless the
+        // pane is a Peek preview, which was opened by a *hover*. Downloading
+        // there writes a file the user never asked for; cancelling just leaves
+        // the preview blank, which is the honest outcome for something that
+        // cannot be previewed.
+        guard navigationResponse.canShowMIMEType else {
+            if let paneID = paneID(for: webView), engine?.isPreviewOnly(paneID: paneID) == true {
+                return .cancel
+            }
+            return .download
+        }
+        return .allow
     }
 
     /// After returning `.download` from the response policy above. Setting the
