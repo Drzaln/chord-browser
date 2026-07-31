@@ -15,7 +15,16 @@ extension TabStore {
     func handleSubmittedLogin(
         origin: String, username: String, password: String, paneID: UUID
     ) async {
-        guard let vault, !password.isEmpty else { return }
+        // A multi-step login submits the username on one page and the password
+        // on the next (Google, Mixpanel). Remember the first half so the second
+        // half is not saved with a blank username — which is what V5 did, and
+        // what made Google the worst-served site in the corpus.
+        if !username.isEmpty {
+            lastSubmittedUsernames[origin] = username
+        }
+        guard !password.isEmpty else { return }
+        let username = username.isEmpty ? (lastSubmittedUsernames[origin] ?? "") : username
+        guard let vault else { return }
         guard (try? await vault.isNeverSave(origin: origin)) != true else { return }
 
         let existing = (try? await vault.credentials(forOrigin: origin, spaceID: nil)) ?? []
@@ -71,6 +80,48 @@ extension TabStore {
                 spaceID: spaceID
             )
         }
+    }
+
+    // MARK: - Management (V6)
+
+    /// Every saved credential, for the Settings list.
+    public func allCredentials() async -> [Credential] {
+        (try? await vault?.all()) ?? []
+    }
+
+    /// Origins the user told never to offer again, for the Settings list.
+    public func neverSaveOrigins() async -> [String] {
+        (try? await vault?.neverSaveOrigins()) ?? []
+    }
+
+    /// Lets a silenced site offer to save again.
+    public func clearNeverSave(origin: String) async {
+        try? await vault?.clearNeverSave(origin: origin)
+    }
+
+    /// Deletes a credential — both halves, metadata and secret.
+    public func deleteCredential(_ id: UUID) async {
+        try? await vault?.delete(id: id)
+    }
+
+    /// Reveals a stored password, **behind an authentication prompt**.
+    ///
+    /// Gated because this is the one place a password is shown as text on
+    /// screen; everywhere else it only ever travels into a page's field. Returns
+    /// nil when authentication is refused or unavailable, and the caller shows
+    /// nothing rather than explaining what it would have shown.
+    ///
+    /// Reading here deliberately does **not** count as a use: revealing a
+    /// password to look at it is not signing in with it, and letting it reorder
+    /// the picker would make the ordering meaningless.
+    public func revealCredential(_ id: UUID) async -> String? {
+        guard let vault, let authenticator else { return nil }
+        do {
+            try await authenticator.authenticate(reason: "reveal a saved password")
+        } catch {
+            return nil
+        }
+        return try? vault.storedSecret(for: id)
     }
 
     /// Credentials offerable on the page a pane is showing, best first (V4).

@@ -28,6 +28,11 @@ public final class PaneRuntime {
     /// "no login here" — the fill affordance must not appear on either, but only
     /// the second is an answer.
     public var loginForm: LoginFormAnalysis?
+    /// Saved credentials that could fill this page (V6), recomputed by the store
+    /// whenever the page's login report or URL changes. Observable, so the fill
+    /// button is a pure function of state rather than a view-side async lookup
+    /// racing the page load.
+    public var fillableCredentials: [Credential] = []
 
     init(paneID: UUID) {
         self.paneID = paneID
@@ -43,5 +48,7 @@ public final class PaneRuntime {
         isMuted = snapshot.isMuted
         isScreenSharing = snapshot.isScreenSharing
         loginForm = snapshot.loginForm
+        // Not cleared here: the store recomputes it, and blanking it on every
+        // progress tick would make the button flicker while a page loads.
     }
 }

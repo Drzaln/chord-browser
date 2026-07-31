@@ -50,18 +50,22 @@ enum PasswordFormMonitor {
     /// Parses a reported payload into descriptors for the classifier. Returns nil
     /// for a malformed message rather than guessing — a garbled descriptor is a
     /// wrong fill target.
-    /// A submitted login, if that is what this message is (V5). Nil for a plain
-    /// field report, and for a submission with an empty password — there is
-    /// nothing to save, and offering would be noise.
+    /// A submitted login, if that is what this message is (V5).
+    ///
+    /// **A username with no password is still reported** (V6). Multi-step logins
+    /// — Google's, most notably — put the username on one page and the password
+    /// on the next, so the password-step submission carries no username at all.
+    /// The store remembers the username from the earlier step and pairs them;
+    /// without this, Google would save a credential with a blank username.
     static func submission(from body: Any) -> SubmittedLogin? {
         guard let payload = body as? [String: Any],
-            payload["op"] as? String == "submit",
-            let password = payload["password"] as? String,
-            !password.isEmpty
+            payload["op"] as? String == "submit"
         else { return nil }
-        return SubmittedLogin(
-            username: payload["username"] as? String ?? "", password: password
-        )
+        let username = payload["username"] as? String ?? ""
+        let password = payload["password"] as? String ?? ""
+        // Nothing at all is not a submission worth reporting.
+        guard !username.isEmpty || !password.isEmpty else { return nil }
+        return SubmittedLogin(username: username, password: password)
     }
 
     static func fields(from body: Any) -> [LoginFieldDescriptor]? {
@@ -205,7 +209,9 @@ enum PasswordFormMonitor {
                     username = el.value;
                 }
             }
-            return password ? { username: username || '', password: password } : null;
+            // A username-only step counts: see `submission(from:)`.
+            if (!password && !username) { return null; }
+            return { username: username || '', password: password || '' };
         }
 
         function reportSubmission() {

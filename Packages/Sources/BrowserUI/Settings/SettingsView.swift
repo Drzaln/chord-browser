@@ -17,6 +17,7 @@ public struct SettingsView: View {
 
     private enum Section: String, CaseIterable, Identifiable {
         case general = "General"
+        case passwords = "Passwords"
         case privacy = "Privacy & Data"
         case extensions = "Extensions"
         var id: String { rawValue }
@@ -57,6 +58,9 @@ public struct SettingsView: View {
                 switch section {
                 case .general:
                     GeneralSettings(store: store, windowState: windowState)
+                        .padding(20)
+                case .passwords:
+                    PasswordsSettings(store: store)
                         .padding(20)
                 case .privacy:
                     PrivacyDataSettings(store: store)

@@ -1,6 +1,7 @@
 import BrowserCore
 import BrowserEngine
 import BrowserExtensions
+import BrowserSecrets
 import Foundation
 import Observation
 import os
@@ -218,6 +219,11 @@ public final class TabStore {
     /// `CredentialOrigin.Policy`). Set alongside `vault`.
     @ObservationIgnored public var loginOriginPolicy: CredentialOrigin.Policy = .strict
 
+    /// Authenticates the user before a stored password is shown as text (V6).
+    /// Injected so tests do not need a fingerprint; `nil` means reveal is simply
+    /// unavailable, which is the safe way to be missing.
+    @ObservationIgnored public var authenticator: (any VaultAuthenticator)?
+
     /// An offer to save a submitted login, awaiting an answer (V5). Observed by
     /// the save bar.
     public internal(set) var pendingCredentialSave: CredentialSavePrompt?
@@ -229,6 +235,24 @@ public final class TabStore {
     @ObservationIgnored var pendingCredentialSecrets: [UUID: String] = [:]
     /// Which Space each pending offer was captured in.
     @ObservationIgnored var pendingCredentialSpaces: [UUID: UUID?] = [:]
+
+    /// Recomputes which saved credentials could fill the page a pane is showing,
+    /// and publishes the answer on its runtime.
+    func refreshFillableCredentials(for paneID: UUID) {
+        guard vault != nil else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            let spaceID = self.spaceID(forPane: paneID)
+            let matches = await self.credentials(forPane: paneID, inSpace: spaceID)
+            self.runtime(for: paneID).fillableCredentials = matches
+        }
+    }
+
+    /// The last username submitted per origin, for pairing the two halves of a
+    /// multi-step login (V6). In memory only and never persisted: it is a
+    /// half-finished sign-in, not user data, and it should not outlive the
+    /// session that was typing it.
+    @ObservationIgnored var lastSubmittedUsernames: [String: String] = [:]
 
     /// Bumped whenever an extension updates its toolbar action (M7, 7.5a).
     /// `AppEnvironment` wires the host's `onActionsChanged` to increment this, so
@@ -981,7 +1005,19 @@ extension TabStore: WebEngineDelegate {
     public func paneDidUpdate(_ paneID: UUID, snapshot: PaneSnapshot) {
         // Volatile state goes to the runtime object only, so a progress tick
         // never invalidates the sidebar.
+        let previous = runtime(for: paneID).loginForm
+        let previousURL = runtime(for: paneID).currentURL
         runtime(for: paneID).apply(snapshot)
+
+        // Which saved credentials this page could fill (V6). Computed *here*,
+        // when the page reports, rather than in the view: a view-side async
+        // lookup races the page load — the report and the URL arrive as separate
+        // snapshots, and a task keyed on both can settle before either is final,
+        // leaving the fill button hidden on a page that has a saved password.
+        // Making it observable state the store owns removes the race entirely.
+        if snapshot.loginForm != previous || snapshot.url != previousURL {
+            refreshFillableCredentials(for: paneID)
+        }
 
         // Durable state goes to the model, and only when it actually changed —
         // an unconditional write here would redraw the tab list on every tick.

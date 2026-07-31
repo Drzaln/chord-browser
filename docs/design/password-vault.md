@@ -137,6 +137,24 @@ data" paths cannot accidentally take the vault with them.
   If a paid account ever appears, moving to access-control items is a migration
   (re-write every item with the flag), not a redesign — worth leaving a note in
   the storage layer to that effect.
+- **Ad-hoc signing costs a Keychain prompt after every rebuild (found 2026-07-31,
+  live).** A saved password read back by a *rebuilt* app raises the system
+  "Chord wants to use your confidential information stored in
+  com.rizal.browser.vault" dialog, asking for the login-keychain password. The
+  item's ACL trusts the code identity that created it, and an ad-hoc signature
+  changes on every build. The V1 probe missed this: it tested one rebuild and got
+  away with it.
+
+  This does **not** affect an installed, stable build — only a machine that keeps
+  rebuilding, i.e. this one. Three ways out, in order of preference:
+  1. **Sign with a stable self-signed certificate** rather than ad-hoc. Free, no
+     Apple account needed, and it gives the app one identity across rebuilds so
+     the ACL keeps matching. This is the real fix.
+  2. Click **Always Allow** once per build. Tolerable, forgettable, and it trains
+     the reflex of approving keychain dialogs — which is a bad reflex.
+  3. Create items with an ACL that trusts any application. **Rejected**: it would
+     let any process on the machine read the vault without a prompt, which is
+     precisely the protection being given up.
 - Auto-lock needs a **timeout preference** (default: 15 minutes idle) and must
   also trip on `NSWorkspace.willSleepNotification` and screen lock.
 - Consequence to state out loud even with the gate: while unlocked, a filled

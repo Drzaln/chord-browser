@@ -53,6 +53,10 @@ struct NavigationBar: View {
 
                 DownloadsButton(downloads: downloads)
 
+                // Only rendered when this page has a login and something is
+                // saved for it (V6 of the password vault).
+                CredentialFillButton(store: store, windowState: windowState)
+
                 addressField
             }
 

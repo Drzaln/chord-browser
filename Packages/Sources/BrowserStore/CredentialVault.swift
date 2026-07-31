@@ -85,7 +85,7 @@ public struct CredentialVault: Sendable {
     /// Separate from `secret(for:usedIn:)` because capture compares the stored
     /// password against what was just typed, and that comparison is not a use —
     /// counting it would reorder the picker every time you sign in manually.
-    func storedSecret(for id: UUID) throws -> String? {
+    public func storedSecret(for id: UUID) throws -> String? {
         try secrets.secret(for: id)
     }
 
@@ -97,6 +97,16 @@ public struct CredentialVault: Sendable {
     /// Silences saving for an origin (V5).
     func setNeverSave(origin: String) async throws {
         try await repository.setNeverSave(origin: origin)
+    }
+
+    /// Silenced origins, for the Settings list (V6).
+    public func neverSaveOrigins() async throws -> [String] {
+        try await repository.neverSaveOrigins()
+    }
+
+    /// Un-silences an origin (V6).
+    public func clearNeverSave(origin: String) async throws {
+        try await repository.clearNeverSave(origin: origin)
     }
 
     /// Every saved credential, for the Settings list.

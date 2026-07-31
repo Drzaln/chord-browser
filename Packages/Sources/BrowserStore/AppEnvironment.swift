@@ -143,6 +143,12 @@ public struct AppEnvironment {
             repository: SQLiteCredentialRepository(database: database),
             secrets: KeychainSecretStore()
         )
+        // Reveal in Settings is gated on Touch ID (falling back to the device
+        // passcode). App-level, not Keychain-enforced — the OS-enforced form
+        // needs an entitlement this signing setup cannot have; see
+        // `KeychainSecretStore`.
+        store.authenticator = BiometricAuthenticator()
+
         // Drops any Keychain item whose credential row has gone — an
         // unreferenced secret is a password the user cannot see in Settings and
         // therefore cannot delete.

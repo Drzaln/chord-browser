@@ -17,7 +17,7 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — V1–V5 done, V6 next, stop for review.** The vault is now **wired into `AppEnvironment`** and the save bar is live, but **there is still no way to fill from the UI** — V6 (Settings management) should carry the click-to-fill affordance with it. **Save bar is not yet verified live** (needs a real HTTPS sign-in). Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Password vault — V1–V6 done, V7 (lock UI + auto-lock) next, stop for review.** Save bar and fill button both **verified live**. One open platform issue: an ad-hoc-signed rebuild triggers a login-keychain prompt when reading a saved password — fix is a stable self-signed certificate (see the design doc). Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
 | **Tests**                        | **503 passing** (`swift test`, 78 suites), measured 2026-07-31                                                                                                                                   |
@@ -2142,6 +2142,50 @@ follows the commits.
   would present as a crash at first web view, and no test covers it, because
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
+
+### Password vault V6 — fill affordance, multi-step logins, and management (2026-07-31)
+
+Three things, and the vault is now usable end to end in the real browser.
+
+**The fill button** (`CredentialFillButton`, in the navigation bar) appears only
+when the page shows a login *and* something is saved for that exact origin. One
+account fills on click; several offer a menu first. Clicking it **is** the user
+gesture threat-model rule 4 requires — there is still no automatic path to
+`fillCredential` anywhere in the app.
+
+**Multi-step logins now save a username** (the Google case V5 got wrong). The
+collector reports a username-only submission too, and the store remembers the
+last username per origin so the password step pairs with it. Kept in memory only:
+a half-finished sign-in is not user data. A remembered username never crosses to
+another origin, which has its own test.
+
+**Settings → Passwords** lists every saved credential with its host, username, and
+last use; **Reveal** is gated behind Touch ID (`VaultAuthenticator`), delete
+removes both halves behind a confirmation, and silenced sites can be un-silenced.
+Revealing deliberately does *not* count as a use — looking at a password is not
+signing in with it, and counting it would make the picker's ordering meaningless.
+
+**A live bug the tests could not have caught.** The fill button did not appear on
+a real page, though its two conditions were both true — proved by temporarily
+rendering the state on screen, since `os.Logger` is unreadable here. Cause: the
+view computed its matches in a `.task(id:)`, and the page's URL and login report
+arrive as **separate snapshots**, so the keyed task could settle before either was
+final and leave the button hidden on a page that had a saved password. The fix
+moves the computation into `TabStore.refreshFillableCredentials`, published on
+`PaneRuntime` — the button is now a pure function of observable state with no
+async race. **Verified live** afterwards: key appears, click fills.
+
+**Ad-hoc signing costs a Keychain prompt after a rebuild (new finding).** Reading
+a password saved by an *earlier build* raises the system "Chord wants to use your
+confidential information…" dialog asking for the login-keychain password, because
+the item's ACL trusts the creating code identity and an ad-hoc signature changes
+every build. **The V1 probe missed this** — it tested exactly one rebuild and got
+away with it. It does not affect a stable installed build. The right fix is a
+**stable self-signed certificate** (free, no Apple account); "Always Allow" per
+build works but trains a bad reflex, and an allow-any-app ACL is refused outright.
+
+9 unit tests (512 total, prepush green), with the carry-over and the auth gate
+both verified failing when removed.
 
 ### Password vault V5 — capture, the save bar, and the app wiring (2026-07-31)
 
