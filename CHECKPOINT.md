@@ -17,11 +17,11 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — V1–V4 done, V5 next, stop for review.** V5 is capture + the save bar, and it is the first phase with UI. **The vault is still not wired into `AppEnvironment`** — the mechanism is proven end-to-end but invisible in the app until V5–V6. Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Password vault — V1–V5 done, V6 next, stop for review.** The vault is now **wired into `AppEnvironment`** and the save bar is live, but **there is still no way to fill from the UI** — V6 (Settings management) should carry the click-to-fill affordance with it. **Save bar is not yet verified live** (needs a real HTTPS sign-in). Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **498 passing** (`swift test`, 77 suites), measured 2026-07-31                                                                                                                                   |
-| **Schema**                       | **v12** — `v1_initial` … `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`                                                                          |
+| **Tests**                        | **503 passing** (`swift test`, 78 suites), measured 2026-07-31                                                                                                                                   |
+| **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
 After the two fixes below, **Enhancer for YouTube works** (content script) and
@@ -2142,6 +2142,54 @@ follows the commits.
   would present as a crash at first web view, and no test covers it, because
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
+
+### Password vault V5 — capture, the save bar, and the app wiring (2026-07-31)
+
+The first phase you can see. Signing in on a page offers to save the password;
+answering saves it; a relaunch offers it back. **`AppEnvironment.live()` now
+builds the vault** (`SQLiteCredentialRepository` + `KeychainSecretStore`,
+`.strict` origins) and reconciles orphan secrets at launch, so the subsystem is
+finally real rather than test-only.
+
+**Capture is page-side and fires on three cues**, because one is not enough:
+a real `submit`, a click on a plausible submit control, and Enter in a password
+field. Single-page apps often never submit a form — the button posts with
+`fetch()` and the fields vanish — and losing the credential on exactly the sites
+most likely to have one is not acceptable. Duplicates are expected and collapsed
+in the store.
+
+**Two suppressions decide whether the bar is tolerable**, and both are tested by
+deliberately removing them:
+
+- **Nothing is offered when the stored password is unchanged.** Asking every
+  single time you sign in to a site you already saved is the behaviour that makes
+  people switch a password manager off.
+- **"Never" is remembered** (`credentialNeverSave`, schema **v13**) and silences
+  the origin. A one-time "Not Now" does not — that distinction has its own test.
+
+An existing login with a *different* password offers **Update**, not Save, and
+updates in place rather than growing a second entry. The bar's wording differs
+too: overwriting a working password by accident is worse than declining to save a
+new one.
+
+**The password is deliberately kept out of `@Observable` state.**
+`CredentialSavePrompt` carries origin, host, username, and `isUpdate` only; the
+secret sits in a private side table on `TabStore` keyed by prompt id, and is
+dropped in *every* branch of the answer including the ones that do not save. A
+`print(store)` or a crash log therefore cannot contain it.
+
+`credentialNeverSave` is global rather than per-Space, unlike ADR 014's camera and
+microphone grants: "do not offer to save here" is a statement about the *site*,
+not about which identity you are using.
+
+5 e2e tests (503 total, schema v13, prepush green), including V5's literal
+done-when — sign in, offer, save, relaunch, offered back with the password intact.
+
+**Not verified live.** The e2e server is HTTP and the vault is HTTPS-only in the
+app, so the save bar has never been seen on screen. It needs a real sign-in on a
+real site to confirm it appears and reads well. Also still missing: **any way to
+fill from the UI** — V4's mechanism has no affordance, so a saved password cannot
+yet be used. V6 should carry that.
 
 ### Password vault V4 — filling (2026-07-31)
 

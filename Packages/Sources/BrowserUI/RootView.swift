@@ -142,6 +142,20 @@ public struct RootView: View {
                 .id(sharingPaneID)
             }
 
+            // The save bar sits with the screen-share banner rather than in the
+            // sidebar, so it survives the sidebar collapsing (and auto-hiding)
+            // beneath it — the same reason the sheets live here.
+            if let prompt = store.pendingCredentialSave {
+                CredentialSaveBar(prompt: prompt) { decision in
+                    Task { await store.resolveCredentialSave(decision) }
+                }
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(4)
+                .id(prompt.id)
+            }
+
             if !isHidden {
                 SidebarView(
                     store: store,

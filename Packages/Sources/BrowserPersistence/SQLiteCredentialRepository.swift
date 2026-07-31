@@ -125,6 +125,40 @@ public struct SQLiteCredentialRepository: CredentialRepository {
         }
     }
 
+    // MARK: - "Never save for this site" (V5)
+
+    public func setNeverSave(origin: String) async throws {
+        try await database.writer.write { db in
+            try db.execute(
+                sql: "INSERT OR REPLACE INTO credentialNeverSave (origin) VALUES (?)",
+                arguments: [origin]
+            )
+        }
+    }
+
+    public func isNeverSave(origin: String) async throws -> Bool {
+        try await database.writer.read { db in
+            try Int.fetchOne(
+                db, sql: "SELECT COUNT(*) FROM credentialNeverSave WHERE origin = ?",
+                arguments: [origin]
+            ) ?? 0 > 0
+        }
+    }
+
+    public func neverSaveOrigins() async throws -> [String] {
+        try await database.writer.read { db in
+            try String.fetchAll(db, sql: "SELECT origin FROM credentialNeverSave ORDER BY origin")
+        }
+    }
+
+    public func clearNeverSave(origin: String) async throws {
+        try await database.writer.write { db in
+            try db.execute(
+                sql: "DELETE FROM credentialNeverSave WHERE origin = ?", arguments: [origin]
+            )
+        }
+    }
+
     /// Picker order: the account last used *in this Space* first, then whatever
     /// was used most recently anywhere, then by username so the list never
     /// reshuffles between identical states.

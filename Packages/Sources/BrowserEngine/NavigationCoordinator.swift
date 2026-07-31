@@ -127,6 +127,22 @@ extension NavigationCoordinator: WKScriptMessageHandler {
             // Only the frontmost pane's hovers should drive the shared preview.
             engine?.delegate?.paneRequestedPeek(url: PeekLinkMonitor.linkURL(from: message.body))
         case PasswordFormMonitor.messageName:
+            // One handler, two shapes: a submission carries values, a report
+            // carries descriptors.
+            if let submitted = PasswordFormMonitor.submission(from: message.body) {
+                guard let url = webView.url,
+                    let origin = CredentialOrigin.canonical(
+                        for: url, policy: engine?.loginOriginPolicy ?? .strict
+                    )
+                else { return }
+                engine?.delegate?.paneDidSubmitLogin(
+                    origin: origin,
+                    username: submitted.username,
+                    password: submitted.password,
+                    fromPane: paneID
+                )
+                return
+            }
             guard let fields = PasswordFormMonitor.fields(from: message.body) else { return }
             engine?.setLoginForm(LoginFormClassifier.analyse(fields), for: paneID)
         case NotificationBridge.showMessageName:

@@ -41,4 +41,15 @@ public protocol CredentialRepository: Sendable {
     /// Every stored id, for reconciling against the Keychain: an id here with no
     /// secret, or a secret with no id here, is a bug worth finding.
     func storedIDs() async throws -> Set<UUID>
+
+    // MARK: - "Never save for this site" (V5)
+
+    /// Records that this origin must never be offered a save again.
+    func setNeverSave(origin: String) async throws
+    /// Whether saving has been declined permanently for an origin.
+    func isNeverSave(origin: String) async throws -> Bool
+    /// Every origin the user has silenced, for the Settings list.
+    func neverSaveOrigins() async throws -> [String]
+    /// Un-silences an origin, so it may offer to save again.
+    func clearNeverSave(origin: String) async throws
 }

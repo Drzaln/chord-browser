@@ -2,6 +2,7 @@ import BrowserCore
 import BrowserEngine
 import BrowserExtensions
 import BrowserPersistence
+import BrowserSecrets
 import Foundation
 
 /// Constructed once at launch and passed down. No singletons, no service
@@ -133,6 +134,20 @@ public struct AppEnvironment {
         // inject into the page that is already open.
         host.onHostAccessChanged = { [weak store] spaceID in
             store?.reloadTabs(inSpace: spaceID)
+        }
+
+        // The password vault (V5). Metadata in SQLite beside everything else,
+        // secrets in the Keychain — the split that keeps a password out of
+        // database backups and `.recover` dumps. `.strict` origins: HTTPS only.
+        store.vault = CredentialVault(
+            repository: SQLiteCredentialRepository(database: database),
+            secrets: KeychainSecretStore()
+        )
+        // Drops any Keychain item whose credential row has gone — an
+        // unreferenced secret is a password the user cannot see in Settings and
+        // therefore cannot delete.
+        Task { [vault = store.vault] in
+            _ = try? await vault?.reconcile()
         }
 
         // The library, the host, and the enablement store, coordinated (7.4).

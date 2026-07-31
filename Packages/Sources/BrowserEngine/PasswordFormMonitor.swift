@@ -29,6 +29,14 @@ import WebKit
 enum PasswordFormMonitor {
     static let messageName = "chordLoginForm"
 
+    /// What a submitted login carried (V5). The password crosses the bridge here
+    /// — that is unavoidable for capture, and it is the one message in the app
+    /// that must never be logged.
+    struct SubmittedLogin: Equatable, Sendable {
+        let username: String
+        let password: String
+    }
+
     @MainActor
     static func makeUserScript() -> WKUserScript {
         WKUserScript(
@@ -42,6 +50,20 @@ enum PasswordFormMonitor {
     /// Parses a reported payload into descriptors for the classifier. Returns nil
     /// for a malformed message rather than guessing — a garbled descriptor is a
     /// wrong fill target.
+    /// A submitted login, if that is what this message is (V5). Nil for a plain
+    /// field report, and for a submission with an empty password — there is
+    /// nothing to save, and offering would be noise.
+    static func submission(from body: Any) -> SubmittedLogin? {
+        guard let payload = body as? [String: Any],
+            payload["op"] as? String == "submit",
+            let password = payload["password"] as? String,
+            !password.isEmpty
+        else { return nil }
+        return SubmittedLogin(
+            username: payload["username"] as? String ?? "", password: password
+        )
+    }
+
     static func fields(from body: Any) -> [LoginFieldDescriptor]? {
         guard let payload = body as? [String: Any],
             let rawFields = payload["fields"] as? [[String: Any]]
@@ -158,6 +180,64 @@ enum PasswordFormMonitor {
             state.last = signature;
             handler.postMessage({ fields: fields });
         }
+
+        // --- Capture (V5) -------------------------------------------------
+        // What the user typed, read at the moment of submission. Kept out of the
+        // field reports above: those go out on every mutation, and a password
+        // has no business being in them.
+        function currentLogin() {
+            var fields = describe();
+            var username = null;
+            var password = null;
+            var elements = collectInputs(document, []);
+            var byHandle = {};
+            for (var i = 0; i < elements.length; i++) {
+                byHandle[elements[i].__chordFieldID] = elements[i];
+            }
+            for (var j = 0; j < fields.length; j++) {
+                var field = fields[j];
+                if (!field.visible) { continue; }
+                var el = byHandle[field.elementID];
+                if (!el) { continue; }
+                if (field.type === 'password' && password === null && el.value) {
+                    password = el.value;
+                } else if (field.type !== 'password' && username === null && el.value) {
+                    username = el.value;
+                }
+            }
+            return password ? { username: username || '', password: password } : null;
+        }
+
+        function reportSubmission() {
+            var login = currentLogin();
+            if (!login) { return; }
+            handler.postMessage({
+                op: 'submit', username: login.username, password: login.password
+            });
+        }
+
+        // A real form submit.
+        document.addEventListener('submit', reportSubmission, true);
+        // Single-page apps often never submit a form: the button posts with
+        // fetch() and the fields disappear. Losing the credential on exactly the
+        // sites most likely to have one is not acceptable, so a click on a
+        // plausible submit control reports too. Duplicates are harmless — the
+        // store collapses a repeat of the same (origin, username, password).
+        document.addEventListener('click', function (event) {
+            var target = event.target;
+            if (!target || !target.closest) { return; }
+            var button = target.closest('button, input[type=submit], [role=button]');
+            if (!button) { return; }
+            setTimeout(reportSubmission, 0);
+        }, true);
+        // Enter in a password field, for forms with no button at all.
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Enter') { return; }
+            var el = event.target;
+            if (el && el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'password') {
+                setTimeout(reportSubmission, 0);
+            }
+        }, true);
 
         var pending = null;
         function scheduleReport() {

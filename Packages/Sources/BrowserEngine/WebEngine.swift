@@ -73,6 +73,12 @@ public protocol WebEngineDelegate: AnyObject {
     /// A page called `new Notification(...)` — post it to Notification Center
     /// (non-spec: user-requested). Carries the pane so a click can focus its tab.
     func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID)
+    /// A login form was submitted, carrying what the user typed (V5 of the
+    /// password vault). The store decides whether that is worth offering to
+    /// save; **the engine never persists anything and never logs this.**
+    func paneDidSubmitLogin(
+        origin: String, username: String, password: String, fromPane paneID: UUID
+    )
     /// A page called `Notification.requestPermission()`. Return whether to grant:
     /// the store consults its remembered per-origin decision and, the first time
     /// for a site, prompts the user (normal browser behaviour), then requests OS
@@ -106,6 +112,9 @@ extension WebEngineDelegate {
         origin: String, paneID: UUID?
     ) async -> WebNotificationPermission { .notDetermined }
     public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> Bool { false }
+    public func paneDidSubmitLogin(
+        origin: String, username: String, password: String, fromPane paneID: UUID
+    ) {}
 }
 
 /// Why a fill did or did not happen. Distinguished because "we refused" and

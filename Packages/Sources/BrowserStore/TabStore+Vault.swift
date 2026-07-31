@@ -4,6 +4,75 @@ import Foundation
 
 extension TabStore {
 
+    // MARK: - Capture (V5)
+
+    /// A page submitted a login. Decide whether to offer to save it.
+    ///
+    /// Says nothing, on purpose, in three cases: the site is silenced
+    /// (`credentialNeverSave`), there is no vault, or the exact same password is
+    /// already stored for that login. The last one is what stops the bar
+    /// appearing every single time you sign in to a site you already saved.
+    func handleSubmittedLogin(
+        origin: String, username: String, password: String, paneID: UUID
+    ) async {
+        guard let vault, !password.isEmpty else { return }
+        guard (try? await vault.isNeverSave(origin: origin)) != true else { return }
+
+        let existing = (try? await vault.credentials(forOrigin: origin, spaceID: nil)) ?? []
+        let match = existing.first { $0.username == username }
+        if let match, (try? vault.storedSecret(for: match.id)) == password {
+            return  // already saved, unchanged: nothing to ask about
+        }
+
+        // Collapse a repeat of the same offer — the page-side capture fires on
+        // submit *and* on a plausible submit click, so one sign-in can report
+        // twice.
+        if let pending = pendingCredentialSave,
+            pending.origin == origin, pending.username == username,
+            pendingCredentialSecrets[pending.id] == password
+        {
+            return
+        }
+
+        let prompt = CredentialSavePrompt(
+            origin: origin,
+            host: URL(string: origin)?.host ?? origin,
+            username: username,
+            isUpdate: match != nil
+        )
+        pendingCredentialSecrets[prompt.id] = password
+        // The Space the login happened in, captured now: the user may switch
+        // Space before answering, and the "last used here" hint should record
+        // where they actually signed in.
+        pendingCredentialSpaces[prompt.id] = spaceID(forPane: paneID)
+        pendingCredentialSave = prompt
+    }
+
+    /// Answers the save bar.
+    ///
+    /// The secret is dropped from the side table in every branch, including the
+    /// ones that do not save — a declined password must not sit in memory
+    /// waiting for the next prompt.
+    public func resolveCredentialSave(_ decision: CredentialSaveDecision) async {
+        guard let prompt = pendingCredentialSave else { return }
+        let secret = pendingCredentialSecrets.removeValue(forKey: prompt.id)
+        let spaceID = pendingCredentialSpaces.removeValue(forKey: prompt.id) ?? nil
+        pendingCredentialSave = nil
+
+        switch decision {
+        case .dismiss:
+            return
+        case .never:
+            try? await vault?.setNeverSave(origin: prompt.origin)
+        case .save:
+            guard let secret, let vault else { return }
+            _ = try? await vault.save(
+                origin: prompt.origin, username: prompt.username, secret: secret,
+                spaceID: spaceID
+            )
+        }
+    }
+
     /// Credentials offerable on the page a pane is showing, best first (V4).
     ///
     /// Metadata only — no secret is read here. Listing what exists and handing

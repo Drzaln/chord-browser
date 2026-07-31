@@ -218,6 +218,18 @@ public final class TabStore {
     /// `CredentialOrigin.Policy`). Set alongside `vault`.
     @ObservationIgnored public var loginOriginPolicy: CredentialOrigin.Policy = .strict
 
+    /// An offer to save a submitted login, awaiting an answer (V5). Observed by
+    /// the save bar.
+    public internal(set) var pendingCredentialSave: CredentialSavePrompt?
+
+    /// The passwords behind the pending offers, kept **out** of the observable
+    /// model on purpose: `pendingCredentialSave` is bound into view bodies and
+    /// would otherwise carry a plaintext secret into every description of this
+    /// store. Cleared whenever a prompt is answered or dropped.
+    @ObservationIgnored var pendingCredentialSecrets: [UUID: String] = [:]
+    /// Which Space each pending offer was captured in.
+    @ObservationIgnored var pendingCredentialSpaces: [UUID: UUID?] = [:]
+
     /// Bumped whenever an extension updates its toolbar action (M7, 7.5a).
     /// `AppEnvironment` wires the host's `onActionsChanged` to increment this, so
     /// a SwiftUI view that reads it re-renders and re-queries
@@ -302,7 +314,7 @@ public final class TabStore {
     /// The Space a pane lives in, for scoping its decision. `nil` if the
     /// pane is not in any tab (it always is for a live `getUserMedia`, but the
     /// caller degrades to prompt-without-persist rather than crash).
-    private func spaceID(forPane paneID: UUID?) -> UUID? {
+    func spaceID(forPane paneID: UUID?) -> UUID? {
         guard let paneID else { return nil }
         return tabs.first { $0.panes.contains { $0.id == paneID } }?.spaceID
     }
@@ -1063,6 +1075,16 @@ extension TabStore: WebEngineDelegate {
 
     public func paneRequestedPeek(url: URL?) {
         peekPresenter?(url)
+    }
+
+    public func paneDidSubmitLogin(
+        origin: String, username: String, password: String, fromPane paneID: UUID
+    ) {
+        // Hop to a task: the decision needs the vault, which is async, and the
+        // engine delegate call is synchronous.
+        Task { await handleSubmittedLogin(
+            origin: origin, username: username, password: password, paneID: paneID
+        ) }
     }
 
     public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {

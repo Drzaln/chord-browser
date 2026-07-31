@@ -27,11 +27,12 @@ enum Migrations {
             "v11_site_permissions_per_space", migrate: v11SitePermissionsPerSpace
         )
         migrator.registerMigration("v12_credentials", migrate: v12Credentials)
+        migrator.registerMigration("v13_credential_never_save", migrate: v13CredentialNeverSave)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 12
+    static let currentVersion = 13
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -235,6 +236,19 @@ enum Migrations {
         }
         // The lookup on every page load with a login form: by origin.
         try db.create(index: "credential_origin", on: "credential", columns: ["origin"])
+    }
+
+    /// "Never save passwords for this site" (V5 of the vault).
+    ///
+    /// Its own table rather than a column on `credential`, because the decision
+    /// exists precisely when there is **no** credential to hang it on. Global,
+    /// not per-Space: "do not offer to save here" is a statement about the site,
+    /// not about which identity you are using — unlike the camera and microphone
+    /// grants of ADR 014, which are about what a site may *do* to you.
+    private static func v13CredentialNeverSave(_ db: Database) throws {
+        try db.create(table: "credentialNeverSave") { t in
+            t.primaryKey("origin", .text)
+        }
     }
 
     private static func v5GrantedPermissions(_ db: Database) throws {
