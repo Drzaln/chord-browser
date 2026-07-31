@@ -12,8 +12,10 @@ The name plays on the geometry in the icon: a straight **chord** cutting across 
 circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.md).
 
 > **Status:** all spec milestones (M1–M7) plus native content blocking are
-> shipped on `main` and verified live. 319 tests pass; `./scripts/prepush.sh` is
-> green. See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
+> shipped on `main` and verified live, along with a run of post-spec additions
+> (multiple windows, folders, per-site permissions, notifications, YouTube ad
+> skipping). 423 tests pass; schema is at v11; `./scripts/prepush.sh` is green.
+> See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
 > 📖 **New here? Read the [User Guide](docs/USER_GUIDE.md)** — keyboard shortcuts,
@@ -23,8 +25,12 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 
 ## Features
 
-- **Browsing** — one window, a sidebar with a flat tab list, one `WKWebView` per
-  tab, favicons/titles, and process-termination recovery.
+- **Browsing** — a sidebar with a flat tab list, one `WKWebView` per tab,
+  favicons/titles, and process-termination recovery.
+- **Multiple windows** — `Cmd+N`. Sidebar, active Space, selection, and find are
+  per window; tabs, Spaces, and folders are shared. Tabs drag between windows
+  (with a confirm when the move crosses Spaces and therefore cookie stores), and
+  each window's Space/tab is persisted and restored.
 - **Spaces** — isolated browsing contexts, each with its own
   `WKWebsiteDataStore`, so two Google accounts stay logged in simultaneously in
   two Spaces. Gradient theming per Space, `Cmd+1…9` to switch.
@@ -58,8 +64,25 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   (Google, DuckDuckGo, Bing, Brave, or a custom `%s` template), what a new tab
   opens to (blank, the search engine's home, or a specific page), and how long
   before idle tabs are archived — all from **Settings → General**.
+- **Site permissions** — camera, microphone, and web notifications are asked for
+  **once per site, per Space**, then remembered, and are reviewable/revocable in
+  Settings ([ADR 014](docs/adr/014-site-permissions-asked-once-per-space.md)).
+- **Web notifications** — `window.Notification` is shimmed and delivered through
+  Notification Center, with click-through back to the tab. Not Web Push: the page
+  must be open ([ADR 015](docs/adr/015-web-notifications-by-shim.md)).
+- **Screen-share awareness** — a "this page is sharing your screen" banner with a
+  working Stop, plus Presentation mode (`Cmd+Ctrl+S`) for clean window sharing.
+  Tab capture does not exist on WebKit
+  ([ADR 012](docs/adr/012-screen-share-awareness-without-tab-capture.md)).
+- **YouTube ad skipping** — a built-in script skips and fast-forwards YouTube and
+  YouTube Music video ads and hides their static ad surfaces. Best-effort, and
+  deliberately not an extension
+  ([ADR 013](docs/adr/013-youtube-ad-blocking-by-user-script.md)).
+- **User-Agent control** — Default / Chrome / Firefox / Safari-iPhone or a custom
+  string, from **Settings → General**, for the occasional site that sniffs.
 - **Settings** (`Cmd+,`) — General preferences, clear browsing data (cache,
-  cookies, site storage, history) across every Space, and manage extensions.
+  cookies, site storage, history) across every Space, per-site permission
+  management, and extensions.
 - **Native content blocking** — see below.
 
 ### Content blocking
@@ -91,6 +114,23 @@ request-blocking or scriptlet injection — so those extensions can't block here
 The built-in blocker above is the intended path. Full analysis and future options
 are in [CHECKPOINT.md](CHECKPOINT.md) ("Ad-blocking & YouTube") and the
 [User Guide](docs/USER_GUIDE.md#content-blocking).
+
+### Known platform limits
+
+These are properties of WebKit-without-Safari-entitlements, not bugs, and each is
+recorded where it was diagnosed so it is not re-litigated:
+
+- **No hardware AV1.** macOS gives the AV1 hardware-decode path to Safari, so
+  `mediaCapabilities` reports AV1 as not power-efficient here and sites serve VP9
+  (YouTube) or a softer ladder (Meta Reels). Everything else decodes in hardware.
+  The `Cmd+Ctrl+P` debug overlay reports per-codec `hw`/`sw`/`no` so this can be
+  re-checked on a future macOS.
+- **No Web Push.** Notifications work while the page is open; background delivery
+  needs Safari-gated APNs (ADR 015).
+- **No tab capture.** Screen sharing offers screen and window, never "this tab"
+  (ADR 012).
+- **No first-party video-ad blocking through content rules** — see above; the
+  YouTube case is handled by its own script (ADR 013).
 
 ---
 

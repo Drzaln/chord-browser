@@ -17,10 +17,10 @@ Run this whenever you pick up the project after time away:
 # 1. Build all packages + run all tests + build the app (warnings = errors)
 ./scripts/prepush.sh
 
-# 2. Verify test count hasn't regressed (expect 371+)
+# 2. Verify test count hasn't regressed (expect 423+)
 swift test --package-path Packages 2>&1 | tail -5
 
-# 3. Check current schema version (should be v8)
+# 3. Check current schema version (should be v11)
 sqlite3 ~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/browser.sqlite \
   "SELECT * FROM grdb_migrations ORDER BY identifier;"
 ```
@@ -120,6 +120,9 @@ These **cannot** be tested by `swift test` (runs unsandboxed). Must verify again
 | **Data store isolation** | Log into different accounts in two Spaces |
 | **Content blocking** | Navigate to a known tracker URL → blocked |
 | **Extensions** | Enable an extension → content script injects |
+| **Camera / microphone** | A `getUserMedia` site prompts once, then works. **Check the mic in a Release build** — Hardened Runtime uses a different entitlement key |
+| **Notifications** | `bennish.net` → prompt once, banner appears, click focuses the tab |
+| **Site permission memory** | Relaunch → no re-prompt; same site in another Space → prompts again |
 
 ### Step 4 — Performance Soak
 
@@ -143,12 +146,12 @@ Budgets (Apple Silicon, 20 tabs, 3 Spaces, 5 live):
 
 ## Adding a Schema Migration
 
-Current: **v8**. Every migration is forward-only, named, never edited once shipped.
+Current: **v11**. Every migration is forward-only, named, never edited once shipped.
 
 ### Procedure
 
-1. **Create the migration** in `BrowserPersistence` — a named function (`v9_description`)
-2. **Add a fixture test** using the prior version's database (`Migrations.v8ForTesting`)
+1. **Create the migration** in `BrowserPersistence` — a named function (`v12_description`)
+2. **Add a fixture test** using the prior version's database (`Migrations.v11ForTesting`)
 3. **Update row types and mappers** — never persist `Codable` app models directly
 4. **Make decoding defensive** — a corrupt row costs one tab, never a launch
 5. **Never delete user data** in a migration — orphan it and log
@@ -218,6 +221,31 @@ This is **normal** — `WKWebView` content processes die routinely. The app hand
 - Memory pressure (too many live web views — cap is 12)
 - A specific site triggering the crash (check Console for WebContent crash logs)
 
+### Camera works but the microphone does not
+
+Almost always the entitlements, and it will look like a code bug because it is
+**Release-only**: Hardened Runtime (Release) gates the mic behind
+`com.apple.security.device.audio-input`, while App Sandbox uses
+`com.apple.security.device.microphone`. Camera shares one key across both, which
+is why it keeps working. Both mic keys must be in `BrowserApp/Browser.entitlements`.
+Debug builds disable Hardened Runtime under ad-hoc signing, so they cannot
+reproduce it.
+
+### A site was allowed but still gets nothing
+
+Two layers, both must be granted: Chord's per-site decision (Settings → Privacy &
+Data → Site Permissions) and macOS's per-app grant (System Settings → Privacy &
+Security). Neither layer can read the other's state, so the app cannot warn about
+it. Check the OS layer first — it is the usual culprit after a fresh install.
+
+### A site re-prompts for notifications on every visit
+
+The shim seeds `Notification.permission` by *querying* the stored decision at
+document start (`op: query`, no prompt). If a site re-asks every visit, the query
+path is failing — check the with-reply handler `chordNotifyPermission` is
+registered on that view and the origin matches what is stored (scheme + host, per
+Space).
+
 ### Extension not working
 
 1. Check if it's MV3 (MV2 is rejected by the load guard)
@@ -246,6 +274,9 @@ Items owed but not blocking. Check off as completed:
 - [ ] **Swipe gesture on real trackpad** — only logic tested, needs hands-on verification
 - [ ] **Reduce Motion toggle** live check — code is auditable, never toggled in System Settings
 - [ ] **Panel sizing** test coverage — bit twice (command bar + Little Arc), still uncovered in tests
+- [ ] **Soak has not been re-run** since content blocking (2026-07-25). The batches since added per-view scripts (notifications) and a permission path — re-run `scripts/soak.sh` before claiming the §6.1 gate still holds
+- [ ] **Two distinct Google accounts** under two windows — needs a second credential set
+- [ ] **Extensions with two windows open** — this profile has no extensions installed; install one first
 
 ---
 
@@ -275,6 +306,12 @@ Single `main` branch, linear history. No feature branches.
 | Content blocker | `Packages/Sources/BrowserEngine/ContentBlocker.swift` |
 | ABP converter | `Packages/Sources/BrowserCore/ContentBlockConverter.swift` |
 | Sweep policy | `Packages/Sources/BrowserCore/SweepPolicy.swift` |
+| Site permissions (model) | `Packages/Sources/BrowserCore/SitePermission.swift` |
+| Site permissions (storage) | `Packages/Sources/BrowserPersistence/SQLiteSitePermissionsRepository.swift` |
+| Notification shim | `Packages/Sources/BrowserEngine/NotificationBridge.swift` + `BrowserApp/NotificationController.swift` |
+| YouTube ad script | `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift` |
+| Screen-share monitor | `Packages/Sources/BrowserEngine/ScreenShareMonitor.swift` |
+| User-Agent presets | `Packages/Sources/BrowserCore/UserAgent.swift` |
 | Fuzzy ranking | `Packages/Sources/BrowserCore/FuzzyRanking.swift` |
 | ADRs | `docs/adr/` |
 | Smoke tests | `SMOKE.md` |

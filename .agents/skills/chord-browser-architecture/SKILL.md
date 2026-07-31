@@ -11,7 +11,7 @@ This skill contains distilled knowledge from README.md, BROWSER_SPEC.md, and CHE
 
 Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replicates Arc's interaction model (Spaces, vertical tabs, command bar, ephemeral tabs, split view, Little Arc) while running on Apple's WebKit engine. All spec milestones (M1–M7) plus native content blocking are shipped and verified.
 
-**Status:** 371 tests (352 unit + 19 e2e). Schema v8. `./scripts/prepush.sh` green.
+**Status:** 423 tests in 68 suites. Schema **v11**. `./scripts/prepush.sh` green. Post-spec additions have landed on top of M1–M7 (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site permissions, web notifications, YouTube ad skipping, General settings.
 
 ## Project Layout
 
@@ -105,6 +105,43 @@ UI never touches `WKWebView` directly. It talks to the Store; the Store owns the
 - Cannot block YouTube ads (scriptlet injection needed, out of scope).
 - On by default. Weekly refresh from upstream lists.
 
+## Windows vs. the world (post-M7)
+
+`WindowState` holds per-window state (sidebar, sheets, find, **and** selection:
+`activeSpaceID`, `selectedTabID`); `TabStore` holds the shared world (tabs,
+Spaces, folders, persistence). Pass the window explicitly — `TabStore`'s
+no-argument forms mean "the primary window" and are migration scaffolding.
+A mutation removing tabs or Spaces calls `reconcileWindows(excluding:)`; "is this
+tab in use?" must ask **every** window (`isSelectedByAnyWindow`), which is what
+stops the sweep archiving a page another window is showing. Window layout
+persists (`v9_window_layout`).
+
+## Site permissions and notifications (post-M7)
+
+- Camera / microphone / notifications: one model, decided per **(Space, origin,
+  kind)**, asked once, remembered, revocable in Settings → Privacy & Data.
+  `SitePermissionKind` / `SitePermissionPrompt` / `SitePermissionRecord` live in
+  `BrowserCore` (WebKit-free). Schema `v10_site_permissions`, re-scoped by
+  `v11_site_permissions_per_space`. **ADR 014.** Never restore a blanket grant.
+- Web notifications are an in-page shim (`NotificationBridge`) over
+  `UNUserNotificationCenter` — public `WKWebView` has no notification hook. Two
+  message handlers: `chordNotifyShow` (one-way) and `chordNotifyPermission`
+  (with-reply; `op: query` reads without prompting, `op: request` may prompt).
+  **Not Web Push.** **ADR 015.**
+- Two permission layers stack: ours per site, macOS's per app. Both must be green.
+- **Entitlements differ between Debug and Release.** Hardened Runtime (Release
+  only) gates the mic behind `com.apple.security.device.audio-input`, not the
+  sandbox's `com.apple.security.device.microphone`. Declare both.
+
+## In-page monitors (the pattern)
+
+When WebKit reports nothing, the answer here has consistently been a user script,
+never SPI: audio playback (ADR 008), screen sharing (ADR 012), notifications
+(ADR 015), YouTube ads (ADR 013). All are installed on the **per-view**
+`WKUserContentController` and removed in `LiveWebView.tearDown()`; each JS side
+uses a `window.__chord*` singleton guard because `atDocumentStart` can run more
+than once per document.
+
 ## Known Traps & Hard-Won Lessons
 
 ### WebKit
@@ -116,6 +153,10 @@ UI never touches `WKWebView` directly. It talks to the Store; the Store owns the
 - Apple's `url-filter` engine rejects disjunctions in regex patterns.
 - Content rule list compile completion handler runs on main queue — semaphore-blocked main thread deadlocks. Use async/await.
 - Compiling the whole 137k-rule set at once hits an uncatchable signal-6 abort. Must chunk at 50k.
+- `WKMediaCaptureType` covers camera and microphone only — no display capture, so no "share this tab".
+- Public `WKWebView` has no notification hook (`WKUIDelegate.h`) and no Web Push.
+- AV1 decodes in **software** here: macOS reserves the hardware path for Safari, so `mediaCapabilities…powerEfficient` is false for AV1 and sites drop to VP9. Not the UA, not fixable in app code.
+- `config.preferences.setValue(true, forKey: "managedMediaSourceEnabled")` is set by **KVC string key** — no typed accessor exists. It is the one spot outside §11's rule; if WebKit drops the key it raises `NSUnknownKeyException` while building the configuration, and no test covers it.
 
 ### SwiftUI / AppKit
 - A SwiftUI view-level `.keyboardShortcut` beats a menu item with the same key silently.
@@ -162,5 +203,6 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
 
 - Per-site content-blocking whitelist / disable toggle
 - Runtime settings toggle for content blocking
+- Per-domain User-Agent override map (§9.6) — the UA setting is global today
 - Full Instruments GUI trace (SwiftUI body counts, Energy Log)
 - Sidebar scroll fps measurement

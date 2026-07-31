@@ -17,10 +17,11 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | Review. The remaining non-spec follow-up is a **per-site content-blocking whitelist / disable toggle** — **ask the user before building** (§11).                                                  |
-| **Post-M7 (non-spec)**           | **Pinned tabs — Arc's three-tier model (2026-07-26).** Favourites grid + collapsible Pinned list + ephemeral; both non-ephemeral tiers carry a home URL, close-keeps-entry, per-Space collapse. Schema **v8** (`pinnedHomeURL`). See §4.1a and "Pinned tabs — the third tier". |
+| **Next**                         | **No assigned task.** Open, non-spec, **ask before building** (§11): per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6).                            |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | 371 passing (352 unit + 19 end-to-end)                                                                                                                                                            |
+| **Tests**                        | **423 passing** (`swift test`, 68 suites), measured 2026-07-31                                                                                                                                   |
+| **Schema**                       | **v11** — `v1_initial` … `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`                                                                       |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
 After the two fixes below, **Enhancer for YouTube works** (content script) and
@@ -206,8 +207,10 @@ fixed:
   Extensions-tab screenshot was blocked by a macOS screen-recording permission
   dialog — not clicked, being a system prompt — but the tab is the same
   `SettingsView` switch and its actions are unit-tested.)
-  | **Schema** | v5 (`v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`) |
-  | **Toolchain** | Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM platform raised from .v15 to 15.4 in M7) |
+
+**Toolchain:** Swift 6.3.3, Xcode 26.6, macOS 26.5 host, target floor 15.4 (SPM
+platform raised from `.v15` to 15.4 in M7). (The schema row that used to sit here
+said v5; the live number is in the Status table above — v11.)
 
 **The §6.1 performance gate passes** — re-run for M6 on 2026-07-24 with the
 swipe scroll monitor, the sidebar drop layer, and the find bar's cancellable
@@ -230,10 +233,14 @@ Read BROWSER_SPEC.md and CHECKPOINT.md in full before writing any code.
 **Every spec milestone is done.** M1–M7 (Extensions) and the content-blocking
 milestone (§4.8) have all shipped on `main`, verified live. Both extensions and
 content blocking are ON by default — the `FeatureFlags` struct was deleted (§7.4).
-Single `main` branch, 302 tests passing, `./scripts/prepush.sh` green, schema v5.
+A run of agreed post-spec additions has landed since (BROWSER_SPEC §4.9): multiple
+windows, folders, per-Space history, per-site camera/mic/notification permissions,
+web notifications, YouTube ad skipping, and the General settings pane.
+Single `main` branch, **423 tests** passing, `./scripts/prepush.sh` green,
+**schema v11**.
 
 There is **no assigned next task** — wait for the user to pick one. The only
-follow-ups on the board are two NON-SPEC UI features, so do NOT start either
+follow-ups on the board are NON-SPEC UI features, so do NOT start any of them
 without the user asking (§11 forbids adding out-of-scope features):
   - **Per-site whitelist / disable** — the machinery exists: add an
     `ignore-previous-rules` `WKContentRuleList` keyed to the current host, or clear
@@ -241,6 +248,7 @@ without the user asking (§11 forbids adding out-of-scope features):
   - **Runtime settings toggle** for content blocking (and/or extensions) — a small
     settings surface that re-attaches or clears the lists via
     `engine.applyContentRuleLists`.
+  - **Per-domain User-Agent override map** (§9.6) — the UA setting is global today.
 Also open, both non-blocking: the full Instruments GUI trace (SwiftUI body counts,
 Energy Log — not automatable here; the §6.7 Leaks pass is done and clean), and
 sidebar-scroll fps. Content blocking's tail-coverage is already handled (the full
@@ -1589,8 +1597,10 @@ Each has an ADR; the spec text was updated in the same commit.
   blank page: `Cmd+T`, the sidebar's New Tab button, and `Cmd+Shift+D`. The bar
   is a three-mode thing now (`CommandBarMode`), and where a result lands is an
   `ActivationDestination` rather than a `forceNewTab` flag — a Bool cannot say
-  which of three places a result belongs in. `Cmd+N` still opens a plain blank
-  tab, which is the escape hatch when you genuinely want one.
+  which of three places a result belongs in. A plain blank tab is still one
+  keystroke away — the escape hatch when you genuinely want one — though it moved
+  from `Cmd+N` to **`Cmd+Shift+N`** when multi-window took `Cmd+N` for New Window
+  (the platform's binding, and Arc's).
   In `.newPane` mode, choosing an _already-open tab_ moves it into the split
   exactly as dragging it there would (4.5) rather than duplicating it, and the
   row says "Move to Split" instead of "Switch to Tab" — §4.4 requires a row to
@@ -1983,7 +1993,9 @@ manually verified through the checklist's §A–§D:
   installed — `extensionEnablement` empty, no manifests — so there is nothing to
   load; install one first). Both are unit-tested.
 
-**Known gaps and deferrals**, in rough priority:
+**Known gaps and deferrals**, in rough priority. **Read the next section before
+acting on any of these — #1–#5 were all closed by the batch that follows;** the
+list is kept because it is what the batch was aimed at.
 
 1. **Empty area below the tab list is not a drop target** — a drop there is
    silently ignored, which reads as a broken drag. Most browsers accept a drop
@@ -2062,3 +2074,80 @@ registration and media delegate — the regression that mattered.
 a synchronized group — so a new file must be referenced there to build). The
 repo's git rule excludes the pbxproj from commits; this addition needs to ride
 along (or be re-added in Xcode) or the app target won't compile the file.
+
+### Site permissions, notifications, UA, and media (2026-07-27 → 2026-07-31)
+
+Everything below shipped after the multi-window batch and was **not** in this
+file until 2026-07-31, when the docs were brought back in step with `main`. Order
+follows the commits.
+
+- **Web notifications (`d58787a`, `a161b42`, `084fd84`) — ADR 015.** Public
+  `WKWebView` has no notification hook (checked against `WKUIDelegate.h`), so
+  `NotificationBridge` shims `window.Notification` at document start in all
+  frames and bridges to `NotificationController` →
+  `UNUserNotificationCenter`; a click routes back through
+  `TabStore.handleNotificationClick` to focus the tab and fire the page's
+  `onclick`. Two handlers, deliberately different: `chordNotifyShow` is one-way,
+  `chordNotifyPermission` is **with-reply** (the page is awaiting an answer) and
+  carries an `op` — `query` reads the remembered decision without prompting,
+  `request` may prompt. **Not Web Push**: the page must be open. The first cut
+  seeded permission from the OS grant, which is app-wide — Slack re-asked on
+  every visit and one grant spoke for every site; that is what the per-site model
+  below replaced.
+- **Per-site camera/mic/notification permissions (`9270bcc`, `084fd84`) — ADR
+  014, schema v10 → v11.** The previous behaviour was a blanket `.grant` in
+  `NavigationCoordinator` — every site could open the camera unasked. Now one
+  model covers all three kinds: `SitePermissionKind` / `SitePermissionPrompt` /
+  `SitePermissionRecord` in `BrowserCore` (WebKit-free), suspended requests
+  resolved through `TabStore.requestSitePermission` / `resolveSitePermission` and
+  a single `SitePermissionSheet`, decisions keyed on **(Space, origin, kind)**.
+  `v10_site_permissions` adds the table; `v11_site_permissions_per_space`
+  re-scopes it, adopting existing rows into the first Space rather than dropping
+  them (same shape as v6 — §7.2 forbids deleting user data in a migration).
+  Settings → Privacy & Data lists and revokes them. Verified live: Google Meet
+  prompted once, granted, joined; relaunch joined with no prompt.
+- **Microphone in Release (`0fe71b7`).** Worth remembering, because the shape
+  recurs: **Hardened Runtime and App Sandbox use different keys for the mic.**
+  Release (Hardened Runtime on) needs `com.apple.security.device.audio-input`;
+  the sandbox key is `com.apple.security.device.microphone`. Camera shares one
+  key across both, so camera worked while mic did not, and **Debug hid it
+  entirely** — ad-hoc signing disables Hardened Runtime, so only the sandbox key
+  was consulted. Both are declared now. Neither `swift test` (unsandboxed) nor a
+  Debug build can catch this class of bug; only a production build can.
+- **User-Agent setting (`f5e05b7`, `ef38189`).** Settings → General: Default /
+  Chrome / Firefox / Safari-iPhone / Custom, the custom field pre-filled with the
+  current UA so it is edited rather than invented. Global and applied on the next
+  load; the §9.6 per-domain override map is still not built. Related, and already
+  a memory the user hit twice: **Google Meet breaks under the Firefox UA**
+  ("Couldn't start video call") — that is UA sniffing, not permissions.
+- **YouTube ad skipping (`2620f4e`, `ec24bee`) — ADR 013.** A page-side script,
+  not the content blocker, which cannot reach first-party video ads. Skips when a
+  Skip button exists, and for unskippable ads both seeks to the end **and** runs
+  playback at 10× — the seek alone does not work, because the ad module runs its
+  own timer off media playback rather than `currentTime`. Rate is restored to 1×
+  on the first non-ad tick and on `ended`, since ad and content share one
+  `<video>`.
+- **Rename + version (`8d07cae`, `e7f0a2e`).** `PRODUCT_NAME`/marketing version
+  set for the Chord identity; bundle id deliberately unchanged (see
+  `docs/branding/BRANDING.md` — it keys the on-disk profile).
+- **Per-codec decode diagnostics (`c41cc9a`)** — see the AV1 note near the top of
+  this file. `WebEngine.codecSupport` → `TabStore+Diagnostics` → the `Cmd+Ctrl+P`
+  overlay, DEBUG-only.
+- **`managedMediaSourceEnabled` (`2108474`).** One line in
+  `WebKitEngine.makeConfigurationTemplate`, set on `config.preferences` **by KVC
+  string key**. There is no typed accessor in any SDK header, which makes it the
+  single place the project reaches past §11's "never invent WebKit API". Flagged
+  rather than buried: if WebKit ever removes the key, KVC raises
+  `NSUnknownKeyException` while building the configuration template — i.e. it
+  would present as a crash at first web view, and no test covers it, because
+  `swift test` never builds this template. If the app starts dying on launch
+  after an OS update, suspect this line first.
+
+**Verification gaps carried out of this batch** (all need a human, not a test):
+notifications end-to-end after an OS permission grant was confirmed on
+`bennish.net`; the two-*distinct*-Google-accounts form of the isolation check and
+the extensions-under-two-windows check remain unrun (no second credential set, no
+extensions installed in this profile). No soak has been re-run since the content
+blocking one (2026-07-25) — the batch added per-view scripts (notifications) and
+a permission path, so a fresh 30-minute soak is the honest next measurement if
+anyone wants the §6.1 gate to still mean something.

@@ -10,6 +10,14 @@ check that still applies.
 ```
 
 Builds all packages, runs all tests, and builds the app — warnings as errors.
+Baseline as of 2026-07-31: **423 tests in 68 suites**, schema **v11**.
+
+A reminder that decides what belongs on this page at all: `swift test` runs
+**unsandboxed**, so anything gated by an entitlement or an OS permission —
+downloads, print, camera, microphone, notifications, data-store isolation — can
+only be proved here, by hand, against the real app. And **Release differs from
+Debug** for Hardened Runtime (see the microphone check under Site permissions), so
+a feature touching device access needs a production build too.
 
 ## M1 — Browse
 
@@ -243,7 +251,10 @@ stays opaque, and the extension buttons sit on the glass. Screenshot captured.
 ## Settings (clear browsing data + extensions), added 2026-07-25
 
 User-requested non-spec features. Sheet opens with `Cmd+,` or app menu →
-*Settings…*.
+*Settings…*. It now has **three** sections, not two — **General** (search engine,
+new-tab behaviour, User-Agent, archive window) came later; its UA checks are under
+"User-Agent setting" below, and the per-site permission list that now sits at the
+bottom of Privacy & Data is under "Site permissions".
 
 **Verified live 2026-07-25:** launched the built app, `Cmd+,` opened the sheet;
 the **Privacy & Data** section renders the four toggles (cache, cookies, local &
@@ -512,7 +523,8 @@ setting this sweep did not change), and whether typing "feels" lag-free.
       new _pane_ — the tab count does not change
 - [x] In split mode the rows read "Move to Split" / "Open in Split", not
       "Switch to Tab"
-- [x] `Cmd+N` still opens a plain blank tab
+- [x] A plain blank tab is still one keystroke away — **`Cmd+Shift+N`** since
+      multi-window took `Cmd+N` for New Window (was `Cmd+N`; verified there)
 - [ ] `Cmd+Enter` from split mode forces a new tab rather than a pane
       (unit-tested; confirm by hand)
 - [x] `Cmd+Shift+D` on a tab that already has 4 panes — the store declines, so
@@ -796,12 +808,19 @@ These moved from `NSApp.mainWindow` (a guess) to `@FocusedValue`.
 
 ### Known limitations — expected, do not file
 
-- **Little Arc** promotes into the **first** window even when the second is
-  focused; the panel does not track a window. Commented at the call site.
-- URLs opened from another app land in the first window, for the same reason.
-- Dragging a tab onto a **Space button** in the switcher moves it with **no**
-  prompt, unlike dragging into another window. Same hazard, deliberately left as
-  it was — see CHECKPOINT.
+**Corrected 2026-07-31:** the three limitations that used to be listed here
+(Little Chord landing in the first window, app-opened URLs likewise, and a
+Space-button drag not prompting) were **fixed** in the post-multi-window batch —
+the store now tracks the last-focused window, and a Space-button drop routes
+through the same cross-Space prompt as every other path. Verify them as checks
+rather than accepting them as limits:
+
+- [ ] With B focused, a **Little Chord** panel promotes into **B**
+- [ ] `open -a Chord https://example.com` with B focused opens in **B**
+- [ ] Dragging a tab onto a **Space button** for a *different* Space prompts,
+      exactly like a cross-Space drag into another window
+
+Still true: with no window key at all, both fall back to the first window.
 
 ### Not worth doing by hand
 
@@ -811,3 +830,84 @@ These moved from `NSApp.mainWindow` (a guess) to `@FocusedValue`.
   showing it.
 - Window-close reconciliation — covered by tests, and windows are held weakly, so
   a stale entry compacts itself.
+
+---
+
+## Site permissions — camera, microphone, notifications (added 2026-07-31)
+
+None of this is reachable from `swift test`: the media path needs entitlements
+and a real TCC grant, and notifications need the OS permission. It has to be
+driven by hand. See ADR 014 / ADR 015.
+
+**Do this in a throwaway Space where practical**, and remember there are two
+layers: Chord's per-site decision, and macOS's per-app grant in System Settings →
+Privacy & Security. A site allowed in Chord with the app denied in macOS gets
+nothing, and that is the expected behaviour, not a bug.
+
+### Camera and microphone
+
+- [ ] A site calling `getUserMedia` (Google Meet, `webcamtests.com`) prompts
+      **once**, naming the host, with camera and microphone in one sheet when it
+      asks for both
+- [ ] **Allow** → capture starts. macOS's own TCC prompt appears the first time
+      for the app as a whole
+- [ ] Revisiting the same site in the same Space **does not prompt again**
+- [ ] Quit and relaunch → still no prompt (the decision is on disk, not in memory)
+- [ ] The **same site in another Space prompts again** — this is the property the
+      per-Space scoping exists for
+- [ ] **Deny** → the page's promise rejects and the site shows its own error;
+      revisiting does not re-prompt
+- [ ] Settings → Privacy & Data → **Site Permissions** lists the decision with the
+      Space name; **×** removes it and the site asks again next time
+- [ ] **Release build**: the microphone actually works. This is a separate check
+      from Debug — Hardened Runtime is only on in Release and needs
+      `com.apple.security.device.audio-input`. A green camera and a dead mic is
+      the exact signature of that key going missing
+
+### Notifications
+
+- [ ] A site calling `Notification.requestPermission()` (`bennish.net`) prompts
+      once; **Allow** → a banner appears in Notification Center
+- [ ] Clicking the banner **focuses the tab that posted it** and runs the page's
+      `onclick`
+- [ ] Reloading the page does **not** re-prompt, and `Notification.permission`
+      reads `granted` immediately (the shim queries the stored decision at load —
+      this is the fix for Slack re-asking on every visit)
+- [ ] A second site prompts on its own behalf
+- [ ] Notifications from a **backgrounded/occluded** tab still arrive
+- [ ] Closing the tab stops delivery — expected, this is not Web Push
+
+## User-Agent setting (added 2026-07-31)
+
+- [ ] Settings → General → User Agent offers Default / Chrome / Firefox /
+      Safari-iPhone / Custom; picking Custom pre-fills the current UA
+- [ ] `postman-echo.com/get` (or `whatismybrowser.com`) reports the chosen string
+      after a reload — the setting takes effect on the **next load**, not live
+- [ ] Safari — iPhone gives a phone layout on a site that serves one
+- [ ] An emptied custom field falls back to the default rather than sending blank
+- [ ] **Default** UA is byte-identical to Safari's (`…Version/XX.Y
+      Safari/605.1.15`). If a site misbehaves, check this before blaming anything
+      else — **Google Meet fails under the Firefox UA** with "Couldn't start video
+      call", which reads as a permissions bug and is not one
+
+## YouTube ad skipping (added 2026-07-31)
+
+Best-effort by design (ADR 013) — YouTube changes its page constantly, so a miss
+here is a selector to update, not a regression in the browser.
+
+- [ ] A video with a **skippable** pre-roll: the ad is skipped essentially
+      immediately, no click needed
+- [ ] An **unskippable** ad clears in a fraction of a second (the playback-rate
+      blast, not just a seek)
+- [ ] After the ad, the content video plays at **1× speed** — the shared `<video>`
+      makes a leaked playback rate the failure mode to watch for
+- [ ] Masthead / promoted rows / in-feed ad slots are gone from the home feed
+- [ ] **YouTube Music** ad slots are hidden and audio ads are skipped
+- [ ] Per-tab **mute** still behaves independently — the ad blocker never mutes
+
+## Media / codecs (diagnostic, not a pass-fail)
+
+- [ ] `Cmd+Ctrl+P` (DEBUG) reports per-codec `hw`/`sw`/`no` for the active tab.
+      Expected today: **AV1 `sw`**, VP9 / HEVC / H.264 `hw`. If AV1 ever reads
+      `hw` on a future macOS, YouTube should start serving AV1 and the Reels
+      softness should go — worth re-checking after an OS update

@@ -32,8 +32,10 @@ its signature is, say so and ask rather than guessing.
 
 ## 1. Product Definition
 
-A single-window macOS browser. Chromium-free. The feature set is deliberately
-small and closed — it replicates only what I actually use in Arc:
+A macOS browser, Chromium-free. Written as single-window and built that way
+through M7; multiple windows were added afterwards (§4.9) without changing the
+model — windows are views onto one shared tab world. The feature set is
+deliberately small and closed — it replicates only what I actually use in Arc:
 
 | # | Feature | One-line definition |
 |---|---------|---------------------|
@@ -385,6 +387,57 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
   CHECKPOINT "Ad-blocking & YouTube" for the full analysis and the two (large,
   out-of-scope) future options.
 
+### 4.9 Post-spec additions (shipped, agreed one at a time)
+
+Everything above is the original contract. The items below were asked for after
+M7 and built one at a time with the user's explicit go-ahead, as §11 requires.
+They are recorded here so the spec still describes the shipping browser (§7.6);
+each carries its own ADR or CHECKPOINT section for the reasoning.
+
+- **Multiple windows.** `Cmd+N`. Sidebar state, active Space, selection, and find
+  are per window (`WindowState`); tabs, Spaces, folders, and persistence stay
+  shared (`TabStore`). Tabs drag between windows, with a confirmation when the
+  move crosses Spaces — a cross-Space move changes cookie stores. Each window's
+  Space and tab persist (`v9_window_layout`). A mutation removing tabs or Spaces
+  must call `reconcileWindows(excluding:)`, and anything asking "is this tab in
+  use?" must ask every window, which is what stops the sweep archiving a page
+  another window is showing.
+- **Folders.** Collapsible, renamable sidebar groups (`v7_folders`). Foldered
+  tabs are sweep-exempt, alongside the two pinned tiers of §4.1a.
+- **Per-tab mute**, and **Peek** (⌘-hover link preview).
+- **Site permissions** — camera, microphone, and notifications asked once per
+  (Space, origin) and remembered, managed in Settings. `v10_site_permissions`,
+  re-scoped by `v11_site_permissions_per_space`. **ADR 014.**
+- **Web notifications** — `window.Notification` shimmed and delivered through
+  `UNUserNotificationCenter`; not Web Push. **ADR 015.**
+- **Screen-share awareness** — banner, working Stop, Presentation mode. Tab
+  capture is not available on WebKit. **ADR 012.**
+- **YouTube ad skipping** — a page-side user script, deliberately outside the
+  §4.8 content-blocking pipeline, which cannot reach first-party video ads.
+  **ADR 013.**
+- **Configurable search engine, new-tab behaviour, archive window, and
+  User-Agent** — Settings → General. The per-domain UA override map §9.6
+  imagined is still not built; the setting is global and takes effect on the next
+  load.
+- **History window** (`Cmd+Y`), per-Space to match the data-store isolation
+  (`v6_history_per_space`), with search, grouping by day, and delete.
+- **Settings sheet** (`Cmd+,`) — General, Privacy & Data (clear browsing data
+  across every Space; site-permission management), Extensions.
+- **Frosted-glass chrome** — see §5.
+
+**Media note (not a feature — a platform limit worth writing down).** AV1 is
+software-only in a general `WKWebView`: macOS reserves the hardware decode path
+for Safari, so `mediaCapabilities.decodingInfo().powerEfficient` reports false for
+AV1 and sites serve VP9 or a lower ladder. Not fixable in app code, and not the
+User-Agent. The DEBUG overlay reports per-codec `hw`/`sw`/`no` so it can be
+re-checked on a future macOS. Separately, `managedMediaSourceEnabled` is set on
+the configuration's `preferences` **by KVC string key** — it has no typed
+accessor in any SDK header, so it is the one place the project reaches for
+something §11 says not to reach for. Flagged rather than buried: KVC against a
+key WebKit later removes raises `NSUnknownKeyException` at configuration time,
+which would be a launch-shaped crash, and no test covers it (`swift test` never
+builds this configuration). If WebKit drops the key, this line is the suspect.
+
 ---
 
 ## 5. UI / Visual Direction
@@ -703,3 +756,14 @@ Raise these when the relevant milestone starts; do not decide unilaterally.
   100, no time limit, blobs dropped on archive.
 - ~~Whether extension contexts are per-Space or global (M7).~~ Resolved:
   per-Space, one `WKWebExtensionController` per Space (ADR 011).
+- ~~Whether content blocking rides M7 or is its own milestone.~~ Resolved: its
+  own later milestone; shipped.
+- ~~How per-Space extension enablement is stored.~~ Resolved: a SQLite table
+  (`v4_extension_enablement`) — it is behaviour-affecting user state, so it earns
+  §7.2's discipline.
+- ~~Whether camera/mic/notification permission is global or per-Space.~~
+  Resolved: per (Space, origin), asked once and remembered (ADR 014).
+
+Still open, and **not to be started without asking** (§11): a per-site
+content-blocking whitelist / runtime disable toggle, and a per-domain User-Agent
+override map (§9.6) now that a global UA setting exists.

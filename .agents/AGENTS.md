@@ -27,7 +27,9 @@ This is **Chord Browser**, a native macOS browser in Swift on `WKWebView`. It re
 7c. **A mutation that removes tabs or Spaces must call `reconcileWindows(excluding:)`.** The acting window picks its own next selection; the others only get re-pointed off what vanished. Anything that asks "is this tab in use?" must ask *every* window (`isSelectedByAnyWindow`) — that is what stops the sweep archiving a page open in another window.
 8. **Never persist `Codable` app models.** Row types + mappers only.
 9. **Decoding is defensive.** A corrupt row costs one tab, never a launch.
-10. **Migrations are forward-only, named, never edited once shipped.**
+10. **Migrations are forward-only, named, never edited once shipped.** A migration that re-scopes data adopts existing rows (v6, v11); it never drops them.
+11. **A capability a page asks for is decided per (Space, origin), asked once, remembered, and revocable in Settings** — camera, microphone, notifications (ADR 014). Never re-introduce a blanket grant.
+12. **Anything device-gated needs checking in a Release build.** Hardened Runtime (Release only) uses different entitlement keys from App Sandbox — the microphone needs `device.audio-input` *and* `device.microphone`. Debug cannot see this class of bug and neither can `swift test`.
 
 ## Build & Test
 
@@ -50,7 +52,7 @@ BrowserTestSupport   ← fakes, fixtures, builders (test-only)
 
 ## Schema
 
-Current version: **v9**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, through `v8` (`pinnedHomeURL`) and `v9_window_layout` (per-window Space/tab). Each migration has a fixture test.
+Current version: **v11**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, `v6_history_per_space`, `v7_folders`, `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`. Each migration has a fixture test. Test baseline: **423** (`swift test`).
 
 ## Git
 

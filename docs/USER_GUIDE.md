@@ -11,7 +11,8 @@ plainly.
 
 ## The basics
 
-Chord is a **single window**. The sidebar on the left holds the Space switcher,
+Chord opens with **one window**, and `Cmd+N` gives you another (see
+[Windows](#windows)). The sidebar on the left holds the Space switcher,
 the tab list, navigation controls, and any extension action buttons. Web content
 sits in an inset card to the right. The sidebar and the frame around the card are
 **frosted glass** — translucent `.ultraThinMaterial` tinted by the active Space's
@@ -34,7 +35,8 @@ color, blurring your desktop behind the window (the web page itself stays opaque
 | ---------------- | ----------------------------------------------------------------------------- |
 | `Cmd+T`          | Open the command bar to open a **new tab** (type a destination, Enter)        |
 | `Cmd+L`          | Open the command bar aimed at the **current tab** (edit the address)          |
-| `Cmd+N`          | New **blank** tab (no command bar)                                            |
+| `Cmd+N`          | New **window**                                                                |
+| `Cmd+Shift+N`    | New **blank** tab (no command bar)                                            |
 | `Cmd+W`          | Close the current tab                                                         |
 | `Cmd+Shift+T`    | **Reopen** the last closed tab (repeat to walk back further)                  |
 | `Ctrl+Tab`       | **Next** tab (wraps around)                                                   |
@@ -95,8 +97,8 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
   `https://example.com/search?q=%s`). This is where the address bar and command
   bar send anything that isn't a URL.
 - **New tab opens** — a **blank page**, the **search engine's home page**, or a
-  **specific page** you choose. Applies to `Cmd+N`, the first tab on launch, and
-  new split panes.
+  **specific page** you choose. Applies to `Cmd+Shift+N`, the first tab on launch,
+  and new split panes.
 - **User agent** — how the browser identifies itself to sites. Pick **Default**
   (the browser's own), **Chrome**, **Firefox**, or **Safari — iPhone** (for a
   phone layout), or choose **Custom…** to type or paste any User-Agent string —
@@ -108,6 +110,65 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
 - **Archive inactive tabs** — how long an unpinned, non-folder tab may sit idle
   before it's auto-archived (Never / 1h / 6h / 12h / 24h). Tabs playing audio and
   tabs in a folder are never archived.
+
+## Windows
+
+`Cmd+N` opens a second window. Windows are independent in the ways you would
+expect and shared in the ways you would want:
+
+- **Per window:** the sidebar (collapsed or not, and its width), which Space is
+  active, which tab is selected, the find bar, and the collapsed state of the
+  Pinned section.
+- **Shared:** your tabs, Spaces, folders, and everything on disk. Two windows are
+  two views of one browser, not two profiles.
+
+A tab can be **dragged from one window's sidebar into another's**. Within one
+Space it just moves. Across Spaces you are asked to confirm first, because the
+destination Space is a different cookie store — the page reloads there and may be
+signed out. Dropping a tab into the other window's **content area** splits it, and
+asks the same question when it crosses Spaces.
+
+Menu commands act on the **focused** window: `Cmd+T`, `Cmd+L`, `Cmd+Y`, `Cmd+,`,
+`Cmd+W`, `Cmd+D`, and `Cmd+Shift+D` all land where you are looking. A tab open in
+*any* window is never auto-archived out from under it.
+
+Which Space and tab each window had is **restored on relaunch**, and macOS brings
+the windows themselves back through its own scene restoration — quit with two
+windows and you get two back.
+
+Two things stay on the first window rather than the focused one: **Little Chord**
+panels and URLs opened from another app go where the store's focused window is
+tracked, so if focus is ambiguous (no window key), they fall back to the first.
+
+## Site permissions — camera, microphone, notifications
+
+The first time a site asks for your **camera**, **microphone**, or permission to
+send **notifications**, Chord asks you, once, and remembers the answer. Camera and
+microphone are asked together when a site wants both.
+
+Decisions are remembered per **site, per Space** — the same isolation your cookies
+and logins already have. Allowing `meet.google.com` the camera in your Work Space
+says nothing about the same site in another Space.
+
+Review or undo them in **Settings → Privacy & Data → Site Permissions**: each row
+shows the site, the Space, and what was allowed or blocked, with an **×** to
+forget it. Forgetting means the site asks again next time.
+
+Two permission layers are stacked, and **both** must say yes:
+
+1. Chord's per-site decision, above.
+2. macOS's own permission for the app, in **System Settings → Privacy & Security**
+   (Camera, Microphone, Notifications). The first time you allow a site, macOS
+   asks for the app as a whole.
+
+If a site you allowed still gets nothing, it is almost always layer 2 — check
+System Settings. Chord cannot see or fix that state on your behalf.
+
+**Notifications** work while Chord is running and the page is still open (the tab
+may be in the background). They are **not** Web Push: a site you have closed
+cannot wake the browser to notify you, because background push is gated to Safari
+and unavailable to an app built on `WKWebView`. Clicking a banner focuses the tab
+that posted it and runs the page's own click handler.
 
 ## Folders
 
@@ -141,6 +202,16 @@ banner appears at the top of the window running that page. Click **Stop** on it
 to end sharing without digging through the site's own controls. (The banner marks
 that the page is sharing *something* — WebKit doesn't say whether it's a screen,
 this window, or another app's window — so it doesn't claim to know which.)
+
+## Video quality
+
+YouTube may serve you VP9 where Safari gets AV1, and Instagram/Facebook Reels can
+look softer here than in Safari. That is not a setting you are missing and not the
+User-Agent: macOS gives the **hardware AV1 decode path to Safari**, not to apps
+built on `WKWebView`, so AV1 here would be software-decoded. Sites check whether a
+codec decodes *power-efficiently*, see that AV1 does not, and pick their
+next-best ladder. Everything else — VP9, HEVC, H.264 — is hardware-decoded
+normally. There is no app-side fix; it may change in a future macOS.
 
 ## Peek (⌘-hover preview)
 
@@ -340,8 +411,10 @@ specific site; both are noted as possible future additions.
 
 ## Settings
 
-Open Settings with `Cmd+,` (or the app menu → _Settings…_). It's a sheet with two
-sections:
+Open Settings with `Cmd+,` (or the app menu → _Settings…_). It's a sheet with
+three sections: **General** (search engine, new-tab behaviour, User-Agent, archive
+timing — described [above](#general-settings)), **Privacy & Data**, and
+**Extensions**.
 
 ### Privacy & Data — clear browsing data
 
@@ -356,6 +429,10 @@ confirm — it can't be undone):
 Website data (cache/cookies/storage) is cleared across **every Space** at once;
 history is cleared from the app's own database. Each Space's store is cleared
 independently, so isolation is preserved.
+
+Below the clear-data controls, **Site Permissions** lists every camera,
+microphone, and notification choice you have made, per Space, with an **×** to
+forget one — see [Site permissions](#site-permissions--camera-microphone-notifications).
 
 ### Extensions
 
@@ -417,6 +494,12 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | Capability                                                | Status                                  |
 | --------------------------------------------------------- | --------------------------------------- |
 | Tabbed browsing, favicons, titles                         | ✅                                      |
+| Multiple windows (`Cmd+N`), cross-window tab drag         | ✅ (Space/tab per window restored)      |
+| Camera & microphone, asked once per site and Space        | ✅                                      |
+| Web notifications while the page is open                  | ✅ (per-site, per-Space)                |
+| Background Web Push (site closed)                         | ❌ Safari-gated, not available to WKWebView |
+| YouTube / YouTube Music ad skipping (built-in script)     | ✅ best-effort                          |
+| Hardware AV1 decode                                       | ❌ software-only outside Safari         |
 | Command bar (fuzzy tabs + history + URL/search)           | ✅                                      |
 | Spaces with isolated cookie stores                        | ✅                                      |
 | Ephemeral tabs with auto-sweep + archive                  | ✅                                      |
