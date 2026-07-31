@@ -1045,3 +1045,30 @@ while doing this, or you cannot tell which layer answered.
 - **Watch out:** the General section is long enough to scroll now. If a new
   setting seems missing, scroll — and never end that view in a greedy `Spacer`,
   which silently eats the overflow inside the sheet's `ScrollView`
+
+## 30-minute soak — 2026-08-01 (first since content blocking)
+
+The §8/§6.1 gate, re-run after a long gap: notifications, per-site permissions,
+the whole password vault including the V7 lock, private windows, and per-domain
+UA rules had all landed since the last one (2026-07-25), so the previous numbers
+had stopped meaning anything.
+
+`scripts/soak.sh seed` → launch → `run` → `restore`. Fixture: **3 Spaces, 21
+tabs, 40 panes**, spanning both pinned tiers and a 4-pane split, driven with
+⌘1–3 Space switches for 30 minutes.
+
+| Budget (§6.1) | Target | Ceiling | Measured |
+|---|---|---|---|
+| App process RSS | < 150 MB | 250 MB | **42 MB at start, 51–72 MB during, 51 MB at end** |
+| Total footprint | < 1.2 GB | 1.8 GB | **~694–716 MB, flat, 695 MB at end** |
+| Idle CPU, window visible | < 0.5% | 1% | **0.78%** over a 120 s cputime delta |
+
+- **No leak.** The app process ends *below* where it spent most of the run, and
+  the total is within 1 MB of its minute-1 value 29 minutes later.
+- The 51/72 MB oscillation tracks which Space is showing — the Spaces differ in
+  how many panes go live, and the 4-pane split is the expensive one. It is not
+  drift: both values recur throughout and the run ends on the lower one.
+- Idle CPU sits between the 0.5% target and the 1% ceiling, as it did in the M7
+  and content-blocking soaks. The target is a no-animation baseline; this
+  fixture has live pages in it.
+- Samples: `/tmp/soak-022741.tsv`.

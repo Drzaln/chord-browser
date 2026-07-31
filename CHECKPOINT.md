@@ -256,9 +256,10 @@ Now, and an unlock required before a fill).
 Open, non-spec, **ask-first** items (§11): a per-site content-blocking whitelist /
 runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.)
 
-The honest measurement gap: **no 30-minute soak since 2026-07-25**, and several
-subsystems have landed since (notifications, site permissions, the vault). If the
-§6.1 gate is meant to still mean something, that is the thing to re-run.
+The §6.1 gate is **current**: the soak was re-run 2026-08-01 with everything
+since 2026-07-25 in place (notifications, site permissions, the vault, private
+windows, per-domain UA) and passes with no leak — see the soak section below.
+Still never run: the full Instruments GUI trace and sidebar-scroll fps.
 
 ## Vault rules you must not break
 
@@ -2237,6 +2238,29 @@ mid-session before the menu could be right-clicked on screen. Owed: right-click 
 link and confirm the three items appear in order, that New Tab opens in the
 background in the same window, and that New Private Window opens the *link*
 rather than the new-tab page.
+
+### 30-minute soak re-run — the §6.1 gate means something again (2026-08-01)
+
+The last soak was 2026-07-25. Since then: web notifications, per-site
+permissions, the entire password vault (V1–V7), private windows, and per-domain
+UA rules. Numbers in [SMOKE.md](SMOKE.md); the short version is **pass, with no
+leak and no new steady-state cost**.
+
+- App process **42 MB at start, 51–72 MB during, 51 MB at end** (target 150 MB).
+- Total footprint **~694–716 MB, flat**, ending within 1 MB of its minute-1
+  value (target 1.2 GB).
+- Idle CPU **0.78%** over a 120-second cputime delta — under the 1% ceiling,
+  above the 0.5% target, which is where the M7 and content-blocking soaks also
+  landed. That target is a no-animation baseline and this fixture holds live
+  pages.
+- The 51/72 MB oscillation is which Space is on screen, not drift: the fixture's
+  Spaces differ in live panes and one tab is a 4-pane split. Both values recur
+  throughout and the run ends on the lower one.
+
+Fixture was 3 Spaces / 21 tabs / 40 panes via `scripts/soak.sh seed`; the real
+session was backed up to `browser.sqlite.presoak` and restored afterwards
+(`integrity_check` ok, 2 Spaces / 10 tabs back, and a favourite that had been
+navigated during the UA check was returned to its pinned URL).
 
 ### Per-domain User-Agent rules — §9.6, at last (2026-08-01)
 
