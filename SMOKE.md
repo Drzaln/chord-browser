@@ -1091,4 +1091,8 @@ never fires. The scratchpad script `cmdhover.swift` does it.
 **Fixed 2026-08-01:** downloads land in the real `~/Downloads` again (they were
 going to the sandbox container). Re-check by downloading a file in the real app
 and looking in Finder — `swift test` runs unsandboxed and cannot see this.
-**Still wrong:** the popover reports "Zero kB" for a file that is not.
+The popover reports the real size ("Completed — 66 kB" for a 64 KiB file).
+**Expect a macOS "access your Downloads folder" prompt on the first download
+after a rebuild** — the ad-hoc signature changes each build, so TCC treats it as
+a new app. An unanswered prompt makes that download time out; click Allow and
+retry.

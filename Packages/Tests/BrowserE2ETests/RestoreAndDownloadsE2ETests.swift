@@ -152,6 +152,12 @@ struct DownloadsE2ETests {
         let written = try String(contentsOf: destination, encoding: .utf8)
         #expect(written == payload)
 
+        // The row's size, not just the file's. This read "Completed — Zero kB"
+        // for a file that was plainly on disk: the final progress tick lands
+        // after the item is marked finished, or never for a download that
+        // completes in one chunk.
+        #expect(item.bytesReceived == Int64(payload.utf8.count))
+
         store.stopSweep()
     }
 

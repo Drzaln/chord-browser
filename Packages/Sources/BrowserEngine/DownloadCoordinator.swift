@@ -199,7 +199,35 @@ extension DownloadCoordinator: WKDownloadDelegate {
 
     public func downloadDidFinish(_ download: WKDownload) {
         guard let id = id(for: download) else { return }
+        recordFinalSize(of: download, id: id)
         finish(id: id, state: .finished)
+    }
+
+    /// Writes the true byte count onto the item before it is marked finished.
+    ///
+    /// Progress alone is not enough: `updateBytes` ignores anything arriving
+    /// once the item is no longer active, and a download that completes inside
+    /// a single chunk may never deliver a KVO tick at all — so the row said
+    /// "Completed — Zero kB" for a file that was plainly on disk. The file
+    /// itself is the ground truth and is consulted when the counter is empty.
+    private func recordFinalSize(of download: WKDownload, id: UUID) {
+        guard var item = items[id] else { return }
+
+        let counted = download.progress.completedUnitCount
+        if counted > 0 {
+            item.bytesReceived = counted
+        } else if let destination = item.destination,
+            let size = try? FileManager.default.attributesOfItem(
+                atPath: destination.path
+            )[.size] as? NSNumber
+        {
+            item.bytesReceived = size.int64Value
+        }
+
+        // A finished download's size is known, whatever the server said up
+        // front, so the row can stop saying "of unknown".
+        item.bytesExpected = item.bytesReceived
+        items[id] = item
     }
 
     public func download(

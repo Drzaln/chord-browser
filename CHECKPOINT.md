@@ -2263,10 +2263,20 @@ explicit directory still wins, which is what `E2EHarness` relies on); the proof
 is the live run: an 8 KB file downloaded in the real app landed in `~/Downloads`,
 byte-identical by `shasum`, with nothing in the container.
 
-**Still wrong, not fixed:** the popover reads "Completed — **Zero kB**" for a file
-that is 8 KB on disk. `updateBytes` guards on `item.isActive`, so the final KVO
-tick is dropped when it arrives after the item is marked finished. The fix is to
-record the byte count in `finish(id:state:)` rather than only from progress.
+**"Completed — Zero kB", fixed the same day.** `updateBytes` ignores anything
+arriving once the item is no longer active, and a download finishing inside one
+chunk may deliver no KVO tick at all — so the row reported nothing for a file
+plainly on disk. `recordFinalSize` now takes the count from the download's
+progress at `downloadDidFinish`, falling back to the **file on disk**, which is
+the ground truth. Live: a 65,536-byte file reads "Completed — 66 kB". The e2e
+download test now asserts `bytesReceived`, and was verified red (0 vs 3500).
+
+**A rebuild re-asks for Downloads access, and an unanswered prompt fails the
+download.** Writing to the real `~/Downloads` is TCC-gated, and an ad-hoc
+signature changes every build, so macOS treats each rebuild as a new app and
+prompts again — the same mechanism as the keychain dialog. While the prompt sits
+unanswered the destination callback is blocked and the download ends as "The
+request timed out". Click Allow, then retry; it is not a code fault.
 
 ### Peek: a hover was downloading files, and firing on links you passed over (2026-08-01)
 
