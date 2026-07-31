@@ -200,12 +200,14 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(NotificationBridge.makeUserScript())
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
+        controller.addUserScript(PasswordFormMonitor.makeUserScript())
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
             controller.add(coordinator, name: PeekLinkMonitor.messageName)
             controller.add(coordinator, name: NotificationBridge.showMessageName)
             controller.add(coordinator, name: ScreenShareMonitor.messageName)
+            controller.add(coordinator, name: PasswordFormMonitor.messageName)
             // requestPermission() needs the native decision back, so it is a
             // with-reply handler installed in the page world. The coordinator
             // conforms to both handler protocols, so the cast selects the
@@ -318,6 +320,15 @@ public final class WebKitEngine: WebEngine {
     func setScreenSharing(_ sharing: Bool, for paneID: UUID) {
         guard let live = pool.view(for: paneID), live.isScreenSharing != sharing else { return }
         live.isScreenSharing = sharing
+        handleSnapshot(live.snapshot, for: paneID)
+    }
+
+    /// Records what the page reports about its login fields (V3 of the password
+    /// vault). Called from the coordinator after `LoginFormClassifier` has judged
+    /// the descriptors, so no DOM detail reaches the pool.
+    func setLoginForm(_ analysis: LoginFormAnalysis, for paneID: UUID) {
+        guard let live = pool.view(for: paneID), live.loginForm != analysis else { return }
+        live.loginForm = analysis
         handleSnapshot(live.snapshot, for: paneID)
     }
 

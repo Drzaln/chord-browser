@@ -1,3 +1,4 @@
+import BrowserCore
 import BrowserEngine
 import Foundation
 import Observation
@@ -22,6 +23,11 @@ public final class PaneRuntime {
     /// Whether the pane is screen-sharing (non-spec: user-requested). Drives the
     /// "sharing this window" banner; see `ScreenShareMonitor`.
     public var isScreenSharing: Bool = false
+    /// The login fields this page is showing, once it has reported (V3 of the
+    /// password vault). Nil means "not looked yet", which is not the same as
+    /// "no login here" — the fill affordance must not appear on either, but only
+    /// the second is an answer.
+    public var loginForm: LoginFormAnalysis?
 
     init(paneID: UUID) {
         self.paneID = paneID
@@ -36,5 +42,6 @@ public final class PaneRuntime {
         isPlayingAudio = snapshot.isPlayingAudio
         isMuted = snapshot.isMuted
         isScreenSharing = snapshot.isScreenSharing
+        loginForm = snapshot.loginForm
     }
 }

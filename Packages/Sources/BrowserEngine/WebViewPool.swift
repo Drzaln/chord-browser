@@ -1,3 +1,4 @@
+import BrowserCore
 import AppKit
 import Foundation
 import WebKit
@@ -28,6 +29,11 @@ final class LiveWebView {
 
     /// Reported by the page rather than by WebKit; see `ScreenShareMonitor`.
     var isScreenSharing = false {
+        didSet { refreshSnapshot() }
+    }
+
+    /// The login fields the page is showing; see `PasswordFormMonitor`.
+    var loginForm: LoginFormAnalysis? {
         didSet { refreshSnapshot() }
     }
 
@@ -73,7 +79,8 @@ final class LiveWebView {
             canGoForward: webView.canGoForward,
             isPlayingAudio: isPlayingAudio,
             isMuted: isMuted,
-            isScreenSharing: isScreenSharing
+            isScreenSharing: isScreenSharing,
+            loginForm: loginForm
         )
     }
 
@@ -118,6 +125,8 @@ final class LiveWebView {
             .removeScriptMessageHandler(forName: PeekLinkMonitor.messageName)
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: ScreenShareMonitor.messageName)
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: PasswordFormMonitor.messageName)
 
         webView.stopLoading()
         container.removeContent()

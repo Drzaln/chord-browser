@@ -17,10 +17,10 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — V1–V2 done, V3 half done (classifier + corpus), stop for review.** Remaining in V3: the page-side collector (`PasswordFormMonitor`) + its e2e test. Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Password vault — V1–V3 done, V4 next, stop for review.** V4 is fill-on-gesture, including the framework-setter path. Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **474 passing** (`swift test`, 74 suites), measured 2026-07-31                                                                                                                                   |
+| **Tests**                        | **492 passing** (`swift test`, 76 suites), measured 2026-07-31                                                                                                                                   |
 | **Schema**                       | **v12** — `v1_initial` … `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`                                                                          |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -2142,6 +2142,41 @@ follows the commits.
   would present as a crash at first web view, and no test covers it, because
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
+
+### Password vault V3b — the page-side collector (2026-07-31)
+
+`PasswordFormMonitor`: a user script that collects a descriptor per input and
+posts it, plus the wiring through `PaneSnapshot.loginForm` →
+`PaneRuntime.loginForm`. **The script decides nothing** — `LoginFormClassifier`
+(V3a) judges, which is what keeps the hard part testable without a browser.
+
+Same family as `MediaActivityMonitor` (ADR 008) and `NotificationBridge`
+(ADR 015): per-view content controller, handler removed in `tearDown()`, and a
+`window.__chordLoginForms` singleton so re-injection at `atDocumentStart` is
+idempotent. **Main frame only** (threat-model rule 3 — a credential is never
+filled in an iframe, so there is no reason to look in one).
+
+Three things the corpus forced, none of which a spec-reading implementation would
+have:
+
+- **Walks open shadow roots.** Reddit's login has zero inputs in the light DOM.
+- **Live visibility** from rects + computed style, not attributes.
+- **`MutationObserver`, debounced 150ms.** Every site in the corpus is an SPA
+  whose form does not exist at `DOMContentLoaded`. Reports are deduplicated by
+  signature, or a mutating page would post a message per animation frame.
+
+The element handle is an **expando on the node** (`el.__chordFieldID`), not an
+`id` attribute: writing an id into the page is a visible side effect that can
+collide with the site's own CSS or JS.
+
+5 e2e tests against real WebKit and real HTTP (492 total, prepush green), and
+both risky features were **verified failing when removed**: deleting the shadow
+traversal turns the Reddit-shaped test red, and stubbing out the MutationObserver
+turns the late-rendering test red. Unit tests could not have caught either.
+
+**V4 (fill) is next and is where the remaining risk sits** — setting a value that
+React and friends actually notice needs the native-setter dance, which is why it
+is an e2e concern rather than a unit-test one.
 
 ### Password vault V3a — the classifier, and what real login pages look like (2026-07-31)
 

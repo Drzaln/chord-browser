@@ -24,6 +24,14 @@ public struct PaneSnapshot: Equatable, Sendable {
     /// so it is observed in-page; see `ScreenShareMonitor`.
     public var isScreenSharing: Bool
 
+    /// The login fields this page is currently showing, if any (V3 of the
+    /// password vault). Reported by `PasswordFormMonitor` and judged by
+    /// `LoginFormClassifier` — WebKit has no notion of a login form.
+    ///
+    /// Nil until the page reports; `.none` once it has reported nothing fillable.
+    /// The distinction matters to the UI: "not looked yet" is not "no form here".
+    public var loginForm: LoginFormAnalysis?
+
     public init(
         url: URL? = nil,
         title: String = "",
@@ -33,8 +41,10 @@ public struct PaneSnapshot: Equatable, Sendable {
         canGoForward: Bool = false,
         isPlayingAudio: Bool = false,
         isMuted: Bool = false,
-        isScreenSharing: Bool = false
+        isScreenSharing: Bool = false,
+        loginForm: LoginFormAnalysis? = nil
     ) {
+        self.loginForm = loginForm
         self.isPlayingAudio = isPlayingAudio
         self.isMuted = isMuted
         self.isScreenSharing = isScreenSharing
