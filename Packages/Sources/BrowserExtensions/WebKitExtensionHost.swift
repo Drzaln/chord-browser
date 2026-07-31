@@ -39,6 +39,17 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     private final class WeakView { weak var view: NSView?; init(_ v: NSView?) { view = v } }
     private var actionAnchors: [UUID: [String: WeakView]] = [:]
 
+    /// Fired when a popup opens or closes, with the window it is anchored in, so
+    /// the UI can pin that window's revealed sidebar open while it is up. See
+    /// `ExtensionHost.onPopupVisibilityChanged` for why this exists.
+    public var onPopupVisibilityChanged: (@MainActor (AnyObject?, Bool) -> Void)?
+
+    /// The popover currently on screen, so `popoverDidClose` can be matched to
+    /// the window that was reported when it opened. Held weakly: AppKit owns it,
+    /// and a closed popover must not be kept alive by this bookkeeping.
+    private weak var visiblePopover: NSPopover?
+    private weak var visiblePopoverWindow: NSWindow?
+
     // MARK: - Permissions (7.5c)
 
     /// Persists grants and reads them back at load. Injected by `AppEnvironment`;
@@ -532,7 +543,14 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
             return
         }
         popover.behavior = .transient
+        // Report open/close so the anchor's window can hold its revealed sidebar
+        // in place. Without this the sidebar retracts the moment the pointer
+        // leaves it for the popup, taking the anchor — and the popup — with it.
+        popover.delegate = self
+        visiblePopover = popover
+        visiblePopoverWindow = anchor.window
         popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+        onPopupVisibilityChanged?(anchor.window, true)
         completionHandler(nil)
     }
 
@@ -590,5 +608,22 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
             values: matchPatterns.map(\.string),
             displayName: context.webExtension.displayName
         ) { allow in completionHandler(allow ? matchPatterns : [], nil) }
+    }
+}
+
+// MARK: - Popup lifecycle
+
+/// The popover is AppKit's, and AppKit is the only thing that knows when it goes
+/// away — it closes on click-outside, on Esc, and on its anchor leaving the
+/// window. The UI needs the close as much as the open: a sidebar pinned open by a
+/// popup that has already gone would never auto-hide again.
+extension WebKitExtensionHost: NSPopoverDelegate {
+    public func popoverDidClose(_ notification: Notification) {
+        guard let popover = notification.object as? NSPopover, popover === visiblePopover
+        else { return }
+        let window = visiblePopoverWindow
+        visiblePopover = nil
+        visiblePopoverWindow = nil
+        onPopupVisibilityChanged?(window, false)
     }
 }

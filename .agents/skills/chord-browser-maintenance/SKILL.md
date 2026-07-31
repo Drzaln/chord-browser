@@ -246,6 +246,35 @@ path is failing — check the with-reply handler `chordNotifyPermission` is
 registered on that view and the origin matches what is stored (scheme + host, per
 Space).
 
+### An extension loads but does nothing (diagnose it directly)
+
+`os.Logger` is not readable on this machine, so do not try to chase this through
+logs. Load the bundle into a real `WKWebExtensionController` from a throwaway
+script — `swift file.swift` outside the repo, WebKit is available unsandboxed —
+and read `context.errors` a few seconds **after** `load` (they arrive late):
+
+```swift
+let ext = try await WKWebExtension(resourceBaseURL: zipURL)   // .crx: strip the Cr24 header first
+let context = WKWebExtensionContext(for: ext)
+for p in ext.requestedPermissions { context.setPermissionStatus(.grantedExplicitly, for: p) }
+try WKWebExtensionController(configuration: .init(identifier: UUID())).load(context)
+// wait ~2s, then print each (error as NSError).domain / .code / .localizedDescription
+```
+
+How to read it:
+
+- `WKWebExtensionContextErrorDomain` **code 6** = the background service worker
+  threw while starting. The popup of a worker-dependent extension then hangs
+  forever on a spinner.
+- **Compare `ext.requestedPermissions` against the manifest.** WebKit silently
+  drops permissions it does not implement (`offscreen`, `sidePanel`,
+  `clipboardRead`, `webRequestAuthProvider`, `nativeMessaging`). A dropped
+  permission means the API object is `undefined`, and an extension touching it at
+  startup dies with exactly that code 6.
+- Isolate with controls before blaming the platform: a minimal MV3 extension with
+  a service worker should load **clean**; one that throws at top level reproduces
+  code 6. That is how Bitwarden was pinned to `chrome.offscreen` (see CHECKPOINT).
+
 ### Extension not working
 
 1. Check if it's MV3 (MV2 is rejected by the load guard)

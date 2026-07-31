@@ -62,6 +62,30 @@ public final class WindowState {
     /// it is a gesture, not a preference.
     public var isSidebarResizing: Bool = false
 
+    /// An extension popup is on screen in this window. Volatile.
+    ///
+    /// It is here rather than in the view because it decides `isSidebarHeldOpen`,
+    /// and because a popup belongs to one window (invariant 7b). Set from the
+    /// `extensionPopupVisibilityChanged` broadcast, which carries the window the
+    /// popup is anchored in.
+    public var isExtensionPopupOpen: Bool = false
+
+    /// Something is keeping a revealed sidebar on screen, so the auto-hide must
+    /// not fire: a resize drag, a Space sheet, or an extension popup.
+    ///
+    /// One rule rather than four scattered checks. The popup case is the one that
+    /// is not obvious: the popup is anchored to the sidebar-header button, so
+    /// hiding the sidebar removes the anchor from the window and AppKit closes
+    /// the popup — and moving the pointer into the popup is precisely what ends
+    /// the hover that was keeping the sidebar revealed. Without this, an
+    /// extension popup could not be used at all with a collapsed sidebar.
+    public var isSidebarHeldOpen: Bool {
+        isSidebarResizing
+            || editingSpaceID != nil
+            || deletingSpaceID != nil
+            || isExtensionPopupOpen
+    }
+
     /// Presentation mode: the sidebar and reveal strip are hidden so the window
     /// shows only web content (non-spec: user-requested). This is the native
     /// substitute for "Share this tab" — WebKit has no tab-level screen capture,

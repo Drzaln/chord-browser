@@ -2143,6 +2143,67 @@ follows the commits.
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
 
+### Extension popups pin the sidebar open (2026-07-31)
+
+**Bug, found by driving a real password-manager extension.** With the sidebar
+collapsed, opening an extension popup and moving the pointer into it closed the
+popup instantly. Mechanism: the popup is `WKWebExtension.Action.popupPopover`
+shown against the sidebar-header button's `NSView`, and moving the pointer into
+the popup *ends the hover that was revealing the sidebar* — the sidebar retracts,
+the anchor leaves the window, and AppKit tears the popover down with it. Latent
+since 7.5b; it hits **every** extension popup, not one extension.
+
+The fix is the rule `RootView` already had for resize drags and Space sheets, with
+a fourth condition: `WindowState.isSidebarHeldOpen` now includes
+`isExtensionPopupOpen`. Both moved from the view into `WindowState` — a popup
+belongs to one window (invariant 7b), and the move is what makes the rule
+unit-testable at all.
+
+Wiring, and why it is a broadcast: `WebKitExtensionHost` becomes the popover's
+`NSPopoverDelegate`, reporting open at `show` and close from `popoverDidClose`
+(AppKit is the only thing that knows about click-outside and Esc). It fires
+`onPopupVisibilityChanged(window, isVisible)`, which `AppEnvironment` turns into a
+`.extensionPopupVisibilityChanged` notification; each window's `RootView` filters
+on identity against its own window. A plain closure would be **last-writer-wins
+across windows** — the second window to open would silently steal the first's.
+The window crosses the seam as an opaque `AnyObject` because `BrowserStore`
+imports no AppKit and must not start.
+
+5 tests in `ExtensionPopupSidebarTests`; **verified failing against the bug** by
+deleting the condition (2 of the 5 go red on exactly the popup case), then
+restored. 428 tests, prepush green. **Verified live** by the user: popup stays put
+with the pointer inside it.
+
+### Bitwarden does not work here — `chrome.offscreen` is unimplemented (2026-07-31)
+
+The second extension-compatibility wall, and worth recording beside the AdBlock
+one because the cause is **different** and the reflex "it's the rule limit" is
+wrong here.
+
+- AMO ships Bitwarden as **MV2** (persistent background page, `webRequestBlocking`)
+  → rejected by our MV3 guard. The Chrome Web Store `.crx` is MV3 and is the only
+  one worth testing.
+- Loaded into a real `WKWebExtensionController`, the MV3 build reports
+  `WKWebExtensionContextErrorDomain` **code 6 — "The background content failed to
+  load due to an error"** about 2s after `load`, and its popup then spins forever,
+  because every Bitwarden popup waits on the service worker to answer.
+- **Root cause: `chrome.offscreen`.** Bitwarden's background bundle calls it 29
+  times (plus `sidePanel`, `nativeMessaging`); WebKit does not implement
+  `offscreen` and silently drops it from `requestedPermissions`, so the object is
+  `undefined`, the worker throws while starting, and background content never
+  loads.
+- Established by control extensions rather than inference: a minimal MV3
+  extension with a service worker loads **clean** (so service workers do work
+  here), while one that touches `chrome.offscreen` and one that simply throws at
+  top level both produce the *identical* code-6 error.
+- **No code fix.** This is Apple's runtime being a subset, the same fact ADR 013
+  and the AdBlock note record from other angles. Password managers that use
+  `offscreen` for clipboard/crypto (most MV3 ones) will fail the same way; ones
+  needing `nativeMessaging` (KeePassXC-Browser) fail too — also unimplemented.
+- The probe script that produced this is worth rebuilding when the next extension
+  misbehaves; the procedure is in the maintenance skill under "An extension loads
+  but does nothing".
+
 **Verification gaps carried out of this batch** (all need a human, not a test):
 notifications end-to-end after an OS permission grant was confirmed on
 `bennish.net`; the two-*distinct*-Google-accounts form of the isolation check and

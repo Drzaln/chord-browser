@@ -40,6 +40,7 @@ private final class FakeHost: ExtensionHost {
     func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID) {}
     func actions(in space: Space) -> [ExtensionActionSnapshot] { [] }
     var onActionsChanged: (@MainActor () -> Void)?
+    var onPopupVisibilityChanged: (@MainActor (AnyObject?, Bool) -> Void)?
     func registerActionAnchor(_ view: NSView?, forSlug slug: String, in space: Space) {}
     func presentAction(slug: String, in space: Space) {}
     var onPermissionRequest: (@MainActor (PermissionRequest) -> Void)?

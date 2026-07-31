@@ -877,6 +877,22 @@ nothing, and that is the expected behaviour, not a bug.
 - [ ] Notifications from a **backgrounded/occluded** tab still arrive
 - [ ] Closing the tab stops delivery — expected, this is not Web Push
 
+## Extension popups vs. the collapsed sidebar (added 2026-07-31)
+
+The popup is anchored to the sidebar-header button, so anything that removes the
+sidebar removes the popup. Regression-tested in `ExtensionPopupSidebarTests`, but
+the AppKit half only exists in the real app.
+
+- [x] With the sidebar **collapsed**, reveal it, click an extension's toolbar
+      button, then **move the pointer into the popup** — the sidebar stays put and
+      the popup stays open (verified live 2026-07-31; before the fix it vanished
+      the instant the pointer left the sidebar)
+- [ ] Closing the popup lets the sidebar auto-hide again a moment later
+- [ ] Clicking the page, or `Esc`, still dismisses the popup
+- [ ] With the sidebar **docked**, the popup behaves as before
+- [ ] With two windows open, a popup in window B does **not** pin window A's
+      sidebar (the notification is filtered on window identity)
+
 ## User-Agent setting (added 2026-07-31)
 
 - [ ] Settings → General → User Agent offers Default / Chrome / Firefox /

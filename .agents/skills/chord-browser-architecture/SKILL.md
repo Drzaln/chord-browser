@@ -97,6 +97,8 @@ UI never touches `WKWebView` directly. It talks to the Store; the Store owns the
 - Per-Space `WKWebExtensionController` (ADR 011). One controller per Space, config keyed by Space's `dataStoreID`.
 - `BrowserExtensions` is a second WebKit importer (alongside `BrowserEngine`).
 - MV3 only. No MV2 shims.
+- **Apple's runtime is a subset, and each big extension trips a different missing piece.** Unimplemented: `offscreen`, `sidePanel`, `nativeMessaging`, `webRequestAuthProvider`, blocking `webRequest`, scriptlet injection; `declarativeNetRequest` caps ~50k rules/list. WebKit *silently drops* unimplemented permissions, so the API object is `undefined` and an extension touching it at startup dies with `WKWebExtensionContextErrorDomain` code 6 (background content failed to load) — which presents as a popup spinning forever. AdBlock fails on the rule cap; **Bitwarden fails on `offscreen`** (2026-07-31). Diagnosis procedure is in the maintenance skill.
+- An extension **popup pins its window's sidebar open** while visible (`WindowState.isSidebarHeldOpen`) — the popover is anchored to the sidebar-header button, so an auto-hiding sidebar closes it mid-use.
 - `.crx`/`.xpi` unpack to `~/Library/Application Support/Browser/Extensions/`.
 
 ### Content Blocking (§4.8)

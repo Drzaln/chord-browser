@@ -115,6 +115,20 @@ public struct AppEnvironment {
         host.onPermissionRequest = { [weak store] request in
             store?.pendingPermissionRequests.append(request)
         }
+        // An extension popup must pin its window's revealed sidebar open while it
+        // is on screen — the popup hangs off the sidebar button, so an auto-hide
+        // mid-use closes it. Broadcast rather than call: the host is app-wide but
+        // only one window's sidebar should be pinned, and every window's view can
+        // filter on the window it carries. A direct closure would be
+        // last-writer-wins across windows.
+        host.onPopupVisibilityChanged = { window, isVisible in
+            NotificationCenter.default.post(
+                name: .extensionPopupVisibilityChanged,
+                object: window,
+                userInfo: [ExtensionPopupVisibility.isVisibleKey: isVisible]
+            )
+        }
+
         // After host access is granted on enable, reload so content scripts
         // inject into the page that is already open.
         host.onHostAccessChanged = { [weak store] spaceID in

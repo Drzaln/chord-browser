@@ -41,6 +41,7 @@ private final class RecordingExtensionHost: ExtensionHost {
     func loadedExtensions(in space: Space) -> [LoadedExtension] { [] }
     func actions(in space: Space) -> [ExtensionActionSnapshot] { [] }
     var onActionsChanged: (@MainActor () -> Void)?
+    var onPopupVisibilityChanged: (@MainActor (AnyObject?, Bool) -> Void)?
     func registerActionAnchor(_ view: NSView?, forSlug slug: String, in space: Space) {}
     func presentAction(slug: String, in space: Space) {}
     var onPermissionRequest: (@MainActor (PermissionRequest) -> Void)?

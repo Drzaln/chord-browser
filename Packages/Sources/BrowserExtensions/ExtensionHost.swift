@@ -77,6 +77,25 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// the registered anchor; a no-op if the slug is not loaded in the Space.
     func presentAction(slug: String, in space: Space)
 
+    /// Fired on the main actor when an extension popup opens or closes, carrying
+    /// the window whose anchor it is attached to.
+    ///
+    /// The window matters because a popup must **pin the revealed sidebar open**
+    /// while it is up. The popover hangs off the sidebar-header button's view, so
+    /// an auto-hiding sidebar that retracts while the pointer is inside the popup
+    /// takes the anchor out of the window and AppKit closes the popup with it —
+    /// which made an unlock-then-type extension (a password manager) unusable
+    /// with a collapsed sidebar.
+    ///
+    /// The window is handed over as an **opaque `AnyObject`**, not an `NSWindow`.
+    /// `BrowserStore` wires this callback and imports no AppKit at all; naming
+    /// `NSWindow` here would drag AppKit into the Store to satisfy the closure's
+    /// type. `BrowserUI` — which is AppKit either way — casts it back and
+    /// compares identity against its own window.
+    var onPopupVisibilityChanged: (@MainActor (_ window: AnyObject?, _ isVisible: Bool) -> Void)? {
+        get set
+    }
+
     // MARK: - Permissions (7.5c)
 
     /// Called on the main actor when an extension asks for a permission, a URL,

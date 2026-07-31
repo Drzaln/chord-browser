@@ -87,11 +87,7 @@ public struct RootView: View {
     /// Something is keeping the revealed sidebar on screen: a resize drag in
     /// progress, or a Space sheet open over it. Hiding it out from under any of
     /// these takes the thing the user is using with it.
-    private var isSidebarHeldOpen: Bool {
-        windowState.isSidebarResizing
-            || windowState.editingSpaceID != nil
-            || windowState.deletingSpaceID != nil
-    }
+    private var isSidebarHeldOpen: Bool { windowState.isSidebarHeldOpen }
 
     private var shouldHideTrafficLights: Bool {
         // Presentation mode hides the sidebar but keeps the traffic lights, so
@@ -242,6 +238,20 @@ public struct RootView: View {
         // holding it open, and gets its hide timer back the moment nothing is.
         .onChange(of: isSidebarHeldOpen) { _, held in
             if !held && !isSidebarHovered { scheduleHide() }
+        }
+        // Only this window's popup pins this window's sidebar: the host is
+        // app-wide, so the notification carries the window it is anchored in and
+        // every other window ignores it.
+        .onReceive(
+            NotificationCenter.default.publisher(for: .extensionPopupVisibilityChanged)
+        ) { note in
+            guard let popupWindow = note.object as? NSWindow, popupWindow === window,
+                let isVisible = note.userInfo?[ExtensionPopupVisibility.isVisibleKey] as? Bool
+            else { return }
+            windowState.isExtensionPopupOpen = isVisible
+            // Opening while the hide timer is already counting down would let it
+            // fire out from under the popup a moment later.
+            if isVisible { cancelPendingHide() }
         }
         // All of them presented here rather than in the sidebar so they survive
         // the sidebar collapsing (and auto-hiding) beneath them. Factored into
