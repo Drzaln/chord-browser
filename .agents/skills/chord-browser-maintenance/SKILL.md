@@ -221,6 +221,29 @@ This is **normal** — `WKWebView` content processes die routinely. The app hand
 - Memory pressure (too many live web views — cap is 12)
 - A specific site triggering the crash (check Console for WebContent crash logs)
 
+### "Chord cannot be opened because of a problem"
+
+The bundle's signature is inconsistent — most often because something re-signed
+the app without re-signing the nested `Chord.debug.dylib` a Debug build ships.
+dyld reports *"different Team IDs"*, but the alert says nothing useful.
+
+```bash
+# The only place the real reason appears (os.Logger is unreadable here):
+grep -oE '"reasons":\[[^]]*\]' "$(ls -t ~/Library/Logs/DiagnosticReports/Chord* | head -1)"
+```
+
+**Fix by clean-building, not by re-signing:** `xcodebuild -project
+Browser.xcodeproj -scheme Browser -configuration Debug clean build`. Manual
+`codesign --force` on the app and its dylibs does *not* recover it (measured
+2026-07-31).
+
+### The vault asks for the login-keychain password after a rebuild
+
+Expected, and not a bug: an ad-hoc signature changes every build, and the
+Keychain item's ACL trusts the identity that created it. Click **Always Allow**.
+Signing with a stable self-signed certificate was tried and reverted — see
+`docs/design/password-vault.md`.
+
 ### Camera works but the microphone does not
 
 Almost always the entitlements, and it will look like a code bug because it is

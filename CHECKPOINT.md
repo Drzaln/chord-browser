@@ -17,7 +17,7 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Password vault — V1–V6 done, V7 (lock UI + auto-lock) next, stop for review.** Save bar and fill button both **verified live**. One open platform issue: an ad-hoc-signed rebuild triggers a login-keychain prompt when reading a saved password — fix is a stable self-signed certificate (see the design doc). Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Password vault — V1–V6 done, V7 (lock UI + auto-lock) next, stop for review.** Save bar and fill button both **verified live**. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Plan in [docs/design/password-vault.md](docs/design/password-vault.md). Do not start without the user (§11). Other open non-spec items: per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings. See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
 | **Tests**                        | **503 passing** (`swift test`, 78 suites), measured 2026-07-31                                                                                                                                   |
@@ -2142,6 +2142,37 @@ follows the commits.
   would present as a crash at first web view, and no test covers it, because
   `swift test` never builds this template. If the app starts dying on launch
   after an OS update, suspect this line first.
+
+### Self-signed code signing: tried, reverted (2026-07-31)
+
+Aimed at the keychain prompt V6 uncovered — a rebuilt ad-hoc app is a *different*
+code identity, so the vault item's ACL no longer matches and macOS asks for the
+login-keychain password.
+
+The mechanism worked: a self-signed certificate produces
+`designated => identifier "com.rizal.browser" and certificate root = H"…"`,
+identical across rebuilds. **The Debug bundle killed it.** It ships a nested
+`Chord.debug.dylib`, and re-signing the app alone leaves that dylib on its old
+signature; dyld then refuses to load it — *"mapping process and mapped file
+(non-platform) have different Team IDs"* — which the user sees only as "Chord
+cannot be opened because of a problem". The real reason is in
+`~/Library/Logs/DiagnosticReports/Chord-*.ips`, and that file is the only way to
+diagnose this class of failure.
+
+Signing the nested dylibs first did not fix it, and neither did re-signing
+ad-hoc by hand: the bundle stayed unlaunchable until a full
+`xcodebuild clean build`. **If a broken bundle needs recovering, clean-build it —
+do not try to repair the signature.**
+
+Doing it properly means changing signing in `project.pbxproj` so Xcode signs the
+whole bundle consistently, which this repo's git workflow deliberately keeps out
+of commits. Reverted entirely: script deleted, certificate removed from the
+keychain, app clean-rebuilt and verified running.
+
+**Accepted cost instead:** click **Always Allow** on the keychain dialog once per
+build. One dialog after a rebuild, none for a build you keep. It does train the
+habit of approving keychain prompts, which is worth revisiting if the vault ever
+ships to anyone but its author. An allow-any-application ACL stays refused.
 
 ### Password vault V6 — fill affordance, multi-step logins, and management (2026-07-31)
 

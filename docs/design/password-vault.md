@@ -145,16 +145,28 @@ data" paths cannot accidentally take the vault with them.
   changes on every build. The V1 probe missed this: it tested one rebuild and got
   away with it.
 
-  This does **not** affect an installed, stable build — only a machine that keeps
-  rebuilding, i.e. this one. Three ways out, in order of preference:
-  1. **Sign with a stable self-signed certificate** rather than ad-hoc. Free, no
-     Apple account needed, and it gives the app one identity across rebuilds so
-     the ACL keeps matching. This is the real fix.
-  2. Click **Always Allow** once per build. Tolerable, forgettable, and it trains
-     the reflex of approving keychain dialogs — which is a bad reflex.
-  3. Create items with an ACL that trusts any application. **Rejected**: it would
-     let any process on the machine read the vault without a prompt, which is
-     precisely the protection being given up.
+  **A stable self-signed certificate was tried and abandoned (2026-07-31).** The
+  theory was sound — signing with one certificate makes the designated
+  requirement `identifier "com.rizal.browser" and certificate root = H"…"`, which
+  is identical before and after a rebuild, so the ACL keeps matching. That part
+  worked. What killed it was the **Debug bundle's nested `Chord.debug.dylib`**:
+  re-signing the app leaves the dylib on its old signature, and dyld then refuses
+  it with *"mapping process and mapped file (non-platform) have different Team
+  IDs"*, which surfaces only as "Chord cannot be opened because of a problem"
+  (the real reason is in `~/Library/Logs/DiagnosticReports`). Signing the nested
+  dylibs first did **not** fix it either, and recovering the bundle needed a full
+  `xcodebuild clean build` — manual re-signing could not put it back. Doing this
+  properly would mean changing the project's signing settings so Xcode signs
+  everything consistently, which is a `project.pbxproj` change this repo's
+  workflow keeps out of commits.
+
+  **Accepted instead: click "Always Allow" once per build.** It is one dialog
+  after each rebuild and none at all for a build you keep. Worth naming the cost
+  honestly — it trains the habit of approving keychain dialogs, which is a poor
+  habit for a password manager to instil, and it is the reason to revisit signing
+  if the vault ever ships to anyone else. An allow-any-application ACL remains
+  refused: it would hand the vault to every process on the machine.
+
 - Auto-lock needs a **timeout preference** (default: 15 minutes idle) and must
   also trip on `NSWorkspace.willSleepNotification` and screen lock.
 - Consequence to state out loud even with the gate: while unlocked, a filled
