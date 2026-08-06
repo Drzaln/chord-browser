@@ -12,9 +12,11 @@ import WebKit
 /// Two moves, both page-side:
 ///
 /// 1. **Video ads.** A poll watches the player's `ad-showing` state. When an ad
-///    is up it clicks the Skip button if one exists, and otherwise seeks the ad
-///    to its end — which ends even "unskippable" ads in a fraction of a second,
-///    because the ad and the content share one `<video>` element. It deliberately
+///    is up it clicks the Skip button if one exists, and always blasts the
+///    playback rate so the ad drains in a fraction of a second — even
+///    "unskippable" ads, because the ad and the content share one `<video>`
+///    element. The rate is re-asserted every tick (the player syncs its own
+///    rate back to 1x) and restored the instant the ad ends. It deliberately
 ///    does *not* mute: mute is owned by `AudioMuteController`, and touching it
 ///    here would fight that.
 ///
@@ -95,33 +97,58 @@ enum YouTubeAdBlocker {
 
         function tick() {
             var player = document.querySelector('.html5-video-player');
-            var video = document.querySelector('video');
-            if (!player || !video) { return; }
+            if (!player) { return; }
 
+            // Ads also light up the overlay slot on some player versions even
+            // when `ad-showing` is not set; treat either as "an ad is up".
+            var overlay = player.querySelector('.ytp-ad-player-overlay');
             var adShowing = player.classList.contains('ad-showing')
-                || player.classList.contains('ad-interrupting');
-            if (!adShowing) { restoreRate(video); return; }
+                || player.classList.contains('ad-interrupting')
+                || (overlay && overlay.getClientRects().length > 0);
 
-            var btn = document.querySelector(SKIP);
-            if (btn) { try { btn.click(); } catch (e) {} return; }
+            // Target EVERY <video>, not just the first: YouTube A/B-tests ads on
+            // a separate element, and the watch page can carry an ambient
+            // background video that the ad is not. Never early-return after
+            // clicking skip — a disabled/custom button swallows the click, so
+            // the seek/blast below must still run as the fallback.
+            var videos = document.querySelectorAll('video');
 
-            // Unskippable: seek to the end AND run it fast. The seek ends it
-            // outright when the ad allows seeking; the rate bump drains its timer
-            // in a fraction of a second when it does not.
-            try {
-                if (isFinite(video.duration) && video.duration > 0) {
-                    video.currentTime = video.duration;
-                }
-                if (!video.__chordBumped) {
+            if (!adShowing) {
+                for (var i = 0; i < videos.length; i++) { restoreRate(videos[i]); }
+                return;
+            }
+
+            var btn = player.querySelector(SKIP) || document.querySelector(SKIP);
+            if (btn) { try { btn.click(); } catch (e) {} }
+
+            for (var i = 0; i < videos.length; i++) {
+                var video = videos[i];
+                try {
+                    // End the ad by seeking to the end of the AD's media. Only
+                    // trust `duration` when it is short enough to BE the ad —
+                    // stitched/SSAI ads report the whole content's duration, and
+                    // seeking there would skip the content instead. The seek is
+                    // clamped/ignored on many ads, so the rate blast below is
+                    // the real fix; this is just the fast path when it works.
+                    if (isFinite(video.duration) && video.duration > 0
+                        && video.duration <= 60) {
+                        video.currentTime = video.duration;
+                    }
+                    // Re-assert the rate on EVERY tick. The player syncs its own
+                    // rate back to 1x shortly after we bump it, so a once-only
+                    // bump silently dies and the ad runs to completion — the
+                    // per-tick blast keeps its timer draining until it ends.
                     video.playbackRate = AD_RATE;
-                    video.__chordBumped = true;
-                    // When this ad's media ends, restore before content plays —
-                    // the `!adShowing` tick is the backstop, this is the fast path.
-                    video.addEventListener('ended', function () {
-                        restoreRate(video);
-                    }, { once: true });
-                }
-            } catch (e) {}
+                    if (!video.__chordBumped) {
+                        video.__chordBumped = true;
+                        // When this ad's media ends, restore before content plays —
+                        // the `!adShowing` tick is the backstop, this is the fast path.
+                        video.addEventListener('ended', function () {
+                            restoreRate(video);
+                        }, { once: true });
+                    }
+                } catch (e) {}
+            }
         }
 
         setInterval(tick, 250);
