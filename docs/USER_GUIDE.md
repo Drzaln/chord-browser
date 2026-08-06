@@ -23,7 +23,8 @@ color, blurring your desktop behind the window (the web page itself stays opaque
   URL is sent to **Google** as a search.
 - **Back / forward:** `Cmd+[` and `Cmd+]`, or the chevrons in the sidebar.
 - **Reload:** `Cmd+R`. While a page is loading the reload button becomes a stop
-  button.
+  button, and a thin progress bar runs under the address bar — or, when the
+  sidebar is collapsed, along the top edge of the page.
 
 ---
 

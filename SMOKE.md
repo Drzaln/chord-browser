@@ -40,6 +40,10 @@ a feature touching device access needs a production build too.
 - [ ] Title updates in the sidebar as pages load
 - [x] Favicon appears in the sidebar, falling back to a globe when absent
 - [ ] `target="_blank"` links open a new tab rather than being swallowed
+- [ ] **Collapsed-sidebar loading bar**: `Cmd+S` to collapse the sidebar, load a
+      slow page — a thin progress bar runs along the top edge of the web card
+      (and only there, not also in the revealed sidebar); revealing the sidebar
+      hands the indicator back to the sidebar's own bar
 
 ### Persistence
 

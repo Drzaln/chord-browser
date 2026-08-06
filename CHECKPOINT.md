@@ -2248,6 +2248,21 @@ readability. This is why call sites now look like `Log.store.error("pane \(id)")
 (`BrowserLoggingTests`: sink off until installed, file write, rotation at cap).
 `swift test` 562, prepush green.
 
+### Collapsed sidebar keeps a loading indicator (2026-08-06)
+
+The only loading bar lived in `NavigationBar`, which is inside `SidebarView` —
+so collapsing the sidebar took the loading feedback away with it. Fix: the web
+card now owns its own top-edge progress bar (`ContentProgressBar`), visible only
+while `isSidebarCollapsed && !isRevealed` — exactly the states where the
+sidebar's bar is off screen. One indicator on screen at a time: revealed or
+docked sidebar → the sidebar's bar; collapsed-and-hidden → the card's bar.
+Same data and §6.4 rule as the sidebar's bar (observes the focused pane's
+`PaneRuntime`, redraws only itself), same Space tint, 2 pt, Reduce-Motion
+aware; clipped to the card so it doesn't overhang the rounded corners, and
+`allowsHitTesting(false)` so it never eats a click. Gated by a bool passed from
+`RootView`, so the UI logic stays where the collapse state lives. No new tests
+(views are verified live in this project); prepush green at 562.
+
 ### Link context menu: Open in New Tab / New Private Window (2026-07-31)
 
 Right-clicking a link offered only WebKit's own menu plus "Open in Little Chord".

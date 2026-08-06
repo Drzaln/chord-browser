@@ -117,7 +117,14 @@ public struct RootView: View {
         ZStack(alignment: .topLeading) {
             HStack(spacing: 0) {
                 Color.clear.frame(width: laneWidth)
-                WebContentCard(store: store, windowState: windowState)
+                // The sidebar owns the loading bar when it is on screen; the
+                // card owns it only while the sidebar is collapsed and hidden,
+                // so there is never more than one loading indicator visible.
+                WebContentCard(
+                    store: store,
+                    windowState: windowState,
+                    showsLoadingProgress: windowState.isSidebarCollapsed && !isRevealed
+                )
             }
 
             // Only while hidden. A permanent strip is not needed once the
