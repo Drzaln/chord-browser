@@ -2157,7 +2157,15 @@ follows the commits.
   playback at 10× — the seek alone does not work, because the ad module runs its
   own timer off media playback rather than `currentTime`. Rate is restored to 1×
   on the first non-ad tick and on `ended`, since ad and content share one
-  `<video>`.
+  `<video>`. Hardened since (intermittent "ads not skipped / not fast-forwarded"
+  reports): the rate is **re-asserted on every tick** (YouTube syncs its own rate
+  back to 1×, killing a once-only bump), every `<video>` is blasted (YouTube
+  A/B-tests a separate ad element; the watch page also carries an ambient
+  background video), skip-click no longer early-returns before the fallback, and
+  the seek only runs when `0 < duration ≤ 60` so stitched/SSAI ads can't jump the
+  content. Recurring upkeep lives in the **`chord-browser-youtube-ads` skill**
+  (`.agents/skills/`) — YouTube changes selectors constantly, so it's on the
+  ~2-week maintenance cadence.
 - **Rename + version (`8d07cae`, `e7f0a2e`).** `PRODUCT_NAME`/marketing version
   set for the Chord identity; bundle id deliberately unchanged (see
   `docs/branding/BRANDING.md` — it keys the on-disk profile).

@@ -412,8 +412,9 @@ YouTube and **YouTube Music** ads *are* blocked, by a dedicated built-in that
 does not go through the content blocker above (it can't — see the note there).
 Instead a small script runs on YouTube pages and:
 
-- **Skips video ads** — clicks _Skip_ the moment it appears, and fast-forwards
-  unskippable ads to their end (they vanish in a fraction of a second).
+- **Skips video ads** — clicks _Skip_ the moment it appears, and runs any
+  remaining ad at high speed so even "unskippable" ads end in a fraction of a
+  second.
 - **Hides static ads** — mastheads, promoted rows, in-feed ad slots, and YouTube
   Music's ad slots.
 

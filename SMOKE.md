@@ -961,14 +961,19 @@ the AppKit half only exists in the real app.
 ## YouTube ad skipping (added 2026-07-31)
 
 Best-effort by design (ADR 013) — YouTube changes its page constantly, so a miss
-here is a selector to update, not a regression in the browser.
+here is a selector to update, not a regression in the browser. The recurring
+selector check is the `chord-browser-youtube-ads` skill
+(`.agents/skills/`); these items are the user-visible pass-fail.
 
 - [ ] A video with a **skippable** pre-roll: the ad is skipped essentially
       immediately, no click needed
 - [ ] An **unskippable** ad clears in a fraction of a second (the playback-rate
-      blast, not just a seek)
+      blast, not just a seek) — including on a page with an ambient/background
+      video, where the blast must still reach the ad's element
 - [ ] After the ad, the content video plays at **1× speed** — the shared `<video>`
       makes a leaked playback rate the failure mode to watch for
+- [ ] Clearing an ad does **not skip the content** — a stitched/SSAI ad must end
+      at the ad, not jump the video to its end
 - [ ] Masthead / promoted rows / in-feed ad slots are gone from the home feed
 - [ ] **YouTube Music** ad slots are hidden and audio ads are skipped
 - [ ] Per-tab **mute** still behaves independently — the ad blocker never mutes

@@ -75,6 +75,16 @@ swift test --package-path Packages
 
 Never float the version. Review changelogs deliberately before bumping.
 
+### 4. YouTube Ad Blocker Selectors (every ~2 weeks)
+
+YouTube changes ad DOM constantly, so the injected script in
+`Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift` goes stale on its own
+schedule — the selectors, not the browser, are what breaks. Follow the dedicated
+playbook: **`.agents/skills/chord-browser-youtube-ads/SKILL.md`**. It covers the
+upstream-signal check (uAssets / EasyList), the live-DOM probe, the visual smoke
+pass, and what to update in the script. Open a `bd` issue for each run and close
+it when the check (or update) is done.
+
 ---
 
 ## Xcode / macOS SDK Upgrade Procedure

@@ -414,7 +414,8 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   capture is not available on WebKit. **ADR 012.**
 - **YouTube ad skipping** — a page-side user script, deliberately outside the
   §4.8 content-blocking pipeline, which cannot reach first-party video ads.
-  **ADR 013.**
+  **ADR 013.** Selector upkeep is a recurring maintenance item (the
+  `chord-browser-youtube-ads` skill).
 - **Configurable search engine, new-tab behaviour, archive window, and
   User-Agent** — Settings → General. The per-domain UA override map §9.6
   imagined is still not built; the setting is global and takes effect on the next

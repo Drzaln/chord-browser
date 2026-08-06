@@ -85,7 +85,9 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **YouTube ad skipping** — a built-in script skips and fast-forwards YouTube and
   YouTube Music video ads and hides their static ad surfaces. Best-effort, and
   deliberately not an extension
-  ([ADR 013](docs/adr/013-youtube-ad-blocking-by-user-script.md)).
+  ([ADR 013](docs/adr/013-youtube-ad-blocking-by-user-script.md)). Kept current
+  by a recurring selector-compatibility check (see
+  [.agents/skills/chord-browser-youtube-ads](.agents/skills/chord-browser-youtube-ads/SKILL.md)).
 - **User-Agent control** — Default / Chrome / Firefox / Safari-iPhone or a custom
   string, from **Settings → General**, for the occasional site that sniffs.
 - **Settings** (`Cmd+,`) — General preferences, clear browsing data (cache,

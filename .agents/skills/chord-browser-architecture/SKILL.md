@@ -165,7 +165,8 @@ never SPI: audio playback (ADR 008), screen sharing (ADR 012), notifications
 (ADR 015), YouTube ads (ADR 013). All are installed on the **per-view**
 `WKUserContentController` and removed in `LiveWebView.tearDown()`; each JS side
 uses a `window.__chord*` singleton guard because `atDocumentStart` can run more
-than once per document.
+than once per document. YouTube's ad selectors are a recurring maintenance item —
+see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 
 ## Known Traps & Hard-Won Lessons
 
