@@ -27,6 +27,13 @@ final class LiveWebView {
         didSet { refreshSnapshot() }
     }
 
+    /// When the pane's sleep timer fires, if one is armed (non-spec:
+    /// user-requested). Engine-side state, not a `WKWebView` property — see
+    /// `SleepTimerController`.
+    var sleepTimerDeadline: Date? {
+        didSet { refreshSnapshot() }
+    }
+
     /// Reported by the page rather than by WebKit; see `ScreenShareMonitor`.
     var isScreenSharing = false {
         didSet { refreshSnapshot() }
@@ -79,6 +86,7 @@ final class LiveWebView {
             canGoForward: webView.canGoForward,
             isPlayingAudio: isPlayingAudio,
             isMuted: isMuted,
+            sleepTimerDeadline: sleepTimerDeadline,
             isScreenSharing: isScreenSharing,
             loginForm: loginForm
         )

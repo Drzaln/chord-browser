@@ -61,6 +61,16 @@ public final class FakeWebEngine: WebEngine {
         if muted { mutedPanes.insert(paneID) } else { mutedPanes.remove(paneID) }
     }
 
+    public private(set) var sleepTimers: [UUID: Date] = [:]
+    public private(set) var cancelledSleepTimers: [UUID] = []
+    public func setSleepTimer(after seconds: TimeInterval, paneID: UUID) {
+        sleepTimers[paneID] = Date().addingTimeInterval(seconds)
+    }
+    public func cancelSleepTimer(paneID: UUID) {
+        if sleepTimers[paneID] != nil { cancelledSleepTimers.append(paneID) }
+        sleepTimers.removeValue(forKey: paneID)
+    }
+
     public private(set) var stoppedScreenShares: [UUID] = []
     public func stopScreenSharing(paneID: UUID) {
         stoppedScreenShares.append(paneID)

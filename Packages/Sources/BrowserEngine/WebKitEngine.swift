@@ -78,6 +78,16 @@ public final class WebKitEngine: WebEngine {
     /// view, so a muted pane stays muted across eviction and reload.
     private var mutedPanes: Set<UUID> = []
 
+    /// When each pane's sleep timer fires (non-spec: user-requested). Owned
+    /// here, not in the page, so it survives reload and view eviction — a page's
+    /// `setTimeout` would be throttled in a background tab and wiped on reload,
+    /// which are exactly the moments a sleep timer must not die. See
+    /// `SleepTimerController`.
+    private var sleepTimers: [UUID: Date] = [:]
+    /// The pending native fire per pane, so a re-armed or cancelled timer drops
+    /// the stale one.
+    private var sleepTimerFires: [UUID: DispatchWorkItem] = [:]
+
     /// Panes that are previews (Peek). See `setPreviewOnly`.
     private var previewOnlyPanes: Set<UUID> = []
 
@@ -166,6 +176,9 @@ public final class WebKitEngine: WebEngine {
         // A revived pane that was muted stays muted — the JS is (re)applied on
         // didFinish; this seeds the snapshot so the UI is right immediately.
         live.isMuted = mutedPanes.contains(pane.id)
+        // A sleep timer that fired while this pane had no live view pauses as
+        // soon as it revives — see `reapplySleepTimer`.
+        reapplySleepTimer(paneID: pane.id)
         pool.insert(live)
 
         // Prefer restoring over reloading: interactionState brings back scroll
@@ -208,6 +221,7 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(MediaActivityMonitor.makeUserScript())
         controller.addUserScript(ContextLinkMonitor.makeUserScript())
         controller.addUserScript(AudioMuteController.makeUserScript())
+        controller.addUserScript(SleepTimerController.makeUserScript())
         controller.addUserScript(PeekLinkMonitor.makeUserScript())
         controller.addUserScript(NotificationBridge.makeUserScript())
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
@@ -471,6 +485,76 @@ public final class WebKitEngine: WebEngine {
         webView.evaluateJavaScript(
             "\(AudioMuteController.setMutedFunction)(\(muted));", completionHandler: nil
         )
+    }
+
+    // MARK: - Sleep timer
+
+    public func setSleepTimer(after seconds: TimeInterval, paneID: UUID) {
+        cancelSleepTimerWorkItem(paneID)
+        let deadline = Date().addingTimeInterval(seconds)
+        sleepTimers[paneID] = deadline
+        if let live = pool.peek(paneID) {
+            live.sleepTimerDeadline = deadline
+            handleSnapshot(live.snapshot, for: paneID)
+        }
+
+        let workItem = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.fireSleepTimer(paneID: paneID)
+            }
+        }
+        sleepTimerFires[paneID] = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: workItem)
+    }
+
+    public func cancelSleepTimer(paneID: UUID) {
+        guard sleepTimers[paneID] != nil else { return }
+        cancelSleepTimerWorkItem(paneID)
+        sleepTimers.removeValue(forKey: paneID)
+        if let live = pool.peek(paneID) {
+            live.sleepTimerDeadline = nil
+            handleSnapshot(live.snapshot, for: paneID)
+        }
+    }
+
+    /// Applies a pane's sleep timer to a freshly-built view (revive). Fires
+    /// immediately when the deadline has already passed — a timer that ran out
+    /// while the pane had no live view must still pause the restored page.
+    func reapplySleepTimer(paneID: UUID) {
+        guard let deadline = sleepTimers[paneID], let live = pool.peek(paneID) else {
+            return
+        }
+        if deadline.timeIntervalSinceNow <= 0 {
+            fireSleepTimer(paneID: paneID)
+        } else {
+            live.sleepTimerDeadline = deadline
+        }
+    }
+
+    private func fireSleepTimer(paneID: UUID) {
+        guard let deadline = sleepTimers[paneID] else { return }
+        cancelSleepTimerWorkItem(paneID)
+
+        guard let live = pool.peek(paneID) else {
+            // No view to pause. The deadline is still owed, so keep it for the
+            // revive path — `reapplySleepTimer` fires it the moment a view exists.
+            sleepTimers[paneID] = deadline
+            return
+        }
+
+        sleepTimers.removeValue(forKey: paneID)
+        live.sleepTimerDeadline = nil
+        live.webView.evaluateJavaScript(
+            "\(SleepTimerController.pauseAllFunction)();", completionHandler: nil
+        )
+        handleSnapshot(live.snapshot, for: paneID)
+    }
+
+    private func cancelSleepTimerWorkItem(_ paneID: UUID) {
+        if let item = sleepTimerFires.removeValue(forKey: paneID) {
+            item.cancel()
+        }
     }
 
     // MARK: - Navigation

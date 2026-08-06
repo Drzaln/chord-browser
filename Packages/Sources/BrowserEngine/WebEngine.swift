@@ -19,6 +19,11 @@ public struct PaneSnapshot: Equatable, Sendable {
     /// Engine-side state, not a `WKWebView` property — see `AudioMuteController`.
     public var isMuted: Bool
 
+    /// When the pane's sleep timer fires, if one is armed (non-spec:
+    /// user-requested). Engine-side state, not a `WKWebView` property — see
+    /// `SleepTimerController`.
+    public var sleepTimerDeadline: Date?
+
     /// Whether the page currently holds a `getDisplayMedia` stream, i.e. it is
     /// screen-sharing (non-spec: user-requested). WebKit reports no such state,
     /// so it is observed in-page; see `ScreenShareMonitor`.
@@ -41,12 +46,14 @@ public struct PaneSnapshot: Equatable, Sendable {
         canGoForward: Bool = false,
         isPlayingAudio: Bool = false,
         isMuted: Bool = false,
+        sleepTimerDeadline: Date? = nil,
         isScreenSharing: Bool = false,
         loginForm: LoginFormAnalysis? = nil
     ) {
         self.loginForm = loginForm
         self.isPlayingAudio = isPlayingAudio
         self.isMuted = isMuted
+        self.sleepTimerDeadline = sleepTimerDeadline
         self.isScreenSharing = isScreenSharing
         self.url = url
         self.title = title
@@ -181,6 +188,16 @@ public protocol WebEngine: AnyObject {
     /// Mutes or unmutes a pane's audio (non-spec: user-requested). Persists
     /// across reloads and view eviction so a muted tab stays muted.
     func setMuted(_ muted: Bool, paneID: UUID)
+
+    /// Arms a sleep timer that pauses the pane's media when it fires (non-spec:
+    /// user-requested). The deadline is tracked engine-side, so it survives
+    /// reload and view eviction — the pause is applied to whatever view is live
+    /// at fire time, and to a pane revived after its timer has run out. Re-arming
+    /// replaces the pane's existing timer.
+    func setSleepTimer(after seconds: TimeInterval, paneID: UUID)
+
+    /// Cancels the pane's sleep timer, if one is armed.
+    func cancelSleepTimer(paneID: UUID)
 
     /// Stops every display-capture stream the pane holds (non-spec:
     /// user-requested), ending screen sharing. A no-op for a pane with no live

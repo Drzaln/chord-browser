@@ -738,6 +738,9 @@ public final class TabStore {
             engine.evict(paneID: pane.id)
             runtimes[pane.id] = nil
         }
+        // The tab and its panes are gone for good, so its sleep timer must not
+        // fire later into nothing.
+        cancelSleepTimer(tabID)
         forgetStateResolution(forPanes: tabs[index].panes.map(\.id))
         let closedSpaceID = tabs[index].spaceID
         let neighbours = visibleTabs(in: window)
@@ -986,6 +989,45 @@ public final class TabStore {
             // Immediate UI feedback even when the pane has no live view to echo a
             // snapshot back; a live pane's snapshot confirms the same value.
             runtime(for: pane.id).isMuted = target
+        }
+    }
+
+    /// Whether the tab's focused pane has a sleep timer armed (non-spec:
+    /// user-requested).
+    public func isSleepTimerArmed(_ tabID: UUID) -> Bool {
+        sleepTimerDeadline(tabID) != nil
+    }
+
+    /// When the tab's focused pane's sleep timer fires, if one is armed
+    /// (non-spec: user-requested).
+    public func sleepTimerDeadline(_ tabID: UUID) -> Date? {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return nil }
+        return runtime(for: tab.focusedPaneID).sleepTimerDeadline
+    }
+
+    /// Arms a sleep timer that pauses every pane's media when it fires, so a
+    /// split's audio stops as one (non-spec: user-requested). Re-arming
+    /// replaces the tab's existing timer. The engine keeps the deadline,
+    /// surviving reload and eviction.
+    public func setSleepTimer(minutes: Int, tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        cancelSleepTimer(tabID)
+        let deadline = clock.now.addingTimeInterval(TimeInterval(minutes) * 60)
+        for pane in tab.panes {
+            engine.setSleepTimer(after: TimeInterval(minutes) * 60, paneID: pane.id)
+            // Immediate UI feedback even when the pane has no live view to echo a
+            // snapshot back; a live pane's snapshot confirms the same value.
+            runtime(for: pane.id).sleepTimerDeadline = deadline
+        }
+    }
+
+    /// Cancels the tab's sleep timer, if one is armed (non-spec:
+    /// user-requested).
+    public func cancelSleepTimer(_ tabID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        for pane in tab.panes {
+            engine.cancelSleepTimer(paneID: pane.id)
+            runtime(for: pane.id).sleepTimerDeadline = nil
         }
     }
 

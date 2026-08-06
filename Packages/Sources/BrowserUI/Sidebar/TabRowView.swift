@@ -13,9 +13,13 @@ struct TabRowView: View {
     /// Live audio state for the mute affordance (non-spec: user-requested).
     var isPlayingAudio: Bool = false
     var isMuted: Bool = false
+    /// When the tab's sleep timer fires, if one is armed (non-spec:
+    /// user-requested).
+    var sleepTimerDeadline: Date? = nil
     let select: () -> Void
     let close: () -> Void
     var toggleMute: () -> Void = {}
+    var cancelSleepTimer: () -> Void = {}
     let beginDrag: () -> Void
     let endDrag: () -> Void
 
@@ -47,6 +51,19 @@ struct TabRowView: View {
                 .accessibilityLabel(isMuted ? "Unmute tab" : "Mute tab")
             }
 
+            // Sleep timer indicator — shown while armed; clicking cancels it
+            // (non-spec: user-requested).
+            if let sleepTimerDeadline {
+                Button(action: cancelSleepTimer) {
+                    Image(systemName: "moon.zzz.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Sleep timer: \(Self.remainingText(until: sleepTimerDeadline)) — click to cancel")
+                .accessibilityLabel("Cancel sleep timer")
+            }
+
             if isHovering {
                 Button(action: close) {
                     Image(systemName: "xmark")
@@ -76,9 +93,9 @@ struct TabRowView: View {
                 onDragEnded: endDrag,
                 onClick: select
             )
-            // The gap keeps the trailing buttons clickable — wider when the mute
-            // button shares the row with the close button.
-            .padding(.trailing, (isPlayingAudio || isMuted)
+            // The gap keeps the trailing buttons clickable — wider when a mute
+            // or sleep-timer button shares the row with the close button.
+            .padding(.trailing, hasTrailingButtons
                 ? Metrics.sidebarRowHeight + 20
                 : Metrics.sidebarRowHeight)
         }
@@ -118,5 +135,20 @@ struct TabRowView: View {
         } else {
             shape.fill(.clear)
         }
+    }
+
+    /// Whether any trailing button shares the row with the close button, so the
+    /// drag source's right-hand gap stays wide enough to keep them clickable.
+    private var hasTrailingButtons: Bool {
+        isPlayingAudio || isMuted || sleepTimerDeadline != nil
+    }
+
+    /// "23 min", "1 h 4 min", or "<1 min" for the indicator's tooltip. Rendered
+    /// on hover only, so the per-body cost stays off the cheap row path (6.4).
+    private static func remainingText(until deadline: Date) -> String {
+        let total = Int(ceil(deadline.timeIntervalSinceNow / 60))
+        if total <= 0 { return "<1 min" }
+        if total < 60 { return "\(total) min" }
+        return "\(total / 60) h \(total % 60) min"
     }
 }

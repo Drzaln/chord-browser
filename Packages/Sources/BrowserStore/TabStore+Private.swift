@@ -120,6 +120,9 @@ extension TabStore {
         let space = spaces[index]
 
         for tab in tabs where tab.spaceID == spaceID {
+            // The tab is gone for good, so its sleep timer must not fire later
+            // into nothing.
+            cancelSleepTimer(tab.id)
             for pane in tab.panes {
                 // Discarding what `evict` returns is the point: capturing
                 // interaction state here is precisely what must not happen.

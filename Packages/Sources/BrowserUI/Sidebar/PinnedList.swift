@@ -26,9 +26,11 @@ struct PinnedList: View {
                     tint: tint,
                     isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                     isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
+                    sleepTimerDeadline: store.runtime(for: tab.focusedPaneID).sleepTimerDeadline,
                     select: { selectOrReturnHome(tab) },
                     close: { store.closeTab(tab.id, in: windowState) },
                     toggleMute: { store.toggleMute(tab.id) },
+                    cancelSleepTimer: { store.cancelSleepTimer(tab.id) },
                     beginDrag: { store.beginTabDrag(tab.id) },
                     endDrag: { store.endTabDrag() }
                 )
@@ -43,6 +45,7 @@ struct PinnedList: View {
                     Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") {
                         store.toggleMute(tab.id)
                     }
+                    SleepTimerMenu(store: store, tab: tab)
                     Button("Close Tab") { store.closeTab(tab.id, in: windowState) }
                 }
             }

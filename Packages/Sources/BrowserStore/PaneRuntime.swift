@@ -20,6 +20,9 @@ public final class PaneRuntime {
     public var isPlayingAudio: Bool = false
     /// Whether the user has muted this pane (non-spec: user-requested).
     public var isMuted: Bool = false
+    /// When this pane's sleep timer fires, if one is armed (non-spec:
+    /// user-requested).
+    public var sleepTimerDeadline: Date?
     /// Whether the pane is screen-sharing (non-spec: user-requested). Drives the
     /// "sharing this window" banner; see `ScreenShareMonitor`.
     public var isScreenSharing: Bool = false
@@ -46,6 +49,7 @@ public final class PaneRuntime {
         currentURL = snapshot.url
         isPlayingAudio = snapshot.isPlayingAudio
         isMuted = snapshot.isMuted
+        sleepTimerDeadline = snapshot.sleepTimerDeadline
         isScreenSharing = snapshot.isScreenSharing
         loginForm = snapshot.loginForm
         // Not cleared here: the store recomputes it, and blanking it on every

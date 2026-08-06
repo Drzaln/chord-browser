@@ -169,9 +169,11 @@ struct SidebarView: View {
                         tint: spaceTint,
                         isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                         isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
+                        sleepTimerDeadline: store.runtime(for: tab.focusedPaneID).sleepTimerDeadline,
                         select: { store.select(tab.id, in: windowState) },
                         close: { store.closeTab(tab.id, in: windowState) },
                         toggleMute: { store.toggleMute(tab.id) },
+                        cancelSleepTimer: { store.cancelSleepTimer(tab.id) },
                         beginDrag: { store.beginTabDrag(tab.id) },
                         endDrag: { store.endTabDrag() }
                     )
@@ -395,9 +397,11 @@ struct SidebarView: View {
                         tint: spaceTint,
                         isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                         isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
+                        sleepTimerDeadline: store.runtime(for: tab.focusedPaneID).sleepTimerDeadline,
                         select: { store.select(tab.id, in: windowState) },
                         close: { store.closeTab(tab.id, in: windowState) },
                         toggleMute: { store.toggleMute(tab.id) },
+                        cancelSleepTimer: { store.cancelSleepTimer(tab.id) },
                         beginDrag: { store.beginTabDrag(tab.id) },
                         endDrag: { store.endTabDrag() }
                     )
@@ -419,6 +423,8 @@ struct SidebarView: View {
         Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") {
             store.toggleMute(tab.id)
         }
+
+        SleepTimerMenu(store: store, tab: tab)
 
         // Move to / out of a folder (non-spec: user-requested).
         Menu("Move to Folder") {
