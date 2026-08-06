@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "webkit_arc_like_browser",
+  "project_id": "8fb4b58c-9e7a-4823-9393-8eef271c2e5e"
+}
