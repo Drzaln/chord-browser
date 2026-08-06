@@ -106,7 +106,10 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
   and tweak it. Handy for the occasional site that blocks non-Chrome browsers. It
   applies to every tab and
   takes effect on the next page load; leave a custom field empty to fall back to
-  the default.
+  the default. Below the global setting, **per-domain rules** let one site (or a
+  subdomain) send a different UA — e.g. keep a global Firefox UA but force
+  `meet.google.com` back to Default. Rules match the most specific subdomain; a
+  rule's **Default** disables the global choice for that domain only.
 - **Archive inactive tabs** — how long an unpinned, non-folder tab may sit idle
   before it's auto-archived (Never / 1h / 6h / 12h / 24h). Tabs playing audio and
   tabs in a folder are never archived.
