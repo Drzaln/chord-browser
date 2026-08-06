@@ -59,7 +59,7 @@ public struct ExtensionInstaller: Sendable {
         }
         try zip.write(to: destination, options: .atomic)
 
-        Log.extensions.notice("installed extension \(slug, privacy: .public)")
+        Log.extensions.notice("installed extension \(slug)")
         return InstalledExtension(slug: slug, resourceURL: destination)
     }
 
@@ -83,7 +83,7 @@ public struct ExtensionInstaller: Sendable {
         let url = resourceURL(forSlug: slug)
         guard fm.fileExists(atPath: url.path) else { return }
         try fm.removeItem(at: url)
-        Log.extensions.notice("removed extension \(slug, privacy: .public)")
+        Log.extensions.notice("removed extension \(slug)")
     }
 
     private func resourceURL(forSlug slug: String) -> URL {

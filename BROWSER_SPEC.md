@@ -243,7 +243,10 @@ protocol ExtensionHost { ... }
   `NSError`, no stringly-typed failures.
 - Use `os.Logger` with one subsystem and a category per package. No `print`.
   Signposts around launch, Space switch, and restore so Instruments traces are
-  readable without instrumentation work later.
+  readable without instrumentation work later. All text logging goes through the
+  `BrowserLogging` package's `AppLog`, which mirrors every line to a **rotating
+  file** (5 MB, keeps one backup) in `Application Support/<app>/Logs/` — the file
+  is the read-back path on machines where `log show` is unavailable.
 - User-facing failures degrade gracefully: a corrupt tab row is skipped and
   logged, never a launch crash. Persistence must be defensive — it is the one
   subsystem where a bug costs the user data rather than a reload.
@@ -417,9 +420,9 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   **ADR 013.** Selector upkeep is a recurring maintenance item (the
   `chord-browser-youtube-ads` skill).
 - **Configurable search engine, new-tab behaviour, archive window, and
-  User-Agent** — Settings → General. The per-domain UA override map §9.6
-  imagined is still not built; the setting is global and takes effect on the next
-  load.
+  User-Agent** — Settings → General. Includes the §9.6 **per-domain UA override
+  map** (add/remove rules, per-site presets — `UserAgentOverride`,
+  `GeneralSettings.perDomainRules`). A rule applies on the next load.
 - **Password vault** — saves and fills logins. Metadata in SQLite
   (`v12_credentials`, `v13_credential_never_save`), secrets in the Keychain via a
   new `BrowserSecrets` package, which is the only importer of Security and

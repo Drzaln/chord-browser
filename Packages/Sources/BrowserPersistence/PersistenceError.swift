@@ -1,9 +1,8 @@
+import BrowserLogging
 import Foundation
-import os
 
 enum Log {
-    static let subsystem = "com.rizal.browser"
-    static let db = Logger(subsystem: subsystem, category: "persistence")
+    static let db = AppLog.category("persistence")
 }
 
 public enum PersistenceError: Error, CustomStringConvertible {

@@ -11,7 +11,7 @@ This skill contains distilled knowledge from README.md, BROWSER_SPEC.md, and CHE
 
 Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replicates Arc's interaction model (Spaces, vertical tabs, command bar, ephemeral tabs, split view, Little Arc) while running on Apple's WebKit engine. All spec milestones (M1–M7) plus native content blocking are shipped and verified.
 
-**Status:** 512 tests in 79 suites. Schema **v13**. `./scripts/prepush.sh` green. Post-spec additions have landed on top of M1–M7 (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site permissions, web notifications, YouTube ad skipping, General settings, and the password vault (V1–V6).
+**Status:** 562 tests in 84 suites. Schema **v13**. `./scripts/prepush.sh` green. Post-spec additions have landed on top of M1–M7 (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site permissions, web notifications, YouTube ad skipping, General settings, the password vault (V1–V7), private windows, per-domain UA rules, and file-backed logging.
 
 ## Project Layout
 
@@ -19,6 +19,7 @@ Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replic
 BrowserApp/              @main, AppDelegate, debug overlay (Cmd+Ctrl+P, DEBUG only)
 Packages/Sources/
   BrowserCore/           Value types + pure logic (ranking, sweep policy). Foundation only.
+  BrowserLogging/        AppLog: every line → os.Logger + rotating file. Foundation + os only.
   BrowserSecrets/        Keychain + LocalAuthentication. The vault's secret half.
   BrowserPersistence/    GRDB, migrations, row types, mappers
   BrowserEngine/         The ONLY package importing WebKit (with BrowserExtensions)
@@ -155,8 +156,12 @@ persists (`v9_window_layout`).
   password field and GitHub's honeypots in one rule.
 - Detection is `PasswordFormMonitor` (collects, pierces open shadow roots,
   re-runs on mutation) → `LoginFormClassifier` (decides, pure, corpus-tested).
-- V7 (lock UI + auto-lock) is the only phase not built. `VaultLockPolicy` exists
-  and is tested; the UI and wiring are not.
+- **V7 lock is fully shipped** (do not re-flag it): `VaultLockPolicy` +
+  `VaultLockTimeout` (idle presets, default 15 min), `TabStore+VaultLock`
+  (`lockVault`/`unlockVault`/`refreshVaultLock`), the Sleep/screen-lock /
+  fast-user-switch observers in `AppDelegate.attachVaultLockObservers`, the
+  "Vault locked / Lock Now / timeout picker" section in `PasswordsSettings`, and
+  `VaultLockTests`. All password-vault phases are built.
 
 ## In-page monitors (the pattern)
 
@@ -196,7 +201,7 @@ see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 ### Build / Test
 - `swift test` runs unsandboxed — cannot verify entitlement-dependent features.
 - Never `cp` the GRDB database — use `.backup`. Restoring a main file beside a newer WAL corrupts it.
-- `os.Logger` logs are not retrievable via `log show`/`log stream` on this machine. Use screenshots.
+- `os.Logger` logs are not retrievable via `log show`/`log stream` on this machine — but `AppLog` mirrors every line to `Application Support/Browser/Logs/browser.log` (rotating, 5 MB), so read that file instead of using screenshots. Screenshots are only for visual verification.
 - The app is a `Window`, NOT a `WindowGroup` — a group spawns a second window on external URLs.
 
 ## Sandboxed App Data Path
@@ -229,6 +234,9 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
 
 - Per-site content-blocking whitelist / disable toggle
 - Runtime settings toggle for content blocking
-- Per-domain User-Agent override map (§9.6) — the UA setting is global today
+- ~~Per-domain User-Agent override map (§9.6)~~ **Done 2026-08-01** —
+  `UserAgentOverride` (Core), the rules editor in `GeneralSettings.perDomainRules`,
+  most-specific-subdomain matching in `WebKitEngine.setUserAgent`, persisted via
+  `Preferences`, covered by `UserAgentRulesTests`/`UserAgentStoreTests`/e2e
 - Full Instruments GUI trace (SwiftUI body counts, Energy Log)
 - Sidebar scroll fps measurement

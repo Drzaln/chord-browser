@@ -171,7 +171,10 @@ Run from the repo root. Adjust the delay (e.g. 35 s) so a pre-roll has time to f
 
 ## Layer 3 — Visual Smoke (ground truth)
 
-`os.Logger` is unreadable on this machine, so confirm with screenshots in the real app:
+`os.Logger` is unreadable on this machine, but AppLog mirrors every line to
+`Application Support/Browser/Logs/browser.log` (the `engine` category logs
+content-process deaths and navigation failures, which a screenshot can't show).
+Confirm the ad surfaces with screenshots in the real app:
 
 ```bash
 screencapture -x -o /tmp/yt-watch.png     # a video with pre-roll ads

@@ -1,6 +1,7 @@
 import BrowserCore
 import BrowserEngine
 import BrowserExtensions
+import BrowserLogging
 import BrowserPersistence
 import BrowserSecrets
 import Foundation
@@ -47,6 +48,11 @@ public struct AppEnvironment {
             appropriateFor: nil,
             create: true
         ).appending(path: applicationName)
+
+        // File-backed logging (BROWSER_SPEC 3.7). Every os.Logger line is
+        // mirrored to a rotating file here, because `log show`/`log stream` are
+        // unreadable on this machine — the file is where debugging is read back.
+        AppLog.install(fileURL: support.appending(path: "Logs/browser.log"))
 
         let database = try BrowserDatabase.open(at: support.appending(path: "browser.sqlite"))
 

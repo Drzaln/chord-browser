@@ -240,7 +240,8 @@ the app without re-signing the nested `Chord.debug.dylib` a Debug build ships.
 dyld reports *"different Team IDs"*, but the alert says nothing useful.
 
 ```bash
-# The only place the real reason appears (os.Logger is unreadable here):
+# The only place the real reason appears (AppLog's file won't have a dyld crash —
+# it died before the app ran):
 grep -oE '"reasons":\[[^]]*\]' "$(ls -t ~/Library/Logs/DiagnosticReports/Chord* | head -1)"
 ```
 
@@ -283,8 +284,10 @@ Space).
 
 ### An extension loads but does nothing (diagnose it directly)
 
-`os.Logger` is not readable on this machine, so do not try to chase this through
-logs. Load the bundle into a real `WKWebExtensionController` from a throwaway
+First check the AppLog file (`Application Support/Browser/Logs/browser.log`) for
+the `extensions` category — `WebKitExtensionHost` logs load/unload and errors
+there. For the raw WebKit error surface, load the bundle into a real
+`WKWebExtensionController` from a throwaway
 script — `swift file.swift` outside the repo, WebKit is available unsandboxed —
 and read `context.errors` a few seconds **after** `load` (they arrive late):
 
@@ -317,9 +320,24 @@ How to read it:
 3. Check rule count — `declarativeNetRequest` extensions with >50k rules in a single ruleset are rejected by WebKit
 4. Content scripts only inject on page load — reload the tab after enabling
 
+### Reading the log file
+
+`os.Logger` is not retrievable via `log show`/`log stream` on this machine, but
+`AppLog` mirrors every line to a rotating file. Read that:
+
+```bash
+LOG=~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/Logs/browser.log
+tail -200 "$LOG"                                  # recent entries
+grep -i "error\|fault" "$LOG"                     # errors across the session
+tail -20 "${LOG}.1"                               # the rotated backup
+```
+
+Entries look like `2026-08-06T19:47:12Z [store] notice: …`. The file rotates at
+5 MB (`browser.log.1` is the previous chunk).
+
 ### Visual verification
 
-`os.Logger` logs are NOT retrievable on this machine. Use screenshots:
+For on-screen state only (logs are in the file now):
 
 ```bash
 screencapture -x -o /tmp/chord-check.png
@@ -373,6 +391,8 @@ Single `main` branch, linear history. No feature branches.
 | Site permissions (model) | `Packages/Sources/BrowserCore/SitePermission.swift` |
 | Site permissions (storage) | `Packages/Sources/BrowserPersistence/SQLiteSitePermissionsRepository.swift` |
 | Notification shim | `Packages/Sources/BrowserEngine/NotificationBridge.swift` + `BrowserApp/NotificationController.swift` |
+| Logging sink | `Packages/Sources/BrowserLogging/AppLog.swift` |
+| Log file | `~/Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser/Logs/browser.log` |
 | YouTube ad script | `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift` |
 | Screen-share monitor | `Packages/Sources/BrowserEngine/ScreenShareMonitor.swift` |
 | User-Agent presets | `Packages/Sources/BrowserCore/UserAgent.swift` |

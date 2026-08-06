@@ -147,7 +147,7 @@ extension NavigationCoordinator: WKNavigationDelegate {
     /// view goes blank and never recovers. Required from day one (3.4).
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         guard let paneID = paneID(for: webView) else { return }
-        Log.engine.error("content process terminated for pane \(paneID, privacy: .public)")
+        Log.engine.error("content process terminated for pane \(paneID)")
         engine?.recoverFromTermination(paneID: paneID)
     }
 }

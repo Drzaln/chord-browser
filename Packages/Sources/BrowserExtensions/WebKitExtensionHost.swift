@@ -111,7 +111,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         controllers[space.id] = controller
         controllerSpace[ObjectIdentifier(controller)] = space.id
         Log.extensions.debug(
-            "prepared extension controller for space \(space.id, privacy: .public)"
+            "prepared extension controller for space \(space.id)"
         )
         return ExtensionControllerHandle(controller)
     }
@@ -221,7 +221,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // diagnosable rather than silently inert.
         if !context.errors.isEmpty {
             Log.extensions.error(
-                "extension \(installed.slug, privacy: .public) reported errors: \(String(describing: context.errors))"
+                "extension \(installed.slug) reported errors: \(String(describing: context.errors))"
             )
         }
 
@@ -237,7 +237,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             context: context, descriptor: descriptor
         )
         Log.extensions.notice(
-            "loaded extension \(installed.slug, privacy: .public) in space \(space.id, privacy: .public)"
+            "loaded extension \(installed.slug) in space \(space.id)"
         )
         // Tell the UI to re-read `actions(in:)`. WebKit's `didUpdate action:`
         // does not fire for an extension's statically-declared default action on
@@ -259,7 +259,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         }
         loadedContexts[space.id]?[slug] = nil
         Log.extensions.notice(
-            "unloaded extension \(slug, privacy: .public) in space \(space.id, privacy: .public)"
+            "unloaded extension \(slug) in space \(space.id)"
         )
         // Same reason as `load`: refresh the header so the removed button clears.
         onActionsChanged?()

@@ -1,6 +1,6 @@
 import AppKit
+import BrowserLogging
 import SwiftUI
-import os
 import UniformTypeIdentifiers
 
 /// An AppKit drag destination laid over a pane, for dropping a sidebar tab in
@@ -33,7 +33,7 @@ struct TabDropTarget: NSViewRepresentable {
     }
 
     final class DropView: NSView {
-        private static let log = Logger(subsystem: "com.rizal.browser", category: "drop")
+        private static let log = AppLog.category("drop")
         var isTargeted: ((Bool) -> Void)?
         var onDrop: ((UUID) -> Void)?
 
@@ -74,7 +74,7 @@ struct TabDropTarget: NSViewRepresentable {
 
             guard let payload, let tabID = TabDragPayload.tabID(from: payload) else {
                 Self.log.error(
-                    "drop payload empty (\(payload?.count ?? -1, privacy: .public) bytes)"
+                    "drop payload empty (\(payload?.count ?? -1) bytes)"
                 )
                 return false
             }

@@ -1,10 +1,9 @@
+import BrowserLogging
 import Foundation
-import os
 
 enum Log {
-    static let subsystem = "com.rizal.browser"
-    static let engine = Logger(subsystem: subsystem, category: "engine")
-    static let favicon = Logger(subsystem: subsystem, category: "favicon")
+    static let engine = AppLog.category("engine")
+    static let favicon = AppLog.category("favicon")
 }
 
 public enum EngineError: Error, CustomStringConvertible {

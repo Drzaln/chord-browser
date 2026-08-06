@@ -17,10 +17,10 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle; per-domain UA override map (§9.6). |
+| **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** (neither needs a migration). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **558 passing** (`swift test`, 83 suites), measured 2026-08-01                                                                                                                                   |
+| **Tests**                        | **562 passing** (`swift test`, 84 suites), measured 2026-08-06                                                                                                                                   |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -236,11 +236,16 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **558 tests**, `./scripts/prepush.sh` green, **schema v13**.
+State: single `main`, **562 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
 ## Where the work is
 
-**Nothing is assigned.** The newest work is **per-domain User-Agent rules**
+**Nothing is assigned.** The newest work is **file-backed logging** (2026-08-06)
+— every `os.Logger` line is now mirrored to a rotating file in
+`Application Support/Browser/Logs/browser.log`, because `log show`/`log stream`
+have never been readable on this machine (all previous debugging went through
+screenshots). Read that section before touching the `BrowserLogging` package or
+any `Log.*` call site. Before it, **per-domain User-Agent rules**
 (§9.6, 2026-08-01) — read that section for the two traps it turned up, one of
 which (`customUserAgent` reading back as `""`) breaks navigation outright. Before
 it, **private (incognito) windows, ⌘⇧N**
@@ -2148,7 +2153,9 @@ follows the commits.
 - **User-Agent setting (`f5e05b7`, `ef38189`).** Settings → General: Default /
   Chrome / Firefox / Safari-iPhone / Custom, the custom field pre-filled with the
   current UA so it is edited rather than invented. Global and applied on the next
-  load; the §9.6 per-domain override map is still not built. Related, and already
+  load, **plus the §9.6 per-domain override map** (`UserAgentOverride`,
+  add/remove rules in Settings → General, matching in
+  `WebKitEngine.setUserAgent`). Related, and already
   a memory the user hit twice: **Google Meet breaks under the Firefox UA**
   ("Couldn't start video call") — that is UA sniffing, not permissions.
 - **YouTube ad skipping (`2620f4e`, `ec24bee`) — ADR 013.** A page-side script,
@@ -2212,6 +2219,34 @@ keychain, app clean-rebuilt and verified running.
 build. One dialog after a rebuild, none for a build you keep. It does train the
 habit of approving keychain prompts, which is worth revisiting if the vault ever
 ships to anyone but its author. An allow-any-application ACL stays refused.
+
+### File-backed logging — os.Logger mirrored to a rotating file (2026-08-06)
+
+`os.Logger` has been write-only on this machine since day one (`log show` /
+`log stream` unreadable), so every debug read went through screenshots. Now every
+log line is mirrored to a file the agent can read back:
+`Application Support/Browser/Logs/browser.log`, rotating at 5 MB (keeps
+`browser.log.1`).
+
+**One new bottom-layer package, `BrowserLogging`** (Foundation + `os` only, sits
+beside Core; Core stays Foundation-only). `AppLog.category(name)` returns a
+value-typed `Category` with `.debug/.info/.notice/.error/.fault`; each package's
+`enum Log` is now just `static let store = AppLog.category("store")`, so call
+sites keep the `Log.store.error("…")` shape. The write path is a single
+nonisolated `write(level:category:message:)` that logs the whole line to
+`os.Logger` at `.public` (unified log stays readable on healthy machines) and
+hands the formatted line to `FileSink` — a `DispatchQueue`-confined singleton
+that appends on a background queue and swallows all I/O errors (a log failure
+must never affect the browser). Installed once in `AppEnvironment.live()`.
+
+**The `\(x, privacy: .public)` qualifiers were stripped** (~32 call sites). They
+only compile in os-logging contexts — verified empirically — and the file mirror
+wants the raw text anyway; logging the whole line at `.public` preserves unified-log
+readability. This is why call sites now look like `Log.store.error("pane \(id)")`.
+
+`OSSignposter`s are untouched (they were never the problem). 4 tests
+(`BrowserLoggingTests`: sink off until installed, file write, rotation at cap).
+`swift test` 562, prepush green.
 
 ### Link context menu: Open in New Tab / New Private Window (2026-07-31)
 

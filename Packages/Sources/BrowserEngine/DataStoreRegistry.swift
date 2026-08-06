@@ -25,7 +25,7 @@ final class DataStoreRegistry {
         }
 
         stores[space.id] = store
-        Log.engine.debug("opened data store for space \(space.id, privacy: .public)")
+        Log.engine.debug("opened data store for space \(space.id)")
         return store
     }
 
@@ -37,6 +37,6 @@ final class DataStoreRegistry {
     /// before getting here (3.3).
     func removePersistentStore(dataStoreID: UUID) async throws {
         try await WKWebsiteDataStore.remove(forIdentifier: dataStoreID)
-        Log.engine.notice("removed data store \(dataStoreID, privacy: .public)")
+        Log.engine.notice("removed data store \(dataStoreID)")
     }
 }

@@ -1,7 +1,7 @@
 import BrowserCore
 import BrowserExtensions
+import BrowserLogging
 import Foundation
-import os
 
 public enum ExtensionsServiceError: Error, CustomStringConvertible {
     case notInstalled(String)
@@ -25,7 +25,7 @@ public final class ExtensionsService {
     private let installer: ExtensionInstaller
     private let host: any ExtensionHost
     private let enablement: any ExtensionEnablementRepository
-    private let log = Logger(subsystem: "com.rizal.browser", category: "extensions")
+    private let log = AppLog.category("extensions")
 
     public init(
         installer: ExtensionInstaller,
@@ -107,14 +107,14 @@ public final class ExtensionsService {
         for record in records {
             guard let space = spacesByID[record.spaceID] else { continue }
             guard let installed = installedBySlug[record.slug] else {
-                log.notice("enabled extension \(record.slug, privacy: .public) is no longer installed")
+                log.notice("enabled extension \(record.slug) is no longer installed")
                 continue
             }
             do {
                 try await host.load(installed, in: space)
             } catch {
                 log.error(
-                    "failed to restore \(record.slug, privacy: .public): \(String(describing: error))"
+                    "failed to restore \(record.slug): \(String(describing: error))"
                 )
             }
         }

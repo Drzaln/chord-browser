@@ -104,7 +104,7 @@ public final class ContentBlocker {
         var combined = ""
         for url in listURLs {
             guard let text = await fetch(url) else {
-                Log.engine.error("content blocking: refresh fetch failed for \(url, privacy: .public)")
+                Log.engine.error("content blocking: refresh fetch failed for \(url)")
                 return []
             }
             combined += text
@@ -178,7 +178,7 @@ public final class ContentBlocker {
                 forIdentifier: identifier, encodedContentRuleList: json
             )
             Log.engine.notice(
-                "content blocking: compiled \(ruleCount, privacy: .public) rules as \(identifier, privacy: .public)"
+                "content blocking: compiled \(ruleCount) rules as \(identifier)"
             )
             return list
         } catch {

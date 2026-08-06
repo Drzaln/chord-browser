@@ -43,7 +43,7 @@ public struct BrowserDatabase: Sendable {
             )
         }
 
-        Log.db.info("database ready at schema v\(Migrations.currentVersion, privacy: .public)")
+        Log.db.info("database ready at schema v\(Migrations.currentVersion)")
         return BrowserDatabase(writer: queue)
     }
 

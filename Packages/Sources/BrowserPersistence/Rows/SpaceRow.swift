@@ -40,7 +40,7 @@ enum SpaceMapping {
         guard let dataStoreID = UUID(uuidString: row.dataStoreID) else {
             // Without a data store id the Space cannot be isolated, and a Space
             // that silently shares cookies is worse than a missing one.
-            Log.db.error("skipping space \(row.id, privacy: .public): bad dataStoreID")
+            Log.db.error("skipping space \(row.id): bad dataStoreID")
             return nil
         }
 

@@ -13,6 +13,7 @@ let package = Package(
     platforms: [.macOS("15.4")],
     products: [
         .library(name: "BrowserCore", targets: ["BrowserCore"]),
+        .library(name: "BrowserLogging", targets: ["BrowserLogging"]),
         .library(name: "BrowserPersistence", targets: ["BrowserPersistence"]),
         .library(name: "BrowserEngine", targets: ["BrowserEngine"]),
         .library(name: "BrowserExtensions", targets: ["BrowserExtensions"]),
@@ -28,15 +29,21 @@ let package = Package(
     targets: [
         .target(name: "BrowserCore", swiftSettings: strict),
 
+        // The one logging sink (BROWSER_SPEC 3.7): mirrors every line to
+        // os.Logger and, once installed, to a rotating file. Sits beside Core
+        // at the bottom of the dependency tree — no app package imports it,
+        // every package that logs does. Foundation + os only, like Core.
+        .target(name: "BrowserLogging", swiftSettings: strict),
+
         .target(
             name: "BrowserPersistence",
-            dependencies: ["BrowserCore", .product(name: "GRDB", package: "GRDB.swift")],
+            dependencies: ["BrowserCore", "BrowserLogging", .product(name: "GRDB", package: "GRDB.swift")],
             swiftSettings: strict
         ),
 
         .target(
             name: "BrowserEngine",
-            dependencies: ["BrowserCore"],
+            dependencies: ["BrowserCore", "BrowserLogging"],
             resources: [.process("Resources/seed-blocklist.txt")],
             swiftSettings: strict
         ),
@@ -47,7 +54,7 @@ let package = Package(
         // and the engine's opaque ExtensionControllerHandle. See ADR 011.
         .target(
             name: "BrowserExtensions",
-            dependencies: ["BrowserCore", "BrowserEngine"],
+            dependencies: ["BrowserCore", "BrowserEngine", "BrowserLogging"],
             swiftSettings: strict
         ),
 
@@ -65,14 +72,14 @@ let package = Package(
             name: "BrowserStore",
             dependencies: [
                 "BrowserCore", "BrowserEngine", "BrowserExtensions", "BrowserPersistence",
-                "BrowserSecrets",
+                "BrowserSecrets", "BrowserLogging",
             ],
             swiftSettings: strict
         ),
 
         .target(
             name: "BrowserUI",
-            dependencies: ["BrowserCore", "BrowserEngine", "BrowserExtensions", "BrowserStore"],
+            dependencies: ["BrowserCore", "BrowserEngine", "BrowserExtensions", "BrowserStore", "BrowserLogging"],
             swiftSettings: strict
         ),
 
@@ -123,6 +130,11 @@ let package = Package(
         .testTarget(
             name: "BrowserSecretsTests",
             dependencies: ["BrowserSecrets", "BrowserCore"],
+            swiftSettings: strict
+        ),
+        .testTarget(
+            name: "BrowserLoggingTests",
+            dependencies: ["BrowserLogging"],
             swiftSettings: strict
         ),
         .testTarget(

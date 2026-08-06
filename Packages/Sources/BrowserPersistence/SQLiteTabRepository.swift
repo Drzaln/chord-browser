@@ -22,7 +22,7 @@ public struct SQLiteTabRepository: TabRepository, SpaceRepository, FolderReposit
             }
             if tabs.count != tabRows.count {
                 Log.db.error(
-                    "dropped \(tabRows.count - tabs.count, privacy: .public) corrupt tab row(s)"
+                    "dropped \(tabRows.count - tabs.count) corrupt tab row(s)"
                 )
             }
             return tabs
@@ -50,7 +50,7 @@ public struct SQLiteTabRepository: TabRepository, SpaceRepository, FolderReposit
             let spaces = rows.compactMap(SpaceMapping.model(from:))
             if spaces.count != rows.count {
                 Log.db.error(
-                    "dropped \(rows.count - spaces.count, privacy: .public) corrupt space row(s)"
+                    "dropped \(rows.count - spaces.count) corrupt space row(s)"
                 )
             }
             return spaces
@@ -133,7 +133,7 @@ public struct SQLiteTabRepository: TabRepository, SpaceRepository, FolderReposit
                 .filter(!keep.contains(Column("paneId")))
                 .deleteAll(db)
             if deleted > 0 {
-                Log.db.debug("pruned \(deleted, privacy: .public) orphaned interaction state(s)")
+                Log.db.debug("pruned \(deleted) orphaned interaction state(s)")
             }
         }
     }

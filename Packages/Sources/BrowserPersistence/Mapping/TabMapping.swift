@@ -56,7 +56,7 @@ enum TabMapping {
         guard let spaceID = UUID(uuidString: tabRow.spaceId) else {
             // An unowned tab would be invisible in every Space, which reads to
             // the user as data loss. Better to skip it loudly.
-            Log.db.error("skipping tab \(tabRow.id, privacy: .public): bad spaceId")
+            Log.db.error("skipping tab \(tabRow.id): bad spaceId")
             return nil
         }
 
@@ -65,7 +65,7 @@ enum TabMapping {
             .compactMap(pane(from:))
 
         guard !panes.isEmpty else {
-            Log.db.error("skipping tab \(tabRow.id, privacy: .public): no usable panes")
+            Log.db.error("skipping tab \(tabRow.id): no usable panes")
             return nil
         }
 
@@ -75,7 +75,7 @@ enum TabMapping {
             homeURL: tabRow.pinnedHomeURL
         )
         else {
-            Log.db.error("skipping tab \(tabRow.id, privacy: .public): unknown placement kind")
+            Log.db.error("skipping tab \(tabRow.id): unknown placement kind")
             return nil
         }
 

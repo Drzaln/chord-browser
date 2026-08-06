@@ -66,8 +66,8 @@ Current version: **v13**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history
 
 ## Logging
 
-- Use `os.Logger` with one subsystem and a category per package. No `print`.
-- Note: `os.Logger` logs are NOT retrievable via `log show`/`log stream` on this machine. Use `screencapture -x -o out.png` for visual verification.
+- Log through `AppLog` (`BrowserLogging` package): one subsystem and a category per package, no `print`. Every line goes to `os.Logger` **and**, once installed (the app does this at launch), to a rotating file at `Application Support/Browser/Logs/browser.log`.
+- `os.Logger` is NOT retrievable via `log show`/`log stream` on this machine — read the file instead. Only use `screencapture -x -o out.png` for visual verification, not for reading logs.
 
 ## Toolchain
 

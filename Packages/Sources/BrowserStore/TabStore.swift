@@ -1,13 +1,14 @@
 import BrowserCore
 import BrowserEngine
 import BrowserExtensions
+import BrowserLogging
 import BrowserSecrets
 import Foundation
 import Observation
 import os
 
 enum Log {
-    static let store = Logger(subsystem: "com.rizal.browser", category: "store")
+    static let store = AppLog.category("store")
     static let signposts = OSSignposter(
         subsystem: "com.rizal.browser", category: "lifecycle"
     )
@@ -600,7 +601,7 @@ public final class TabStore {
             let before = tabs.count
             tabs.removeAll { restoredPrivateSpaceIDs.contains($0.spaceID) }
             let dropped = before - tabs.count
-            Log.store.notice("dropped \(dropped, privacy: .public) private tab(s)")
+            Log.store.notice("dropped \(dropped) private tab(s)")
         }
         adoptOrphanedTabs()
 
@@ -634,7 +635,7 @@ public final class TabStore {
             adopted += 1
         }
         if adopted > 0 {
-            Log.store.notice("adopted \(adopted, privacy: .public) orphaned tab(s)")
+            Log.store.notice("adopted \(adopted) orphaned tab(s)")
             scheduleSave()
         }
     }
@@ -1038,7 +1039,7 @@ public final class TabStore {
     /// the restore away.
     public func surface(for pane: Pane, in tab: Tab) -> AnyWebSurface? {
         guard let space = spaces.first(where: { $0.id == tab.spaceID }) else {
-            Log.store.error("no space for tab \(tab.id, privacy: .public); refusing to render")
+            Log.store.error("no space for tab \(tab.id); refusing to render")
             return nil
         }
 
@@ -1327,7 +1328,7 @@ extension TabStore: WebEngineDelegate {
     public func paneContentProcessDidTerminate(_ paneID: UUID) {
         // The engine already restarted the page. Nothing to do but note it —
         // the user should not see anything beyond a brief reload.
-        Log.store.notice("recovered pane \(paneID, privacy: .public) after process termination")
+        Log.store.notice("recovered pane \(paneID) after process termination")
     }
 
     /// A delivered web notification was clicked: bring its page to the front and

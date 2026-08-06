@@ -179,7 +179,7 @@ public final class WebKitEngine: WebEngine {
         lastKnownURL[pane.id] = pane.url
 
         Log.engine.debug(
-            "created web view for pane \(pane.id, privacy: .public), \(self.pool.count) live"
+            "created web view for pane \(pane.id), \(self.pool.count) live"
         )
         return live
     }

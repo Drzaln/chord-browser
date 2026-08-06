@@ -14,7 +14,7 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > **Status:** all spec milestones (M1–M7) plus native content blocking are
 > shipped on `main` and verified live, along with a run of post-spec additions
 > (multiple windows, folders, per-site permissions, notifications, YouTube ad
-> skipping, and a built-in password vault). 512 tests pass; schema is at v13;
+> skipping, and a built-in password vault). 562 tests pass; schema is at v13;
 > `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
@@ -89,7 +89,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   by a recurring selector-compatibility check (see
   [.agents/skills/chord-browser-youtube-ads](.agents/skills/chord-browser-youtube-ads/SKILL.md)).
 - **User-Agent control** — Default / Chrome / Firefox / Safari-iPhone or a custom
-  string, from **Settings → General**, for the occasional site that sniffs.
+  string from **Settings → General**, plus **per-domain override rules** (e.g.
+  force `meet.google.com` back to Default), for the occasional site that sniffs.
 - **Settings** (`Cmd+,`) — General preferences, clear browsing data (cache,
   cookies, site storage, history) across every Space, per-site permission
   management, and extensions.

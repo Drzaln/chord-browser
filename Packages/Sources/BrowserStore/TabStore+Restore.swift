@@ -98,7 +98,7 @@ extension TabStore {
                 // still has its URL and reloads.
                 Log.store.error(
                     """
-                    interaction state save failed for pane \(paneID, privacy: .public): \
+                    interaction state save failed for pane \(paneID): \
                     \(String(describing: error))
                     """
                 )
@@ -148,7 +148,7 @@ extension TabStore {
             } catch {
                 Log.store.error(
                     """
-                    interaction state load failed for pane \(paneID, privacy: .public): \
+                    interaction state load failed for pane \(paneID): \
                     \(String(describing: error))
                     """
                 )

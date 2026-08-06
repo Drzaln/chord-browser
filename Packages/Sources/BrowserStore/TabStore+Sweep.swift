@@ -83,7 +83,7 @@ extension TabStore {
         }
         tabs.removeAll { doomed.contains($0.id) }
 
-        Log.store.notice("swept \(closing.count, privacy: .public) idle tab(s)")
+        Log.store.notice("swept \(closing.count) idle tab(s)")
 
         // Every window that just lost its whole list needs a tab again.
         for window in windows where visibleTabs(in: window).isEmpty {

@@ -204,7 +204,7 @@ final class WebViewPool {
         let state = view.interactionState
         willEvict?(paneID, state)
         view.tearDown()
-        Log.engine.debug("evicted pane \(paneID, privacy: .public), \(self.live.count) live")
+        Log.engine.debug("evicted pane \(paneID), \(self.live.count) live")
         return state
     }
 
@@ -249,7 +249,7 @@ final class WebViewPool {
 
     private func applyCapacity(_ newValue: Int, reason: String) {
         Log.engine.notice(
-            "memory pressure \(reason, privacy: .public), capping live views at \(newValue)"
+            "memory pressure \(reason), capping live views at \(newValue)"
         )
         capacity = newValue
         enforceCapacity()
