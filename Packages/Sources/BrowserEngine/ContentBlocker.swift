@@ -16,10 +16,16 @@ import WebKit
 /// blocking; a *main-thread-blocking* wait deadlocks, since the completion
 /// handler is delivered on the main queue).
 ///
+/// **Per-list refresh.** Each source list (EasyList, EasyPrivacy) is fetched,
+/// hashed, compiled, and timed independently under its own content-hashed
+/// identifier. A failure fetching one list defers only that list — its sibling
+/// still updates, and the failed list keeps its last good set and retries next
+/// launch rather than losing a week of updates.
+///
 /// **Multiple lists.** The full EasyList + EasyPrivacy is ~137k rules, well past
-/// one list's practical compile size, so it is split into chunks of
-/// `maxRulesPerList` and each compiled separately; WebKit attaches several lists
-/// to a view and matches across all of them.
+/// one list's practical compile size, so each list is split into chunks of
+/// `maxRulesPerList` and each chunk compiled separately; WebKit attaches several
+/// lists to a view and matches across all of them.
 @MainActor
 public final class ContentBlocker {
     private let store: WKContentRuleListStore
@@ -37,8 +43,40 @@ public final class ContentBlocker {
     /// refresh) has run.
     public private(set) var compiledLists: [WKContentRuleList] = []
 
-    private static let lastRefreshKey = "contentBlocking.lastRefresh"
-    private static let currentIdentifierKey = "contentBlocking.currentIdentifier"
+    /// Identifiers for the currently-registered per-list compiled sets, aligned
+    /// one-to-one with `listURLs`. An empty slot (empty string) means that list
+    /// has never refreshed successfully, so its slot falls back to the seed.
+    /// Stored as a single array in `UserDefaults`; the old single-key format is
+    /// read as a legacy fallback (a pre-per-list combined list) so an existing
+    /// install keeps its cached full set until the next weekly refresh.
+    private static let currentIdentifiersKey = "contentBlocking.currentIdentifiers"
+    /// The pre-per-list key. Superseded by `currentIdentifiersKey`; still read
+    /// for one launch so the combined cached list is not discarded on upgrade.
+    private static let legacyCurrentIdentifierKey = "contentBlocking.currentIdentifier"
+
+    /// The refresh timestamp of one list, keyed by its URL so each list ages
+    /// independently — one flaky fetch must not defer the sibling by a week.
+    private static func lastRefreshKey(for url: URL) -> String {
+        "contentBlocking.lastRefresh.\(url.absoluteString)"
+    }
+
+    /// The persisted per-list identifier array, aligned to `listURLs`. Reads the
+    /// legacy single combined identifier as a one-element array so an install
+    /// upgraded from the combined format keeps its cached list; the first
+    /// per-list refresh replaces it and drops the old key.
+    private var currentIdentifiers: [String] {
+        get {
+            if let array = defaults.stringArray(forKey: Self.currentIdentifiersKey) { return array }
+            if let legacy = defaults.string(forKey: Self.legacyCurrentIdentifierKey) {
+                return [legacy]
+            }
+            return []
+        }
+        set {
+            defaults.set(newValue, forKey: Self.currentIdentifiersKey)
+            defaults.removeObject(forKey: Self.legacyCurrentIdentifierKey)
+        }
+    }
 
     /// The public EasyList + EasyPrivacy sources (§4.8).
     public static let defaultListURLs = [
@@ -71,60 +109,97 @@ public final class ContentBlocker {
         self.maxRulesPerList = maxRulesPerList
     }
 
-    /// The lists to attach right now: the cached full set from a previous
-    /// refresh if we have one, else the bundled seed. This is the fast
-    /// first-frame path — no fetch, and no recompile when cached. Crucially it
-    /// re-attaches the *full* cached list on every launch, not just the seed, so
-    /// blocking does not silently shrink to the seed between weekly refreshes.
+    /// The lists to attach right now: the cached per-list set from previous
+    /// refreshes, else the bundled seed. This is the fast first-frame path — no
+    /// fetch, and no recompile when cached. Crucially it re-attaches the *full*
+    /// cached set on every launch, not just the seed, so blocking does not
+    /// silently shrink to the seed between weekly refreshes.
     @discardableResult
     public func activeLists() async -> [WKContentRuleList] {
-        if let id = defaults.string(forKey: Self.currentIdentifierKey),
-            let cached = await loadChunks(baseIdentifier: id)
+        let identifiers = currentIdentifiers
+
+        // Legacy single combined list (pre-per-list): serve it verbatim. The
+        // array form below cannot express it without misreading the combined
+        // rules as one list's slot.
+        if identifiers.count == 1, !identifiers[0].isEmpty,
+            let legacy = await loadChunks(baseIdentifier: identifiers[0])
         {
-            compiledLists = cached
-            return cached
+            compiledLists = legacy
+            return legacy
         }
-        let lists = await compileChunks(from: seedList(), baseIdentifier: seedIdentifier)
+
+        guard identifiers.contains(where: { !$0.isEmpty }) else {
+            // Nothing ever refreshed successfully — the seed is the whole set.
+            let lists = await compileChunks(from: seedList(), baseIdentifier: seedIdentifier)
+            compiledLists = lists
+            return lists
+        }
+
+        let lists = await fullSet(for: identifiers)
         compiledLists = lists
         return lists
     }
 
-    /// If a week has passed (or we have never refreshed), fetches the full
-    /// EasyList/EasyPrivacy, converts, compiles it in chunks under a
-    /// **content-hashed** identifier, records it as current, prunes older lists,
-    /// and returns the new set; otherwise `[]`. The hash makes an unchanged list
-    /// a cache hit. A fetch failure leaves the date untouched, so it retries next
-    /// launch rather than waiting a week.
+    /// If a week has passed (or a list has never refreshed), fetches each due
+    /// list, converts and compiles it under a **content-hashed** per-list
+    /// identifier, records it as current, prunes stale chunks, and returns the
+    /// full refreshed set; otherwise `[]`. Each list ages and refreshes
+    /// independently, so a failed fetch defers only that list — its sibling's
+    /// update is still applied, and the failed list keeps its last good set and
+    /// retries next launch. The hash makes an unchanged list a cache hit.
     @discardableResult
     public func refreshIfDue() async -> [WKContentRuleList] {
-        let last = defaults.object(forKey: Self.lastRefreshKey) as? Date
-        guard ContentBlockRefresh.isDue(lastRefresh: last, now: now(), interval: refreshInterval)
-        else { return [] }
+        var identifiers = currentIdentifiers
+        var changed = false
 
-        var combined = ""
-        for url in listURLs {
+        for (index, url) in listURLs.enumerated() {
+            let last = defaults.object(forKey: Self.lastRefreshKey(for: url)) as? Date
+            guard ContentBlockRefresh.isDue(
+                lastRefresh: last, now: now(), interval: refreshInterval
+            ) else { continue }
+
             guard let text = await fetch(url) else {
                 Log.engine.error("content blocking: refresh fetch failed for \(url)")
-                return []
+                // Keep the slot's last good identifier — only this list retries.
+                continue
             }
-            combined += text
-            combined += "\n"
+
+            let identifier = "blocklist-" + Self.shortHash(text)
+            let lists: [WKContentRuleList]
+            if let cached = await loadChunks(baseIdentifier: identifier) {
+                lists = cached  // content unchanged since a previous refresh
+            } else {
+                lists = await compileChunks(from: text, baseIdentifier: identifier)
+            }
+            guard !lists.isEmpty else { continue }
+
+            while identifiers.count <= index { identifiers.append("") }
+            if identifiers[index] != identifier { changed = true }
+            identifiers[index] = identifier
+            defaults.set(now(), forKey: Self.lastRefreshKey(for: url))
         }
 
-        let identifier = "blocklist-" + Self.shortHash(combined)
-        let lists: [WKContentRuleList]
-        if let cached = await loadChunks(baseIdentifier: identifier) {
-            lists = cached  // content unchanged since a previous refresh
-        } else {
-            lists = await compileChunks(from: combined, baseIdentifier: identifier)
-        }
-        guard !lists.isEmpty else { return [] }
+        guard changed else { return [] }
+        defaults.set(identifiers, forKey: Self.currentIdentifiersKey)
+        await pruneIdentifiers(currentBases: identifiers.filter { !$0.isEmpty })
 
+        let lists = await fullSet(for: identifiers)
         compiledLists = lists
-        defaults.set(now(), forKey: Self.lastRefreshKey)
-        defaults.set(identifier, forKey: Self.currentIdentifierKey)
-        await pruneIdentifiers(currentBase: identifier)
         return lists
+    }
+
+    /// Builds the full set to attach for a per-list identifier array, filling
+    /// never-refreshed slots with the seed so blocking never silently shrinks
+    /// below the seed once any list has been refreshed.
+    private func fullSet(for identifiers: [String]) async -> [WKContentRuleList] {
+        var all: [WKContentRuleList] = []
+        if identifiers.contains(where: { $0.isEmpty }) {
+            all += await loadChunks(baseIdentifier: seedIdentifier) ?? []
+        }
+        for id in identifiers where !id.isEmpty {
+            if let chunks = await loadChunks(baseIdentifier: id) { all += chunks }
+        }
+        return all
     }
 
     // MARK: -
@@ -188,13 +263,14 @@ public final class ContentBlocker {
     }
 
     /// Removes stale compiled lists so the store does not accumulate one set per
-    /// weekly fetch. Keeps the seed's chunks and the current list's chunks; only
-    /// touches our own `blocklist-` identifiers.
-    private func pruneIdentifiers(currentBase: String) async {
+    /// weekly fetch. Keeps the seed's chunks and the current per-list chunks;
+    /// only touches our own `blocklist-` identifiers.
+    private func pruneIdentifiers(currentBases: [String]) async {
         let ids = await store.availableIdentifiers() ?? []
         for id in ids
         where id.hasPrefix("blocklist-")
-            && !id.hasPrefix(seedIdentifier) && !id.hasPrefix(currentBase)
+            && !id.hasPrefix(seedIdentifier)
+            && !currentBases.contains(where: { id.hasPrefix($0) })
         {
             try? await store.removeContentRuleList(forIdentifier: id)
         }

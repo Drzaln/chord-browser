@@ -27,13 +27,30 @@ public enum UserAgentPreference: Codable, Hashable, Sendable {
         .default, .chrome, .firefox, .safariIPhone,
     ]
 
+    /// The single source of truth for the browser's advertised Safari version.
+    ///
+    /// WKWebView's default UA ends at `(KHTML, like Gecko)` — no `Version/` and
+    /// no `Safari/` token, because both come from `applicationNameForUserAgent`,
+    /// which is unset by default. WebKit exposes no API for the real Safari
+    /// version (reading WebKit's own Info.plist is blocked by the sandbox), so
+    /// the token is hard-coded here and shared by every string the app puts on
+    /// the wire or prefills in Settings. Keeping it in one place is what stops
+    /// the app from advertising two different versions at once.
+    ///
+    /// The value goes stale and that is the accepted cost: a stale-but-plausible
+    /// token degrades far more gracefully than no token at all, and matching the
+    /// token to the shipped WebKit version avoids a UA-vs-engine feature
+    /// mismatch that sites could fingerprint.
+    public static let safariVersionToken = "Version/26.5 Safari/605.1.15"
+
     /// A representative full macOS Safari UA, used only to pre-fill the editable
     /// custom field when starting from `.default` — whose real UA the engine
-    /// completes at runtime and which the UI layer cannot read. Plausible but
-    /// static, the same accepted staleness as the engine's version token.
+    /// completes at runtime and which the UI layer cannot read. Built from
+    /// `safariVersionToken` so it can never drift from the live UA. Plausible
+    /// but static, the same accepted staleness as the token itself.
     public static let defaultTemplate =
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        + "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+        + "AppleWebKit/605.1.15 (KHTML, like Gecko) " + safariVersionToken
 
     /// The string to seed a manual edit from: the resolved override, or the
     /// default template when nothing overrides the UA.

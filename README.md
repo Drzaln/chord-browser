@@ -53,6 +53,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   card stays opaque.
 - **Extensions** — a `WKWebExtension` host with a `.crx`/`.xpi` unpack helper and
   popover surfacing. Install, enable per Space, and uninstall from **Settings**.
+  Bundles are **signature-verified at install** (CRX2/CRX3); unsigned or
+  unknown-signer ones still install but are flagged with a warning (ADR 017).
 - **History** (`Cmd+Y`) — a searchable, **per-Space** window of visited pages
   grouped by day, with per-entry and multi-select delete, open-in-new-tab, and
   clear. Each Space keeps its own history, matching its isolated data store.
@@ -225,7 +227,8 @@ Packages/              All logic, as a Swift package (BrowserPackages)
     BrowserCore/         Value types, no WebKit — models, converters, ranking
     BrowserPersistence/  GRDB-backed storage (history, tabs, spaces)
     BrowserEngine/       The WebKit-importing layer (WKWebView, content blocking)
-    BrowserExtensions/   WKWebExtension host + .crx unpack
+    BrowserExtensions/   WKWebExtension host + .crx unpack + signature stamping
+    BrowserCrypto/       Security/CryptoKit — extension signature verification
     BrowserStore/        App state store
     BrowserUI/           SwiftUI views
   Tests/                 One test suite per source module

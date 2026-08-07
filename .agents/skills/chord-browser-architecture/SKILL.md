@@ -21,9 +21,10 @@ Packages/Sources/
   BrowserCore/           Value types + pure logic (ranking, sweep policy). Foundation only.
   BrowserLogging/        AppLog: every line → os.Logger + rotating file. Foundation + os only.
   BrowserSecrets/        Keychain + LocalAuthentication. The vault's secret half.
+  BrowserCrypto/         Security + CryptoKit. Extension-bundle signature verification.
   BrowserPersistence/    GRDB, migrations, row types, mappers
   BrowserEngine/         The ONLY package importing WebKit (with BrowserExtensions)
-  BrowserExtensions/     WKWebExtension host + .crx unpack
+  BrowserExtensions/     WKWebExtension host + .crx unpack + signature verdict stamping
   BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleArc/+Restore/+Find)
   BrowserUI/             SwiftUI views + command bar and Little Arc panels. Never WebKit.
   BrowserTestSupport/    Fakes, TabBuilder, TestHTTPServer
@@ -101,13 +102,20 @@ UI never touches `WKWebView` directly. It talks to the Store; the Store owns the
 - MV3 only. No MV2 shims.
 - **Apple's runtime is a subset, and each big extension trips a different missing piece.** Unimplemented: `offscreen`, `sidePanel`, `nativeMessaging`, `webRequestAuthProvider`, blocking `webRequest`, scriptlet injection; `declarativeNetRequest` caps ~50k rules/list. WebKit *silently drops* unimplemented permissions, so the API object is `undefined` and an extension touching it at startup dies with `WKWebExtensionContextErrorDomain` code 6 (background content failed to load) — which presents as a popup spinning forever. AdBlock fails on the rule cap; **Bitwarden fails on `offscreen`** (2026-07-31). Diagnosis procedure is in the maintenance skill.
 - An extension **popup pins its window's sidebar open** while visible (`WindowState.isSidebarHeldOpen`) — the popover is anchored to the sidebar-header button, so an auto-hiding sidebar closes it mid-use.
-- `.crx`/`.xpi` unpack to `~/Library/Application Support/Browser/Extensions/`.
+- `.crx`/`.xpi` unpack to `~/Library/Application Support/Browser/Extensions/` as `Extensions/<slug>.zip` plus a `<slug>.verification` sidecar.
+
+### Extension signature verification (ADR 017)
+- **Warn-but-install.** `BrowserCrypto.ExtensionSignatureVerifier` verifies the CRX2/CRX3 signature at install; unsigned/unknown-signer bundles still install but are flagged (orange warning icon on the row, an install-time message, and an enable-time confirmation). Verified-with-pinned-key → `.trusted`, verified-with-embedded-key → `.verified`, tampered → `.tampered`, plain ZIP → `.unsigned`.
+- **The verdict is persisted** (`Extensions/<slug>.verification`), because the CRX header that proves it is stripped at install.
+- **Pinned key set is empty today** (no extension store); the API takes `pinnedKeys:` so a store key slots in later.
+- CRX3 verification is real: it parses the protobuf `CrxFileHeader`/`SignedData`, verifies the RSA-SHA256 proof over `signed_header_data`, and checks the ZIP against `SignedData.sha256_with_rsa`. ECDSA-only headers → `.unsupported`.
+- `BrowserCrypto` is the second Security/CryptoKit importer (after `BrowserSecrets`).
 
 ### Content Blocking (§4.8)
 - Compiles EasyList + EasyPrivacy into `WKContentRuleList`s. ~137k rules chunked at 50k per list.
 - Network + cosmetic filtering. Standard CSS `:has()` supported.
 - Cannot block YouTube ads (scriptlet injection needed, out of scope).
-- On by default. Weekly refresh from upstream lists.
+- On by default. Weekly refresh from upstream lists, **per-list independent**: each list has its own content-hash identifier, its own `lastRefresh` timestamp, and a failure fetching one defers only that list (it keeps its last good set and retries next launch). Never-refreshed slots fall back to the seed so blocking never silently shrinks.
 
 ## Windows vs. the world (post-M7)
 
@@ -142,8 +150,8 @@ persists (`v9_window_layout`).
 `docs/design/password-vault.md` is the source of truth. The load-bearing rules:
 
 - **Metadata in SQLite (`credential`, v12), password in the Keychain** via
-  `BrowserSecrets` — the only importer of Security/LocalAuthentication. A secret
-  must never reach the database, a log, or observable state
+  `BrowserSecrets` — one of two Security importers (`BrowserCrypto`, ADR 017, is
+  the other). A secret must never reach the database, a log, or observable state
   (`CredentialSavePrompt` has no password field by design).
 - **Exact origin equality** for every fill — scheme + host + port, never
   parent-domain. `CredentialOrigin.Policy` is `.strict` in the app; only
@@ -238,5 +246,8 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
   `UserAgentOverride` (Core), the rules editor in `GeneralSettings.perDomainRules`,
   most-specific-subdomain matching in `WebKitEngine.setUserAgent`, persisted via
   `Preferences`, covered by `UserAgentRulesTests`/`UserAgentStoreTests`/e2e
+- ~~Extension signature verification~~ **Done 2026-08-07 (warn-but-install, ADR 017)**
+- ~~Per-list content-blocker refresh~~ **Done 2026-08-07**
+- ~~Single source of truth for the Safari UA version token~~ **Done 2026-08-07**
 - Full Instruments GUI trace (SwiftUI body counts, Energy Log)
 - Sidebar scroll fps measurement

@@ -72,9 +72,10 @@ The module rules (§3.5) decide most of this. One new package, for the same reas
 own target rather than being folded into a package doing another job.
 
 ```
-BrowserSecrets/       NEW. The ONLY importer of Security / CryptoKit /
-                      LocalAuthentication. Keychain access, encryption,
-                      the unlock gate. No WebKit, no UI, no SQLite.
+BrowserSecrets/       The ONLY importer of Security / LocalAuthentication for
+                      the vault's keychain access and unlock gate.
+                      No WebKit, no UI, no SQLite. (BrowserCrypto — ADR 017 — is
+                      the other Security importer, for extension signatures.)
 BrowserCore/          Credential *metadata* value types, origin-matching rules,
                       form-field classification heuristics — all pure, all
                       testable without a keychain or a web view. Foundation only.

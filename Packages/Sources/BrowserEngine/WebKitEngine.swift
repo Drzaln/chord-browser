@@ -363,11 +363,10 @@ public final class WebKitEngine: WebEngine {
     /// user can override the UA in Settings (`UserAgentPreference`, applied via
     /// `setCustomUserAgent`); a bundled per-domain map remains a future option.
     ///
-    /// The version is hard-coded and will go stale. That is the accepted cost:
-    /// WebKit exposes no API for the Safari version, reading Safari's own
-    /// Info.plist is blocked by the sandbox, and a stale-but-plausible version
-    /// degrades far more gracefully than no token at all.
-    static let safariUserAgentSuffix = "Version/26.5 Safari/605.1.15"
+    /// The Safari-version token appended to every UA. One source of truth in
+    /// `BrowserCore` (`UserAgentPreference.safariVersionToken`), so the live UA
+    /// and the Settings prefill can never advertise different versions.
+    static let safariUserAgentSuffix = UserAgentPreference.safariVersionToken
 
     private static let configurationTemplate: WKWebViewConfiguration = {
         let config = WKWebViewConfiguration()

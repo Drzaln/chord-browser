@@ -361,6 +361,12 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
 - Ship a small CLI or in-app helper to unpack a `.crx` into that directory. Do
   **not** attempt Chrome Web Store install flows — CWS blocks non-Chrome agents.
 - MV3 only. Do not add MV2 shims.
+- **Signature verification is warn-but-install (ADR 017).** `BrowserCrypto`
+  verifies the CRX2/CRX3 signature at install; a valid signature from a pinned
+  key is `.trusted`, a valid one from an unknown signer is `.verified`, and
+  unsigned `.xpi`/`.zip` or tampered bundles still install but are flagged in the
+  UI (row icon, install-time message, enable-time confirmation) rather than
+  silently trusted.
 - Surface extension toolbar popovers in the sidebar header.
 - **Critical:** do not reimplement the WebExtensions API. Kagi's Orion did that
   and reached ~70% coverage after six years with a funded team. We use Apple's
@@ -370,6 +376,10 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
 
 - Compile EasyList + EasyPrivacy into `WKContentRuleList` at first launch, cache
   the compiled list, recompile weekly.
+- **Per-list refresh.** Each list is fetched, hashed, compiled, and timed
+  independently under its own content-hashed identifier. A failure fetching one
+  list defers only that list — its sibling still updates, and the failed list
+  keeps its last good set and retries next launch.
 - This is native, fast, and often removes the need for a blocking extension.
 - **Network + cosmetic filtering.** Network rules (`||host^`, options, `@@`
   exceptions) drop requests; element-hiding rules (`##`/`###`, domain-scoped)
@@ -425,8 +435,8 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   `GeneralSettings.perDomainRules`). A rule applies on the next load.
 - **Password vault** — saves and fills logins. Metadata in SQLite
   (`v12_credentials`, `v13_credential_never_save`), secrets in the Keychain via a
-  new `BrowserSecrets` package, which is the only importer of Security and
-  LocalAuthentication. Fill requires an exact origin match and a user gesture;
+  new `BrowserSecrets` package (with `BrowserCrypto`, one of two Security
+  importers, handling extension signatures — **ADR 017**). Fill requires an exact origin match and a user gesture;
   reveal is gated on Touch ID. Built because the alternatives were measured shut:
   WebKit exposes no autofill API, passkeys need an entitlement a free account
   cannot hold, and MV3 password managers die on `chrome.offscreen`. The vault

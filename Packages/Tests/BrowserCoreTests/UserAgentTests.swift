@@ -42,6 +42,29 @@ struct UserAgentTests {
         #expect(UserAgentPreference.chrome.editableTemplate.contains("Chrome/"))
     }
 
+    @Test("The Safari version token is well-formed")
+    func safariVersionTokenIsWellFormed() {
+        let token = UserAgentPreference.safariVersionToken
+        #expect(token.contains("Version/"))
+        #expect(token.contains("Safari/"))
+        #expect(token.hasPrefix("Version/"))
+        // One `Version/` and one `Safari/` — the pair that would otherwise drift.
+        #expect(token.components(separatedBy: "Version/").count == 2)
+        #expect(token.components(separatedBy: "Safari/").count == 2)
+    }
+
+    @Test("The default template embeds the shared Safari version token")
+    func defaultTemplateUsesSharedToken() {
+        // The template must end with the token, verbatim — no second, divergent
+        // Safari version appended after it.
+        #expect(UserAgentPreference.defaultTemplate.hasSuffix(UserAgentPreference.safariVersionToken))
+        // And must not smuggle in another Version/ before it (e.g. a stale copy).
+        let prefix = UserAgentPreference.defaultTemplate.dropLast(
+            UserAgentPreference.safariVersionToken.count
+        )
+        #expect(!prefix.contains("Version/"))
+    }
+
     @Test("Round-trips through Codable")
     func codableRoundTrip() throws {
         for value: UserAgentPreference in [.default, .chrome, .custom("X/1")] {

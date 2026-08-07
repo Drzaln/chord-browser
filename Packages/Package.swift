@@ -14,6 +14,7 @@ let package = Package(
     products: [
         .library(name: "BrowserCore", targets: ["BrowserCore"]),
         .library(name: "BrowserLogging", targets: ["BrowserLogging"]),
+        .library(name: "BrowserCrypto", targets: ["BrowserCrypto"]),
         .library(name: "BrowserPersistence", targets: ["BrowserPersistence"]),
         .library(name: "BrowserEngine", targets: ["BrowserEngine"]),
         .library(name: "BrowserExtensions", targets: ["BrowserExtensions"]),
@@ -54,7 +55,17 @@ let package = Package(
         // and the engine's opaque ExtensionControllerHandle. See ADR 011.
         .target(
             name: "BrowserExtensions",
-            dependencies: ["BrowserCore", "BrowserEngine", "BrowserLogging"],
+            dependencies: ["BrowserCore", "BrowserCrypto", "BrowserEngine", "BrowserLogging"],
+            swiftSettings: strict
+        ),
+
+        // Extension-bundle signature verification (M7.5f). The ONLY Security/
+        // CryptoKit importer besides BrowserSecrets — same one-OS-framework-per-
+        // target rule (ADR 011). BrowserExtensions depends on it so the
+        // installer can stamp a verdict on every bundle it accepts.
+        .target(
+            name: "BrowserCrypto",
+            dependencies: ["BrowserCore"],
             swiftSettings: strict
         ),
 

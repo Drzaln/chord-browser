@@ -18,6 +18,10 @@ struct ExtensionsSettings: View {
     @State private var importing = false
     @State private var busySlug: String?
     @State private var errorMessage: String?
+    @State private var warningMessage: String?
+    /// An unverified extension whose enable toggle was flipped, awaiting a
+    /// confirm. Warn-but-install: installs proceed, enables are confirmed.
+    @State private var pendingEnableSlug: String?
 
     /// `.crx`/`.xpi` are not registered UTTypes; a dynamic type from the
     /// extension still lets the panel show those files, with a ZIP fallback.
@@ -49,6 +53,12 @@ struct ExtensionsSettings: View {
                     .foregroundStyle(.orange)
             }
 
+            if let warningMessage {
+                Label(warningMessage, systemImage: "exclamationmark.shield.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.orange)
+            }
+
             Text(
                 store.activeSpace(in: windowState).map {
                     "Enabling loads the extension into “\($0.name)”. Each Space enables extensions independently."
@@ -66,6 +76,27 @@ struct ExtensionsSettings: View {
             allowsMultipleSelection: false
         ) { result in
             handleImport(result)
+        }
+        .alert("Unverified extension", isPresented: Binding(
+            get: { pendingEnableSlug != nil },
+            set: { if !$0 { pendingEnableSlug = nil } }
+        )) {
+            Button("Enable Anyway") {
+                if let slug = pendingEnableSlug {
+                    pendingEnableSlug = nil
+                    setEnabled(true, slug: slug)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingEnableSlug = nil
+            }
+        } message: {
+            Text(
+                pendingEnableSlug.map { slug in
+                    let status = installed.first { $0.slug == slug }?.signatureStatus ?? .unsigned
+                    return "“\(slug)” is \(Self.warningText(for: status)). Enable it only if you trust its source."
+                } ?? ""
+            )
         }
     }
 
@@ -86,12 +117,18 @@ struct ExtensionsSettings: View {
     @ViewBuilder
     private func row(for ext: InstalledExtension) -> some View {
         let isEnabled = enabledSlugs.contains(ext.slug)
+        let untrusted = !ext.signatureStatus.isTrusted
         HStack(spacing: 10) {
             Image(systemName: "puzzlepiece.extension.fill")
                 .foregroundStyle(.secondary)
             Text(ext.slug)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
+            if untrusted {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .help(Self.warningText(for: ext.signatureStatus))
+            }
             Spacer()
 
             if busySlug == ext.slug {
@@ -99,7 +136,7 @@ struct ExtensionsSettings: View {
             } else {
                 Toggle("Enabled", isOn: Binding(
                     get: { isEnabled },
-                    set: { setEnabled($0, slug: ext.slug) }
+                    set: { enable($0, slug: ext.slug, untrusted: untrusted) }
                 ))
                 .labelsHidden()
                 .toggleStyle(.switch)
@@ -118,6 +155,33 @@ struct ExtensionsSettings: View {
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
         .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
+    }
+
+    /// Routes an enable flip: a trusted extension enables directly, an
+    /// unverified one asks first (warn-but-install). Disable never confirms.
+    private func enable(_ on: Bool, slug: String, untrusted: Bool) {
+        if on && untrusted {
+            pendingEnableSlug = slug
+        } else {
+            setEnabled(on, slug: slug)
+        }
+    }
+
+    /// One-line status copy for the warning icon, install message, and the
+    /// enable-confirmation alert.
+    static func warningText(for status: ExtensionSignatureStatus) -> String {
+        switch status {
+        case .trusted:
+            return "signed by a trusted developer"
+        case .verified:
+            return "signed, but by an unknown developer"
+        case .tampered:
+            return "untrusted — its signature does not validate"
+        case .unsigned:
+            return "unsigned — no verified developer"
+        case .unsupported:
+            return "untrusted — its signature could not be read"
+        }
     }
 
     // MARK: - Actions
@@ -145,8 +209,17 @@ struct ExtensionsSettings: View {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             do {
-                _ = try extensions.install(from: url)
+                let installed = try extensions.install(from: url)
                 errorMessage = nil
+                if installed.signatureStatus.isTrusted {
+                    warningMessage = nil
+                } else {
+                    // Warn-but-install: the bundle is in, but its unverified
+                    // provenance is surfaced immediately, not hidden in a row.
+                    warningMessage =
+                        "“\(installed.slug)” is \(Self.warningText(for: installed.signatureStatus))."
+                    + " Install only if you trust the source."
+                }
                 refresh()
             } catch {
                 errorMessage = "Could not install: \(error.localizedDescription)"

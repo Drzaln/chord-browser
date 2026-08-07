@@ -45,10 +45,13 @@ Compare against the Safari version shipping with the current macOS. The UA shoul
 
 ### 2. Content Blocker Lists (automatic, verify weekly)
 
-The blocker auto-refreshes EasyList + EasyPrivacy weekly. Verify it's working:
+The blocker auto-refreshes EasyList + EasyPrivacy weekly, **per list** — each
+list has its own content-hash identifier, its own `lastRefresh` timestamp, and a
+failed fetch defers only that list (it keeps its last good set and retries next
+launch). Verify it's working:
 
 ```bash
-# Check last refresh date
+# Check last refresh dates and the current per-list identifiers
 defaults read com.rizal.browser 2>/dev/null | grep -i block
 ```
 
@@ -59,6 +62,7 @@ If the upstream URLs change or the ABP format evolves, update `ContentBlocker`'s
 - Chunked at 50k per `WKContentRuleList` (3 chunks)
 - 99.3% coverage (only ~945 lines skipped)
 - Compile takes ~3.7s off-main, ~103 MB transient spike
+- State keys: `contentBlocking.currentIdentifiers` (array), `contentBlocking.lastRefresh.<url>` (per list); legacy single `contentBlocking.currentIdentifier` is read once on upgrade
 
 ### 3. GRDB Dependency Update (as needed)
 
@@ -130,6 +134,7 @@ These **cannot** be tested by `swift test` (runs unsandboxed). Must verify again
 | **Data store isolation** | Log into different accounts in two Spaces |
 | **Content blocking** | Navigate to a known tracker URL → blocked |
 | **Extensions** | Enable an extension → content script injects |
+| **Extension signing warning** | Install an unsigned `.xpi` → orange warning icon on the row + install-time message + enable confirmation; a signed `.crx` is not warned |
 | **Camera / microphone** | A `getUserMedia` site prompts once, then works. **Check the mic in a Release build** — Hardened Runtime uses a different entitlement key |
 | **Notifications** | `bennish.net` → prompt once, banner appears, click focuses the tab |
 | **Site permission memory** | Relaunch → no re-prompt; same site in another Space → prompts again |

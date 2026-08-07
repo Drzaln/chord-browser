@@ -23,14 +23,18 @@ struct ContentBlockerTests {
         return (defaults, { defaults.removePersistentDomain(forName: name) })
     }
 
+    private let easyList = URL(string: "https://lists.test/easylist.txt")!
+    private let easyPrivacy = URL(string: "https://lists.test/easyprivacy.txt")!
+
     private func blocker(
         store: WKContentRuleListStore, defaults: UserDefaults,
         seed: String? = "", fetch: @escaping (URL) async -> String? = { _ in nil },
+        listURLs: [URL] = [URL(string: "https://lists.test/l.txt")!],
         maxRulesPerList: Int = 50_000
     ) -> ContentBlocker {
         ContentBlocker(
             seedIdentifier: "seed-\(UUID().uuidString)", store: store, seedList: { seed },
-            listURLs: [URL(string: "https://lists.test/l.txt")!], fetch: fetch,
+            listURLs: listURLs, fetch: fetch,
             defaults: defaults, now: { Date() }, maxRulesPerList: maxRulesPerList
         )
     }
@@ -84,8 +88,10 @@ struct ContentBlockerTests {
         let lists = await b.refreshIfDue()
         #expect(!lists.isEmpty)
         #expect(fetched == 1)
-        #expect(defaults.object(forKey: "contentBlocking.lastRefresh") != nil)
-        #expect(defaults.string(forKey: "contentBlocking.currentIdentifier") != nil)
+        let url = URL(string: "https://lists.test/l.txt")!
+        #expect(
+            defaults.object(forKey: "contentBlocking.lastRefresh.\(url.absoluteString)") != nil)
+        #expect(defaults.stringArray(forKey: "contentBlocking.currentIdentifiers")?.count == 1)
         // A second call is not due.
         #expect((await b.refreshIfDue()).isEmpty)
     }
@@ -118,7 +124,10 @@ struct ContentBlockerTests {
         let (store, c1) = tempStore()
         let (defaults, c2) = tempDefaults()
         defer { c1(); c2() }
-        defaults.set(Date().addingTimeInterval(-3600), forKey: "contentBlocking.lastRefresh")
+        let url = URL(string: "https://lists.test/l.txt")!
+        defaults.set(
+            Date().addingTimeInterval(-3600),
+            forKey: "contentBlocking.lastRefresh.\(url.absoluteString)")
         var fetched = 0
         let b = blocker(store: store, defaults: defaults, fetch: { _ in fetched += 1; return "" })
         #expect((await b.refreshIfDue()).isEmpty)
@@ -132,7 +141,107 @@ struct ContentBlockerTests {
         defer { c1(); c2() }
         let b = blocker(store: store, defaults: defaults, fetch: { _ in nil })
         #expect((await b.refreshIfDue()).isEmpty)
-        #expect(defaults.object(forKey: "contentBlocking.lastRefresh") == nil)
+        let url = URL(string: "https://lists.test/l.txt")!
+        #expect(
+            defaults.object(forKey: "contentBlocking.lastRefresh.\(url.absoluteString)") == nil)
+    }
+
+    // MARK: - Per-list independence
+
+    @Test("A failing list does not defer its sibling's refresh")
+    func perListFailureKeepsSiblingUpToDate() async throws {
+        let (store, c1) = tempStore()
+        let (defaults, c2) = tempDefaults()
+        defer { c1(); c2() }
+        let b = blocker(
+            store: store, defaults: defaults,
+            fetch: { url in
+                if url == easyPrivacy { return "||track.example.com^" }
+                return nil  // easyList fails
+            },
+            listURLs: [easyList, easyPrivacy])
+
+        let lists = await b.refreshIfDue()
+        #expect(!lists.isEmpty, "the surviving list must still update")
+        #expect(
+            defaults.object(
+                forKey: "contentBlocking.lastRefresh.\(easyPrivacy.absoluteString)") != nil)
+        #expect(
+            defaults.object(forKey: "contentBlocking.lastRefresh.\(easyList.absoluteString)") == nil)
+        let ids = defaults.stringArray(forKey: "contentBlocking.currentIdentifiers") ?? []
+        #expect(ids.count == 2)
+        #expect(ids[0].isEmpty, "the failed slot stays empty so the seed fills it")
+        #expect(ids[1].hasPrefix("blocklist-"))
+    }
+
+    @Test("A change to one list leaves the sibling's cache identifier intact")
+    func perListChangeDoesNotInvalidateSiblingCache() async throws {
+        let (store, c1) = tempStore()
+        let (defaults, c2) = tempDefaults()
+        defer { c1(); c2() }
+        // Week 0: both refresh with distinct content.
+        _ = await blocker(
+            store: store, defaults: defaults,
+            fetch: { url in
+                url == easyList ? "||ads.example.com^" : "||privacy.example.com^"
+            },
+            listURLs: [easyList, easyPrivacy]
+        ).refreshIfDue()
+        let ids0 = defaults.stringArray(forKey: "contentBlocking.currentIdentifiers") ?? []
+        #expect(ids0.count == 2)
+        #expect(ids0[0] != ids0[1])
+
+        // Week 1: both due; easyList changes, easyPrivacy is byte-identical.
+        let lastWeek = Date().addingTimeInterval(-8 * 24 * 3600)
+        defaults.set(lastWeek, forKey: "contentBlocking.lastRefresh.\(easyList.absoluteString)")
+        defaults.set(
+            lastWeek, forKey: "contentBlocking.lastRefresh.\(easyPrivacy.absoluteString)")
+        _ = await blocker(
+            store: store, defaults: defaults,
+            fetch: { url in
+                url == easyList ? "||NEW.example.com^\n||ads.example.com^" : "||privacy.example.com^"
+            },
+            listURLs: [easyList, easyPrivacy]
+        ).refreshIfDue()
+        let ids1 = defaults.stringArray(forKey: "contentBlocking.currentIdentifiers") ?? []
+        #expect(ids1.count == 2)
+        #expect(ids1[0] != ids0[0], "the changed list gets a new identifier")
+        #expect(ids1[1] == ids0[1], "the unchanged list keeps its cache identifier")
+    }
+
+    @Test("A slot keeps its last good identifier when a later refresh fails")
+    func failedSlotKeepsLastGoodIdentifier() async throws {
+        let (store, c1) = tempStore()
+        let (defaults, c2) = tempDefaults()
+        defer { c1(); c2() }
+        // Week 0: both refresh fine.
+        _ = await blocker(
+            store: store, defaults: defaults,
+            fetch: { url in
+                url == easyList ? "||ads.example.com^" : "||privacy.example.com^"
+            },
+            listURLs: [easyList, easyPrivacy]
+        ).refreshIfDue()
+        let ids0 = defaults.stringArray(forKey: "contentBlocking.currentIdentifiers") ?? []
+
+        // Week 1: both due; easyList fails, easyPrivacy changes.
+        let lastWeek = Date().addingTimeInterval(-8 * 24 * 3600)
+        defaults.set(lastWeek, forKey: "contentBlocking.lastRefresh.\(easyList.absoluteString)")
+        defaults.set(
+            lastWeek, forKey: "contentBlocking.lastRefresh.\(easyPrivacy.absoluteString)")
+        let lists = await blocker(
+            store: store, defaults: defaults,
+            fetch: { url in
+                if url == easyList { return nil }
+                return "||newtrack.example.com^"
+            },
+            listURLs: [easyList, easyPrivacy]
+        ).refreshIfDue()
+        #expect(!lists.isEmpty)
+
+        let ids1 = defaults.stringArray(forKey: "contentBlocking.currentIdentifiers") ?? []
+        #expect(ids1[0] == ids0[0], "the failed slot keeps its last good identifier")
+        #expect(ids1[1] != ids0[1])
     }
 
     // MARK: - Chunking

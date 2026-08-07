@@ -1,4 +1,7 @@
+import BrowserCrypto
+import CryptoKit
 import Foundation
+import Security
 import Testing
 
 @testable import BrowserExtensions
@@ -196,5 +199,131 @@ struct ExtensionInstallerTests {
         #expect(!slug.contains("/"))
         #expect(!slug.contains(".."))
         #expect(!slug.isEmpty)
+    }
+
+    // MARK: - Signature verdict stamping
+
+    @Test func installStampsUnsignedForXPI() throws {
+        let (installer, cleanup) = try makeInstaller()
+        defer { cleanup() }
+
+        let source = try writeTemp(Self.fakeZIP, name: "plain.xpi")
+        let installed = try installer.install(from: source)
+
+        #expect(installed.signatureStatus == .unsigned)
+        #expect(try installer.installedExtensions().first?.signatureStatus == .unsigned)
+        // The sidecar lives beside the bundle.
+        let sidecar = installed.resourceURL.deletingPathExtension()
+            .appendingPathExtension("verification")
+        #expect(FileManager.default.fileExists(atPath: sidecar.path))
+    }
+
+    @Test func installStampsVerifiedForSignedCRX() throws {
+        let (installer, cleanup) = try makeInstaller()
+        defer { cleanup() }
+
+        let crx = try makeValidCRX2(zip: Self.fakeZIP)
+        let source = try writeTemp(crx, name: "signed.crx")
+        let installed = try installer.install(from: source)
+
+        #expect(installed.signatureStatus == .verified)
+        #expect(try installer.installedExtensions().first?.signatureStatus == .verified)
+        // What lands on disk is still the header-stripped ZIP WebKit reads.
+        #expect(try Data(contentsOf: installed.resourceURL) == Self.fakeZIP)
+    }
+
+    @Test func reinstallOverwritesTheStoredVerdict() throws {
+        let (installer, cleanup) = try makeInstaller()
+        defer { cleanup() }
+
+        let plain = try writeTemp(Self.fakeZIP, name: "ext.xpi")
+        _ = try installer.install(from: plain)
+
+        let crx = try makeValidCRX2(zip: Data([0x50, 0x4B, 0x03, 0x04] + Array(50..<70)))
+        let signed = try writeTemp(crx, name: "ext.xpi")  // same slug
+        let installed = try installer.install(from: signed)
+
+        #expect(try installer.installedExtensions().count == 1)
+        #expect(installed.signatureStatus == .verified)
+        #expect(try installer.installedExtensions().first?.signatureStatus == .verified)
+    }
+
+    @Test func removeDeletesTheVerdictSidecar() throws {
+        let (installer, cleanup) = try makeInstaller()
+        defer { cleanup() }
+
+        let crx = try makeValidCRX2(zip: Self.fakeZIP)
+        let source = try writeTemp(crx, name: "signed.crx")
+        let installed = try installer.install(from: source)
+        let sidecar = installed.resourceURL.deletingPathExtension()
+            .appendingPathExtension("verification")
+        #expect(FileManager.default.fileExists(atPath: sidecar.path))
+
+        try installer.remove(slug: installed.slug)
+        #expect(!FileManager.default.fileExists(atPath: installed.resourceURL.path))
+        #expect(!FileManager.default.fileExists(atPath: sidecar.path))
+    }
+
+    // MARK: - Signed CRX fixture
+
+    /// A valid CRX2 (real RSA-SHA256 signature over the ZIP) for the
+    /// installer-side verdict tests. Compact duplicate of the verifier suite's
+    /// fixture builder — the installer tests only need "a bundle that verifies".
+    private func makeValidCRX2(zip: Data) throws -> Data {
+        let attrs: [CFString: Any] = [
+            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+            kSecAttrKeySizeInBits: 2048,
+        ]
+        var keyError: Unmanaged<CFError>?
+        guard let privateKey = SecKeyCreateRandomKey(attrs as CFDictionary, &keyError),
+            let publicKey = SecKeyCopyPublicKey(privateKey)
+        else { throw keyError!.takeRetainedValue() as Error }
+
+        var signError: Unmanaged<CFError>?
+        guard let signature = SecKeyCreateSignature(
+            privateKey, .rsaSignatureMessagePKCS1v15SHA256, zip as CFData, &signError
+        ) as Data? else { throw signError!.takeRetainedValue() as Error }
+
+        let pkcs1 = SecKeyCopyExternalRepresentation(publicKey, nil)! as Data
+        let algorithmID = Data([
+            0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01,
+            0x05, 0x00,
+        ])
+        let spki = derSequence(derSequence(algorithmID) + derBitString(pkcs1))
+
+        var crx = Data("Cr24".utf8)
+        crx += Self.le32(2)
+        crx += Self.le32(UInt32(spki.count))
+        crx += Self.le32(UInt32(signature.count))
+        crx += spki
+        crx += signature
+        crx += zip
+        return crx
+    }
+
+    private func derLength(_ n: Int) -> Data {
+        if n < 0x80 { return Data([UInt8(n)]) }
+        var bytes: [UInt8] = []
+        var value = n
+        while value > 0 {
+            bytes.insert(UInt8(value & 0xFF), at: 0)
+            value >>= 8
+        }
+        return Data([UInt8(0x80 | bytes.count)]) + Data(bytes)
+    }
+
+    private func derSequence(_ payload: Data) -> Data {
+        Data([0x30]) + derLength(payload.count) + payload
+    }
+
+    private func derBitString(_ payload: Data) -> Data {
+        Data([0x03]) + derLength(payload.count + 1) + Data([0x00]) + payload
+    }
+
+    private static func le32(_ value: UInt32) -> Data {
+        Data([
+            UInt8(value & 0xFF), UInt8((value >> 8) & 0xFF),
+            UInt8((value >> 16) & 0xFF), UInt8((value >> 24) & 0xFF),
+        ])
     }
 }
