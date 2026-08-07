@@ -1082,6 +1082,35 @@ tabs, 40 panes**, spanning both pinned tiers and a 4-pane split, driven with
   fixture has live pages in it.
 - Samples: `/tmp/soak-022741.tsv`.
 
+## 30-minute soak — 2026-08-07 (security pass)
+
+Re-run for the §8/§6.1 gate after the 2026-08-07 security pass: extension
+signature verification (`BrowserCrypto`, runs once at install), per-list
+content-blocker refresh, and the shared Safari UA token. None add a steady-state
+memory path, but the gate is the gate.
+
+`scripts/soak.sh seed` → launch → `run` → `restore`. Fixture: **3 Spaces, 21
+tabs, 42 panes** (one more than the 08-01 run — the seed's split counts 42 this
+time), spanning both pinned tiers and a 4-pane split, driven with ⌘1–3 Space
+switches for 30 minutes.
+
+| Budget (§6.1) | Target | Ceiling | Measured |
+|---|---|---|---|
+| App process RSS | < 150 MB | 250 MB | **44 MB at start, 69 MB steady, 69 MB at end** |
+| Total footprint | < 1.2 GB | 1.8 GB | **576–577 MB, flat after minute 2** |
+| Idle CPU, window visible | < 0.5% | 1% | not re-measured this run (see 2026-08-01) |
+
+- **No leak.** The app process is 44 MB at minute 0 (lazy restore settling in),
+  reaches 69 MB by minute 1 as panes revive, and is still 69 MB at minute 29. The
+  total sits at 576–577 MB from minute 2 to the end — within 1 MB over 28 minutes.
+- The 576 MB total is below the 08-01 run's ~695 MB despite the extra panes; the
+  cheap-site fixture this run used has lighter content processes than 08-01's
+  live-page mix. Same conclusion, either way: flat, no leak.
+- Idle CPU was not re-measured (needs a separate cputime delta with the window
+  settled and occluded); the 08-01 figure (0.78%, between target and ceiling)
+  stands — nothing in this pass adds a timer or per-view JS.
+- Samples: `/tmp/soak-185505.tsv`.
+
 ## Peek (⌘-hover preview) — 2026-08-01
 
 Driving this needs `CGEvent` mouse moves with `.maskCommand` set: a `cliclick`

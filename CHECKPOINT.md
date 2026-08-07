@@ -261,10 +261,12 @@ Now, and an unlock required before a fill).
 Open, non-spec, **ask-first** items (§11): a per-site content-blocking whitelist /
 runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.)
 
-The §6.1 gate is **current**: the soak was re-run 2026-08-01 with everything
-since 2026-07-25 in place (notifications, site permissions, the vault, private
-windows, per-domain UA) and passes with no leak — see the soak section below.
-Still never run: the full Instruments GUI trace and sidebar-scroll fps.
+The §6.1 gate is **current**: the soak was re-run **2026-08-07** — after the
+security pass (extension signature verification, per-list content-blocker
+refresh, shared Safari UA token) — with everything since 2026-07-25 in place
+(notifications, site permissions, the vault, private windows, per-domain UA) and
+passes with no leak (app 69 MB steady, total 576–577 MB flat; see the soak
+section below). Still never run: the full Instruments GUI trace and sidebar-scroll fps.
 
 ## Vault rules you must not break
 

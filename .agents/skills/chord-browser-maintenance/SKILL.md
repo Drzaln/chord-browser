@@ -361,7 +361,7 @@ Items owed but not blocking. Check off as completed:
 - [ ] **Swipe gesture on real trackpad** — only logic tested, needs hands-on verification
 - [ ] **Reduce Motion toggle** live check — code is auditable, never toggled in System Settings
 - [ ] **Panel sizing** test coverage — bit twice (command bar + Little Arc), still uncovered in tests
-- [ ] **Soak has not been re-run** since content blocking (2026-07-25). The batches since added per-view scripts (notifications) and a permission path — re-run `scripts/soak.sh` before claiming the §6.1 gate still holds
+- [x] **Soak re-run after the security pass (2026-08-07)** — 3 Spaces / 21 tabs / 42 panes, 30 min, no leak (app 69 MB steady, total 576–577 MB flat). §6.1 gate current — see SMOKE.md
 - [ ] **Two distinct Google accounts** under two windows — needs a second credential set
 - [ ] **Extensions with two windows open** — this profile has no extensions installed; install one first
 
