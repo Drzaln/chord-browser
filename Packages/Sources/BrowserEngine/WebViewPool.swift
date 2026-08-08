@@ -130,8 +130,6 @@ final class LiveWebView {
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: ContextLinkMonitor.messageName)
         webView.configuration.userContentController
-            .removeScriptMessageHandler(forName: PeekLinkMonitor.messageName)
-        webView.configuration.userContentController
             .removeScriptMessageHandler(forName: ScreenShareMonitor.messageName)
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: PasswordFormMonitor.messageName)

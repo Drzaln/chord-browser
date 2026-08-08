@@ -1111,20 +1111,42 @@ switches for 30 minutes.
   stands — nothing in this pass adds a timer or per-view JS.
 - Samples: `/tmp/soak-185505.tsv`.
 
-## Peek (⌘-hover preview) — 2026-08-01
+## Peek (link click in a favourite/pinned tab) — 2026-08-08
 
-Driving this needs `CGEvent` mouse moves with `.maskCommand` set: a `cliclick`
-move does **not** carry the modifier, the page sees `metaKey == false`, and Peek
-never fires. The scratchpad script `cmdhover.swift` does it.
+Peek was reworked from the ⌘-hover preview into Arc-style: clicking a link
+inside a Favourite or Pinned tab lifts the click into the floating panel instead
+of navigating the protected page away. The panel is the same one Little Arc uses
+(promote with ⌘O, dismiss with Esc). Driving this by hand needs a page with a
+link inside a `.pinned`/`.bookmarked` tab.
 
-- [x] Rest on a link with ⌘ held → the preview opens after ~250 ms
-- [x] Sweep across several links with ⌘ held without resting → **nothing opens**
-- [x] Rest on a link to a non-renderable file (`application/octet-stream`) → the
-      preview opens blank, **no file is written and no download entry appears**.
-      Check `~/Library/Containers/com.rizal.browser/Data/Downloads/`, not just
-      `~/Downloads` — see the note below
-- [ ] The same link, clicked normally in a tab, still downloads (covered by an
-      e2e test; not re-driven by hand)
+- [ ] Plain-click a link in a Favourite → the panel opens with the link's page,
+      and the Favourite's own page **does not move**
+- [ ] The panel arrives logged in to the Space the Favourite lives in
+- [ ] Click a link inside the panel → the panel browses; ⌘O promotes where you
+      actually got to
+- [ ] Esc dismisses the panel
+- [ ] Plain-click a link in a Pinned (`.bookmarked`) tab → same lift
+- [ ] Plain-click a link in an ordinary (ephemeral) tab → **no panel**, the tab
+      navigates as before
+- [ ] Plain-click a `target="_blank"` link (as Gmail renders external links) in a
+      Favourite → the panel opens, **no new tab**; ⌘O promotes
+- [ ] Click a Gmail message-body link (Gmail's JS opens it via `window.open`,
+      so WebKit reports `navigationType == .other`) in a Favourite → the panel
+      opens, **no new tab** — the Braincup/GitHub link case
+- [ ] A scripted `window.open` (no click) in an **ephemeral** tab → still opens
+      a new tab, no panel
+- [ ] `⌘`-click / `⌥`-click / `⌃`-click / `⇧`-click and middle-click on a link in
+      a Favourite → no panel, ordinary behaviour preserved
+- [ ] Click a non-renderable link (`application/octet-stream`) in a Favourite →
+      the panel downloads it (a click can consent to a download)
+- [ ] Resize the panel → dismiss → re-open → it comes back at the resized size
+      (and survives a relaunch); it can never shrink below 560×400
+
+**Verified live 2026-08-08:** Gmail message-body links — LinkedIn job links and
+the Braincup/GitHub link (both `target="_blank"` *and* Gmail's `window.open`
+path) — peek instead of opening a new tab, and the panel holds its resized size
+across opens. Remaining unverified by hand: modifier clicks, the non-renderable
+download case, and the ephemeral-tab negatives.
 
 **Fixed 2026-08-01:** downloads land in the real `~/Downloads` again (they were
 going to the sandbox container). Re-check by downloading a file in the real app

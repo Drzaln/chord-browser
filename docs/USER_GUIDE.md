@@ -260,12 +260,14 @@ codec decodes *power-efficiently*, see that AV1 does not, and pick their
 next-best ladder. Everything else — VP9, HEVC, H.264 — is hardware-decoded
 normally. There is no app-side fix; it may change in a future macOS.
 
-## Peek (⌘-hover preview)
+## Peek
 
-Hold **⌘** and hover any link in a page to pop up a small live preview of where
-it goes, using the active Space's session. Move off the link or release ⌘ to
-dismiss it — it's a glance, and never steals focus. (This is distinct from Little
-Chord, which opens a link in a full floating window.)
+Click any link inside a **Favourite** or **Pinned** tab and instead of moving the
+protected page away, the link opens in a small floating panel — already logged in
+to whatever that Space is logged in to. It's a glance: press **⌘O** to promote it
+into a real tab, or **Esc** to dismiss it. A link clicked in an ordinary
+(ephemeral) tab still navigates that tab as usual. (This is distinct from Little
+Chord, which opens an external link in a full floating window.)
 
 ## History
 
@@ -346,7 +348,7 @@ Close the focused pane with `Cmd+Shift+Option+D`. Up to four panes per tab.
 
 ## Little Arc
 
-Little Arc is a floating panel for a **quick peek** at a page — glance, then
+Little Arc is a floating panel for a **quick glance** at a page — read it, then
 toss it, without adding a tab. There are two ways to open one:
 
 1. **Right-click any link in a page → “Open in Little Chord.”** The link opens in
@@ -362,6 +364,9 @@ From the panel:
 - press `Cmd+O` to **promote** it into a full tab in the active Space, or
 - press `Esc` (or click away) to dismiss it — nothing is kept.
 
+The panel is resizable, and its size is remembered: resize it once and the next
+panel (Peek or Little Arc — they share it) opens at that size.
+
 > **Testing it without setting a default browser:** from Terminal, run
 > `open -a Chord https://example.com` — this routes a URL to Chord exactly like
 > an external link and pops a Little Arc panel.
@@ -369,8 +374,9 @@ From the panel:
 The Little Arc panel can be the only window open, so the app stays alive to
 handle these even when the main window is closed.
 
-Little Arc is distinct from Peek (Arc's inline preview of a pinned tab's links);
-Chord implements Little Arc, not Peek.
+Little Arc is distinct from Peek — see [Peek](#peek) above. The two share the
+same floating panel; Peek is the inline preview of a favourite/pinned tab's
+links, Little Arc is the external-link arrival.
 
 ---
 

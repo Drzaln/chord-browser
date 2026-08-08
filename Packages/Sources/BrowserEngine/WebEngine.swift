@@ -81,9 +81,12 @@ public protocol WebEngineDelegate: AnyObject {
     func paneRequestedPrivateWindow(url: URL)
 
     func paneRequestedLittleArc(url: URL)
-    /// The ⌘-hover Peek preview should show `url`, or dismiss when `nil`
-    /// (non-spec: user-requested).
-    func paneRequestedPeek(url: URL?)
+    /// A plain left-click on a link inside a favourite/pinned tab (non-spec:
+    /// user-requested). The store decides from the pane's tab placement whether
+    /// to lift the navigation into the Peek panel; return true to cancel the
+    /// navigation (the store presented the preview), false to let the click
+    /// navigate the tab as usual.
+    func paneRequestedPeek(url: URL, fromPane paneID: UUID) -> Bool
     /// A page called `new Notification(...)` — post it to Notification Center
     /// (non-spec: user-requested). Carries the pane so a click can focus its tab.
     func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID)
@@ -119,7 +122,7 @@ extension WebEngineDelegate {
     public func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?) {}
     public func paneRequestedPrivateWindow(url: URL) {}
     public func paneRequestedLittleArc(url: URL) {}
-    public func paneRequestedPeek(url: URL?) {}
+    public func paneRequestedPeek(url: URL, fromPane paneID: UUID) -> Bool { false }
     public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {}
     public func paneRequestedNotificationPermission(_ prompt: SitePermissionPrompt) async -> Bool {
         false
@@ -210,15 +213,6 @@ public protocol WebEngine: AnyObject {
     /// actually going to. Applies to views built afterwards and to any already
     /// live. See `UserAgentRules`.
     func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride])
-
-    /// Marks a pane as a **preview** surface — the ⌘-hover Peek panel.
-    ///
-    /// A preview is opened by a hover, not a click, so it must never do anything
-    /// a hover cannot consent to: a response it cannot display is cancelled
-    /// rather than turned into a download. Verified live before this existed —
-    /// ⌘-hovering a link to a binary wrote the file to disk, three hovers, three
-    /// files, no click involved.
-    func setPreviewOnly(_ isPreviewOnly: Bool, paneID: UUID)
 
     /// Fills a credential into the fields the page reported (V4 of the password
     /// vault).

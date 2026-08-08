@@ -21,7 +21,12 @@ public final class LittleArcController {
     public var isVisible: Bool { panel?.isVisible ?? false }
 
     /// Opens `url` in the panel, scaling and fading in from the cursor (4.6).
-    public func present(url: URL) {
+    ///
+    /// `spaceID` picks which Space's data store the page uses, so a preview
+    /// arriving from a click in a favourite is already logged in to that
+    /// favourite's Space. `nil` means the primary window's active Space — the
+    /// Little Arc path.
+    public func present(url: URL, inSpace spaceID: UUID? = nil) {
         dismiss()
 
         let pane = store.makeLittleArcPane(url: url)
@@ -31,14 +36,18 @@ public final class LittleArcController {
             rootView: LittleArcView(
                 store: store,
                 pane: pane,
+                spaceID: spaceID,
                 promote: { [weak self] in self?.promote() },
                 dismiss: { [weak self] in self?.dismiss() }
             )
         )
 
-        let panel = LittleArcPanel(contentViewController: hosting)
+        let panel = LittleArcPanel(contentViewController: hosting, size: store.littleArcPanelSize)
         panel.onDismiss = { [weak self] in self?.dismiss() }
         panel.onPromote = { [weak self] in self?.promote() }
+        // The size the user just dragged the panel to is what the next panel
+        // should open at (non-spec: user-requested).
+        panel.onResize = { [weak self] size in self?.store.littleArcPanelSize = size }
         self.panel = panel
 
         position(panel)

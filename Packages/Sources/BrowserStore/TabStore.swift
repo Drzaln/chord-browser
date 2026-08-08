@@ -171,6 +171,17 @@ public final class TabStore {
         didSet { Preferences.save(newTabBehavior) }
     }
 
+    /// The Little Arc / Peek panel's size, as the user last left it (non-spec:
+    /// user-requested). `nil` until the first resize; the controller falls back
+    /// to the panel's built-in default.
+    public var littleArcPanelSize: CGSize? {
+        get { Preferences.loadLittleArcPanelSize(preferenceStore) }
+        set {
+            guard let newValue else { return }
+            Preferences.save(littleArcPanelSize: newValue, to: preferenceStore)
+        }
+    }
+
     /// The User-Agent every web view presents (non-spec: user-requested).
     /// Persisted like the other preferences; the setter pushes it to the engine
     /// so live views (on their next load) and new views both pick it up.
@@ -486,9 +497,11 @@ public final class TabStore {
     /// place SwiftUI's `openWindow` exists; the store only ever asks.
     @ObservationIgnored public var privateWindowPresenter: (@MainActor () -> Void)?
 
-    /// Shows (non-nil) or dismisses (nil) the ⌘-hover Peek preview. Injected by
-    /// the app layer, which owns the preview panel; inert until then.
-    @ObservationIgnored public var peekPresenter: (@MainActor (URL?) -> Void)?
+    /// Presents the Peek panel for a link clicked in a favourite/pinned tab
+    /// (non-spec: user-requested). Injected by the app layer, which owns the
+    /// panel; inert until then. Takes the URL and the Space the click happened
+    /// in, so the panel surfaces already logged in to the same Space.
+    @ObservationIgnored public var peekPresenter: (@MainActor (URL, UUID) -> Void)?
 
     /// Posts a web notification to macOS Notification Center (non-spec:
     /// user-requested). Injected by the app layer, which owns the notification
@@ -1327,8 +1340,18 @@ extension TabStore: WebEngineDelegate {
         littleArcPresenter?(url)
     }
 
-    public func paneRequestedPeek(url: URL?) {
-        peekPresenter?(url)
+    /// A plain left-click on a link inside a favourite/pinned tab (non-spec:
+    /// user-requested): lift the navigation into the Peek panel instead of
+    /// letting the click move the protected page. Returns true when the engine
+    /// should cancel the navigation (the presenter accepted the preview).
+    public func paneRequestedPeek(url: URL, fromPane paneID: UUID) -> Bool {
+        guard let tabID = tabID(owning: paneID),
+            let tab = tabs.first(where: { $0.id == tabID }),
+            tab.placement.isPinned || tab.placement.isBookmarked
+        else { return false }
+
+        peekPresenter?(url, tab.spaceID)
+        return true
     }
 
     public func paneDidSubmitLogin(

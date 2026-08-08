@@ -7,6 +7,9 @@ import SwiftUI
 struct LittleArcView: View {
     @Bindable var store: TabStore
     let pane: Pane
+    /// The Space whose data store the page uses. `nil` → primary window's
+    /// active Space.
+    let spaceID: UUID?
     let promote: () -> Void
     let dismiss: () -> Void
 
@@ -18,7 +21,7 @@ struct LittleArcView: View {
             ZStack {
                 Color(nsColor: .textBackgroundColor)
 
-                if let surface = store.littleArcSurface(for: pane) {
+                if let surface = store.littleArcSurface(for: pane, in: spaceID) {
                     surface.id(pane.id)
                 }
             }

@@ -59,6 +59,24 @@ struct LittleArcTests {
         #expect(engine.spaceForPane[pane.id] == store.activeSpaceID)
     }
 
+    @Test("A Peek panel surfaces in the Space it was clicked from, not the active one")
+    func peekPanelUsesClickSpace() async {
+        let (store, engine) = makeStore()
+        await store.restore()
+
+        // A favourite in another Space — the click's home, which is what the
+        // preview must be logged into, not whatever Space is currently active.
+        // `addSpace` makes its Space active, so add a second to push it back to
+        // inactive: the surface must still use the explicit click Space.
+        let clickSpace = store.addSpace(name: "Work")
+        _ = store.addSpace(name: "Personal 2")
+
+        let pane = store.makeLittleArcPane(url: link)
+        _ = store.littleArcSurface(for: pane, in: clickSpace.id)
+
+        #expect(engine.spaceForPane[pane.id] == clickSpace.id)
+    }
+
     @Test("Promoting makes a real tab and lets the panel's view go")
     func promoteCreatesTab() async {
         let (store, engine) = makeStore()

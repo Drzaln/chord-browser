@@ -417,7 +417,8 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   another window is showing.
 - **Folders.** Collapsible, renamable sidebar groups (`v7_folders`). Foldered
   tabs are sweep-exempt, alongside the two pinned tiers of §4.1a.
-- **Per-tab mute**, and **Peek** (⌘-hover link preview).
+- **Per-tab mute**, and **Peek** (a link clicked in a Favourite/Pinned tab opens
+  in a floating, promotable panel instead of navigating the protected page away).
 - **Site permissions** — camera, microphone, and notifications asked once per
   (Space, origin) and remembered, managed in Settings. `v10_site_permissions`,
   re-scoped by `v11_site_permissions_per_space`. **ADR 014.**

@@ -45,7 +45,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **Session restore** — `interactionState` persistence; a force-quit relaunch
   restores everything, including scroll and form state.
 - **Downloads** — `WKDownload` handling with progress UI.
-- **Split view + Little Arc** — multi-pane tabs and a floating quick-open panel.
+- **Split view + Little Arc** — multi-pane tabs and a floating quick-open panel
+  (shared with Peek; resizable and size-remembered).
 - **Polish** — swipe-driven Space switching, cross-section drag-and-drop,
   find-in-page, print, and PDF viewing.
 - **Frosted-glass chrome** — the sidebar and border frame are `.ultraThinMaterial`
@@ -60,7 +61,9 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   clear. Each Space keeps its own history, matching its isolated data store.
 - **Folders** — group tabs in the sidebar into collapsible, renamable folders;
   foldered tabs are exempt from the auto-archive sweep.
-- **Peek** — hold `⌘` and hover a link for a small live preview popover.
+- **Peek** — click a link inside a Favourite or Pinned tab and it opens in a
+  floating preview instead of navigating the protected page away; promote with
+  `⌘O` or dismiss with `Esc`.
 - **Per-tab mute** — a speaker toggle on any tab making noise; sticks across
   reloads and silences every pane of a split.
 - **Configurable search, new tab & archive time** — pick the search engine

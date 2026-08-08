@@ -21,15 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }()
 
     /// Little Arc (4.6). Built lazily for the same reason as the command bar.
+    /// Also hosts the Peek panel — a link clicked in a favourite/pinned tab is
+    /// the same floating, promotable panel (non-spec: user-requested).
     private(set) lazy var littleArc: LittleArcController? = {
         guard let store = launch.store else { return nil }
         return LittleArcController(store: store)
-    }()
-
-    /// ⌘-hover Peek preview (non-spec: user-requested). Lazy, like the others.
-    private(set) lazy var peek: PeekController? = {
-        guard let store = launch.store else { return nil }
-        return PeekController(store: store)
     }()
 
     /// Web notifications bridged to macOS Notification Center (non-spec:
@@ -136,9 +132,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.littleArc?.present(url: url)
         }
 
-        // ⌘-hover Peek preview routes engine → store → this presenter.
-        launch.store?.peekPresenter = { [weak self] url in
-            self?.peek?.present(url: url)
+        // A plain click on a link inside a favourite/pinned tab routes here:
+        // engine → store (placement check) → this presenter. The panel lives in
+        // the Space the click came from, so it arrives already logged in.
+        launch.store?.peekPresenter = { [weak self] url, spaceID in
+            self?.littleArc?.present(url: url, inSpace: spaceID)
         }
 
         // Web notifications route engine (polyfill) → store → these hooks. The

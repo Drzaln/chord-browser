@@ -79,11 +79,7 @@ public final class FakeWebEngine: WebEngine {
     public private(set) var customUserAgent: String?
     public private(set) var customUserAgentSetCount = 0
     public private(set) var userAgentOverrides: [UserAgentOverride] = []
-    public private(set) var previewOnlyPanes: Set<UUID> = []
 
-    public func setPreviewOnly(_ isPreviewOnly: Bool, paneID: UUID) {
-        if isPreviewOnly { previewOnlyPanes.insert(paneID) } else { previewOnlyPanes.remove(paneID) }
-    }
     public func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride]) {
         customUserAgent = global.resolvedUserAgent
         userAgentOverrides = overrides

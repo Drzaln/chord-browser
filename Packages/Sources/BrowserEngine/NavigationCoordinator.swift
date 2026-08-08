@@ -20,6 +20,25 @@ final class NavigationCoordinator: NSObject {
     private func paneID(for webView: WKWebView) -> UUID? {
         engine?.paneID(for: webView)
     }
+
+    /// A plain left-click on a link: no ⌘/⌥/⌃/⇧ modifiers, not the middle
+    /// button, GET, http(s). The shared gate for the two paths a link click can
+    /// take — same-page navigation (`decidePolicyFor`) and `target="_blank"` /
+    /// `window.open` (`createWebViewWith`). Only such a click may be lifted
+    /// into a Peek; everything else keeps its ordinary meaning.
+    ///
+    /// `buttonNumber` is not required to be 0: when Gmail's JS synthesizes the
+    /// click, WebKit reports the left click as `buttonNumber == 1` (seen in the
+    /// field: a GitHub link in a Gmail email, type `.linkActivated`, mods 0,
+    /// button 1). The requirement is only that it is not the middle button.
+    private func isPlainLinkClick(_ action: WKNavigationAction) -> Bool {
+        action.navigationType == .linkActivated
+            && action.buttonNumber != 2
+            && action.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+            && action.request.httpMethod == "GET"
+            && action.request.httpBody == nil
+            && (action.request.url?.scheme == "http" || action.request.url?.scheme == "https")
+    }
 }
 
 extension NavigationCoordinator: WKNavigationDelegate {
@@ -86,6 +105,20 @@ extension NavigationCoordinator: WKNavigationDelegate {
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
+        // A plain left-click on a link in a favourite/pinned tab is a Peek
+        // (non-spec: user-requested): the store lifts the navigation into the
+        // floating panel instead of letting the click move the protected page.
+        // The store decides based on placement, so an ephemeral tab clicks
+        // through exactly as before.
+        if isPlainLinkClick(navigationAction),
+            navigationAction.targetFrame?.isMainFrame == true,
+            let url = navigationAction.request.url,
+            let paneID = paneID(for: webView),
+            engine?.delegate?.paneRequestedPeek(url: url, fromPane: paneID) == true
+        {
+            return .cancel
+        }
+
         guard navigationAction.targetFrame?.isMainFrame == true,
             let engine,
             engine.applyUserAgent(to: webView, for: navigationAction.request.url)
@@ -115,9 +148,6 @@ extension NavigationCoordinator: WKNavigationDelegate {
         // the preview blank, which is the honest outcome for something that
         // cannot be previewed.
         guard navigationResponse.canShowMIMEType else {
-            if let paneID = paneID(for: webView), engine?.isPreviewOnly(paneID: paneID) == true {
-                return .cancel
-            }
             return .download
         }
         return .allow
@@ -169,9 +199,6 @@ extension NavigationCoordinator: WKScriptMessageHandler {
             engine?.setScreenSharing(sharing, for: paneID)
         case ContextLinkMonitor.messageName:
             engine?.setContextLinkURL(ContextLinkMonitor.linkURL(from: message.body), for: paneID)
-        case PeekLinkMonitor.messageName:
-            // Only the frontmost pane's hovers should drive the shared preview.
-            engine?.delegate?.paneRequestedPeek(url: PeekLinkMonitor.linkURL(from: message.body))
         case PasswordFormMonitor.messageName:
             // One handler, two shapes: a submission carries values, a report
             // carries descriptors.
@@ -247,12 +274,30 @@ extension NavigationCoordinator: WKUIDelegate {
 
     /// `target="_blank"` and `window.open`. Returning nil tells WebKit we handled
     /// it ourselves; the store opens a real tab.
+    ///
+    /// A new-window request from a favourite/pinned tab is a Peek gesture, in
+    /// both shapes it arrives in:
+    /// - a plain left-click on a `target="_blank"` anchor → `.linkActivated`
+    ///   (the `isPlainLinkClick` gate keeps modified clicks ordinary), or
+    /// - Gmail's message-body links, which its JS opens via `window.open` →
+    ///   `.other`, carrying no click/modifier information. The store's
+    ///   placement check is the only gate there; the Braincup link inside a
+    ///   Gmail email is exactly this path.
     func webView(
         _ webView: WKWebView,
         createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
+        let plainClick = isPlainLinkClick(navigationAction)
+        if plainClick || navigationAction.navigationType == .other,
+            let url = navigationAction.request.url,
+            let paneID = paneID(for: webView),
+            engine?.delegate?.paneRequestedPeek(url: url, fromPane: paneID) == true
+        {
+            return nil
+        }
+
         if let url = navigationAction.request.url {
             engine?.delegate?.paneRequestedNewTab(
                 url: url, fromPane: paneID(for: webView)

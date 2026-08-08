@@ -45,24 +45,51 @@ struct LittleArcRequestTests {
         #expect(store.visibleTabs.allSatisfy { $0.focusedPane.url.host() != "example.com" })
     }
 
-    @Test("paneRequestedPeek forwards show and dismiss to the peek presenter")
+    @Test("paneRequestedPeek lifts a click from a favourite and forwards url+space")
     func forwardsPeek() async {
         let store = TabStore(
             engine: FakeWebEngine(),
-            repository: FakeTabRepository(stored: []),
+            repository: FakeTabRepository(stored: [
+                TabBuilder().url("https://fav.example").pinned(order: 0).build()
+            ]),
             clock: FixedClock()
         )
         await store.restore()
 
-        var received: [URL?] = []
-        store.peekPresenter = { received.append($0) }
+        var received: [(url: URL, spaceID: UUID)] = []
+        store.peekPresenter = { url, spaceID in received.append((url, spaceID)) }
 
         let url = URL(string: "https://peek.example")!
-        store.paneRequestedPeek(url: url)
-        store.paneRequestedPeek(url: nil)
+        let tab = store.visibleTabs[0]
+        let paneID = tab.focusedPane.id
+        let cancelled = store.paneRequestedPeek(url: url, fromPane: paneID)
 
-        #expect(received.count == 2)
-        #expect(received.first! == url)
-        #expect(received.last! == nil)
+        #expect(cancelled)
+        #expect(received.count == 1)
+        #expect(received[0].url == url)
+        #expect(received[0].spaceID == tab.spaceID)
+    }
+
+    @Test("a click in an ephemeral tab is not a peek — it navigates normally")
+    func ephemeralTabNotPeeked() async {
+        let store = TabStore(
+            engine: FakeWebEngine(),
+            repository: FakeTabRepository(stored: [
+                TabBuilder().url("https://ephemeral.example").build()
+            ]),
+            clock: FixedClock()
+        )
+        await store.restore()
+
+        var presented = false
+        store.peekPresenter = { _, _ in presented = true }
+
+        let paneID = store.visibleTabs[0].focusedPane.id
+        let cancelled = store.paneRequestedPeek(
+            url: URL(string: "https://peek.example")!, fromPane: paneID
+        )
+
+        #expect(!cancelled)
+        #expect(!presented)
     }
 }

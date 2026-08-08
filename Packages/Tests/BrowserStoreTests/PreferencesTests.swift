@@ -76,4 +76,16 @@ struct PreferencesTests {
 
         #expect(store.selectedTab?.focusedPane.url == explicit)
     }
+
+    @Test("The Little Arc panel size starts unset and round-trips a resize")
+    func littleArcPanelSizeRoundTrips() async {
+        let store = await makeStore()
+        store.preferenceStore = InMemoryPreferenceStore()
+
+        // Unset → the controller falls back to the panel's default size.
+        #expect(store.littleArcPanelSize == nil)
+
+        store.littleArcPanelSize = CGSize(width: 800, height: 640)
+        #expect(store.littleArcPanelSize == CGSize(width: 800, height: 640))
+    }
 }

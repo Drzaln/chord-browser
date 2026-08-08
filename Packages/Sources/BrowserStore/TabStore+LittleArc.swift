@@ -22,10 +22,17 @@ extension TabStore {
         return pane
     }
 
-    public func littleArcSurface(for pane: Pane) -> AnyWebSurface? {
-        // The primary window's Space, matching where `promoteLittleArc` lands
-        // the tab — the panel has no originating browser window of its own.
-        guard let space = activeSpace(in: primaryWindow) else {
+    /// The surface for the floating panel, in a specific Space.
+    ///
+    /// The Space decides which `WKWebsiteDataStore` the view uses, so the caller
+    /// picks it: a link clicked in a favourite should surface in the Space that
+    /// favourite lives in (already logged in to whatever that Space is). Falls
+    /// back to the primary window's active Space when no Space is given — the
+    /// Little Arc path, whose `promoteLittleArc` targets that window anyway.
+    public func littleArcSurface(for pane: Pane, in spaceID: UUID? = nil) -> AnyWebSurface? {
+        let space = spaceID.flatMap { id in spaces.first { $0.id == id } }
+            ?? activeSpace(in: primaryWindow)
+        guard let space else {
             Log.store.error("no active space; refusing to open a Little Arc panel")
             return nil
         }
@@ -52,19 +59,7 @@ extension TabStore {
 
     /// Esc, or the panel closing. Tears the web view down: nothing else refers
     /// to this pane, so without it the view would leak for the app's lifetime.
-    /// The surface for a ⌘-hover Peek preview.
-    ///
-    /// Identical to `littleArcSurface` but for one thing: the pane is marked
-    /// preview-only first, so a response WebKit cannot render is cancelled
-    /// instead of downloaded. A Little Arc panel keeps the ordinary behaviour —
-    /// you *clicked* a link to get there, and can click one inside it.
-    public func peekSurface(for pane: Pane) -> AnyWebSurface? {
-        engine.setPreviewOnly(true, paneID: pane.id)
-        return littleArcSurface(for: pane)
-    }
-
     public func discardLittleArc(_ pane: Pane) {
-        engine.setPreviewOnly(false, paneID: pane.id)
         engine.evict(paneID: pane.id)
         runtimes[pane.id] = nil
         forgetStateResolution(forPanes: [pane.id])

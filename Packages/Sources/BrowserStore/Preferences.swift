@@ -18,6 +18,8 @@ enum Preferences {
     // silently reset its sidebar when the state moved to `WindowState`.
     private static let sidebarCollapsedKey = "sidebar.collapsed"
     private static let sidebarWidthKey = "sidebar.width"
+    private static let littleArcPanelWidthKey = "prefs.littleArcPanelWidth"
+    private static let littleArcPanelHeightKey = "prefs.littleArcPanelHeight"
 
     static func loadSearchEngine(
         _ defaults: any PreferenceStore = UserDefaults.standard
@@ -143,6 +145,29 @@ enum Preferences {
         sidebarWidth width: CGFloat, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         defaults.set(Double(width), forKey: sidebarWidthKey)
+    }
+
+    // MARK: - Little Arc / Peek panel
+
+    /// The Little Arc / Peek panel's size, as the user last left it (non-spec:
+    /// user-requested). A choice, like the sidebar width — not schema-bound.
+    ///
+    /// `nil` until the user has resized the panel once, so the first ever use
+    /// opens at the panel's built-in default.
+    static func loadLittleArcPanelSize(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> CGSize? {
+        let width = defaults.object(forKey: littleArcPanelWidthKey) as? Double
+        let height = defaults.object(forKey: littleArcPanelHeightKey) as? Double
+        guard let width, let height, width > 0, height > 0 else { return nil }
+        return CGSize(width: width, height: height)
+    }
+
+    static func save(
+        littleArcPanelSize size: CGSize, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(Double(size.width), forKey: littleArcPanelWidthKey)
+        defaults.set(Double(size.height), forKey: littleArcPanelHeightKey)
     }
 
     // MARK: - JSON helpers

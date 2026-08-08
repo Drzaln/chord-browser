@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `BrowserCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **594 passing** (`swift test`, 90 suites), measured 2026-08-07                                                                                                                                   |
+| **Tests**                        | **593 passing** (`swift test`, 89 suites), measured 2026-08-08                                                                                                                                |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -3003,3 +3003,61 @@ extensions installed in this profile). No soak has been re-run since the content
 blocking one (2026-07-25) — the batch added per-view scripts (notifications) and
 a permission path, so a fresh 30-minute soak is the honest next measurement if
 anyone wants the §6.1 gate to still mean something.
+
+### Peek was the wrong feature; now it is Arc's Peek (2026-08-08)
+
+The shipped "Peek" was a ⌘-hover preview — hold ⌘ and rest on a link for an inert
+popover. It turned out to be what the user did **not** want, and the rework
+replaced it with Arc's actual Peek: **a plain left-click on a link inside a
+Favourite or Pinned tab lifts the click into a floating panel** instead of
+navigating the protected page away. The panel is the same one Little Arc uses —
+fully interactive, ⌘O promotes to a real tab, Esc dismisses.
+
+What changed:
+
+- **Trigger moves from hover to click.** The old `PeekLinkMonitor` (mousemove +
+  dwell user script), `PeekController`/`PeekPanel`/`PeekView`, and the
+  preview-only machinery (`setPreviewOnly` / `isPreviewOnly` / `peekSurface` /
+  the hover-cannot-consent download guard) are all **deleted**. A peek is now
+  initiated by a click, so it consents to downloads like any panel — the
+  `previewPaneNeverDownloads` e2e test is gone with it.
+- **Interception is in `NavigationCoordinator`, in both click paths.** A plain
+  left-click (no ⌘/⌥/⌃/⇧, not the middle button, GET, http/s) calls
+  `delegate.paneRequestedPeek(url:fromPane:)`:
+  - same-page navigations in `decidePolicyFor`, and
+  - `target="_blank"` / `window.open` in `createWebViewWith`.
+  The store decides from the owning tab's **placement**: `.pinned`/`.bookmarked`
+  → present the panel and return `true` (cancel the navigation); anything else →
+  `false`, click-through as before.
+- **Three real-world WebKit quirks, learned in the field** (a user clicking
+  LinkedIn/GitHub links inside Gmail):
+  1. Gmail renders email-body links with `target="_blank"`, so they arrive via
+     `createWebViewWith`, not `decidePolicyFor` — the first interception missed
+     them.
+  2. Gmail's JS opens those links through `window.open`, which WebKit reports as
+     `navigationType == .other` with **no** click/modifier info — so
+     `createWebViewWith` accepts `.other` too, with only the store's placement
+     check as the gate.
+  3. For a synthesized click, WebKit can report `buttonNumber == 1` even though
+     the user left-clicked — the gate excludes only the **middle** button
+     (`buttonNumber != 2`) rather than requiring `buttonNumber == 0`.
+- **The panel remembers its size.** `Preferences.loadLittleArcPanelSize` /
+  `save` (two `UserDefaults` doubles, like the sidebar width), exposed on
+  `TabStore.littleArcPanelSize`; the controller opens the panel at the saved size
+  and saves on `NSWindow.didEndLiveResizeNotification`. Listened on
+  `didResize` first and the scale-and-fade entry animation shrank the panel a
+  little on every open (each animation frame was persisted) — `didEndLiveResize`
+  fires only for a real user drag. `LittleArcPanel.minimumSize` was also raised
+  from 420×320 to **560×400**, and the panel clamps any remembered size to it so
+  a stale value cannot shrink the panel.
+- **Space-aware panel surface.** `littleArcSurface(for:in:)` now takes the Space
+  the click came from, so a Peek from a favourite in Space B is already logged in
+  to Space B, not whatever the primary window is on. The controller passes the
+  source tab's `spaceID` through `present(url:inSpace:)`.
+
+SMOKE section "Peek (link click in a favourite/pinned tab) — 2026-08-08" has the
+manual checklist; the store tests are `LittleArcRequestTests`
+(`paneRequestedPeek` forwards url+space for a favourite, click-through for an
+ephemeral) and `LittleArcTests` (space-aware surface). Verified live by the user:
+LinkedIn job links and Gmail/Braincup GitHub links both peek now, and the panel
+holds its resized size across opens.

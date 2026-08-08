@@ -88,9 +88,6 @@ public final class WebKitEngine: WebEngine {
     /// the stale one.
     private var sleepTimerFires: [UUID: DispatchWorkItem] = [:]
 
-    /// Panes that are previews (Peek). See `setPreviewOnly`.
-    private var previewOnlyPanes: Set<UUID> = []
-
     public init(
         configuration: EngineConfiguration,
         downloads: DownloadCoordinator = DownloadCoordinator()
@@ -222,7 +219,6 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(ContextLinkMonitor.makeUserScript())
         controller.addUserScript(AudioMuteController.makeUserScript())
         controller.addUserScript(SleepTimerController.makeUserScript())
-        controller.addUserScript(PeekLinkMonitor.makeUserScript())
         controller.addUserScript(NotificationBridge.makeUserScript())
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
@@ -230,7 +226,6 @@ public final class WebKitEngine: WebEngine {
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
-            controller.add(coordinator, name: PeekLinkMonitor.messageName)
             controller.add(coordinator, name: NotificationBridge.showMessageName)
             controller.add(coordinator, name: ScreenShareMonitor.messageName)
             controller.add(coordinator, name: PasswordFormMonitor.messageName)
@@ -306,18 +301,6 @@ public final class WebKitEngine: WebEngine {
     /// built later inherit it, and pushed onto every live view now. `nil` on a
     /// live view restores the engine's default UA (the `applicationNameForUserAgent`
     /// completion still applies, since that lives on the configuration).
-    public func setPreviewOnly(_ isPreviewOnly: Bool, paneID: UUID) {
-        if isPreviewOnly {
-            previewOnlyPanes.insert(paneID)
-        } else {
-            previewOnlyPanes.remove(paneID)
-        }
-    }
-
-    /// Whether a response this pane cannot display should be cancelled instead
-    /// of downloaded. Read by `NavigationCoordinator`.
-    func isPreviewOnly(paneID: UUID) -> Bool { previewOnlyPanes.contains(paneID) }
-
     public func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride]) {
         globalUserAgent = global
         userAgentOverrides = overrides
