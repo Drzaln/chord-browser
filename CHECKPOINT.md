@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `BrowserCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **593 passing** (`swift test`, 89 suites), measured 2026-08-08                                                                                                                                |
+| **Tests**                        | **597 passing** (`swift test`, 90 suites), measured 2026-08-08                                                                                                                                |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -3061,3 +3061,52 @@ manual checklist; the store tests are `LittleArcRequestTests`
 ephemeral) and `LittleArcTests` (space-aware surface). Verified live by the user:
 LinkedIn job links and Gmail/Braincup GitHub links both peek now, and the panel
 holds its resized size across opens.
+
+### `window.open()` popups are real web views (2026-08-08)
+
+**Bug, reported live: logging into Shopee Indonesia with Google did nothing.**
+The Google tab opened, the user logged in, and then — nothing: Shopee stayed on
+the login page and the Google tab lingered. Root cause: `createWebViewWith`
+returned `nil` and the store opened a **plain** tab at the URL. That tab had no
+relationship to the page that asked, so two OAuth requirements were both
+missing:
+
+- `window.close()` is ignored on a normal tab (only script-created windows may
+  close themselves), so the popup could never tidy itself up.
+- The page's `window.open()` call got no live reference to poll or read the
+  auth result from.
+
+**Fix (ADR 018):** `createWebViewWith` now returns a **real `WKWebView`** built
+from the opener's configuration (same cookies/session, extension controller),
+registered in the pool under a fresh pane id before the store opens the tab —
+so the tab surfaces that exact view. `window.close()` reaches
+`webViewDidClose` → `panePopupDidClose`, which closes the popup's tab. A
+`target="_blank"` anchor and a JS `window.open` are unified onto this one path;
+the Peek gate still runs first.
+
+What changed:
+
+- `WebKitEngine.makeAndAdoptPopup` — build, register, adopt, and hand back the
+  popup view; UA resolved at creation so the popup's first navigation is not
+  cancel-and-re-issued (that detaches the window reference).
+- `NavigationCoordinator.webViewDidClose` — new; turns `window.close()` into
+  "close the popup's tab". `createWebViewWith` no longer opens a plain tab.
+- `TabStore.paneRequestedPopup` / `panePopupDidClose` — host the popup as a tab
+  in the window showing the page that asked (private popups stay in the private
+  session); `newTab(paneID:url:in:)` carries the popup pane id so the tab shows
+  the pooled popup view.
+- `paneRequestedNewTab` **removed** — `createWebViewWith` was its only caller.
+
+**WKWebView limitation discovered and documented:** `window.opener` stays `null`
+even for these popups — WKWebView does not expose it. That is fine: OAuth flows
+rely on the **`window.open()` return value** (`win.closed`, same-origin reads),
+which the real popup preserves. ADR 018 and the comments say this out loud.
+
+**Tests (597 passing, 90 suites, prepush green).** Store: `popupBecomesTab`
+(hosts the popup pane id), `popupCloseClosesItsTab`,
+`popupCloseForMissingPaneDoesNothing`, `popupStaysInItsPrivateWindow`. E2E
+(`PopupE2ETests`, real engine + real HTTP): `window.open()` returns a live
+reference, the popup loads its destination, `window.close()` closes its tab, and
+the opener observes `win.closed === true`. SMOKE has the manual checklist;
+verified live by the user — Shopee Google login completes and the popup tab
+closes.

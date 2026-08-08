@@ -210,10 +210,19 @@ public final class WebKitEngine: WebEngine {
             config.webExtensionController = handle.controller
         }
 
-        // Each view gets its own content controller. `WKWebViewConfiguration.copy()`
-        // does *not* deep-copy this object, so sharing the template's controller
-        // means adding the same handler name twice — which throws
-        // NSInvalidArgumentException and takes the app down on the second tab.
+        config.userContentController = makeContentController()
+        let webView = ChordWebView(frame: .zero, configuration: config)
+        configure(webView)
+        return webView
+    }
+
+    /// The per-view message-handler and user-script wiring, shared by every
+    /// web view the engine builds — normal panes and `window.open()` popups
+    /// alike. Each view gets its own controller; `WKWebViewConfiguration.copy()`
+    /// does *not* deep-copy this object, so sharing the template's controller
+    /// means adding the same handler name twice — which throws
+    /// NSInvalidArgumentException and takes the app down on the second tab.
+    private func makeContentController() -> WKUserContentController {
         let controller = WKUserContentController()
         controller.addUserScript(MediaActivityMonitor.makeUserScript())
         controller.addUserScript(ContextLinkMonitor.makeUserScript())
@@ -246,9 +255,13 @@ public final class WebKitEngine: WebEngine {
         for list in contentRuleLists {
             controller.add(list)
         }
-        config.userContentController = controller
+        return controller
+    }
 
-        let webView = ChordWebView(frame: .zero, configuration: config)
+    /// The shared post-configuration a web view needs before it is usable —
+    /// gestures, delegates, and the context-menu callbacks. Called from both
+    /// `makeWebView` and `makePopupWebView`.
+    private func configure(_ webView: ChordWebView) {
         webView.allowsBackForwardNavigationGestures = true
         webView.configuration.preferences.setValue(true, forKey: "fullScreenEnabled")
         webView.allowsMagnification = true
@@ -276,6 +289,56 @@ public final class WebKitEngine: WebEngine {
         webView.onOpenInPrivateWindow = { [weak self] url in
             self?.delegate?.paneRequestedPrivateWindow(url: url)
         }
+    }
+
+    /// Builds and adopts the real popup web view a `window.open()` / popup
+    /// request gets (`createWebViewWith`), and tells the delegate to host it as
+    /// a tab.
+    ///
+    /// Unlike a plain store-opened tab, this view is created by WebKit from the
+    /// opener's configuration, so the page's `window.open()` call returns a
+    /// *live* window reference — which is what OAuth login (Shopee's Google
+    /// button, etc.) polls (`win.closed`) or reads the auth result from — and
+    /// `window.close()` actually closes the popup instead of being silently
+    /// ignored, so the tab does not linger. Note WKWebView leaves
+    /// `window.opener` null even for these popups (a known WebKit limitation);
+    /// the return value of `window.open()` is the mechanism OAuth flows rely on
+    /// here. The configuration is copied but its data store and extension
+    /// controller carry over; only the content controller is rebuilt, so the
+    /// popup gets our message handlers, user scripts, and content-blocking
+    /// lists exactly once, like any other pane. WebKit performs the navigation
+    /// into the returned view itself, so no load is issued here.
+    ///
+    /// The view is registered in the pool under `popupPaneID` *before* the
+    /// store is asked to open the tab, so when the tab is selected the
+    /// `surface(for:in:)` path finds it and shows it — it is never replaced by
+    /// a fresh normal view. Returns the view WebKit must receive.
+    @discardableResult
+    func makeAndAdoptPopup(
+        openerConfiguration: WKWebViewConfiguration, url: URL?, fromPane paneID: UUID?
+    ) -> WKWebView {
+        let config = openerConfiguration.copy() as! WKWebViewConfiguration
+        config.userContentController = makeContentController()
+        let webView = ChordWebView(frame: .zero, configuration: config)
+        configure(webView)
+        // Resolve the UA at creation, like `liveView` does, so the popup's
+        // *first* navigation is not cancelled-and-re-issued by the policy
+        // (6.2/§9.6). Re-issuing that first load is what breaks the
+        // `window.opener` relationship WebKit set up for the popup.
+        applyUserAgent(to: webView, for: url)
+
+        let popupPaneID = UUID()
+        let live = LiveWebView(
+            paneID: popupPaneID, webView: webView, cornerRadius: configuration.cornerRadius
+        )
+        live.startObserving { [weak self] paneID, snapshot in
+            self?.handleSnapshot(snapshot, for: paneID)
+        }
+        pool.insert(live)
+        lastKnownURL[popupPaneID] = url
+        Log.engine.debug("created popup web view for pane \(popupPaneID), \(self.pool.count) live")
+
+        delegate?.paneRequestedPopup(url: url, popupPaneID: popupPaneID, fromPane: paneID)
         return webView
     }
 

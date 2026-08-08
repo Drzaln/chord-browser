@@ -395,6 +395,33 @@ struct PrivateWindowTests {
         #expect(store.selectedTab(in: primary)?.focusedPane.url.host() == "normal.example")
     }
 
+    @Test("A popup from a private page lands in that private window and session")
+    func popupStaysInItsPrivateWindow() async {
+        let (store, _, engine) = await makeStore(stored: [
+            TabBuilder().url("https://normal.example").build()
+        ])
+        _ = store.claimWindow()
+        let window = openPrivateWindow(store)
+        let paneID = try! #require(store.selectedTab(in: window)?.focusedPaneID)
+        let popupPaneID = UUID()
+
+        engine.emitPopupRequest(
+            url: URL(string: "https://accounts.google.example")!,
+            popupPaneID: popupPaneID,
+            fromPane: paneID
+        )
+
+        let popup = store.tabs.first { $0.focusedPaneID == popupPaneID }
+        #expect(popup != nil, "the popup becomes a tab")
+        #expect(popup?.spaceID == window.privateSpaceID, "it stays in the private session")
+        #expect(store.selectedTab(in: window)?.focusedPaneID == popupPaneID, "it is focused")
+
+        // window.close() closes the popup tab, leaving the private opener intact.
+        engine.emitPopupClosed(popupPaneID)
+        #expect(store.tabs.allSatisfy { $0.focusedPaneID != popupPaneID })
+        #expect(store.selectedTab(in: window) != nil)
+    }
+
     // MARK: - Teardown
 
     @Test("Closing the window ends the session — tabs, Space, views, and data store")

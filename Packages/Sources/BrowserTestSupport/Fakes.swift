@@ -198,10 +198,16 @@ public final class FakeWebEngine: WebEngine {
         delegate?.paneDidLoadFavicon(paneID, data: data)
     }
 
-    /// - Parameter paneID: the pane the page called `window.open()` from. Nil
-    ///   models a request whose opener has already been evicted.
-    public func emitNewTabRequest(url: URL, fromPane paneID: UUID? = nil) {
-        delegate?.paneRequestedNewTab(url: url, fromPane: paneID)
+    /// Drives the delegate as the engine's `window.open()` handling would.
+    public func emitPopupRequest(
+        url: URL?, popupPaneID: UUID, fromPane paneID: UUID? = nil
+    ) {
+        delegate?.paneRequestedPopup(url: url, popupPaneID: popupPaneID, fromPane: paneID)
+    }
+
+    /// Drives the delegate as a popup's `window.close()` would.
+    public func emitPopupClosed(_ paneID: UUID) {
+        delegate?.panePopupDidClose(paneID)
     }
 }
 

@@ -40,6 +40,11 @@ a feature touching device access needs a production build too.
 - [ ] Title updates in the sidebar as pages load
 - [x] Favicon appears in the sidebar, falling back to a globe when absent
 - [ ] `target="_blank"` links open a new tab rather than being swallowed
+- [ ] A `window.open()` popup opens a tab, and the page that opened it still has
+      its `window.open()` reference (`window.myWin !== null`)
+- [ ] A login popup closes its own tab: sign in with **Google on shopee.co.id** —
+      the popup tab closes after the flow, and the Shopee tab finishes the login
+      (regression for ADR 018; `window.close()` must reach `webViewDidClose`)
 - [ ] **Collapsed-sidebar loading bar**: `Cmd+S` to collapse the sidebar, load a
       slow page — a thin progress bar runs along the top edge of the web card
       (and only there, not also in the revealed sidebar); revealing the sidebar

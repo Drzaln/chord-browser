@@ -127,16 +127,51 @@ struct TabStoreTests {
         #expect(store.tabs.map { $0.panes[0].url.host() } == ["a.example", "c.example"])
     }
 
-    @Test("A window.open request becomes a new tab")
+    @Test("A window.open request becomes a new tab hosting the popup's web view")
     func popupBecomesTab() async {
         let (store, engine, _) = makeStore()
         await store.restore()
         let before = store.tabs.count
+        let popupPaneID = UUID()
 
-        engine.emitNewTabRequest(url: URL(string: "https://popup.example")!)
+        engine.emitPopupRequest(
+            url: URL(string: "https://popup.example")!, popupPaneID: popupPaneID
+        )
 
         #expect(store.tabs.count == before + 1)
-        #expect(store.tabs.last?.panes[0].url.host() == "popup.example")
+        #expect(store.selectedTabID == store.tabs.last?.id, "the popup tab is selected")
+        #expect(store.tabs.last?.focusedPaneID == popupPaneID)
+        #expect(store.tabs.last?.focusedPane.url.host() == "popup.example")
+    }
+
+    @Test("window.close() on a popup closes its tab")
+    func popupCloseClosesItsTab() async {
+        let (store, engine, _) = makeStore(stored: [
+            TabBuilder().url("https://shopee.example").build()
+        ])
+        await store.restore()
+        let popupPaneID = UUID()
+
+        engine.emitPopupRequest(
+            url: URL(string: "https://accounts.google.example")!, popupPaneID: popupPaneID
+        )
+        let popupTabID = try! #require(store.tabs.last?.id)
+
+        engine.emitPopupClosed(popupPaneID)
+
+        #expect(store.tabs.allSatisfy { $0.id != popupTabID }, "the popup tab is gone")
+        #expect(store.tabs.count == 1, "the opener tab survives")
+    }
+
+    @Test("Closing a popup that is already gone is a no-op")
+    func popupCloseForMissingPaneDoesNothing() async {
+        let (store, engine, _) = makeStore()
+        await store.restore()
+        let before = store.tabs
+
+        engine.emitPopupClosed(UUID())
+
+        #expect(store.tabs == before)
     }
 
     @Test("New tabs get increasing sidebar order")

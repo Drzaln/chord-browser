@@ -272,8 +272,14 @@ extension NavigationCoordinator: WKScriptMessageHandlerWithReply {
 
 extension NavigationCoordinator: WKUIDelegate {
 
-    /// `target="_blank"` and `window.open`. Returning nil tells WebKit we handled
-    /// it ourselves; the store opens a real tab.
+    /// `target="_blank"` and `window.open`. Returning a real `WKWebView` — not
+    /// `nil` plus a separate store-opened tab — keeps the page's `window.open()`
+    /// reference alive (so OAuth login like Shopee's Google button can poll it
+    /// for the result) and lets the page close itself with `window.close()`, the
+    /// way OAuth popups tidy themselves up instead of lingering. The store hosts
+    /// the popup as a tab, and `webViewDidClose` turns `window.close()` into
+    /// "close that tab". (`window.opener` stays null in WKWebView; the
+    /// `window.open()` return value is the mechanism OAuth flows rely on here.)
     ///
     /// A new-window request from a favourite/pinned tab is a Peek gesture, in
     /// both shapes it arrives in:
@@ -298,12 +304,20 @@ extension NavigationCoordinator: WKUIDelegate {
             return nil
         }
 
-        if let url = navigationAction.request.url {
-            engine?.delegate?.paneRequestedNewTab(
-                url: url, fromPane: paneID(for: webView)
-            )
-        }
-        return nil
+        guard let engine else { return nil }
+        return engine.makeAndAdoptPopup(
+            openerConfiguration: configuration,
+            url: navigationAction.request.url,
+            fromPane: paneID(for: webView)
+        )
+    }
+
+    /// A script-created window called `window.close()`. Only popups can do
+    /// that, so this is how the Google tab from a Shopee login (and any other
+    /// OAuth popup) tidies itself up once the flow is done.
+    func webViewDidClose(_ webView: WKWebView) {
+        guard let paneID = paneID(for: webView) else { return }
+        engine?.delegate?.panePopupDidClose(paneID)
     }
 
     /// Camera and microphone for `getUserMedia` — Google Meet, Slack huddles, etc.

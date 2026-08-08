@@ -26,6 +26,12 @@ color, blurring your desktop behind the window (the web page itself stays opaque
   button, and a thin progress bar runs under the address bar — or, when the
   sidebar is collapsed, along the top edge of the page.
 
+When a page opens a new window — a `target="_blank"` link, or a site's **"Sign
+in with Google"** popup (Shopee, etc.) — the new window becomes a tab. It is a
+real popup under the hood, so the flow works the way the site expects: the
+opening page keeps its `window.open()` reference, and the login popup **closes
+its own tab** once you finish signing in instead of lingering.
+
 ---
 
 ## Keyboard shortcuts

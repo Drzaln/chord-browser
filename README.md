@@ -32,6 +32,12 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   per window; tabs, Spaces, and folders are shared. Tabs drag between windows
   (with a confirm when the move crosses Spaces and therefore cookie stores), and
   each window's Space/tab is persisted and restored.
+- **`window.open()` / `target="_blank"` popups** — new windows open as tabs, but
+  as *real* popup web views: the page keeps its `window.open()` reference and
+  `window.close()` actually closes the tab. That is what makes OAuth logins work
+  — e.g. **"Continue with Google" on shopee.co.id** hands the login back and the
+  popup tab closes itself instead of lingering
+  ([ADR 018](docs/adr/018-window-open-popups-are-real-web-views.md)).
 - **Spaces** — isolated browsing contexts, each with its own
   `WKWebsiteDataStore`, so two Google accounts stay logged in simultaneously in
   two Spaces. Gradient theming per Space, `Cmd+1…9` to switch.

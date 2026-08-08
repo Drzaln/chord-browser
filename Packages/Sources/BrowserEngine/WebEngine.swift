@@ -68,9 +68,17 @@ public struct PaneSnapshot: Equatable, Sendable {
 public protocol WebEngineDelegate: AnyObject {
     func paneDidUpdate(_ paneID: UUID, snapshot: PaneSnapshot)
     func paneDidLoadFavicon(_ paneID: UUID, data: Data?)
-    /// `target="_blank"` / `window.open()`. Carries the pane that asked so the
-    /// store can open the tab in the window actually showing that page.
-    func paneRequestedNewTab(url: URL, fromPane paneID: UUID?)
+    /// A page asked for a new window. The engine created a *real* popup web
+    /// view first, so the page's `window.open()` call gets a live window
+    /// reference and `window.close()` works — the two things OAuth flows
+    /// depend on. The store must host it as a tab; `popupPaneID` is the pane
+    /// the popup's web view is registered under, and is the id the tab's pane
+    /// must carry so the tab surfaces that view.
+    func paneRequestedPopup(url: URL?, popupPaneID: UUID, fromPane paneID: UUID?)
+    /// A script popup (from `window.open()`) called `window.close()`. Only
+    /// script-created windows can close themselves, so this identifies a popup
+    /// tab: close it, so the auth popup the user just finished does not linger.
+    func panePopupDidClose(_ paneID: UUID)
     /// A link's context menu asked to open it in the Little Arc panel (non-spec:
     /// user-requested).
     /// "Open Link in New Tab" from a link's context menu: a tab in the window
@@ -120,6 +128,8 @@ extension WebEngineDelegate {
     /// Defaults so delegates that predate these features (and test doubles) need
     /// not implement them.
     public func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?) {}
+    public func paneRequestedPopup(url: URL?, popupPaneID: UUID, fromPane paneID: UUID?) {}
+    public func panePopupDidClose(_ paneID: UUID) {}
     public func paneRequestedPrivateWindow(url: URL) {}
     public func paneRequestedLittleArc(url: URL) {}
     public func paneRequestedPeek(url: URL, fromPane paneID: UUID) -> Bool { false }

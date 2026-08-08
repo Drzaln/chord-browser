@@ -665,20 +665,41 @@ public final class TabStore {
     ///   you on the page you were reading — the point of that item is to queue
     ///   something up without losing your place.
     public func newTab(url: URL? = nil, in window: WindowState, selecting: Bool = true) {
-        guard let spaceID = activeSpace(in: window)?.id else { return }
         let target = url ?? resolvedNewTabURL
+        insertTab(panes: [Pane(url: target)], in: window, selecting: selecting)
+    }
+
+    /// Opens a tab whose pane carries a *specific* id — the engine's
+    /// `window.open()` popup is registered under that id, so the tab surfaces
+    /// the popup's existing web view (keeping its live `window.open()` reference
+    /// and `window.close()` semantics) instead of building a fresh one. See
+    /// `paneRequestedPopup`.
+    public func newTab(paneID: UUID, url: URL?, in window: WindowState, selecting: Bool = true) {
+        let target = url ?? resolvedNewTabURL
+        insertTab(panes: [Pane(id: paneID, url: target)], in: window, selecting: selecting)
+    }
+
+    /// The shared tail of both `newTab` forms: create an ephemeral single-pane
+    /// tab in the window's active Space and make it that window's selection.
+    private func insertTab(panes: [Pane], in window: WindowState, selecting: Bool) {
+        guard let spaceID = activeSpace(in: window)?.id else { return }
 
         // Order is per-Space, so a new tab in one Space does not push another
         // Space's tabs down the list.
         let order = (visibleTabs(in: window).map(\.placement.order).max() ?? -1) + 1
         let tab = Tab(
-            url: target, spaceID: spaceID, placement: .ephemeral(order: order), now: clock.now
+            spaceID: spaceID,
+            placement: .ephemeral(order: order),
+            panes: panes,
+            focusedPaneID: panes[0].id,
+            lastAccessedAt: clock.now,
+            createdAt: clock.now
         )
         tabs.append(tab)
         // A brand-new pane definitionally has nothing stored, so mark it
         // resolved rather than spending a disk read to discover that — and to
         // avoid withholding its surface for a frame.
-        for pane in tab.panes { stateResolution[pane.id] = .resolved }
+        for pane in panes { stateResolution[pane.id] = .resolved }
         let previous = window.selectedTabID
         extensionHost?.extensionTabDidOpen(tab.id, inSpace: spaceID)
         if selecting {
@@ -1308,10 +1329,24 @@ extension TabStore: WebEngineDelegate {
         if didChange { scheduleSave() }
     }
 
-    public func paneRequestedNewTab(url: URL, fromPane paneID: UUID?) {
-        // `window.open()` from a page: the tab belongs in whichever window is
-        // showing the page that asked, not whichever window happens to be first.
-        newTab(url: url, in: paneID.map { window(showingPane: $0) } ?? primaryWindow)
+    public func paneRequestedPopup(url: URL?, popupPaneID: UUID, fromPane paneID: UUID?) {
+        // A real popup web view is already live under `popupPaneID` (so the
+        // opener's `window.open()` reference and `window.close()` work). Host it
+        // as a tab in the window showing the page that asked, same placement
+        // rule as a plain `window.open()` tab.
+        newTab(
+            paneID: popupPaneID,
+            url: url,
+            in: paneID.map { window(showingPane: $0) } ?? primaryWindow
+        )
+    }
+
+    public func panePopupDidClose(_ paneID: UUID) {
+        // `window.close()` only works on script-created windows, so the pane
+        // naming this tab is a popup by construction. Close the tab hosting it;
+        // if the user already did, there is nothing to close.
+        guard let tabID = tabID(owning: paneID) else { return }
+        closeTab(tabID, in: window(showingPane: paneID))
     }
 
     public func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?) {
