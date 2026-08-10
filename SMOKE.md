@@ -10,7 +10,7 @@ check that still applies.
 ```
 
 Builds all packages, runs all tests, and builds the app — warnings as errors.
-Baseline: **562 tests in 84 suites** (2026-08-06), schema **v13**.
+Baseline: **598 tests in 90 suites** (2026-08-11), schema **v13**.
 
 A reminder that decides what belongs on this page at all: `swift test` runs
 **unsandboxed**, so anything gated by an entitlement or an OS permission —
@@ -985,7 +985,11 @@ selector check is the `chord-browser-youtube-ads` skill
       at the ad, not jump the video to its end
 - [ ] Masthead / promoted rows / in-feed ad slots are gone from the home feed
 - [ ] **YouTube Music** ad slots are hidden and audio ads are skipped
-- [ ] Per-tab **mute** still behaves independently — the ad blocker never mutes
+- [ ] **No audio blasts** while an ad fast-forwards — the ad is silent even at
+      10× speed
+- [ ] Per-tab **mute** survives the ad: a tab muted before the ad is still muted
+      after it, and an unmuted tab is audible again once the ad clears — the
+      ad's mute must not leak into content
 
 ## Media / codecs (diagnostic, not a pass-fail)
 

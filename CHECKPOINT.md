@@ -20,7 +20,7 @@ only the current position within it.
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `BrowserCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **597 passing** (`swift test`, 90 suites), measured 2026-08-08                                                                                                                                |
+| **Tests**                        | **598 passing** (`swift test`, 90 suites), measured 2026-08-11                                                                                                                                |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -236,7 +236,7 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **562 tests**, `./scripts/prepush.sh` green, **schema v13**.
+State: single `main`, **598 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
 ## Where the work is
 
@@ -2265,6 +2265,21 @@ aware; clipped to the card so it doesn't overhang the rounded corners, and
 `RootView`, so the UI logic stays where the collapse state lives. No new tests
 (views are verified live in this project); prepush green at 562.
 
+### YouTube ads are now muted while they fast-forward (2026-08-11)
+
+At 10× the ad's audio blasted through for the ~1.5 s it took an unskippable ad
+to die — loud enough to be the thing people complained about. ADR 013's "does
+not mute" was a deliberate earlier choice; this reverses it. The video is
+force-muted while an ad is up (`muteForAd`, re-asserted every tick like the
+rate), and the **previous** `muted` value is saved at ad start and restored with
+the rate (`restoreRate`). That saved value is exactly `AudioMuteController`'s
+applied state on the element — both scripts set `<video>.muted` page-side — so
+the user's own per-tab mute always survives: a muted tab stays muted, an unmuted
+tab is audible again the instant the ad clears. The only corner case is a mute
+toggle during the ~1.5 s blast, whose saved value is then stale and needs one
+more toggle; accepted as negligible. Test anchor added (`mutesAdsAndRestores`),
+prepush green.
+
 ### Link context menu: Open in New Tab / New Private Window (2026-07-31)
 
 Right-clicking a link offered only WebKit's own menu plus "Open in Little Chord".
@@ -3102,7 +3117,7 @@ even for these popups — WKWebView does not expose it. That is fine: OAuth flow
 rely on the **`window.open()` return value** (`win.closed`, same-origin reads),
 which the real popup preserves. ADR 018 and the comments say this out loud.
 
-**Tests (597 passing, 90 suites, prepush green).** Store: `popupBecomesTab`
+**Tests (598 passing, 90 suites, prepush green).** Store: `popupBecomesTab`
 (hosts the popup pane id), `popupCloseClosesItsTab`,
 `popupCloseForMissingPaneDoesNothing`, `popupStaysInItsPrivateWindow`. E2E
 (`PopupE2ETests`, real engine + real HTTP): `window.open()` returns a live

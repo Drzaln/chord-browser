@@ -437,9 +437,11 @@ Instead a small script runs on YouTube pages and:
 It's **on by default** and needs no extension. Honest caveat: YouTube actively
 fights ad blockers and changes its page constantly, so this is best-effort — it
 may occasionally miss a new ad format until the selectors are updated, and it is
-not the same as running full uBlock Origin. It does **not** mute anything (your
-own per-tab mute stays in charge). Why a bespoke script instead of an extension
-is explained just below.
+not the same as running full uBlock Origin. While an ad is playing it is also
+**muted** (so the fast-forward never blasts its audio), but your own per-tab
+mute choice is restored the moment the ad ends — the ad blocker only hides the
+ad's sound, it never overrides yours. Why a bespoke script instead of an
+extension is explained just below.
 
 ### "But Arc / Brave / Orion block YouTube ads with the same extension!"
 

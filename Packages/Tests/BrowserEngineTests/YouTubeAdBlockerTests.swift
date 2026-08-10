@@ -26,4 +26,15 @@ struct YouTubeAdBlockerTests {
         // Singleton guard, so re-injection is idempotent.
         #expect(source.contains("__chordYTAdBlock"))
     }
+
+    @Test("Mutes the ad and restores the prior mute with the rate")
+    func mutesAdsAndRestores() {
+        let source = YouTubeAdBlocker.makeUserScript().source
+        // The ad is force-muted so the 10x blast never blasts audio...
+        #expect(source.contains("video.muted = true"))
+        // ...and the previous muted value (AudioMuteController's applied state)
+        // is saved and restored, so a user's own mute choice survives the ad.
+        #expect(source.contains("__chordPrevMuted"))
+        #expect(source.contains("__chordAdMuted"))
+    }
 }

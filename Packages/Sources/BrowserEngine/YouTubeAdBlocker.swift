@@ -16,9 +16,12 @@ import WebKit
 ///    playback rate so the ad drains in a fraction of a second — even
 ///    "unskippable" ads, because the ad and the content share one `<video>`
 ///    element. The rate is re-asserted every tick (the player syncs its own
-///    rate back to 1x) and restored the instant the ad ends. It deliberately
-///    does *not* mute: mute is owned by `AudioMuteController`, and touching it
-///    here would fight that.
+///    rate back to 1x) and restored the instant the ad ends. The video is also
+///    force-muted while an ad is up — at 10x the ad's audio would blast — and
+///    the *previous* muted value (which is `AudioMuteController`'s applied
+///    state) is restored with the rate: a muted tab stays muted, an unmuted tab
+///    returns to unmuted. The ad blocker never overrides the user's own mute
+///    choice; it only hides the ad's sound.
 ///
 /// 2. **Static ads.** Injected CSS hides mastheads, promoted rows, in-feed ad
 ///    slots, and YouTube Music's ad slots.
@@ -85,14 +88,32 @@ enum YouTubeAdBlocker {
         // why fast-forwarding by itself did not remove unskippable ads.
         var AD_RATE = 10;
 
-        // The ad and the real video are ONE <video> element, so a bumped rate
-        // must never survive into content. Restore to 1x whenever we are not in
-        // an ad, and also the instant the current media ends.
+        // The ad and the real video are ONE <video> element, so a bumped rate or
+        // a forced mute must never survive into content. Restore to 1x and the
+        // prior mute state whenever we are not in an ad, and also the instant the
+        // current media ends.
         function restoreRate(video) {
             if (video.__chordBumped) {
                 try { video.playbackRate = 1; } catch (e) {}
                 video.__chordBumped = false;
             }
+            if (video.__chordAdMuted) {
+                try { video.muted = video.__chordPrevMuted; } catch (e) {}
+                video.__chordAdMuted = false;
+                video.__chordPrevMuted = undefined;
+            }
+        }
+
+        // Force-mute the video while an ad is up so the 10x blast never blasts
+        // audio. The saved `__chordPrevMuted` IS AudioMuteController's applied
+        // state on this element, so restoring it brings the user's own mute
+        // choice back: a muted tab stays muted, an unmuted tab returns.
+        function muteForAd(video) {
+            if (!video.__chordAdMuted) {
+                video.__chordAdMuted = true;
+                video.__chordPrevMuted = video.muted;
+            }
+            try { video.muted = true; } catch (e) {}
         }
 
         function tick() {
@@ -137,8 +158,12 @@ enum YouTubeAdBlocker {
                     // Re-assert the rate on EVERY tick. The player syncs its own
                     // rate back to 1x shortly after we bump it, so a once-only
                     // bump silently dies and the ad runs to completion — the
-                    // per-tick blast keeps its timer draining until it ends.
+                    // per-tick blast keeps its timer draining until it ends. The
+                    // mute is re-asserted the same way, so the user's unmute
+                    // mid-ad is re-hidden for the (fraction of a second) it
+                    // takes the ad to end.
                     video.playbackRate = AD_RATE;
+                    muteForAd(video);
                     if (!video.__chordBumped) {
                         video.__chordBumped = true;
                         // When this ad's media ends, restore before content plays —

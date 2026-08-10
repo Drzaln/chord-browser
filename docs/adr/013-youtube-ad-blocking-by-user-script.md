@@ -45,10 +45,15 @@ never leak into content: it is restored to 1× on the first non-ad tick and on
 the media's `ended` event (verified: after a forced bump, the next no-ad tick
 restored 1×).
 
-Two deliberate choices. It **does not mute**: mute is owned by
-`AudioMuteController`, and fast-forwarding ends the ad fast enough that muting is
-unnecessary and would only fight that controller. And it needs **no message
-handler** — it is entirely page-side, so unlike `MediaActivityMonitor` /
+Two deliberate choices. The video is **force-muted while an ad is up** — at 10×
+the ad's audio would otherwise blast — but the previous `muted` value (which is
+`AudioMuteController`'s applied state on the element) is saved at ad start and
+restored with the rate, so the user's own per-tab mute choice always survives:
+a muted tab stays muted, an unmuted tab returns to unmuted. The ad blocker never
+*overrides* the user's mute; it only hides the ad's sound. (An earlier revision
+deliberately did not mute at all, on the theory that the blast ended ads fast
+enough — it did not make the blast quiet enough to ignore.) And it needs **no
+message handler** — it is entirely page-side, so unlike `MediaActivityMonitor` /
 `ScreenShareMonitor` there is nothing to remove in `LiveWebView.tearDown()` and
 no leak surface. A `window.__chordYTAdBlock` singleton guard makes re-injection
 (`atDocumentStart` can run more than once) idempotent.

@@ -203,11 +203,16 @@ All edits stay in `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift`:
    - Rate blast is ignored → YouTube likely reset `playbackRate`; re-assert on every tick is already the design — if it regressed, restore it. If the ad is on a **separate `<video>`**, verify the "blast every `<video>`" loop is still there.
    - Ad no longer ends → check the `duration <= 60` seek guard: stitched/SSAI ads report content duration, and a full seek there would skip content instead.
 3. **Playback blocked by an anti-adblock wall** → the `:has(ytd-enforcement-message-view-model)` CSS selector is hiding the dialog but the *player block* itself can't be un-hid. Update the selector to whatever the wall is now called, and tell the user the wall may remain.
-4. **Mute must never be touched** — `AudioMuteController` owns mute. A change that mutes ads will fight it.
+4. **Mute only ever overrides *during* the ad** — the video is force-muted while
+   an ad is up (`muteForAd`) and the saved `__chordPrevMuted` is restored with
+   the rate (`restoreRate`). That saved value IS `AudioMuteController`'s applied
+   state, so the user's own per-tab mute always survives. A regression here
+   shows as content playing muted after an ad — check that both `muteForAd` and
+   the restore path are still wired.
 
 ### Tests
 
-`Packages/Tests/BrowserEngineTests/YouTubeAdBlockerTests.swift` asserts the injection shape (`.atDocumentStart`, all frames) and anchors the source to `youtube`, `ad-showing`, and the `__chordYTAdBlock` singleton guard. If a rewrite drops any of those anchors, update the test — but don't remove the anchors lightly; they're what make a refactor fail loudly.
+`Packages/Tests/BrowserEngineTests/YouTubeAdBlockerTests.swift` asserts the injection shape (`.atDocumentStart`, all frames), anchors the source to `youtube`, `ad-showing`, and the `__chordYTAdBlock` singleton guard, and checks the ad-mute save/restore (`video.muted = true`, `__chordAdMuted`, `__chordPrevMuted`). If a rewrite drops any of those anchors, update the test — but don't remove the anchors lightly; they're what make a refactor fail loudly.
 
 ```bash
 swift test --package-path Packages --filter YouTubeAdBlockerTests
@@ -229,6 +234,8 @@ Update the `bd` issue with what changed (or that nothing needed changing), and c
 | Static ads visible | Hide-list selectors renamed | Port new selectors from Layer 2 / Layer 1 |
 | Player blocked, "ad blockers not allowed" | Enforcement-wall selector renamed | Update `:has(ytd-enforcement-message-view-model)` |
 | Content plays at 10x briefly | Rate not restored fast enough | `ended` listener + `!adShowing` restore are both required |
+| Content plays **muted** after an ad | Ad-mute not restored (or a mid-ad mute toggle lost its saved value) | `restoreRate` must restore `__chordPrevMuted`; re-assert mute every tick |
+| Ad audio blasts during fast-forward | `muteForAd` dropped or not wired into the tick | Call `muteForAd(video)` beside the rate blast each tick |
 | Everything works on `youtube.com` but not embeds | Injection became main-frame-only | Keep `forMainFrameOnly: false` |
 
 ---
