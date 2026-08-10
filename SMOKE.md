@@ -985,11 +985,11 @@ selector check is the `chord-browser-youtube-ads` skill
       at the ad, not jump the video to its end
 - [ ] Masthead / promoted rows / in-feed ad slots are gone from the home feed
 - [ ] **YouTube Music** ad slots are hidden and audio ads are skipped
-- [ ] **No audio blasts** while an ad fast-forwards — the ad is silent even at
-      10× speed
-- [ ] Per-tab **mute** survives the ad: a tab muted before the ad is still muted
+- [x] **No audio blasts** while an ad fast-forwards — the ad is silent even at
+      10× speed (verified live 2026-08-11)
+- [x] Per-tab **mute** survives the ad: a tab muted before the ad is still muted
       after it, and an unmuted tab is audible again once the ad clears — the
-      ad's mute must not leak into content
+      ad's mute must not leak into content (verified live 2026-08-11)
 
 ## Media / codecs (diagnostic, not a pass-fail)
 

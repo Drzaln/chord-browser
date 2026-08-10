@@ -2278,7 +2278,8 @@ the user's own per-tab mute always survives: a muted tab stays muted, an unmuted
 tab is audible again the instant the ad clears. The only corner case is a mute
 toggle during the ~1.5 s blast, whose saved value is then stale and needs one
 more toggle; accepted as negligible. Test anchor added (`mutesAdsAndRestores`),
-prepush green.
+and **verified live 2026-08-11**: an ad is silent while it blasts, and the tab's
+own mute state is unchanged afterward. Prepush green at 598.
 
 ### Link context menu: Open in New Tab / New Private Window (2026-07-31)
 
