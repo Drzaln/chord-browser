@@ -73,7 +73,52 @@ final class LiveWebView {
         observe(\.canGoBack)
         observe(\.canGoForward)
 
+        observeFullscreenState()
+
         refreshSnapshot()
+    }
+
+    /// HTML5 video fullscreen moves the WKWebView out of this container into a
+    /// WebKit-owned fullscreen window and back, replacing it with a placeholder
+    /// in between (`WKWebView.fullscreenState` docs). The move is the whole
+    /// story behind "fullscreen video renders black until the browser is
+    /// relaunched": WebKit hands the view back at whatever frame the placeholder
+    /// had, which after the round trip can disagree with the container and leave
+    /// the page's viewport collapsed (webkit.org/b/313802). Log every transition
+    /// so a blank fullscreen can be tied to one, and re-anchor the view to the
+    /// container the moment it returns.
+    private func observeFullscreenState() {
+        let observation = webView.observe(\.fullscreenState, options: [.new]) {
+            [weak self] _, change in
+            MainActor.assumeIsolated {
+                guard let self, let state = change.newValue else { return }
+                Log.engine.debug("pane \(self.paneID) fullscreen state \(state.rawValue)")
+                // Only once the view is back in the container: `.exitingFullscreen`
+                // fires mid-animation while the view is still in the fullscreen
+                // window, and clobbering its frame there would corrupt the exit.
+                if state == .notInFullscreen {
+                    self.restoreLayoutForFullscreenExit()
+                }
+            }
+        }
+        observations.append(observation)
+    }
+
+    /// Re-anchors the web view to the container's bounds after WebKit moves it
+    /// back out of the fullscreen window. A no-op when the container has no size
+    /// yet (window not laid out) or the view already matches — then it is only a
+    /// repaint nudge.
+    func restoreLayoutForFullscreenExit() {
+        guard !container.bounds.isEmpty else { return }
+        if webView.frame != container.bounds {
+            Log.engine.notice(
+                "re-anchoring web view for pane \(paneID) after fullscreen exit: "
+                    + "\(webView.frame) -> \(container.bounds)"
+            )
+            webView.frame = container.bounds
+        }
+        webView.needsLayout = true
+        webView.needsDisplay = true
     }
 
     func refreshSnapshot() {

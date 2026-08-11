@@ -55,7 +55,7 @@ BrowserTestSupport   ← fakes, fixtures, builders (test-only)
 
 ## Schema
 
-Current version: **v13**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, `v6_history_per_space`, `v7_folders`, `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`. Each migration has a fixture test, and **two test files assert `Migrations.currentVersion` literally** — update both. Test baseline: **597** (`swift test`).
+Current version: **v13**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, `v6_history_per_space`, `v7_folders`, `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`. Each migration has a fixture test, and **two test files assert `Migrations.currentVersion` literally** — update both. Test baseline: **601** (`swift test`).
 
 ## Git
 

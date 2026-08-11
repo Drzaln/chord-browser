@@ -87,6 +87,44 @@ struct WebViewPoolTests {
     }
 }
 
+@Suite("Web surface container layout")
+@MainActor
+struct WebSurfaceContainerTests {
+
+    @Test("The web view is installed with frame/autoresizing so fullscreen reparenting survives")
+    func installsWithAutoresizing() {
+        let live = LiveWebView(paneID: UUID(), webView: WKWebView(frame: .zero), cornerRadius: 10)
+
+        #expect(live.webView.superview === live.container)
+        #expect(live.webView.translatesAutoresizingMaskIntoConstraints)
+        #expect(live.webView.autoresizingMask == [.width, .height])
+        #expect(live.webView.constraints.isEmpty)
+    }
+
+    @Test("Restoring layout after fullscreen exit re-anchors a displaced web view")
+    func restoreLayoutReanchors() {
+        let live = LiveWebView(paneID: UUID(), webView: WKWebView(frame: .zero), cornerRadius: 10)
+        live.container.frame = CGRect(x: 0, y: 0, width: 800, height: 600)
+        // The collapsed frame is what WebKit hands the view back with when the
+        // fullscreen reparenting goes wrong (webkit.org/b/313802).
+        live.webView.frame = CGRect(x: 0, y: 0, width: 0, height: 0)
+
+        live.restoreLayoutForFullscreenExit()
+
+        #expect(live.webView.frame == live.container.bounds)
+    }
+
+    @Test("Restoring layout does nothing while the container has no size")
+    func restoreLayoutNoopsWithoutSize() {
+        let live = LiveWebView(paneID: UUID(), webView: WKWebView(frame: .zero), cornerRadius: 10)
+        live.webView.frame = CGRect(x: 0, y: 0, width: 500, height: 400)
+
+        live.restoreLayoutForFullscreenExit()
+
+        #expect(live.webView.frame == CGRect(x: 0, y: 0, width: 500, height: 400))
+    }
+}
+
 @Suite("Pane snapshots")
 struct PaneSnapshotTests {
 

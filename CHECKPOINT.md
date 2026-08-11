@@ -20,7 +20,7 @@ only the current position within it.
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `BrowserCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **598 passing** (`swift test`, 90 suites), measured 2026-08-11                                                                                                                                |
+| **Tests**                        | **601 passing** (`swift test`, 91 suites), measured 2026-08-11                                                                                                                                |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -236,7 +236,7 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **598 tests**, `./scripts/prepush.sh` green, **schema v13**.
+State: single `main`, **601 tests**, `./scripts/prepush.sh` green, **schema v13**.
 
 ## Where the work is
 
@@ -2264,6 +2264,43 @@ aware; clipped to the card so it doesn't overhang the rounded corners, and
 `allowsHitTesting(false)` so it never eats a click. Gated by a bool passed from
 `RootView`, so the UI logic stays where the collapse state lives. No new tests
 (views are verified live in this project); prepush green at 562.
+
+### YouTube fullscreen video was black until relaunch — and is now not (2026-08-11)
+
+User-reported: sometimes the YouTube player went **fully black** in video
+fullscreen (the player's own fullscreen button). Esc/F restored the page, but
+re-entering fullscreen was black again, and only **quitting Chord** fixed it —
+reloading the tab did nothing. Root cause, and the reason reload could not help:
+it is a WebKit compositing bug, not a page bug.
+
+- **Mechanism (documented in `WKWebView.fullscreenState`'s header):** when an
+  element goes fullscreen, WebKit replaces the `WKWebView` in the host hierarchy
+  with a placeholder, moves the web view into a WebKit-owned fullscreen window,
+  and moves it back on exit. The view must survive that reparenting with its
+  layout intact.
+- **Why it broke here:** the web view was AutoLayout-governed. `_saveConstraintsOf:`
+  preserves only the *immediate* superview's constraints, so a view whose size is
+  owned by constraints from a higher ancestor — exactly what SwiftUI's hosting
+  view sets up — comes back at a collapsed `0×0` frame. The `:fullscreen`
+  element then sizes against a zero viewport and the video renders black,
+  persistently, until the process restarts. Upstream bug **webkit.org/b/313802**
+  (NEW, macOS 26), which documents this exact workaround.
+- **Fix (ADR 019):**
+  - `WebSurfaceContainerView.install` no longer pins the web view with Auto
+    Layout. It uses **frame + autoresizing `[.width, .height]`** — a full-bleed
+    fill identical in result, and the documented survival mechanism for the
+    placeholder dance. The rounded-corner clip stays on the container, so the
+    card look is unchanged.
+  - `LiveWebView` now **KVO-observes `fullscreenState`**; on `.notInFullscreen`
+    it re-anchors the view to the container's bounds and forces a repaint (the
+    "adjust/restore your native UI" the header asks for), and logs every
+    transition so a recurrence is diagnosable.
+- 3 tests (`WebSurfaceContainerTests`) assert the autoresizing install, the
+  re-anchor, and the no-op-when-unsized guard. Prepush green at 601. **Verified
+  live by the user 2026-08-11** — the black fullscreen no longer reproduces.
+  If it ever recurs after an OS/WebKit update, the log line
+  `re-anchoring web view for pane …` marks the same failure; the workaround
+  remains harmless even after Apple fixes the bug upstream.
 
 ### YouTube ads are now muted while they fast-forward (2026-08-11)
 

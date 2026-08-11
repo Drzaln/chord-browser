@@ -66,14 +66,21 @@ final class WebSurfaceContainerView: NSView {
     required init?(coder: NSCoder) { fatalError("unimplemented: init(coder:)") }
 
     func install(_ content: NSView) {
-        content.translatesAutoresizingMaskIntoConstraints = false
+        // The web view must NOT be AutoLayout-governed from here. When a page
+        // element goes fullscreen, WebKit replaces the WKWebView in this
+        // container with a placeholder, moves it into a WebKit-owned fullscreen
+        // window, and later moves it back (`WKWebView.fullscreenState` docs).
+        // `_saveConstraintsOf:` preserves only the immediate superview's
+        // constraints, so a web view whose size is owned by constraints from a
+        // higher ancestor (exactly what SwiftUI's hosting view sets up) comes
+        // back at a collapsed 0×0 frame — and the fullscreen video renders
+        // black, persistently, until the app is relaunched
+        // (webkit.org/b/313802, macOS 26). Frame + autoresizing is the
+        // documented workaround and survives the placeholder dance unchanged.
+        content.translatesAutoresizingMaskIntoConstraints = true
+        content.autoresizingMask = [.width, .height]
+        content.frame = bounds
         addSubview(content)
-        NSLayoutConstraint.activate([
-            content.topAnchor.constraint(equalTo: topAnchor),
-            content.bottomAnchor.constraint(equalTo: bottomAnchor),
-            content.leadingAnchor.constraint(equalTo: leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: trailingAnchor),
-        ])
     }
 
     func removeContent() {

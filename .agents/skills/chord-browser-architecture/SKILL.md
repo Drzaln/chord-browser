@@ -196,6 +196,7 @@ see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 - Public `WKWebView` has no notification hook (`WKUIDelegate.h`) and no Web Push.
 - AV1 decodes in **software** here: macOS reserves the hardware path for Safari, so `mediaCapabilities…powerEfficient` is false for AV1 and sites drop to VP9. Not the UA, not fixable in app code.
 - `config.preferences.setValue(true, forKey: "managedMediaSourceEnabled")` is set by **KVC string key** — no typed accessor exists. It is the one spot outside §11's rule; if WebKit drops the key it raises `NSUnknownKeyException` while building the configuration, and no test covers it.
+- **Element fullscreen must not find the WKWebView AutoLayout-governed** (ADR 019). When a page element goes fullscreen WebKit replaces the web view with a placeholder, moves it into its own fullscreen window, and moves it back (`WKWebView.fullscreenState`, KVO-compliant — observe it and re-anchor on `.notInFullscreen`). A web view whose size is owned by constraints from a higher ancestor (SwiftUI hosting) comes back at a `0×0` frame and the fullscreen video renders **black until the app is relaunched** (webkit.org/b/313802, macOS 26). The web view is therefore installed frame + `autoresizingMask = [.width, .height]`, never pinned with constraints. A future overlay must go on the container, not the web view.
 
 ### SwiftUI / AppKit
 - A SwiftUI view-level `.keyboardShortcut` beats a menu item with the same key silently.
