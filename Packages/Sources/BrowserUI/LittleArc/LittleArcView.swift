@@ -36,8 +36,12 @@ struct LittleArcView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Image(systemName: "arrow.up.forward.app")
-                .foregroundStyle(.secondary)
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close")
 
             // The live URL, not the one it opened with — the panel is browsable.
             Text(store.runtime(for: pane.id).currentURL?.host() ?? pane.url.host() ?? "")
@@ -54,13 +58,6 @@ struct LittleArcView: View {
                 .font(.system(size: 11))
             }
             .buttonStyle(.plain)
-
-            Button(action: dismiss) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
