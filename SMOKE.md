@@ -458,6 +458,11 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 
 - [x] `Cmd+T` + Enter opens the result in a **new** tab, leaving the current one
 - [x] `Cmd+L` + Enter navigates the **current** tab, opening nothing new
+- [x] `Cmd+L` opens the bar **pre-filled with the current tab's URL, all
+      selected** — the first keystroke replaces it (driven 2026-08-13)
+- [x] The bar takes keyboard focus **every** time it opens — including when the
+      sidebar **New Tab** button re-presents over an already-open bar; typing
+      lands in the field (driven 2026-08-13)
 - [ ] `Cmd+Enter` forces a new tab from either mode
 - [x] Typing a complete address (`github.com`) highlights that address, **not**
       an open tab that happens to fuzzy-match it
@@ -527,7 +532,9 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 
 ### Command bar as the way in (§4.4)
 
-- [x] The sidebar's **New Tab** button opens the command bar, not a blank tab
+- [x] The sidebar's **New Tab** button opens the command bar, not a blank tab —
+      and the field is focused, even when the bar was already open
+      (re-present, verified 2026-08-13)
 - [x] **`Cmd+Shift+D`** opens the command bar, and Return puts the result in a
       new _pane_ — the tab count does not change
 - [x] In split mode the rows read "Move to Split" / "Open in Split", not

@@ -37,9 +37,12 @@ public final class CommandBarController {
     public func toggle(
         over parent: NSWindow?,
         windowState: WindowState?,
-        mode: CommandBarMode = .newTab
+        mode: CommandBarMode = .newTab,
+        initialQuery: String = ""
     ) {
-        isVisible ? dismiss() : present(over: parent, windowState: windowState, mode: mode)
+        isVisible
+            ? dismiss()
+            : present(over: parent, windowState: windowState, mode: mode, initialQuery: initialQuery)
     }
 
     public func present(

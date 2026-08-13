@@ -240,7 +240,12 @@ State: single `main`, **601 tests**, `./scripts/prepush.sh` green, **schema v13*
 
 ## Where the work is
 
-**Nothing is assigned.** The newest work is **file-backed logging** (2026-08-06)
+**Nothing is assigned.** The newest work is the **command bar focus / `Cmd+L`
+pre-fill fix** (2026-08-13): `Cmd+L` now opens with the current tab's URL
+selected, and the bar cannot lose focus when the sidebar New Tab button
+re-presents over an open bar (the `@FocusState` stale-true trap — read that
+section before touching `CommandBarView.reset()`). Before it, **file-backed
+logging** (2026-08-06)
 — every `os.Logger` line is now mirrored to a rotating file in
 `Application Support/Browser/Logs/browser.log`, because `log show`/`log stream`
 have never been readable on this machine (all previous debugging went through
@@ -2264,6 +2269,34 @@ aware; clipped to the card so it doesn't overhang the rounded corners, and
 `allowsHitTesting(false)` so it never eats a click. Gated by a bool passed from
 `RootView`, so the UI logic stays where the collapse state lives. No new tests
 (views are verified live in this project); prepush green at 562.
+
+### Command bar: `Cmd+L` pre-fills the URL, and re-present can no longer lose focus (2026-08-13)
+
+Two user-reported command bar bugs, both driven live via accessibility
+automation (`AXTextField` value + selection, keystrokes landing in the field):
+
+- **`Cmd+L` opened an empty bar.** The menu item called `toggle` without a query;
+  only the toolbar address button passed one. The menu path now computes the
+  focused tab's URL (`BrowserCommands.currentURLString`, the same expression the
+  address button uses) and hands it to `toggle(initialQuery:)`, which gained the
+  parameter. `Cmd+L` now opens with the current URL **selected** — first keystroke
+  replaces it, matching the address button.
+- **The bar stopped taking focus when the sidebar New Tab button re-presented
+  over an already-open, focused bar.** The button calls `present` (not `toggle`),
+  and `CommandBarPanel.present` does `makeFirstResponder(content)`, which steals
+  first responder from the field editor. Because `@FocusState` was already `true`,
+  re-requesting focus in `reset()` was a no-op — SwiftUI never re-applied it, and
+  the editor never regained first responder (verified: 10/10 retry iterations
+  logged `isFocused=true` but `firstResponder=NSHostingView`). `reset()` now checks
+  the **actual** AppKit first responder and, when `@FocusState` cannot move it,
+  routes focus straight to the field's `NSTextField` (`findTextField` walks the
+  hosting view) via `makeFirstResponder` — deterministic, timing-independent.
+
+The `reset()` focus loop now retries until the field **editor** (`NSText`) is
+really the panel's first responder, then runs `selectAll` — so pre-fill selection
+also no longer races focus. `Cmd+T`, `Cmd+L`, and the sidebar New Tab button all
+land keyboard focus and accept typing on every open, including rapid re-presents.
+601 tests, prepush green.
 
 ### YouTube fullscreen video was black until relaunch — and is now not (2026-08-11)
 

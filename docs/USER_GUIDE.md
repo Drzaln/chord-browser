@@ -317,6 +317,11 @@ where the result lands (a new tab vs. the current tab). As you type it ranks:
 - a raw **URL** or **search** fallback that always stays reachable at the bottom,
   so you can always just navigate to exactly what you typed.
 
+`Cmd+L` opens the bar with the current tab's address already in the field and
+selected, so the first keystroke replaces it — the same as the address button in
+the toolbar. The bar takes keyboard focus whenever it opens (however you opened
+it), so you can start typing immediately.
+
 Press `Cmd+Enter` to send the result to a **new pane** (split) instead of a tab.
 
 ---

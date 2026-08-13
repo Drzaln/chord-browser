@@ -116,18 +116,49 @@ struct CommandBarView: View {
         Task { @MainActor in
             for _ in 0..<10 {
                 isFocused = true
-                if isFocused {
-                    // Select the pre-filled URL so the first keystroke replaces
-                    // it, matching Cmd+L. The field editor is the first responder
-                    // once the SwiftUI field is focused.
-                    if hasPrefill {
-                        (NSApp.keyWindow?.firstResponder as? NSText)?.selectAll(nil)
-                    }
+                // The field editor is the panel's first responder only once
+                // focus has actually landed. `@FocusState` reads back the
+                // *request* when written, so checking `isFocused` alone would
+                // exit the loop before the window was ever key — exactly the
+                // bar-you-cannot-type-into failure this retry exists to avoid.
+                guard let keyWindow = NSApp.keyWindow, keyWindow is CommandBarPanel else {
+                    try? await Task.sleep(for: .milliseconds(20))
+                    continue
+                }
+
+                if let editor = keyWindow.firstResponder as? NSText {
+                    // The field editor is the real first responder — focus has
+                    // landed. Select the pre-filled URL so the first keystroke
+                    // replaces it, matching Cmd+L.
+                    if hasPrefill { editor.selectAll(nil) }
                     return
+                }
+
+                // `@FocusState` can already read true when the panel re-presents
+                // over an open, focused bar (the sidebar New Tab button calls
+                // `present`, not `toggle`), so the request above is a no-op and
+                // the AppKit first responder is stuck on the hosting view. Route
+                // focus to the field's editor directly rather than waiting on
+                // SwiftUI to notice the change it does not see.
+                if let content = keyWindow.contentView,
+                   let textField = Self.findTextField(in: content) {
+                    keyWindow.makeFirstResponder(textField)
                 }
                 try? await Task.sleep(for: .milliseconds(20))
             }
         }
+    }
+
+    /// The SwiftUI `TextField`'s underlying `NSTextField`, wherever it sits in
+    /// the hosting view. Used to hand focus to the editor by hand when
+    /// `@FocusState` cannot — the panel re-presenting over an already-focused
+    /// field being the case that trips it.
+    private static func findTextField(in view: NSView) -> NSTextField? {
+        if let textField = view as? NSTextField { return textField }
+        for subview in view.subviews {
+            if let found = findTextField(in: subview) { return found }
+        }
+        return nil
     }
 
     private func move(_ delta: Int) -> KeyPress.Result {

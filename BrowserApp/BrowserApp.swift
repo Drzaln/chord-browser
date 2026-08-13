@@ -162,6 +162,18 @@ struct BrowserCommands: Commands {
     /// history and would be a permanently empty list).
     private var isPrivateWindowFocused: Bool { windowState?.isPrivate == true }
 
+    /// The address of the focused window's current tab, for `Cmd+L` — the same
+    /// string the toolbar address button hands the bar. Falls back to the pane's
+    /// stored URL when the engine has not reported one yet.
+    private var currentURLString: String {
+        guard let store, let windowState else { return "" }
+        let tab = store.selectedTab(in: windowState)
+        let runtime = tab.map { store.runtime(for: $0.focusedPaneID) }
+        return runtime?.currentURL?.absoluteString
+            ?? tab?.focusedPane.url.absoluteString
+            ?? ""
+    }
+
     /// Lives in the UI package, so it is owned by the delegate rather than by
     /// `AppEnvironment` — Store must not depend on UI.
     let commandBar: CommandBarController?
@@ -187,7 +199,12 @@ struct BrowserCommands: Commands {
             // Without it, Cmd+T had to double as "replace this tab", which is
             // the one thing users never expect it to do.
             Button("Open Location…") {
-                commandBar?.toggle(over: NSApp.keyWindow, windowState: windowState, mode: .currentTab)
+                commandBar?.toggle(
+                    over: NSApp.keyWindow,
+                    windowState: windowState,
+                    mode: .currentTab,
+                    initialQuery: currentURLString
+                )
             }
             .keyboardShortcut("l", modifiers: .command)
 
