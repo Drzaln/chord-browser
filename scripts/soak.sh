@@ -31,6 +31,17 @@ URLS=(
     "https://httpbin.org" "https://www.w3.org"
 )
 
+# Add sites from top visited website
+# TOP_VISITED_URLS=(
+# "https://www.youtube.com/watch?v=AiohkY_XQYQ",
+# "https://www.google.com/search?q=top%20visited%20website",
+# "https://www.instagram.com",
+# "https://github.com/Drzaln/chord-browser",
+# "https://www.facebook.com/marketplace/item/1737581244121024/?ref=browse_tab&referral_code=marketplace_top_picks&referral_story_type=top_picks",
+# "https://en.wikipedia.org/wiki/Ultraman"
+# )
+
+
 # Override the URL set for a heavier, more realistic run — e.g. the M7 soak,
 # which uses mainstream SPAs (google/youtube/x/instagram/…) to exercise
 # extension content scripts and background workers against real pages. Pass a
