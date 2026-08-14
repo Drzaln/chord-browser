@@ -20,7 +20,7 @@ only the current position within it.
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `BrowserCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **601 passing** (`swift test`, 91 suites), measured 2026-08-11                                                                                                                                |
+| **Tests**                        | **602 passing** (`swift test`, 91 suites), measured 2026-08-14                                                                                                                                |
 | **Schema**                       | **v13** — … `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`                                                                                                      |
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
@@ -2334,6 +2334,35 @@ it is a WebKit compositing bug, not a page bug.
   If it ever recurs after an OS/WebKit update, the log line
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
+
+### YouTube page freeze after an ad is dismantled — the anti-adblock wall is now removed, not hidden (2026-08-14)
+
+User report: after an ad was skipped/fast-forwarded on first load, the whole
+watch page went dead once the ad ended — no scroll, no click — until the tab was
+closed. The cause was **not** the ad path: skipping/blasting an ad made YouTube
+raise its "ad blockers are not allowed" **enforcement wall**, a *modal
+iron-overlay*. Our CSS only hid the wall's dialog
+(`tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)`), but hiding its
+element leaves the overlay open underneath — YouTube pins a full-screen
+`tp-yt-iron-overlay-backdrop` (swallows every pointer event) and sets `body`
+`overflow:hidden` (locks scroll). The overlay's close path never runs for a
+CSS-hidden element, so the page stayed frozen after the ad.
+
+The wall is now **dismantled, not hidden** (`dismantleEnforcementWall`, watched
+by a `MutationObserver` on `document.documentElement`, `childList`+`subtree`):
+- Removes `ytd-enforcement-message-view-model`, climbing to its
+  `TP-YT-PAPER-DIALOG` host so the overlay stack isn't left holding an orphan.
+- Drops a *visible* `tp-yt-iron-overlay-backdrop` (it's a singleton the overlay
+  manager re-creates, so later dialogs like Share/Settings still work).
+- Restores `documentElement`/`body` `overflow` by hand (the overlay's close
+  handler never fires for a removed element).
+- Best-effort resumes the paused player (`video.play()` behind autoplay rules).
+
+The CSS hide stays as a fallback. Test anchor added
+(`dismantlesEnforcementWall`), skill `chord-browser-youtube-ads` updated (wall
+row, failure-mode table, probe `wall` field, post-ad interactivity smoke check).
+**Verified live 2026-08-14**: page scrolls/clicks normally after a skipped ad,
+no regression in ad skipping or mute. Prepush green at 602.
 
 ### YouTube ads are now muted while they fast-forward (2026-08-11)
 

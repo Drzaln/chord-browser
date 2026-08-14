@@ -37,4 +37,17 @@ struct YouTubeAdBlockerTests {
         #expect(source.contains("__chordPrevMuted"))
         #expect(source.contains("__chordAdMuted"))
     }
+
+    @Test("Dismantles the anti-adblock enforcement wall instead of hiding it")
+    func dismantlesEnforcementWall() {
+        let source = YouTubeAdBlocker.makeUserScript().source
+        // Hiding the wall's dialog alone is not enough: its modal overlay
+        // stays open and pins a backdrop that freezes the whole page. The
+        // script must remove the wall and undo the overlay's backdrop/scroll
+        // lock so the page stays interactive after an ad.
+        #expect(source.contains("ytd-enforcement-message-view-model"))
+        #expect(source.contains("tp-yt-iron-overlay-backdrop"))
+        #expect(source.contains("dismantleEnforcementWall"))
+        #expect(source.contains("MutationObserver"))
+    }
 }

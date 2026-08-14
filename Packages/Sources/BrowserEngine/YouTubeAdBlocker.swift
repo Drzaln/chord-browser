@@ -9,7 +9,7 @@ import WebKit
 /// That is why uBlock Origin ships a *script* for YouTube rather than a filter
 /// list, and why this does too — the same in-page tactic the other monitors use.
 ///
-/// Two moves, both page-side:
+/// Three moves, all page-side:
 ///
 /// 1. **Video ads.** A poll watches the player's `ad-showing` state. When an ad
 ///    is up it clicks the Skip button if one exists, and always blasts the
@@ -25,6 +25,14 @@ import WebKit
 ///
 /// 2. **Static ads.** Injected CSS hides mastheads, promoted rows, in-feed ad
 ///    slots, and YouTube Music's ad slots.
+///
+/// 3. **The "ad blockers are not allowed" wall.** Hiding the wall's dialog with
+///    CSS is not enough: it is a *modal iron-overlay*, and the overlay stays
+///    open underneath the hidden element. YouTube then pins a full-screen
+///    backdrop that swallows every pointer event and locks page scrolling, so
+///    after the ad the whole page looks dead (no scroll, no click). A
+///    `MutationObserver` removes the wall from the DOM and undoes the overlay's
+///    backdrop/scroll-lock state by hand.
 ///
 /// YouTube is a single-page app, so the poll (not a one-shot) is what keeps it
 /// working as the user moves between videos without a document load.
@@ -175,6 +183,77 @@ enum YouTubeAdBlocker {
                 } catch (e) {}
             }
         }
+
+        // 3. Dismantle the "ad blockers are not allowed" wall. The CSS above
+        //    hides the wall's dialog, but the wall is a *modal iron-overlay*:
+        //    hiding its element leaves the overlay open underneath, so YouTube
+        //    pins a full-screen backdrop that swallows every pointer event and
+        //    locks page scrolling — the page looks dead (no scroll, no click)
+        //    after the ad ends. The overlay's own close path never runs when
+        //    its element is yanked, so undo all three states by hand.
+        function dismantleEnforcementWall() {
+            var walls = document.querySelectorAll(
+                'ytd-enforcement-message-view-model'
+            );
+            var removed = false;
+            for (var i = 0; i < walls.length; i++) {
+                var node = walls[i];
+                // Climb to the wall's modal host so the overlay stack is not
+                // left holding an orphaned dialog.
+                var host = node.parentNode;
+                while (host && host !== document.body
+                    && host !== document.documentElement
+                    && host.tagName !== 'TP-YT-PAPER-DIALOG') {
+                    host = host.parentNode;
+                }
+                var target = (host && host.tagName === 'TP-YT-PAPER-DIALOG')
+                    ? host : node;
+                if (target.parentNode) {
+                    target.parentNode.removeChild(target);
+                }
+                removed = true;
+            }
+            if (!removed) { return; }
+
+            // Drop the backdrop while it is actually up. It is a singleton the
+            // overlay manager re-creates for the next dialog, so removing it
+            // unblocks input without breaking later dialogs.
+            var backdrops = document.querySelectorAll(
+                'tp-yt-iron-overlay-backdrop, iron-overlay-backdrop'
+            );
+            for (var j = 0; j < backdrops.length; j++) {
+                if (backdrops[j].getClientRects().length > 0) {
+                    backdrops[j].remove();
+                }
+            }
+
+            // The overlay's open handler set this; its close handler never
+            // fires for a removed element, so restore the scroll lock by hand.
+            try { document.documentElement.style.overflow = ''; } catch (e) {}
+            try { document.body.style.overflow = ''; } catch (e) {}
+
+            // The wall pauses the player; resume the content the moment it is
+            // gone. Best-effort: `play()` rejects under autoplay rules.
+            var v = document.querySelector('video');
+            if (v && v.paused && !v.ended) {
+                try {
+                    var p = v.play();
+                    if (p && p.catch) { p.catch(function () {}); }
+                } catch (e) {}
+            }
+        }
+
+        function installWallWatch() {
+            var check = function () { dismantleEnforcementWall(); };
+            check();
+            document.addEventListener('DOMContentLoaded', check);
+            if (window.MutationObserver) {
+                var mo = new MutationObserver(check);
+                mo.observe(document.documentElement,
+                    { childList: true, subtree: true });
+            }
+        }
+        installWallWatch();
 
         setInterval(tick, 250);
     })();

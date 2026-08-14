@@ -35,7 +35,7 @@ All of this lives in `YouTubeAdBlocker.swift`. When a check runs, compare **each
 | Ad-playing states | classes `ad-showing`, `ad-interrupting` on the player root, plus `.ytp-ad-player-overlay` being visible |
 | Skip buttons | `.ytp-ad-skip-button`, `.ytp-ad-skip-button-modern`, `.ytp-skip-ad-button`, `.ytp-ad-skip-button-container button` |
 | Hidden surfaces (CSS) | `.video-ads`, `.ytp-ad-module`, `.ytp-ad-overlay-container`, `.ytp-ad-overlay-slot`, `.ytp-suggested-action`, `#masthead-ad`, `ytd-ad-slot-renderer`, `ytd-display-ad-renderer`, `ytd-promoted-sparkles-web-renderer`, `ytd-promoted-video-renderer`, `ytd-in-feed-ad-layout-renderer`, `ytd-banner-promo-renderer`, `ytmusic-ad-slot-renderer`, `.ytmusic-ad-slot-renderer` |
-| Anti-adblock wall | `tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)` |
+| Anti-adblock wall | **dismantled by JS**, not just hidden. CSS hides `tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)` as a fallback; a `MutationObserver` (`dismantleEnforcementWall`) removes `ytd-enforcement-message-view-model` (climbing to its `TP-YT-PAPER-DIALOG` host), drops a visible `tp-yt-iron-overlay-backdrop`, resets `documentElement`/`body` `overflow`, and best-effort resumes the paused player |
 | Skip/seek behavior | tick every 250 ms; seek to `duration` only when `0 < duration <= 60`; re-assert `playbackRate = 10` on **every** tick; restore to 1x the moment the ad ends |
 
 Registered in `WebKitEngine.swift:214` via `controller.addUserScript(YouTubeAdBlocker.makeUserScript())`, injected `.atDocumentStart`, **all frames** (embeds and `music.youtube.com` are separate documents). Never change that injection shape without re-reading why it is there.
@@ -83,6 +83,7 @@ Paste this into a page context on a YouTube watch page (see A or B below). It re
   const skip = ['.ytp-ad-skip-button','.ytp-ad-skip-button-modern',
     '.ytp-skip-ad-button','.ytp-ad-skip-button-container button'];
   const overlay = player && player.querySelector('.ytp-ad-player-overlay');
+  const backdrop = document.querySelector('tp-yt-iron-overlay-backdrop, iron-overlay-backdrop');
   return JSON.stringify({
     playerFound: !!player,
     adState: player ? {
@@ -90,6 +91,12 @@ Paste this into a page context on a YouTube watch page (see A or B below). It re
       adInterrupting: player.classList.contains('ad-interrupting'),
       overlayVisible: !!(overlay && overlay.getClientRects().length > 0)
     } : null,
+    wall: {
+      enforcementModel: !!document.querySelector('ytd-enforcement-message-view-model'),
+      backdropVisible: !!(backdrop && backdrop.getClientRects().length > 0),
+      bodyScrollLocked: document.body.style.overflow === 'hidden'
+        || document.documentElement.style.overflow === 'hidden'
+    },
     videosOnPage: document.querySelectorAll('video').length,
     skipMatches: skip.map(s => [s, !!document.querySelector(s)]),
     cssMatches: css.map(s => [s, !!document.querySelector(s)]),
@@ -104,6 +111,7 @@ Paste this into a page context on a YouTube watch page (see A or B below). It re
 - `skipMatches` with a live skip button showing `false` → new skip-button markup; update `SKIP`.
 - `cssMatches` all `false` for a *visible* ad slot (e.g. masthead ad shows but `#masthead-ad` is gone) → the hide list drifted.
 - `styleInjected:false` → the script isn't running at all (injection regression), not a selector problem.
+- `wall` all `true` *while the page is frozen* → the wall watch failed: the observer or `dismantleEnforcementWall` is missing, or the wall/backdrop selector renamed. The page freezing (no scroll/click after an ad) is *this* state, not a web-view bug.
 
 ### A — Interactive (accurate, needs the real session)
 
@@ -189,6 +197,7 @@ Verify **each** of these is clean:
 - No masthead ad, no promoted rows, no in-feed ad slots on the homepage
 - No "Ad blockers are not allowed" wall blocking playback
 - Playback rate is normal (1x) during content — the blast must never leak into content
+- The page stays interactive after an ad: scroll past the player and click the comments *after* an ad has been skipped/blasted — a frozen page means the wall's backdrop/`overflow` lock was left behind
 
 ---
 
@@ -202,8 +211,9 @@ All edits stay in `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift`:
    - Skip button clicks are ignored → the button may be a custom element; check whether the fallback (seek + rate blast) still runs — it must, the early `return` after click was removed deliberately.
    - Rate blast is ignored → YouTube likely reset `playbackRate`; re-assert on every tick is already the design — if it regressed, restore it. If the ad is on a **separate `<video>`**, verify the "blast every `<video>`" loop is still there.
    - Ad no longer ends → check the `duration <= 60` seek guard: stitched/SSAI ads report content duration, and a full seek there would skip content instead.
-3. **Playback blocked by an anti-adblock wall** → the `:has(ytd-enforcement-message-view-model)` CSS selector is hiding the dialog but the *player block* itself can't be un-hid. Update the selector to whatever the wall is now called, and tell the user the wall may remain.
-4. **Mute only ever overrides *during* the ad** — the video is force-muted while
+3. **Playback blocked by an anti-adblock wall** → the wall is dismantled, not hidden: the observer removes `ytd-enforcement-message-view-model`, the visible `tp-yt-iron-overlay-backdrop`, and the `overflow` lock, then resumes the player. If the wall selector changed, update **both** the CSS fallback (`tp-yt-paper-dialog:has(...)`) and the JS selector in `dismantleEnforcementWall`. Do **not** revert to CSS-only hiding: the wall is a modal iron-overlay, so hiding its element leaves the overlay open underneath — a full-screen backdrop that swallows every pointer event plus a `body` overflow lock, i.e. the whole page freezes (no scroll, no click) after the ad.
+4. **Page freezes after an ad ends (no scroll, no click)** → this is the wall's leftover backdrop/scroll-lock, not a native view problem. Verify the wall watch still runs: the `MutationObserver` on `document.documentElement` (`childList` + `subtree`) calling `dismantleEnforcementWall`, and that it removes the backdrop and restores `overflow`. Symptom almost always means the observer got dropped in a refactor, or the wall element moved outside `ytd-enforcement-message-view-model`.
+5. **Mute only ever overrides *during* the ad** — the video is force-muted while
    an ad is up (`muteForAd`) and the saved `__chordPrevMuted` is restored with
    the rate (`restoreRate`). That saved value IS `AudioMuteController`'s applied
    state, so the user's own per-tab mute always survives. A regression here
@@ -212,7 +222,7 @@ All edits stay in `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift`:
 
 ### Tests
 
-`Packages/Tests/BrowserEngineTests/YouTubeAdBlockerTests.swift` asserts the injection shape (`.atDocumentStart`, all frames), anchors the source to `youtube`, `ad-showing`, and the `__chordYTAdBlock` singleton guard, and checks the ad-mute save/restore (`video.muted = true`, `__chordAdMuted`, `__chordPrevMuted`). If a rewrite drops any of those anchors, update the test — but don't remove the anchors lightly; they're what make a refactor fail loudly.
+`Packages/Tests/BrowserEngineTests/YouTubeAdBlockerTests.swift` asserts the injection shape (`.atDocumentStart`, all frames), anchors the source to `youtube`, `ad-showing`, and the `__chordYTAdBlock` singleton guard, checks the ad-mute save/restore (`video.muted = true`, `__chordAdMuted`, `__chordPrevMuted`), and anchors the wall handling (`ytd-enforcement-message-view-model`, `tp-yt-iron-overlay-backdrop`, `dismantleEnforcementWall`, `MutationObserver`). If a rewrite drops any of those anchors, update the test — but don't remove the anchors lightly; they're what make a refactor fail loudly.
 
 ```bash
 swift test --package-path Packages --filter YouTubeAdBlockerTests
@@ -232,7 +242,8 @@ Update the `bd` issue with what changed (or that nothing needed changing), and c
 |---|---|---|
 | Ads always play to completion | Rate blast dies (once-only guard regressed) or ad moved to a separate `<video>` | Re-assert rate every tick; blast all videos |
 | Static ads visible | Hide-list selectors renamed | Port new selectors from Layer 2 / Layer 1 |
-| Player blocked, "ad blockers not allowed" | Enforcement-wall selector renamed | Update `:has(ytd-enforcement-message-view-model)` |
+| Player blocked, "ad blockers not allowed" | Enforcement-wall selector renamed | Update wall selector in `dismantleEnforcementWall` **and** the CSS fallback |
+| Page freezes after an ad (no scroll, no click) | Wall's iron-overlay backdrop + `overflow` lock left behind (CSS-only hiding, or wall watch dropped) | Keep the `MutationObserver` calling `dismantleEnforcementWall`; it must remove the backdrop and restore `overflow` |
 | Content plays at 10x briefly | Rate not restored fast enough | `ended` listener + `!adShowing` restore are both required |
 | Content plays **muted** after an ad | Ad-mute not restored (or a mid-ad mute toggle lost its saved value) | `restoreRate` must restore `__chordPrevMuted`; re-assert mute every tick |
 | Ad audio blasts during fast-forward | `muteForAd` dropped or not wired into the tick | Call `muteForAd(video)` beside the rate blast each tick |
