@@ -2335,6 +2335,13 @@ it is a WebKit compositing bug, not a page bug.
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
 
+### Release 1.0.1 (build 3) — tagged `v1.0.1` (2026-08-14)
+
+Version bump only: `MARKETING_VERSION`/`CFBundleShortVersionString` `1.0` →
+`1.0.1`, `CURRENT_PROJECT_VERSION`/`CFBundleVersion` `2` → `3` in
+`Browser.xcodeproj/project.pbxproj` and `BrowserApp/Info.plist`. Build verified
+against the built app's Info.plist. First tag since `v1.0.0`.
+
 ### YouTube page freeze after an ad is dismantled — the anti-adblock wall is now removed, not hidden (2026-08-14)
 
 User report: after an ad was skipped/fast-forwarded on first load, the whole
