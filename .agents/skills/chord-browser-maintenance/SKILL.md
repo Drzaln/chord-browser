@@ -20,7 +20,7 @@ Run this whenever you pick up the project after time away:
 # 2. Verify test count hasn't regressed (expect 512+)
 swift test --package-path Packages 2>&1 | tail -5
 
-# 3. Check current schema version (should be v13)
+# 3. Check current schema version (should be v14)
 sqlite3 ~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/browser.sqlite \
   "SELECT * FROM grdb_migrations ORDER BY identifier;"
 ```
@@ -161,11 +161,11 @@ Budgets (Apple Silicon, 20 tabs, 3 Spaces, 5 live):
 
 ## Adding a Schema Migration
 
-Current: **v13**. Every migration is forward-only, named, never edited once shipped.
+Current: **v14**. Every migration is forward-only, named, never edited once shipped.
 
 ### Procedure
 
-1. **Create the migration** in `BrowserPersistence` — a named function (`v14_description`)
+1. **Create the migration** in `BrowserPersistence` — a named function (`v15_description`)
 2. **Add a fixture test** using the prior version's database, migrating `upTo:` the previous migration
    - **Two test files assert `Migrations.currentVersion` literally** — update both or prepush goes red
 3. **Update row types and mappers** — never persist `Codable` app models directly

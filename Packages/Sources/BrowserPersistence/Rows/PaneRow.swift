@@ -9,6 +9,9 @@ struct PaneRow: Codable, FetchableRecord, PersistableRecord, Sendable {
     var position: Int
     var url: String
     var title: String
+    /// The user's own name for the tab, overriding the page title, or nil
+    /// (non-spec: user-requested).
+    var customTitle: String?
     var faviconData: Data?
     var widthFraction: Double
 }

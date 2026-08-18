@@ -292,3 +292,64 @@ struct SnapshotTests {
         #expect(store.tabs[0].panes[0].url == target)
     }
 }
+
+/// Renaming a tab gives it a sidebar name that overrides the page title
+/// (non-spec: user-requested).
+@Suite("Rename tab")
+@MainActor
+struct RenameTests {
+
+    private func storeWithOneTab() async -> (TabStore, FakeWebEngine, Tab) {
+        let engine = FakeWebEngine()
+        let tab = TabBuilder().url("https://example.com").build()
+        let store = TabStore(
+            engine: engine,
+            repository: FakeTabRepository(stored: [tab]),
+            clock: FixedClock()
+        )
+        await store.restore()
+        return (store, engine, store.tabs[0])
+    }
+
+    @Test("renameTab stores a custom title that wins over the page title")
+    func renames() async {
+        let (store, _, tab) = await storeWithOneTab()
+        store.renameTab(tab.id, to: "Work")
+
+        #expect(store.tabs[0].displayTitle == "Work")
+        #expect(store.tabs[0].customTitle == "Work")
+    }
+
+    @Test("A blank rename clears the custom title and falls back to the page")
+    func blankClears() async {
+        let (store, _, tab) = await storeWithOneTab()
+        store.renameTab(tab.id, to: "Work")
+        store.renameTab(tab.id, to: "   ")
+
+        #expect(store.tabs[0].customTitle == nil)
+        #expect(store.tabs[0].displayTitle == "example.com")
+    }
+
+    @Test("renameTab on an unknown tab is a no-op")
+    func unknownTabIsNoOp() async {
+        let (store, _, tab) = await storeWithOneTab()
+        let before = store.tabs
+
+        store.renameTab(UUID(), to: "Work")
+
+        #expect(store.tabs == before)
+    }
+
+    @Test("A page title reported after a rename does not clobber the custom name")
+    func pageTitleDoesNotClobberRename() async {
+        let (store, engine, tab) = await storeWithOneTab()
+        store.renameTab(tab.id, to: "Work")
+
+        engine.emit(
+            PaneSnapshot(url: tab.panes[0].url, title: "Real Page Title"),
+            for: tab.focusedPaneID
+        )
+
+        #expect(store.tabs[0].displayTitle == "Work")
+    }
+}

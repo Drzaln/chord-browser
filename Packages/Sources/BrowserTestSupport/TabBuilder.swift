@@ -6,6 +6,7 @@ import Foundation
 public struct TabBuilder {
     private var url = URL(string: "https://example.com")!
     private var title = ""
+    private var customTitle: String?
     private var placement = TabPlacement.ephemeral(order: 0)
     private var lastAccessed = Date(timeIntervalSince1970: 1_700_000_000)
     private var favicon: Data?
@@ -37,6 +38,13 @@ public struct TabBuilder {
     public func title(_ value: String) -> Self {
         var copy = self
         copy.title = value
+        return copy
+    }
+
+    /// The user's own name for the tab, overriding the page title.
+    public func customTitle(_ value: String) -> Self {
+        var copy = self
+        copy.customTitle = value
         return copy
     }
 
@@ -83,7 +91,7 @@ public struct TabBuilder {
     }
 
     public func build() -> Tab {
-        let first = Pane(url: url, title: title, faviconData: favicon)
+        let first = Pane(url: url, title: title, customTitle: customTitle, faviconData: favicon)
         return Tab(
             spaceID: spaceID,
             placement: placement,

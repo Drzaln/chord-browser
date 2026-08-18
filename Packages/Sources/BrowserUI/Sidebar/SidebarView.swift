@@ -415,6 +415,7 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func rowMenu(for tab: BrowserCore.Tab) -> some View {
+        Button("Rename Tab…") { windowState.renamingTabID = tab.id }
         Button("Pin to Favourites") { store.setPinned(true, tabID: tab.id) }
         if !tab.placement.isBookmarked {
             Button("Pin Tab") { store.setBookmarked(true, tabID: tab.id) }

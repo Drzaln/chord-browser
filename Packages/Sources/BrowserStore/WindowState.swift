@@ -78,12 +78,16 @@ public final class WindowState {
     /// hiding the sidebar removes the anchor from the window and AppKit closes
     /// the popup — and moving the pointer into the popup is precisely what ends
     /// the hover that was keeping the sidebar revealed. Without this, an
-    /// extension popup could not be used at all with a collapsed sidebar.
+    /// extension popup could not be used at all with a collapsed sidebar. The
+    /// rename alert is the same shape: it is presented above the window, so the
+    /// pointer leaves the sidebar the moment it opens, and an auto-hide firing
+    /// then would drop the alert out from under the user.
     public var isSidebarHeldOpen: Bool {
         isSidebarResizing
             || editingSpaceID != nil
             || deletingSpaceID != nil
             || isExtensionPopupOpen
+            || renamingTabID != nil
     }
 
     /// Presentation mode: the sidebar and reveal strip are hidden so the window
@@ -123,6 +127,14 @@ public final class WindowState {
     /// The Space being deleted, if any. Kept here for the same reason as
     /// `editingSpaceID`. Not persisted.
     public var deletingSpaceID: UUID?
+
+    /// The tab whose rename alert is up, if any (non-spec: user-requested).
+    ///
+    /// Kept here for the same reason as `editingSpaceID`: the alert is presented
+    /// from `RootView` so it survives the sidebar collapsing (and auto-hiding)
+    /// beneath it, and it holds the sidebar open while it is on screen. Not
+    /// persisted.
+    public var renamingTabID: UUID?
 
     /// Whether the settings sheet is showing. Kept here for the same reason.
     public var isSettingsPresented = false

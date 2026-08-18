@@ -28,11 +28,12 @@ enum Migrations {
         )
         migrator.registerMigration("v12_credentials", migrate: v12Credentials)
         migrator.registerMigration("v13_credential_never_save", migrate: v13CredentialNeverSave)
+        migrator.registerMigration("v14_tab_custom_title", migrate: v14TabCustomTitle)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 13
+    static let currentVersion = 14
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -248,6 +249,19 @@ enum Migrations {
     private static func v13CredentialNeverSave(_ db: Database) throws {
         try db.create(table: "credentialNeverSave") { t in
             t.primaryKey("origin", .text)
+        }
+    }
+
+    /// User-renamed tabs (non-spec: user-requested). Purely additive — a nullable
+    /// `customTitle` on `pane`, and the same on `archivedTab` so a renamed tab
+    /// comes back renamed after the sweep restores it. Defaulting to NULL so
+    /// every existing pane simply keeps showing its page title (7.2).
+    private static func v14TabCustomTitle(_ db: Database) throws {
+        try db.alter(table: "pane") { t in
+            t.add(column: "customTitle", .text)
+        }
+        try db.alter(table: "archivedTab") { t in
+            t.add(column: "customTitle", .text)
         }
     }
 

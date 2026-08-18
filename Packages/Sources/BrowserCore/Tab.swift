@@ -62,4 +62,7 @@ public struct Tab: Identifiable, Codable, Hashable, Sendable {
     }
 
     public var displayTitle: String { focusedPane.displayTitle }
+
+    /// The user's own name for this tab, if it has one.
+    public var customTitle: String? { focusedPane.customTitle }
 }

@@ -19,6 +19,8 @@ struct ArchivedTabRow: Codable, FetchableRecord, PersistableRecord, Sendable {
     var id: String
     var url: String
     var title: String
+    /// The user's own name for the tab, or nil (non-spec: user-requested).
+    var customTitle: String?
     var faviconData: Data?
     var spaceId: String
     var archivedAt: Double
@@ -125,6 +127,7 @@ public struct SQLiteHistoryRepository: HistoryRepository, ArchiveRepository {
                     id: tab.id.uuidString,
                     url: tab.url.absoluteString,
                     title: tab.title,
+                    customTitle: tab.customTitle,
                     faviconData: tab.faviconData,
                     spaceId: tab.spaceID.uuidString,
                     archivedAt: tab.archivedAt.timeIntervalSince1970
@@ -161,6 +164,7 @@ public struct SQLiteHistoryRepository: HistoryRepository, ArchiveRepository {
                     id: id,
                     url: url,
                     title: row.title,
+                    customTitle: row.customTitle,
                     faviconData: row.faviconData,
                     spaceID: spaceID,
                     archivedAt: Date(timeIntervalSince1970: row.archivedAt)

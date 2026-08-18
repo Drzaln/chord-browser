@@ -140,6 +140,7 @@ struct MigrationTests {
                 position: 0,
                 url: "https://example.com",
                 title: "",
+                customTitle: nil,
                 faviconData: nil,
                 widthFraction: 1
             ).insert(db)
@@ -477,6 +478,64 @@ struct MigrationTests {
         #expect(rowCount == 1, "the existing decision is adopted, not deleted")
         #expect(adoptedSpace == spaceID, "adopted into the first Space")
         #expect(decision == "granted")
+    }
+
+    @Test("v14 adds a nullable customTitle to pane and archivedTab, deleting nothing")
+    func v14AddsCustomTitle() throws {
+        let queue = try DatabaseQueue()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(queue, upTo: "v13_credential_never_save")
+
+        // A pre-v14 tab and pane, to prove the additive column leaves them
+        // untouched and defaults to no custom name.
+        let tabID = UUID().uuidString
+        let spaceID = try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT id FROM space ORDER BY sortIndex LIMIT 1")
+        } ?? UUID().uuidString
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO tab
+                        (id, spaceId, placementKind, placementOrder, focusedPaneID,
+                         lastAccessedAt, createdAt)
+                    VALUES (?, ?, 'ephemeral', 0, ?, 0, 0)
+                    """,
+                arguments: [tabID, spaceID, UUID().uuidString]
+            )
+            try db.execute(
+                sql: """
+                    INSERT INTO pane
+                        (id, tabId, position, url, title, faviconData, widthFraction)
+                    VALUES (?, ?, 0, 'https://example.com', 'Page', NULL, 1)
+                    """,
+                arguments: [UUID().uuidString, tabID]
+            )
+            try db.execute(
+                sql: """
+                    INSERT INTO archivedTab
+                        (id, url, title, faviconData, spaceId, archivedAt)
+                    VALUES (?, 'https://old.example', 'Old', NULL, ?, 0)
+                    """,
+                arguments: [UUID().uuidString, spaceID]
+            )
+        }
+
+        try migrator.migrate(queue)
+
+        let (paneHasColumn, archiveHasColumn, paneCount, archiveCount, custom) = try queue.read { db in
+            (
+                try db.columns(in: "pane").contains { $0.name == "customTitle" },
+                try db.columns(in: "archivedTab").contains { $0.name == "customTitle" },
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM pane") ?? 0,
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM archivedTab") ?? 0,
+                try String.fetchOne(db, sql: "SELECT customTitle FROM pane WHERE tabId = ?", arguments: [tabID])
+            )
+        }
+        #expect(paneHasColumn)
+        #expect(archiveHasColumn)
+        #expect(paneCount == 1, "the existing pane is not deleted")
+        #expect(archiveCount == 1, "the existing archived tab is not deleted")
+        #expect(custom == nil, "existing panes default to no custom name")
     }
 
     @Test("A fresh database reports the current schema version")

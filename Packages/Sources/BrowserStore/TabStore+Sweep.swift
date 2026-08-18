@@ -114,6 +114,7 @@ extension TabStore {
         )
         tab.updatePane(tab.focusedPaneID) { pane in
             pane.title = archived.title
+            pane.customTitle = archived.customTitle
             pane.faviconData = archived.faviconData
         }
 

@@ -8,6 +8,9 @@ public struct Pane: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public var url: URL
     public var title: String
+    /// The user's own name for this tab, overriding the page title
+    /// (non-spec: user-requested). Nil means "show the page title".
+    public var customTitle: String?
     public var faviconData: Data?
 
     /// `WKWebView.interactionState`, used to revive an evicted or crashed pane
@@ -21,6 +24,7 @@ public struct Pane: Identifiable, Codable, Hashable, Sendable {
         id: UUID = UUID(),
         url: URL,
         title: String = "",
+        customTitle: String? = nil,
         faviconData: Data? = nil,
         interactionState: Data? = nil,
         widthFraction: Double = 1.0
@@ -28,6 +32,7 @@ public struct Pane: Identifiable, Codable, Hashable, Sendable {
         self.id = id
         self.url = url
         self.title = title
+        self.customTitle = customTitle
         self.faviconData = faviconData
         self.interactionState = interactionState
         self.widthFraction = widthFraction
@@ -36,6 +41,10 @@ public struct Pane: Identifiable, Codable, Hashable, Sendable {
     /// Title if the page supplied one, otherwise something short and stable to
     /// show in the sidebar. Precomputed at mutation time, never in a view body.
     public var displayTitle: String {
+        if let customTitle {
+            let name = customTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty { return name }
+        }
         if !title.isEmpty { return title }
         if let host = url.host() { return host }
         return url.absoluteString

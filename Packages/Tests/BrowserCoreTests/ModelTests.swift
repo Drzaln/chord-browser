@@ -72,6 +72,24 @@ struct DisplayTitleTests {
         #expect(tab.displayTitle == "Hacker News")
     }
 
+    @Test("A user's custom name beats the page title")
+    func customTitleWins() {
+        let tab = TabBuilder().title("Hacker News").customTitle("Work").build()
+        #expect(tab.displayTitle == "Work")
+    }
+
+    @Test("An untitled page falls back to the host even with a custom name")
+    func customTitleStillCoversHostFallback() {
+        let tab = TabBuilder().url("https://news.ycombinator.com").customTitle("Work").build()
+        #expect(tab.displayTitle == "Work")
+    }
+
+    @Test("An empty custom name is ignored, not shown")
+    func emptyCustomTitleFallsThrough() {
+        let tab = TabBuilder().title("Hacker News").customTitle("   ").build()
+        #expect(tab.displayTitle == "Hacker News")
+    }
+
     @Test("An untitled pane falls back to the host, not the full URL")
     func fallsBackToHost() {
         let tab = TabBuilder().url("https://news.ycombinator.com/item?id=1").build()

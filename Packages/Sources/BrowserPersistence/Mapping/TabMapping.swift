@@ -37,6 +37,7 @@ enum TabMapping {
                 position: position,
                 url: pane.url.absoluteString,
                 title: pane.title,
+                customTitle: pane.customTitle,
                 faviconData: pane.faviconData,
                 widthFraction: pane.widthFraction
             )
@@ -109,6 +110,7 @@ enum TabMapping {
             id: id,
             url: url,
             title: row.title,
+            customTitle: row.customTitle,
             faviconData: row.faviconData,
             interactionState: nil,  // loaded on demand
             widthFraction: row.widthFraction

@@ -64,3 +64,40 @@ struct ExtensionPopupSidebarTests {
         #expect(second.isSidebarHeldOpen == false)
     }
 }
+
+/// The rename-tab alert holds a revealed sidebar open for the same reason the
+/// extension popup does: it is presented above the window, so the pointer leaves
+/// the sidebar the moment it opens, and an auto-hide firing then would drop the
+/// alert out from under the user (non-spec: user-requested).
+@Suite("Rename alert holds the sidebar open")
+@MainActor
+struct RenameAlertSidebarTests {
+
+    private func makeWindowState() -> WindowState {
+        WindowState(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+    }
+
+    @Test("Starting a rename holds the sidebar open")
+    func renamingHolds() {
+        let window = makeWindowState()
+        window.renamingTabID = UUID()
+        #expect(window.isSidebarHeldOpen)
+    }
+
+    @Test("Dismissing the rename releases the sidebar so auto-hide resumes")
+    func dismissingReleases() {
+        let window = makeWindowState()
+        window.renamingTabID = UUID()
+        window.renamingTabID = nil
+        #expect(window.isSidebarHeldOpen == false)
+    }
+
+    @Test("A rename is window state, so a second window is unaffected")
+    func renamingIsPerWindow() {
+        let first = makeWindowState()
+        let second = makeWindowState()
+        first.renamingTabID = UUID()
+        #expect(first.isSidebarHeldOpen)
+        #expect(second.isSidebarHeldOpen == false)
+    }
+}

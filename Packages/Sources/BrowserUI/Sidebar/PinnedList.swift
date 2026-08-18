@@ -36,6 +36,7 @@ struct PinnedList: View {
                 )
                 .id(tab.id)
                 .contextMenu {
+                    Button("Rename Tab…") { windowState.renamingTabID = tab.id }
                     Button("Return to Pinned URL") { store.returnToPinnedHome(tab.id, in: windowState) }
                         .disabled(tab.placement.homeURL == tab.focusedPane.url)
                     Button("Set Current Page as Pinned URL") { store.updatePinnedHome(tab.id) }

@@ -34,6 +34,9 @@ public struct ArchivedTab: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public var url: URL
     public var title: String
+    /// The user's own name for the tab, carried through the sweep so a renamed
+    /// tab comes back renamed (non-spec: user-requested).
+    public var customTitle: String?
     public var faviconData: Data?
     public var spaceID: UUID
     public var archivedAt: Date
@@ -42,6 +45,7 @@ public struct ArchivedTab: Identifiable, Codable, Hashable, Sendable {
         id: UUID = UUID(),
         url: URL,
         title: String,
+        customTitle: String? = nil,
         faviconData: Data? = nil,
         spaceID: UUID,
         archivedAt: Date
@@ -49,6 +53,7 @@ public struct ArchivedTab: Identifiable, Codable, Hashable, Sendable {
         self.id = id
         self.url = url
         self.title = title
+        self.customTitle = customTitle
         self.faviconData = faviconData
         self.spaceID = spaceID
         self.archivedAt = archivedAt
@@ -56,12 +61,14 @@ public struct ArchivedTab: Identifiable, Codable, Hashable, Sendable {
 
     /// Built from the tab being swept. `interactionState` is deliberately not
     /// carried across: the blobs are large, and an archived tab needs to be
-    /// findable, not scroll-accurate (6.5).
+    /// findable, not scroll-accurate (6.5). The raw page title and the custom
+    /// name are stored separately so either survives on restore.
     public init(tab: Tab, archivedAt: Date) {
         let pane = tab.focusedPane
         self.init(
             url: pane.url,
-            title: pane.displayTitle,
+            title: pane.title,
+            customTitle: pane.customTitle,
             faviconData: pane.faviconData,
             spaceID: tab.spaceID,
             archivedAt: archivedAt
@@ -69,7 +76,8 @@ public struct ArchivedTab: Identifiable, Codable, Hashable, Sendable {
     }
 
     public var displayTitle: String {
-        title.isEmpty ? (url.host() ?? url.absoluteString) : title
+        if let customTitle, !customTitle.isEmpty { return customTitle }
+        return title.isEmpty ? (url.host() ?? url.absoluteString) : title
     }
 }
 

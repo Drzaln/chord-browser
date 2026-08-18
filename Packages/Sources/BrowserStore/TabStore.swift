@@ -941,6 +941,23 @@ public final class TabStore {
         scheduleSave()
     }
 
+    /// Names a tab whatever the user wants, overriding the page title in the
+    /// sidebar (non-spec: user-requested). The name lives on the focused pane,
+    /// which is what the tab's `displayTitle` already reports from. A blank
+    /// name clears the override and falls back to the page title.
+    public func renameTab(_ tabID: UUID, to name: String) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let customTitle = trimmed.isEmpty ? nil : trimmed
+
+        let focusID = tabs[index].focusedPaneID
+        guard tabs[index].focusedPane.customTitle != customTitle else { return }
+        tabs[index].updatePane(focusID) { pane in
+            pane.customTitle = customTitle
+        }
+        scheduleSave()
+    }
+
     /// Navigates a favourite or Pinned tab back to the URL it was pinned at
     /// (4.1). No-op for a loose tab, a favourite with no recorded home, or a tab
     /// already sitting on its home URL.

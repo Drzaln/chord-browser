@@ -32,6 +32,7 @@ struct MappingTests {
             position: 0,
             url: "https://example.com",
             title: "Example",
+            customTitle: nil,
             faviconData: nil,
             widthFraction: 1.0
         )
@@ -136,5 +137,20 @@ struct MappingTests {
 
         let (_, paneRows) = TabMapping.rows(for: tab)
         #expect(paneRows.map(\.position) == [0, 1, 2])
+    }
+
+    @Test("A user-renamed tab survives the row round-trip")
+    func customTitleRoundTrip() throws {
+        let tab = TabBuilder()
+            .title("Page Title")
+            .customTitle("Work")
+            .build()
+
+        let (_, paneRows) = TabMapping.rows(for: tab)
+        let rebuilt = try #require(TabMapping.model(tabRow: TabMapping.rows(for: tab).tab, paneRows: paneRows))
+
+        #expect(rebuilt.displayTitle == "Work")
+        #expect(rebuilt.customTitle == "Work")
+        #expect(rebuilt.panes[0].title == "Page Title")
     }
 }

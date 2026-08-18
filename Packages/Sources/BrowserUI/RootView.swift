@@ -281,6 +281,10 @@ public struct RootView: View {
         .modifier(
             RootSheets(store: store, windowState: windowState, extensions: extensions)
         )
+        // The rename alert lives here for the same reason: an alert attached to
+        // the sidebar would be torn down the instant the sidebar collapsed (and
+        // auto-hid) beneath it (non-spec: user-requested).
+        .modifier(RenameTabAlert(store: store, targetID: $windowState.renamingTabID))
         .onAppear {
             // No Space-switch swipe in a private window: it is locked to one
             // Space, so there is no neighbour to swipe to, and the gesture would
