@@ -281,6 +281,19 @@ struct SnapshotTests {
         #expect(engine.stopCount == 1)
     }
 
+    @Test("A swipe-to-close on a tab's pane closes the tab")
+    func swipeCloseClosesTab() async {
+        let (store, engine, tab) = await storeWithOneTab()
+        let paneID = tab.focusedPane.id
+
+        store.paneRequestedSwipeClose(paneID)
+
+        // Closing the only tab opens a replacement, but the swiped tab and its
+        // view are really gone.
+        #expect(!store.tabs.contains { $0.id == tab.id })
+        #expect(engine.evictedPanes.contains(paneID))
+    }
+
     @Test("Navigating writes the URL through to the model immediately")
     func navigateUpdatesModel() async {
         let (store, engine, _) = await storeWithOneTab()

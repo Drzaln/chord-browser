@@ -132,6 +132,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.littleArc?.present(url: url)
         }
 
+        // The swipe-to-close path in the engine (a rightward swipe on a panel
+        // page that has nothing to undo) asks the store, which forwards here to
+        // dismiss the panel — the one browser surface that has no toolbar.
+        launch.store?.littleArcDismisser = { [weak self] in
+            self?.littleArc?.dismiss()
+        }
+
         // A plain click on a link inside a favourite/pinned tab routes here:
         // engine → store (placement check) → this presenter. The panel lives in
         // the Space the click came from, so it arrives already logged in.

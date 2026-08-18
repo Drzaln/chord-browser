@@ -51,6 +51,8 @@ struct GeneralSettings: View {
             userAgentSection
             Divider()
             hibernationSection
+            Divider()
+            gestureSection
             // No trailing `Spacer` here. Inside the sheet's `ScrollView` a
             // greedy spacer absorbs the overflow instead of letting it scroll,
             // so the section below the fold — the per-site UA rules — was
@@ -344,6 +346,31 @@ struct GeneralSettings: View {
             },
             set: { store.idleWindow = $0 }
         )
+    }
+
+    // MARK: - Gestures
+
+    @ViewBuilder
+    private var gestureSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Gestures").font(.system(size: 13, weight: .semibold))
+            Text(
+                "Swipe right on a page that has nothing to undo — it closes the "
+                    + "tab (or the Little Chord panel). Turn this off to restore "
+                    + "WebKit's default, where the swipe just does nothing."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Toggle(
+                "Swipe right closes a tab with no back history",
+                isOn: Binding(
+                    get: { store.swipeToCloseEnabled },
+                    set: { store.swipeToCloseEnabled = $0 }
+                )
+            )
+            .toggleStyle(.checkbox)
+        }
     }
 
     private func commitCustomURL() {

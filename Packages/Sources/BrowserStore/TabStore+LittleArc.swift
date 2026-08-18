@@ -60,8 +60,15 @@ extension TabStore {
     /// Esc, or the panel closing. Tears the web view down: nothing else refers
     /// to this pane, so without it the view would leak for the app's lifetime.
     public func discardLittleArc(_ pane: Pane) {
-        engine.evict(paneID: pane.id)
-        runtimes[pane.id] = nil
-        forgetStateResolution(forPanes: [pane.id])
+        discardLittleArc(paneID: pane.id)
+    }
+
+    /// Tears a panel's web view down by pane id alone — the shape the engine's
+    /// swipe-to-close callback arrives in, where the store has the id but not
+    /// the `Pane` object (the app layer owns the panel).
+    public func discardLittleArc(paneID: UUID) {
+        engine.evict(paneID: paneID)
+        runtimes[paneID] = nil
+        forgetStateResolution(forPanes: [paneID])
     }
 }

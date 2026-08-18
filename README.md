@@ -14,8 +14,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > **Status:** all spec milestones (M1–M7) plus native content blocking are
 > shipped on `main` and verified live, along with a run of post-spec additions
 > (multiple windows, folders, per-site permissions, notifications, YouTube ad
-> skipping, a built-in password vault, and user-renamed tabs). 614 tests pass;
-> schema is at v14; `./scripts/prepush.sh` is green.
+> skipping, a built-in password vault, user-renamed tabs, and swipe-to-close).
+> 621 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
@@ -55,6 +55,10 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   (shared with Peek; resizable and size-remembered).
 - **Polish** — swipe-driven Space switching, cross-section drag-and-drop,
   find-in-page, print, and PDF viewing.
+- **Swipe-to-close** — the "undo page" swipe (a two-finger rightward drag) on a
+  page with **no back history** closes the tab — or the Little Chord panel, if
+  that's what you're swiping on. WebKit's own back-swipe is untouched when there
+  *is* history. Toggleable in **Settings → General → Gestures**.
 - **Frosted-glass chrome** — the sidebar and border frame are `.ultraThinMaterial`
   over the Space tint, blurring the desktop behind a non-opaque window; the web
   card stays opaque.

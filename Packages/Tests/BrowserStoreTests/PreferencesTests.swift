@@ -88,4 +88,30 @@ struct PreferencesTests {
         store.littleArcPanelSize = CGSize(width: 800, height: 640)
         #expect(store.littleArcPanelSize == CGSize(width: 800, height: 640))
     }
+
+    @Test("Swipe-to-close defaults on and disabling reaches the engine")
+    func swipeToCloseDefaultsOnAndPushes() async {
+        let engine = FakeWebEngine()
+        let store = TabStore(
+            engine: engine, repository: FakeTabRepository(stored: []), clock: FixedClock()
+        )
+
+        #expect(engine.swipeToCloseEnabled, "a fresh profile has the feature on")
+
+        store.preferenceStore = InMemoryPreferenceStore()
+        store.swipeToCloseEnabled = false
+
+        #expect(!engine.swipeToCloseEnabled, "disabling reaches the engine")
+    }
+
+    @Test("Disabling swipe-to-close persists")
+    func swipeToClosePersists() async {
+        let store = await makeStore()
+        let defaults = InMemoryPreferenceStore()
+        store.preferenceStore = defaults
+
+        store.swipeToCloseEnabled = false
+
+        #expect(defaults.object(forKey: "prefs.swipeToCloseEnabled") as? Bool == false)
+    }
 }

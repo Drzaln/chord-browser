@@ -89,6 +89,12 @@ public protocol WebEngineDelegate: AnyObject {
     func paneRequestedPrivateWindow(url: URL)
 
     func paneRequestedLittleArc(url: URL)
+    /// The user performed the "undo page" swipe (a two-finger rightward drag) on
+    /// a pane that had nothing to undo — WebKit's native back/forward gesture
+    /// did not navigate, so it fell through to our monitor. The store decides
+    /// what that means: close the tab, or dismiss a Little Arc panel
+    /// (non-spec: user-requested experiment).
+    func paneRequestedSwipeClose(_ paneID: UUID)
     /// A plain left-click on a link inside a favourite/pinned tab (non-spec:
     /// user-requested). The store decides from the pane's tab placement whether
     /// to lift the navigation into the Peek panel; return true to cancel the
@@ -132,6 +138,7 @@ extension WebEngineDelegate {
     public func panePopupDidClose(_ paneID: UUID) {}
     public func paneRequestedPrivateWindow(url: URL) {}
     public func paneRequestedLittleArc(url: URL) {}
+    public func paneRequestedSwipeClose(_ paneID: UUID) {}
     public func paneRequestedPeek(url: URL, fromPane paneID: UUID) -> Bool { false }
     public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {}
     public func paneRequestedNotificationPermission(_ prompt: SitePermissionPrompt) async -> Bool {
@@ -223,6 +230,12 @@ public protocol WebEngine: AnyObject {
     /// actually going to. Applies to views built afterwards and to any already
     /// live. See `UserAgentRules`.
     func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride])
+
+    /// Sets whether the swipe-to-close experiment is on (non-spec:
+    /// user-requested). When off, the engine stops watching for the "undo page"
+    /// swipe and WebKit's native back/forward gesture is the only behaviour —
+    /// a rightward swipe on a pane with no history simply does nothing.
+    func setSwipeToCloseEnabled(_ enabled: Bool)
 
     /// Fills a credential into the fields the page reported (V4 of the password
     /// vault).

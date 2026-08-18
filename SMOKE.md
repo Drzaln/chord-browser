@@ -10,7 +10,7 @@ check that still applies.
 ```
 
 Builds all packages, runs all tests, and builds the app — warnings as errors.
-Baseline: **614 tests in 93 suites** (2026-08-18), schema **v14**.
+Baseline: **621 tests in 94 suites** (2026-08-18), schema **v14**.
 
 A reminder that decides what belongs on this page at all: `swift test` runs
 **unsandboxed**, so anything gated by an entitlement or an OS permission —

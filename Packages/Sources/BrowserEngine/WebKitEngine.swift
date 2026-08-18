@@ -39,6 +39,13 @@ public final class WebKitEngine: WebEngine {
     private let dataStores = DataStoreRegistry()
     private let favicons: FaviconLoader
     private let configuration: EngineConfiguration
+    /// Watches for the "undo page" swipe on panes that have nothing to undo
+    /// (non-spec: user-requested experiment). See `BackSwipeMonitor`.
+    private let backSwipe: BackSwipeMonitor
+    /// Mirrors the persisted preference; the store pushes it on launch and on
+    /// change. Starts on so the monitor runs from the first frame; the store's
+    /// initial push corrects it to whatever the user chose.
+    private var swipeToCloseEnabled = true
 
     // BROWSER_SPEC 6.2 asks for a shared WKProcessPool. Apple deprecated the
     // whole type in macOS 12 — "Creating and using multiple instances of
@@ -96,12 +103,22 @@ public final class WebKitEngine: WebEngine {
         self.downloads = downloads
         self.pool = WebViewPool(capacity: configuration.liveViewCapacity)
         self.favicons = FaviconLoader(cacheDirectory: configuration.faviconCacheDirectory)
+        self.backSwipe = BackSwipeMonitor()
 
         self.coordinator = NavigationCoordinator(engine: self)
         self.pool.willEvict = { [weak self] paneID, state in
             guard let self, let state else { return }
             self.interactionStates[paneID] = state
         }
+
+        // A rightward swipe that WebKit's native back/forward gesture had
+        // nothing to navigate to: hand the pane up so the store can decide
+        // between closing its tab and dismissing a Little Arc panel.
+        self.backSwipe.onSwipeRightNoHistory = { [weak self] webView in
+            guard let self, let paneID = self.paneID(for: webView) else { return }
+            self.delegate?.paneRequestedSwipeClose(paneID)
+        }
+        self.backSwipe.start()
     }
 
     // MARK: - Surfaces
@@ -372,6 +389,19 @@ public final class WebKitEngine: WebEngine {
         // the wrong UA. It takes effect on their next load, as before.
         for live in pool.liveViews {
             applyUserAgent(to: live.webView, for: live.webView.url)
+        }
+    }
+
+    /// Starts or stops the swipe-to-close monitor. The monitor's start/stop is
+    /// idempotent, so toggling only ever does the work the flag actually asks
+    /// for.
+    public func setSwipeToCloseEnabled(_ enabled: Bool) {
+        guard enabled != swipeToCloseEnabled else { return }
+        swipeToCloseEnabled = enabled
+        if enabled {
+            backSwipe.start()
+        } else {
+            backSwipe.stop()
         }
     }
 

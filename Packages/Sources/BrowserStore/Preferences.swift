@@ -20,6 +20,7 @@ enum Preferences {
     private static let sidebarWidthKey = "sidebar.width"
     private static let littleArcPanelWidthKey = "prefs.littleArcPanelWidth"
     private static let littleArcPanelHeightKey = "prefs.littleArcPanelHeight"
+    private static let swipeToCloseEnabledKey = "prefs.swipeToCloseEnabled"
 
     static func loadSearchEngine(
         _ defaults: any PreferenceStore = UserDefaults.standard
@@ -168,6 +169,23 @@ enum Preferences {
     ) {
         defaults.set(Double(size.width), forKey: littleArcPanelWidthKey)
         defaults.set(Double(size.height), forKey: littleArcPanelHeightKey)
+    }
+
+    // MARK: - Swipe-to-close
+
+    /// Whether a rightward swipe on a pane with no back history closes the tab
+    /// / Little Arc panel (non-spec: user-requested experiment). Defaults to on;
+    /// a plain `Bool`, like the sidebar flags.
+    static func loadSwipeToCloseEnabled(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Bool {
+        defaults.object(forKey: swipeToCloseEnabledKey) as? Bool ?? true
+    }
+
+    static func save(
+        swipeToCloseEnabled enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(enabled, forKey: swipeToCloseEnabledKey)
     }
 
     // MARK: - JSON helpers

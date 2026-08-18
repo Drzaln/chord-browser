@@ -120,6 +120,11 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
 - **Archive inactive tabs** — how long an unpinned, non-folder tab may sit idle
   before it's auto-archived (Never / 1h / 6h / 12h / 24h). Tabs playing audio and
   tabs in a folder are never archived.
+- **Gestures** — **swipe right to close**. The "undo page" swipe (two-finger
+  rightward drag) closes a tab when it has no back history — or closes the Little
+  Chord panel, if that's what you're swiping on. Off by default this is WebKit's
+  native behaviour (the swipe just does nothing); toggle it off here any time.
+  When a page *does* have history, WebKit's own back-swipe is unchanged.
 
 ## Windows
 

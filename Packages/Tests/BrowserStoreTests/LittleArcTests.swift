@@ -130,4 +130,21 @@ struct LittleArcTests {
         #expect(!engine.hasLiveView(paneID: pane.id))
         #expect(store.tabs.count == before)
     }
+
+    @Test("Swipe-to-close on a Little Arc pane dismisses the panel")
+    func swipeCloseDismissesLittleArc() async {
+        let (store, engine) = makeStore()
+        await store.restore()
+        var dismissed = false
+        store.littleArcDismisser = { dismissed = true }
+
+        let pane = store.makeLittleArcPane(url: link)
+        _ = store.littleArcSurface(for: pane)
+        #expect(engine.hasLiveView(paneID: pane.id))
+
+        store.paneRequestedSwipeClose(pane.id)
+
+        #expect(!engine.hasLiveView(paneID: pane.id))
+        #expect(dismissed)
+    }
 }

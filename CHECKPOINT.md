@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `BrowserCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)**. See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **614 passing** (`swift test`, 93 suites), measured 2026-08-18                                                                                                                                |
+| **Tests**                        | **621 passing** (`swift test`, 94 suites), measured 2026-08-18                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **User-renamed tabs (2026-08-18).** Any tab can be given its own name — right-click
@@ -36,6 +36,27 @@ holds the revealed sidebar open while it is on screen — otherwise the
 auto-hiding sidebar collapsed beneath the alert and dismissed it. Tests:
 `DisplayTitleTests`, `RenameTests` (store), `MappingTests.customTitleRoundTrip`,
 `MigrationTests.v14AddsCustomTitle`, `RenameAlertSidebarTests`.
+
+**Swipe-to-close — the "undo page" swipe closes a tab with no history (2026-08-18).**
+The two-finger rightward swipe that would normally go back now does something when
+there is nothing to go back to: it closes the tab — or the **Little Chord**
+panel, if that is what is being swiped. WebKit's native
+`allowsBackForwardNavigationGestures` is untouched, so a page *with* history still
+gets WebKit's interactive back-swipe; WebKit gives no callback for "swiped but
+could not go back", so `BackSwipeMonitor` (Engine) observes the same
+`.scrollWheel` stream WebKit's gesture consumes and fires only when a committed
+rightward swipe ends on a pane whose `canGoBack` was **false at the start of the
+gesture** — that snapshot at `.began` is the guard against misreading a successful
+back navigation (which flips `canGoBack` false mid-swipe) as a failed one. The
+store routes the result: a pane owned by a tab closes the tab; a pane owned by no
+tab is a Little Arc panel and dismisses it. **Disable flag**: `Settings → General
+→ Gestures`, persisted as `prefs.swipeToCloseEnabled` (default **on**), pushed to
+the engine which starts/stops the monitor — WebKit's default (the swipe just does
+nothing) is restored when off. Known trade-off, by design: on a page with no back
+history, a deliberate rightward *scroll* of wide content can read as a close —
+`BackSwipeDecision.commitDistance` (60 pt) and the horizontal-dominance guard are
+the tuning knobs. Tests: `BackSwipeMonitorTests`, the store routing cases in
+`TabStoreTests`/`LittleArcTests`, and `PreferencesTests` for the flag.
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
 After the two fixes below, **Enhancer for YouTube works** (content script) and
@@ -250,11 +271,15 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **614 tests**, `./scripts/prepush.sh` green, **schema v14**.
+State: single `main`, **621 tests**, `./scripts/prepush.sh` green, **schema v14**.
 
 ## Where the work is
 
-**Nothing is assigned.** The newest work is the **command bar focus / `Cmd+L`
+**Nothing is assigned.** The newest work is the **swipe-to-close gesture**
+(2026-08-18): a rightward swipe on a page with no back history closes the tab (or
+Little Chord), off via **Settings → General → Gestures** — read the dated section
+before touching `BackSwipeMonitor` or `paneRequestedSwipeClose`. Before it, the
+**command bar focus / `Cmd+L`
 pre-fill fix** (2026-08-13): `Cmd+L` now opens with the current tab's URL
 selected, and the bar cannot lose focus when the sidebar New Tab button
 re-presents over an open bar (the `@FocusState` stale-true trap — read that

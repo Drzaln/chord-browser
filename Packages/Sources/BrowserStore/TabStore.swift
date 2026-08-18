@@ -226,6 +226,22 @@ public final class TabStore {
         userAgentOverrides.removeAll { $0.domain == domain }
     }
 
+    /// Swipe-right-with-no-history closes the tab / Little Arc panel
+    /// (non-spec: user-requested experiment). Defaults to on; the setter pushes
+    /// it to the engine, which starts or stops its back-swipe monitor.
+    public var swipeToCloseEnabled: Bool = Preferences.loadSwipeToCloseEnabled() {
+        didSet {
+            Preferences.save(swipeToCloseEnabled: swipeToCloseEnabled, to: preferenceStore)
+            pushSwipeToCloseEnabled()
+        }
+    }
+
+    /// Hands the engine the flag at launch, like `pushUserAgent` — the property's
+    /// `didSet` does not fire for its initial value.
+    func pushSwipeToCloseEnabled() {
+        engine.setSwipeToCloseEnabled(swipeToCloseEnabled)
+    }
+
     /// The URL a `newTab()` with no explicit destination lands on, derived from
     /// `newTabBehavior` and (for the search-engine case) `searchEngine`.
     public var resolvedNewTabURL: URL {
@@ -493,6 +509,12 @@ public final class TabStore {
     /// context-menu action "Open in Little Chord" (non-spec: user-requested).
     @ObservationIgnored public var littleArcPresenter: (@MainActor (URL) -> Void)?
 
+    /// Dismisses the Little Arc / Peek panel. Injected by the app layer, which
+    /// owns the panel; inert until then. Used by the swipe-to-close path: the
+    /// panel's page has no chrome of its own, so the gesture that closes it
+    /// arrives through the engine rather than a toolbar.
+    @ObservationIgnored public var littleArcDismisser: (@MainActor () -> Void)?
+
     /// Opens a new browser window. Set by the scene layer, which is the only
     /// place SwiftUI's `openWindow` exists; the store only ever asks.
     @ObservationIgnored public var privateWindowPresenter: (@MainActor () -> Void)?
@@ -548,6 +570,9 @@ public final class TabStore {
         // not fire for their initial values, so the engine would otherwise start
         // on the default with no per-domain rules.
         self.pushUserAgent()
+        // Same for the swipe-to-close flag: the engine starts with the monitor
+        // running and must be told if the user turned the feature off.
+        self.pushSwipeToCloseEnabled()
     }
 
     // MARK: - Lifecycle
@@ -1364,6 +1389,17 @@ extension TabStore: WebEngineDelegate {
         // if the user already did, there is nothing to close.
         guard let tabID = tabID(owning: paneID) else { return }
         closeTab(tabID, in: window(showingPane: paneID))
+    }
+
+    public func paneRequestedSwipeClose(_ paneID: UUID) {
+        // A pane that a tab owns closes the tab; a pane that belongs to no tab
+        // is a Little Arc panel's page, and it dismisses the panel instead.
+        if let tabID = tabID(owning: paneID) {
+            closeTab(tabID, in: window(showingPane: paneID))
+            return
+        }
+        discardLittleArc(paneID: paneID)
+        littleArcDismisser?()
     }
 
     public func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?) {

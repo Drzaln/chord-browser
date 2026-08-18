@@ -86,6 +86,12 @@ public final class FakeWebEngine: WebEngine {
         customUserAgentSetCount += 1
     }
 
+    /// The swipe-to-close flag the store last pushed (non-spec experiment).
+    public private(set) var swipeToCloseEnabled = true
+    public func setSwipeToCloseEnabled(_ enabled: Bool) {
+        swipeToCloseEnabled = enabled
+    }
+
     /// What a URL would actually be sent with, so a test can assert the policy
     /// without a web view.
     public func resolvedUserAgent(for url: URL?) -> String? {
