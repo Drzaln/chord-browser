@@ -2349,6 +2349,14 @@ it is a WebKit compositing bug, not a page bug.
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
 
+### Release 1.1.0 (build 4) — 2026-08-18
+
+Feature release: **user-renamed tabs** (schema v14). `MARKETING_VERSION`/
+`CFBundleShortVersionString` `1.0.1` → `1.1.0`,
+`CURRENT_PROJECT_VERSION`/`CFBundleVersion` `3` → `4` in
+`Browser.xcodeproj/project.pbxproj` and `BrowserApp/Info.plist`. Build verified
+against the built app's Info.plist. 614 tests, 93 suites, prepush green.
+
 ### Release 1.0.1 (build 3) — tagged `v1.0.1` (2026-08-14)
 
 Version bump only: `MARKETING_VERSION`/`CFBundleShortVersionString` `1.0` →
