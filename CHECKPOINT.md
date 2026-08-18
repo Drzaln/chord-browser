@@ -2374,6 +2374,17 @@ it is a WebKit compositing bug, not a page bug.
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
 
+### Release 1.1.1 (build 5) — tagged `v1.1.1` (2026-08-18)
+
+Feature release: **swipe-to-close** — a rightward swipe on a pane with no back
+history closes the tab or Little Chord panel (WebKit's native back-swipe
+untouched), with a disable flag in Settings → General → Gestures
+(`prefs.swipeToCloseEnabled`, default on). `MARKETING_VERSION`/
+`CFBundleShortVersionString` `1.1.0` → `1.1.1`, `CURRENT_PROJECT_VERSION`/
+`CFBundleVersion` `4` → `5` in `Browser.xcodeproj/project.pbxproj` and
+`BrowserApp/Info.plist`. Build verified against the built app's Info.plist.
+621 tests, 94 suites, prepush green.
+
 ### Release 1.1.0 (build 4) — 2026-08-18
 
 Feature release: **user-renamed tabs** (schema v14). `MARKETING_VERSION`/
