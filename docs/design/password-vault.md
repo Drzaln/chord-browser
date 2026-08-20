@@ -125,8 +125,11 @@ data" paths cannot accidentally take the vault with them.
   returns true and Touch ID is present — it is the protected *item* that is
   refused, because that path needs the data-protection keychain and an
   application-identifier entitlement, which comes with a real signing identity.
-  The app is ad-hoc signed with `TeamIdentifier=not set` (§Requirements: no paid
-  account), so the entitlement cannot be had.
+  The app was ad-hoc signed with `TeamIdentifier=not set` when this was measured
+  (§Requirements: no paid account), so the entitlement could not be had.
+  **Since 2026-08-20 the app signs with a real Apple Development identity
+  (`DEVELOPMENT_TEAM = 74XUPW85K2`), which carries an `application-identifier` —
+  the `.userPresence` path is worth re-measuring.**
 
   So the gate is **app-level**: we evaluate `LAContext` ourselves, then read an
   ordinary Keychain item. Its limit must be stated wherever the feature is
@@ -138,8 +141,8 @@ data" paths cannot accidentally take the vault with them.
   If a paid account ever appears, moving to access-control items is a migration
   (re-write every item with the flag), not a redesign — worth leaving a note in
   the storage layer to that effect.
-- **Ad-hoc signing costs a Keychain prompt after every rebuild (found 2026-07-31,
-  live).** A saved password read back by a *rebuilt* app raises the system
+- **Ad-hoc signing cost a Keychain prompt after every rebuild (found 2026-07-31,
+  live; superseded 2026-08-20).** A saved password read back by a *rebuilt* app raises the system
   "Chord wants to use your confidential information stored in
   com.rizal.chord.vault" dialog, asking for the login-keychain password. The
   item's ACL trusts the code identity that created it, and an ad-hoc signature
@@ -161,12 +164,14 @@ data" paths cannot accidentally take the vault with them.
   everything consistently, which is a `project.pbxproj` change this repo's
   workflow keeps out of commits.
 
-  **Accepted instead: click "Always Allow" once per build.** It is one dialog
-  after each rebuild and none at all for a build you keep. Worth naming the cost
-  honestly — it trains the habit of approving keychain dialogs, which is a poor
-  habit for a password manager to instil, and it is the reason to revisit signing
-  if the vault ever ships to anyone else. An allow-any-application ACL remains
-  refused: it would hand the vault to every process on the machine.
+  **Superseded 2026-08-20:** the app now signs with a real Apple Development
+  identity (`DEVELOPMENT_TEAM = 74XUPW85K2`) via Automatic signing, so the
+  designated requirement is stable across rebuilds and the per-build dialog is
+  gone. The earlier self-signed attempt failed only because it hand-re-signed the
+  bundle instead of removing `project.pbxproj`'s `CODE_SIGN_IDENTITY[sdk=macosx*]
+  = "-"` override — with that override gone, Xcode signs app and nested dylibs
+  consistently and dyld is happy. An allow-any-application ACL remains refused: it
+  would hand the vault to every process on the machine.
 
 - Auto-lock needs a **timeout preference** (default: 15 minutes idle) and must
   also trip on `NSWorkspace.willSleepNotification` and screen lock.

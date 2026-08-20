@@ -141,9 +141,12 @@ persists (`v9_window_layout`).
   (with-reply; `op: query` reads without prompting, `op: request` may prompt).
   **Not Web Push.** **ADR 015.**
 - Two permission layers stack: ours per site, macOS's per app. Both must be green.
-- **Entitlements differ between Debug and Release.** Hardened Runtime (Release
-  only) gates the mic behind `com.apple.security.device.audio-input`, not the
-  sandbox's `com.apple.security.device.microphone`. Declare both.
+- **Camera/mic entitlements are required even unsandboxed.** WebKit builds its
+  WebContent child sandbox from the host app's entitlements, so
+  `com.apple.security.device.camera` / `.microphone` / `.audio-input` must be in
+  `ChordApp/Chord.entitlements` or `getUserMedia` is denied before TCC is ever
+  consulted (2026-08-20). Both Debug and Release carry all three keys and Hardened
+  Runtime — no Debug/Release entitlement divergence anymore.
 
 ## Password vault (V1–V6, ADR 016)
 
@@ -209,6 +212,10 @@ see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 
 ### Build / Test
 - `swift test` runs unsandboxed — cannot verify entitlement-dependent features.
+- The app is signed with a stable Apple Development identity (`DEVELOPMENT_TEAM =
+  74XUPW85K2`), not ad-hoc — a rebuild keeps the same designated requirement, so
+  TCC and Keychain permissions survive rebuilds (2026-08-20; the old ad-hoc
+  signature changed every build and broke both).
 - Never `cp` the GRDB database — use `.backup`. Restoring a main file beside a newer WAL corrupts it.
 - `os.Logger` logs are not retrievable via `log show`/`log stream` on this machine — but `AppLog` mirrors every line to `Application Support/Chord/Logs/chord.log` (rotating, 5 MB), so read that file instead of using screenshots. Screenshots are only for visual verification.
 - The app is a `Window`, NOT a `WindowGroup` — a group spawns a second window on external URLs.

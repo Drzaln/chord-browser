@@ -58,17 +58,22 @@ The rules that are not negotiable, each of which is a test:
 - **The Touch ID gate is app-level, not Keychain-enforced.** The stronger form —
   an item the Keychain itself refuses without biometry — needs an
   application-identifier entitlement: measured, `SecItemAdd` returns `-34018`
-  under this ad-hoc signing setup. So the lock stops a person at an unlocked Mac,
-  **not** code running as the user, and every description of it says so.
+  under the ad-hoc signing setup in force at the time. So the lock stops a person
+  at an unlocked Mac, **not** code running as the user, and every description of
+  it says so. (The app has signed with a real Apple Development identity since
+  2026-08-20, so the guarded-item path is worth re-measuring.)
 - **Filling uses the prototype value setter.** A direct `el.value =` is swallowed
   by React's value tracker: the field looks filled and the form submits an empty
   string. This is invisible on simple pages and breaks on most real ones.
 - **Form detection is a treadmill**, like the YouTube selectors (ADR 013) but with
   worse failure modes. It is driven by a corpus captured from real login pages,
   and a site that changes its markup wants a re-capture, not a hand-edit.
-- **A rebuild costs one Keychain dialog**, because an ad-hoc signature is a new
-  code identity and the item's ACL trusts the old one. Signing with a stable
-  self-signed certificate was tried and reverted (the Debug bundle's nested dylib
-  makes re-signing unlaunchable); "Always Allow" is the accepted cost.
+- **A rebuild used to cost one Keychain dialog**, because an ad-hoc signature was
+  a new code identity and the item's ACL trusted the old one. Signing with a
+  stable self-signed certificate was tried and reverted (the Debug bundle's
+  nested dylib makes re-signing unlaunchable). **Superseded 2026-08-20:** the app
+  signs with a stable Apple Development identity (`DEVELOPMENT_TEAM =
+  74XUPW85K2`), so the designated requirement survives rebuilds and the dialog no
+  longer appears.
 - **No sync, no passkeys, no wallet.** §1 rules out sync; the other two are listed
   above as unavailable and out of scope respectively.

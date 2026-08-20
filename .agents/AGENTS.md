@@ -30,7 +30,7 @@ This is **Chord Browser**, a native macOS browser in Swift on `WKWebView`. It re
 10. **Migrations are forward-only, named, never edited once shipped.** A migration that re-scopes data adopts existing rows (v6, v11); it never drops them.
 11. **A capability a page asks for is decided per (Space, origin), asked once, remembered, and revocable in Settings** — camera, microphone, notifications (ADR 014). Never re-introduce a blanket grant.
 12. **A password secret never leaves `ChordSecrets`.** Metadata (origin, username, timestamps) goes in SQLite; the secret goes in the Keychain, joined by `Credential.id`. Fill matching is **exact origin equality** — never parent-domain, never scheme-relaxed. Filling uses the **prototype** value setter (a direct `el.value =` is swallowed by React's value tracker), and the origin is re-checked inside the engine at the moment of writing.
-13. **Anything device-gated needs checking in a Release build.** Hardened Runtime (Release only) uses different entitlement keys from App Sandbox — the microphone needs `device.audio-input` *and* `device.microphone`. Debug cannot see this class of bug and neither can `swift test`.
+13. **Device-gated features need a real app and real signatures.** Camera/mic require `com.apple.security.device.camera`/`.microphone`/`.audio-input` in `ChordApp/Chord.entitlements` — WebKit derives its WebContent child sandbox from the host entitlements, so they are required even though the app is unsandboxed. Both Debug and Release carry all three keys and Hardened Runtime, so Debug *can* reproduce device bugs; `swift test` (unsandboxed) still cannot.
 
 ## Build & Test
 
@@ -60,7 +60,7 @@ Current version: **v14**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history
 ## Git
 
 - Single `main` branch, linear history.
-- Stage with `git add -A ':!Chord.xcodeproj/project.pbxproj'` — exclude the Xcode project file.
+- Stage with `git add -A ':!Chord.xcodeproj/project.pbxproj'` — exclude the Xcode project file, *unless* the change is a deliberate build-config edit (e.g. the 2026-08-20 signing fix that removed the ad-hoc `CODE_SIGN_IDENTITY[sdk=macosx*] = "-"` override).
 - Commit/push ONLY when the user asks.
 - Update `CHECKPOINT.md` in the same commit as the work it describes.
 

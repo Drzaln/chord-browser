@@ -8,15 +8,25 @@
 	     integrations) and write anywhere, neither of which the sandbox permits.
 	     This is the same trade Chrome/Firefox/Edge make.
 
-	     Without the sandbox the keys that used to live here become moot:
-	       network.client, files.user-selected.read-write,
-	       files.downloads.read-write, print, device.camera,
-	       device.microphone, device.audio-input
-	     Camera/mic/print/downloads still work via TCC (the usage strings in
-	     Info.plist); no entitlements are needed.
+	     No com.apple.security.app-sandbox key: the app itself is unsandboxed.
+
+	     The device.camera / device.microphone / device.audio-input keys below do
+	     NOT re-sandbox the app. They are required so WebKit's WebContent child
+	     process (which runs in its own sandbox regardless) is permitted to open
+	     the camera/mic devices — WebKit derives the child's sandbox profile from
+	     these host-app entitlements, and without them getUserMedia fails with a
+	     permission error before TCC is ever consulted. The OS TCC prompt (backed
+	     by the NS*UsageDescription strings in Info.plist) still gates the user's
+	     first-time consent.
 
 	     On-disk data moves from the sandbox container to the real
 	     ~/Library/Application Support — see AppEnvironment.live(), which migrates
 	     it on first launch. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	<key>com.apple.security.device.microphone</key>
+	<true/>
 </dict>
 </plist>

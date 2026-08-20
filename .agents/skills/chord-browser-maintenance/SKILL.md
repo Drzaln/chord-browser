@@ -135,7 +135,7 @@ These **cannot** be tested by `swift test` (runs unsandboxed). Must verify again
 | **Content blocking** | Navigate to a known tracker URL → blocked |
 | **Extensions** | Enable an extension → content script injects |
 | **Extension signing warning** | Install an unsigned `.xpi` → orange warning icon on the row + install-time message + enable confirmation; a signed `.crx` is not warned |
-| **Camera / microphone** | A `getUserMedia` site prompts once, then works. **Check the mic in a Release build** — Hardened Runtime uses a different entitlement key |
+| **Camera / microphone** | A `getUserMedia` site prompts once, then works. Both Debug and Release carry all three device keys + Hardened Runtime, so either can catch a missing key |
 | **Notifications** | `bennish.net` → prompt once, banner appears, click focuses the tab |
 | **Site permission memory** | Relaunch → no re-prompt; same site in another Space → prompts again |
 
@@ -257,20 +257,22 @@ Chord.xcodeproj -scheme Chord -configuration Debug clean build`. Manual
 
 ### The vault asks for the login-keychain password after a rebuild
 
-Expected, and not a bug: an ad-hoc signature changes every build, and the
-Keychain item's ACL trusts the identity that created it. Click **Always Allow**.
-Signing with a stable self-signed certificate was tried and reverted — see
-`docs/design/password-vault.md`.
+Should not happen anymore: since 2026-08-20 the app is signed with a stable
+Apple Development identity (`DEVELOPMENT_TEAM = 74XUPW85K2`), so the designated
+requirement — and the Keychain ACL it matches — survives a rebuild. Items created
+under the old ad-hoc identity may prompt once while the ACL re-matches; re-save
+the credential if a read fails. If the dialog does return on every build, the
+build has fallen back to ad-hoc signing — check `codesign -dv` shows a
+`TeamIdentifier` and no `adhoc` flag.
 
 ### Camera works but the microphone does not
 
-Almost always the entitlements, and it will look like a code bug because it is
-**Release-only**: Hardened Runtime (Release) gates the mic behind
-`com.apple.security.device.audio-input`, while App Sandbox uses
-`com.apple.security.device.microphone`. Camera shares one key across both, which
-is why it keeps working. Both mic keys must be in `ChordApp/Chord.entitlements`.
-Debug builds disable Hardened Runtime under ad-hoc signing, so they cannot
-reproduce it.
+Almost always the entitlements: WebKit's WebContent child process only opens the
+mic when the host signature carries `com.apple.security.device.audio-input` (the
+Hardened-Runtime key) **and** `com.apple.security.device.microphone` (the App
+Sandbox key). Camera shares one key across both, which is why it keeps working.
+Both mic keys must be in `ChordApp/Chord.entitlements`. Both Debug and Release
+carry them plus Hardened Runtime, so a Debug build can reproduce this.
 
 ### A site was allowed but still gets nothing
 

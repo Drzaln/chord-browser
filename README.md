@@ -207,6 +207,14 @@ swift build --package-path Packages -Xswiftc -warnings-as-errors
 swift test  --package-path Packages
 ```
 
+The app is signed with the Apple Development identity
+(`DEVELOPMENT_TEAM = 74XUPW85K2`) — **not** ad-hoc — so the code signature is
+stable across rebuilds and macOS TCC / Keychain permissions survive a rebuild.
+The camera/mic device entitlements live in `ChordApp/Chord.entitlements` even
+though the app is unsandboxed: WebKit's WebContent child process derives its
+sandbox from those host entitlements, so without them `getUserMedia` is denied
+before the OS prompt ever appears (2026-08-20).
+
 > **Note:** `swift test` runs **unsandboxed**, so anything entitlement-dependent
 > (data-store isolation, downloads to protected locations) must be verified
 > against the real app, not the package tests.

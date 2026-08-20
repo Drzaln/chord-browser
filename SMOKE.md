@@ -15,9 +15,9 @@ Baseline: **621 tests in 94 suites** (2026-08-18), schema **v14**.
 A reminder that decides what belongs on this page at all: `swift test` runs
 **unsandboxed**, so anything gated by an entitlement or an OS permission —
 downloads, print, camera, microphone, notifications, data-store isolation — can
-only be proved here, by hand, against the real app. And **Release differs from
-Debug** for Hardened Runtime (see the microphone check under Site permissions), so
-a feature touching device access needs a production build too.
+only be proved here, by hand, against the real app. Debug and Release share the
+same entitlements and Hardened Runtime, so a Debug build can reproduce device
+bugs; a production build is still the honest check for distribution.
 
 ## M1 — Browse
 
@@ -856,9 +856,11 @@ Save and fill are verified live on github.com; the rest of this list is what a
 change to the vault should re-check. Use a throwaway account — never a real
 password — since a failed sign-in is fine for exercising capture.
 
-**Expect a login-keychain dialog the first time each new build reads a saved
-password.** That is macOS noticing an ad-hoc rebuild, not a bug: click **Always
-Allow**. See the design doc before trying to "fix" it with signing.
+The app is signed with a stable Apple Development identity (not ad-hoc), so the
+code signature survives rebuilds and the vault's Keychain item keeps matching —
+no per-rebuild login-keychain dialog is expected. Items created before the
+2026-08-20 signing fix may prompt once while the ACL re-matches; re-save the
+credential if a read fails.
 
 ### Save
 
@@ -928,10 +930,12 @@ nothing, and that is the expected behaviour, not a bug.
       revisiting does not re-prompt
 - [ ] Settings → Privacy & Data → **Site Permissions** lists the decision with the
       Space name; **×** removes it and the site asks again next time
-- [ ] **Release build**: the microphone actually works. This is a separate check
-      from Debug — Hardened Runtime is only on in Release and needs
-      `com.apple.security.device.audio-input`. A green camera and a dead mic is
-      the exact signature of that key going missing
+- [ ] **Both Debug and Release**: camera and mic actually work. Both configs
+      carry `device.camera`, `device.microphone`, and `device.audio-input` plus
+      Hardened Runtime — WebKit's WebContent child process needs those host
+      entitlements to open the devices at all, even though the app is unsandboxed
+      (2026-08-20). A green camera and a dead mic is the exact signature of a
+      mic-entitlement key going missing
 
 ### Notifications
 
@@ -1169,10 +1173,9 @@ download case, and the ephemeral-tab negatives.
 going to the sandbox container). Re-check by downloading a file in the real app
 and looking in Finder — `swift test` runs unsandboxed and cannot see this.
 The popover reports the real size ("Completed — 66 kB" for a 64 KiB file).
-**Expect a macOS "access your Downloads folder" prompt on the first download
-after a rebuild** — the ad-hoc signature changes each build, so TCC treats it as
-a new app. An unanswered prompt makes that download time out; click Allow and
-retry.
+The macOS "access your Downloads folder" prompt appears once per app; since the
+2026-08-20 signing fix the signature is stable, so a rebuild no longer re-prompts.
+An unanswered prompt makes that download time out; click Allow and retry.
 
 ## Space-switch animation (added 2026-08-01)
 

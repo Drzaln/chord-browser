@@ -59,14 +59,16 @@ a live microphone.
 - Two permission systems remain stacked, and both must be green: ours per site,
   macOS's per app. A user who denies the app in System Settings sees a granted
   site do nothing, and neither layer can report the other's state.
-- **The microphone needs two entitlement keys, not one.** Hardened Runtime (on in
-  Release) gates the mic behind `com.apple.security.device.audio-input`, which is
-  a *different* key from App Sandbox's `com.apple.security.device.microphone`.
-  Camera shares one key across both, so the camera worked in Release while the mic
-  did not — and Debug hid it entirely, because ad-hoc signing disables Hardened
-  Runtime and only the sandbox key is consulted there. Both keys are declared. A
-  bug of this shape cannot be caught by `swift test` (unsandboxed) or by a Debug
-  build; only a production build shows it.
+- **The microphone needs two entitlement keys, not one.** Hardened Runtime gates
+  the mic behind `com.apple.security.device.audio-input`, which is a *different*
+  key from App Sandbox's `com.apple.security.device.microphone`. Camera shares
+  one key across both, so the camera worked while the mic did not. Both keys are
+  declared — and required even though the app is unsandboxed, because WebKit's
+  WebContent child process derives its device-access sandbox from the host
+  entitlements. **Updated 2026-08-20:** the app moved to a stable Apple
+  Development signature (not ad-hoc) with all three device keys in both Debug and
+  Release, so a Debug build now catches this class of bug; `swift test`
+  (unsandboxed) still cannot.
 - **Screen sharing is not part of this.** `WKMediaCaptureType` covers camera and
   microphone only, and public `WKWebView` exposes no display-capture hook, so
   `getDisplayMedia` never reaches this path — it goes straight to the OS picker.

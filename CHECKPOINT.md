@@ -17,7 +17,7 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
+| **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
 | **Tests**                        | **621 passing** (`swift test`, 94 suites), measured 2026-08-18                                                                                                                                |
@@ -57,6 +57,30 @@ history, a deliberate rightward *scroll* of wide content can read as a close —
 `BackSwipeDecision.commitDistance` (60 pt) and the horizontal-dominance guard are
 the tuning knobs. Tests: `BackSwipeMonitorTests`, the store routing cases in
 `TabStoreTests`/`LittleChordTests`, and `PreferencesTests` for the flag.
+
+**Stable signing + camera/mic device entitlements (2026-08-20).** Two fixes, both
+about how the app is signed. Together they restored camera/mic prompting and
+killed the per-rebuild Keychain dialog:
+
+- **Ad-hoc signing removed.** Both build configs hard-coded
+  `CODE_SIGN_IDENTITY[sdk=macosx*] = "-"`, forcing ad-hoc signing with a new
+  cdhash on every build. TCC could not pin a stable identity, so after the app
+  went unsandboxed the camera/mic prompt never appeared — Chord's per-site grant
+  succeeded but the OS layer never asked, and `getUserMedia` failed with
+  "permission needed". The keychain "Always Allow" dialog was the same root
+  cause. Removed the override so Automatic signing + `DEVELOPMENT_TEAM =
+  74XUPW85K2` produce a stable Apple Development signature.
+- **Device entitlements restored for the WebContent child.** WebKit derives its
+  WebContent process sandbox from the *host app's* entitlements, so even
+  unsandboxed, `getUserMedia` needs `com.apple.security.device.camera` /
+  `.microphone` / `.audio-input` in the signature or it is denied before TCC is
+  consulted. Added all three to `ChordApp/Chord.entitlements` — the earlier
+  comment that "no entitlements are needed" was wrong for WKWebView. The host
+  stays unsandboxed; these keys do not re-enable the sandbox.
+- **Consequence:** a rebuild no longer changes the code identity, so TCC and
+  Keychain grants survive rebuilds. Existing Keychain items created under the old
+  ad-hoc identity may prompt once as the ACL re-matches; re-save if a read fails.
+  Verify with `codesign -dv` — expect `TeamIdentifier=74XUPW85K2`, no `adhoc`.
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
 After the two fixes below, **Enhancer for YouTube works** (content script) and
@@ -355,8 +379,9 @@ rule, a missing shadow-DOM walk, and the naive `el.value =` fill. Break the fix,
 see red, put it back.
 
 **`swift test` runs UNSANDBOXED**, so it proves nothing about entitlements, the
-Keychain under sandbox, or Hardened Runtime. Those need a real app, and Release
-differs from Debug (the microphone needed a *second* entitlement key, ADR 014).
+Keychain under sandbox, or Hardened Runtime. Those need a real app. Debug and
+Release share the same entitlements and Hardened Runtime; the device keys and the
+stable signing fix landed 2026-08-20 (ADR 014).
 
 **Two test files assert `Migrations.currentVersion` literally.** A migration that
 updates only one leaves prepush red after everything else looks finished.
@@ -365,10 +390,10 @@ updates only one leaves prepush red after everything else looks finished.
 build`. Manual `codesign --force` cannot put it back, and the only place the real
 reason appears is `~/Library/Logs/DiagnosticReports/Chord-*.ips`.
 
-**The keychain dialog after a rebuild is expected**, not a bug: ad-hoc signatures
-change every build and the item's ACL trusts the creating identity. Click "Always
-Allow". Self-signed signing was tried and reverted — read that section before
-suggesting it again.
+**The keychain dialog after a rebuild is gone** since 2026-08-20: the app now
+signs with a stable Apple Development identity, so the designated requirement no
+longer changes per build. If it does return every build, the build has fallen
+back to ad-hoc signing (check `codesign -dv`).
 
 Stage with `git add -A ':!Chord.xcodeproj/project.pbxproj'` and commit/push ONLY
 when the user asks. Update CHECKPOINT.md in the same commit as the work it
@@ -2195,10 +2220,11 @@ follows the commits.
   recurs: **Hardened Runtime and App Sandbox use different keys for the mic.**
   Release (Hardened Runtime on) needs `com.apple.security.device.audio-input`;
   the sandbox key is `com.apple.security.device.microphone`. Camera shares one
-  key across both, so camera worked while mic did not, and **Debug hid it
-  entirely** — ad-hoc signing disables Hardened Runtime, so only the sandbox key
-  was consulted. Both are declared now. Neither `swift test` (unsandboxed) nor a
-  Debug build can catch this class of bug; only a production build can.
+  key across both, so camera worked while mic did not. Both are declared now.
+  Neither `swift test` (unsandboxed) nor a Debug build could catch this class of
+  bug; only a production build could. **(Updated 2026-08-20:** Debug and Release
+  now share all three device keys + Hardened Runtime, so a Debug build catches it
+  too.**)**
 - **User-Agent setting (`f5e05b7`, `ef38189`).** Settings → General: Default /
   Chrome / Firefox / Safari-iPhone / Custom, the custom field pre-filled with the
   current UA so it is edited rather than invented. Global and applied on the next
@@ -2264,10 +2290,13 @@ whole bundle consistently, which this repo's git workflow deliberately keeps out
 of commits. Reverted entirely: script deleted, certificate removed from the
 keychain, app clean-rebuilt and verified running.
 
-**Accepted cost instead:** click **Always Allow** on the keychain dialog once per
-build. One dialog after a rebuild, none for a build you keep. It does train the
-habit of approving keychain prompts, which is worth revisiting if the vault ever
-ships to anyone but its author. An allow-any-application ACL stays refused.
+**Superseded 2026-08-20:** the project now signs with a real Apple Development
+identity (`DEVELOPMENT_TEAM = 74XUPW85K2`), giving a stable designated
+requirement without the nested-dylib problem. The earlier attempt's real mistake
+was hand-signing the bundle instead of removing `project.pbxproj`'s
+`CODE_SIGN_IDENTITY[sdk=macosx*] = "-"` override — with that gone, Xcode signs
+app and nested dylibs consistently and dyld is happy. No "Always Allow" ritual
+anymore. An allow-any-application ACL stays refused.
 
 ### File-backed logging — os.Logger mirrored to a rotating file (2026-08-06)
 
@@ -2927,14 +2956,14 @@ moves the computation into `TabStore.refreshFillableCredentials`, published on
 `PaneRuntime` — the button is now a pure function of observable state with no
 async race. **Verified live** afterwards: key appears, click fills.
 
-**Ad-hoc signing costs a Keychain prompt after a rebuild (new finding).** Reading
-a password saved by an *earlier build* raises the system "Chord wants to use your
-confidential information…" dialog asking for the login-keychain password, because
-the item's ACL trusts the creating code identity and an ad-hoc signature changes
-every build. **The V1 probe missed this** — it tested exactly one rebuild and got
-away with it. It does not affect a stable installed build. The right fix is a
-**stable self-signed certificate** (free, no Apple account); "Always Allow" per
-build works but trains a bad reflex, and an allow-any-app ACL is refused outright.
+**Ad-hoc signing costs a Keychain prompt after a rebuild (new finding, 2026-07-31).**
+Reading a password saved by an *earlier build* raises the system "Chord wants to
+use your confidential information…" dialog asking for the login-keychain password,
+because the item's ACL trusts the creating code identity and an ad-hoc signature
+changes every build. **The V1 probe missed this** — it tested exactly one rebuild
+and got away with it. It does not affect a stable installed build. **Superseded
+2026-08-20:** the app now signs with a stable Apple Development identity, so the
+designated requirement survives rebuilds and the dialog no longer appears.
 
 9 unit tests (512 total, prepush green), with the carry-over and the auth gate
 both verified failing when removed.
