@@ -70,7 +70,7 @@ extension TabStore {
         reorderTab(tabID, to: pinned ? .favourite : .ephemeral, at: index)
     }
 
-    private func section(of placement: TabPlacement) -> PlacementSection {
+    func section(of placement: TabPlacement) -> PlacementSection {
         if placement.isPinned { return .favourite }
         if placement.isBookmarked { return .pinned }
         return .ephemeral

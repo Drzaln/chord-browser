@@ -802,18 +802,30 @@ public final class TabStore {
         cancelSleepTimer(tabID)
         forgetStateResolution(forPanes: tabs[index].panes.map(\.id))
         let closedSpaceID = tabs[index].spaceID
-        let neighbours = visibleTabs(in: window)
-        let closedPosition = neighbours.firstIndex { $0.id == tabID }
+        // Position of the closed tab within its own section — favourites grid,
+        // Pinned list, or loose tabs. `visibleTabs` sorts every section by one
+        // `order`, but each section numbers independently from 0, so a flat
+        // position can land on a tab from another tier.
+        let closedSection = section(of: tabs[index].placement)
+        let closedPositionInSection = visibleTabs(in: window)
+            .filter { section(of: $0.placement) == closedSection }
+            .firstIndex { $0.id == tabID }
         tabs.remove(at: index)
         extensionHost?.extensionTabDidClose(tabID, inSpace: closedSpaceID)
 
         if window.selectedTabID == tabID {
             // Select the neighbour that is now in the closed tab's slot, within
-            // this Space only.
+            // its own section and this Space only.
             let remaining = visibleTabs(in: window)
-            if let closedPosition, remaining.indices.contains(closedPosition) {
-                window.selectedTabID = remaining[closedPosition].id
+            let remainingInSection = remaining.filter { section(of: $0.placement) == closedSection }
+            if let closedPositionInSection, remainingInSection.indices.contains(closedPositionInSection) {
+                window.selectedTabID = remainingInSection[closedPositionInSection].id
+            } else if let fallback = remainingInSection.last {
+                // The closed tab was last in its section; take the tab now in
+                // its place — the one that sat just before it.
+                window.selectedTabID = fallback.id
             } else {
+                // Its whole section is gone; fall back to the flat order.
                 window.selectedTabID = remaining.last?.id
             }
         }
@@ -839,7 +851,13 @@ public final class TabStore {
         // tearing the view down here would blank that window's content.
         guard !isShown(tabID, byAnyWindowOtherThan: window) else {
             if window.selectedTabID == tabID {
-                window.selectedTabID = visibleTabs(in: window).first { $0.id != tabID }?.id
+                // Prefer a neighbour from the tab's own section so the selection
+                // cannot hop into another tier (favourites / Pinned / loose).
+                let closedSection = section(of: tabs[index].placement)
+                window.selectedTabID = visibleTabs(in: window)
+                    .first { $0.id != tabID && section(of: $0.placement) == closedSection }?
+                    .id
+                    ?? visibleTabs(in: window).first { $0.id != tabID }?.id
                 if window.selectedTabID == nil { newTab(in: window) }
             }
             return
@@ -877,7 +895,16 @@ public final class TabStore {
 
         // Move the selection off the unloaded tab, but leave it in the sidebar.
         if window.selectedTabID == tabID {
-            if let next = visibleTabs(in: window).first(where: { $0.id != tabID }) {
+            // Prefer a neighbour from the tab's own section (favourites grid,
+            // Pinned list, or loose tabs) so the selection does not hop into
+            // another tier; fall back to the flat order only when the section
+            // has nothing left.
+            let closedSection = section(of: tabs[index].placement)
+            let remaining = visibleTabs(in: window)
+            let sectionNeighbour = remaining.first {
+                $0.id != tabID && section(of: $0.placement) == closedSection
+            }
+            if let next = sectionNeighbour ?? remaining.first(where: { $0.id != tabID }) {
                 select(next.id, in: window)
             } else {
                 window.selectedTabID = nil

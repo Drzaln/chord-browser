@@ -232,6 +232,57 @@ struct PinnedTests {
         #expect(windowA.sidebarWidth == 320, "resizing one window must not resize the other")
     }
 
+    @Test("Closing a loose tab stays in the loose section, not a favourite with an equal order")
+    func closingLooseTabStaysInTheLooseSection() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://github.example").pinned(order: 0).build(),
+            TabBuilder().url("https://facebook.example").build(),
+            TabBuilder().url("https://twitter.example").ephemeral(order: 1).build(),
+        ])
+        let facebook = try! #require(store.unpinnedTabs.first { $0.focusedPane.url.host() == "facebook.example" })
+        let twitter = try! #require(store.unpinnedTabs.first { $0.focusedPane.url.host() == "twitter.example" })
+        store.select(twitter.id)
+
+        store.closeTab(twitter.id)
+
+        #expect(store.selectedTabID == facebook.id, "the favourite must not steal the selection")
+        #expect(store.pinnedTabs.count == 1, "the favourite is untouched")
+    }
+
+    @Test("Closing a loose tab from the middle still picks the loose tab to its right")
+    func closingLooseTabFromTheMiddlePicksItsRightNeighbour() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://github.example").pinned(order: 0).build(),
+            TabBuilder().url("https://facebook.example").build(),
+            TabBuilder().url("https://twitter.example").ephemeral(order: 1).build(),
+            TabBuilder().url("https://last.example").ephemeral(order: 2).build(),
+        ])
+        let twitter = try! #require(store.unpinnedTabs.first { $0.focusedPane.url.host() == "twitter.example" })
+        let last = try! #require(store.unpinnedTabs.first { $0.focusedPane.url.host() == "last.example" })
+        store.select(twitter.id)
+
+        store.closeTab(twitter.id)
+
+        #expect(store.selectedTabID == last.id, "the tab that slides into the slot is the loose one to its right")
+    }
+
+    @Test("Closing the last Pinned tab stays in the Pinned section, not a favourite")
+    func closingLastPinnedTabStaysInThePinnedSection() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://github.example").pinned(order: 0).build(),
+            TabBuilder().url("https://pin.example").bookmarked(order: 0).build(),
+            TabBuilder().url("https://other-pin.example").bookmarked(order: 1).build(),
+            TabBuilder().url("https://loose.example").build(),
+        ])
+        let otherPin = try! #require(store.bookmarkedTabs.first { $0.focusedPane.url.host() == "other-pin.example" })
+        let lastPin = try! #require(store.bookmarkedTabs.first { $0.focusedPane.url.host() == "pin.example" })
+        store.select(otherPin.id)
+
+        store.closeTab(otherPin.id)
+
+        #expect(store.selectedTabID == lastPin.id, "the Pinned neighbour must win over the favourite")
+    }
+
     @Test("Closing a favourite keeps it, and keeps its favicon")
     func closingAFavouriteKeepsIt() async {
         let icon = Data([0xAA, 0xBB, 0xCC])
