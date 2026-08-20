@@ -109,4 +109,42 @@ struct KeychainSecretStoreTests {
     func emptyVaultListsNothing() throws {
         #expect(try makeStore().storedCredentialIDs().isEmpty)
     }
+
+    @Test("migrateVault moves secrets from the legacy service and clears it")
+    func migrateVaultMovesSecrets() throws {
+        let suffix = UUID().uuidString
+        let oldService = "com.rizal.browser.vault.tests.\(suffix)"
+        let newService = "com.rizal.chord.vault.tests.\(suffix)"
+        let old = KeychainSecretStore(service: oldService)
+        let new = KeychainSecretStore(service: newService)
+        let id = UUID()
+        defer {
+            try? old.delete(for: id)
+            try? new.delete(for: id)
+        }
+
+        try old.save("migrated secret", for: id)
+        #expect(try new.secret(for: id) == nil)
+
+        KeychainSecretStore.migrateVault(from: oldService, to: newService)
+
+        #expect(try new.secret(for: id) == "migrated secret")
+        #expect(try old.storedCredentialIDs().isEmpty)
+    }
+
+    @Test("migrateVault with nothing to migrate is a no-op")
+    func migrateVaultWithNoLegacyItemsIsNoop() throws {
+        let suffix = UUID().uuidString
+        let oldService = "com.rizal.browser.vault.tests.\(suffix)"
+        let newService = "com.rizal.chord.vault.tests.\(suffix)"
+        let old = KeychainSecretStore(service: oldService)
+        let new = KeychainSecretStore(service: newService)
+        let id = UUID()
+        defer { try? new.delete(for: id) }
+
+        KeychainSecretStore.migrateVault(from: oldService, to: newService)
+
+        #expect(try new.secret(for: id) == nil)
+        #expect(try old.storedCredentialIDs().isEmpty)
+    }
 }

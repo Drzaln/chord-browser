@@ -142,6 +142,16 @@ public struct AppEnvironment {
             store?.reloadTabs(inSpace: spaceID)
         }
 
+        // One-time vault migration from the pre-rename bundle id's Keychain
+        // service. The container and preferences move via
+        // `scripts/migrate-bundle-id.sh` (a sandboxed app cannot read its old
+        // container), but Keychain items are reachable here — the passwords
+        // migrate in-app. Idempotent and best-effort.
+        KeychainSecretStore.migrateVault(
+            from: KeychainSecretStore.legacyService,
+            to: KeychainSecretStore.defaultService
+        )
+
         // The password vault (V5). Metadata in SQLite beside everything else,
         // secrets in the Keychain — the split that keeps a password out of
         // database backups and `.recover` dumps. `.strict` origins: HTTPS only.

@@ -23,12 +23,42 @@ import Security
 /// re-write of every item, not a redesign — start here.
 public struct KeychainSecretStore: SecretStore {
 
+    /// The vault service the current bundle id writes to.
+    public static let defaultService = "com.rizal.chord.vault"
+
+    /// The service the vault used under the pre-rename bundle id
+    /// (`com.rizal.browser`). Only `migrateVault` reads it; nothing writes here.
+    public static let legacyService = "com.rizal.browser.vault"
+
     /// Namespaces this app's vault items. Distinct from anything else in the
     /// login keychain, and overridable so tests never touch the real vault.
     private let service: String
 
-    public init(service: String = "com.rizal.chord.vault") {
+    public init(service: String = KeychainSecretStore.defaultService) {
         self.service = service
+    }
+
+    /// One-time migration of vault secrets from the pre-rename Keychain service
+    /// to the current one.
+    ///
+    /// The sandbox container and preferences are moved by
+    /// `scripts/migrate-bundle-id.sh` (a sandboxed app cannot read its old
+    /// container), but Keychain items are reachable by service string — so the
+    /// actual passwords migrate here, in-app, once. Idempotent: after the first
+    /// run the legacy items are deleted, so later launches no-op. Best-effort:
+    /// an item that cannot be rewritten is skipped, not fatal.
+    public static func migrateVault(
+        from oldService: String,
+        to newService: String
+    ) {
+        let legacy = KeychainSecretStore(service: oldService)
+        let current = KeychainSecretStore(service: newService)
+
+        for id in (try? legacy.storedCredentialIDs()) ?? [] {
+            guard let secret = try? legacy.secret(for: id) else { continue }
+            guard (try? current.save(secret, for: id)) != nil else { continue }
+            try? legacy.delete(for: id)
+        }
     }
 
     public func save(_ secret: String, for credentialID: UUID) throws {
