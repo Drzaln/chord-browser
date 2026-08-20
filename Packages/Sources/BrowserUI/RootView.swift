@@ -218,7 +218,7 @@ public struct RootView: View {
         .onChange(of: window == nil) { _, _ in
             window?.setTrafficLightsHidden(shouldHideTrafficLights)
             configureWindow()
-            // Associate this window with its state so Little Arc promotion can
+            // Associate this window with its state so Little Chord promotion can
             // bring *this* window forward, and treat a window that appears while
             // key as focused (the first window at launch).
             if let window {
@@ -227,7 +227,7 @@ public struct RootView: View {
             }
         }
         // Track which window is the user's current one, so app-opened URLs and a
-        // promoted Little Arc tab land here rather than always in the primary.
+        // promoted Little Chord tab land here rather than always in the primary.
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
         ) { note in

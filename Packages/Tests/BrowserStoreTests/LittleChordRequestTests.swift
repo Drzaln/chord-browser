@@ -9,11 +9,11 @@ import Testing
 /// The "Open in Little Chord" link context-menu path (non-spec: user-requested):
 /// the engine delegate call must forward through the injected presenter that the
 /// app layer owns.
-@Suite("Little Arc request")
+@Suite("Little Chord request")
 @MainActor
-struct LittleArcRequestTests {
+struct LittleChordRequestTests {
 
-    @Test("paneRequestedLittleArc forwards the URL to the injected presenter")
+    @Test("paneRequestedLittleChord forwards the URL to the injected presenter")
     func forwardsToPresenter() async {
         let store = TabStore(
             engine: FakeWebEngine(),
@@ -23,10 +23,10 @@ struct LittleArcRequestTests {
         await store.restore()
 
         var presented: URL?
-        store.littleArcPresenter = { presented = $0 }
+        store.littleChordPresenter = { presented = $0 }
 
         let url = URL(string: "https://peek.example/story")!
-        store.paneRequestedLittleArc(url: url)
+        store.paneRequestedLittleChord(url: url)
 
         #expect(presented == url)
     }
@@ -40,7 +40,7 @@ struct LittleArcRequestTests {
         )
         await store.restore()
 
-        store.paneRequestedLittleArc(url: URL(string: "https://example.com")!)
+        store.paneRequestedLittleChord(url: URL(string: "https://example.com")!)
         // No presenter, no tab opened — a peek is not a tab.
         #expect(store.visibleTabs.allSatisfy { $0.focusedPane.url.host() != "example.com" })
     }

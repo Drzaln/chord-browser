@@ -90,7 +90,7 @@ seed() {
     # 21 tabs: 7 per Space, spanning all three tiers so the soak exercises the
     # post-M7 Pinned model, not just ephemeral tabs. Per Space: i=0 a Favourite,
     # i=1 a Pinned tab (both carry a home URL), i=3 a 4-pane split, the rest
-    # ephemeral. Split view and Little Arc (M5) add live web views — a 4-pane tab
+    # ephemeral. Split view and Little Chord (M5) add live web views — a 4-pane tab
     # is 4 at once — so a soak that predates them proves nothing about them.
     #
     # Explicit column lists on both inserts: the `tab` table has grown `spaceId`

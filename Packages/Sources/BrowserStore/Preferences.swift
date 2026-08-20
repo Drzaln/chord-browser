@@ -18,8 +18,8 @@ enum Preferences {
     // silently reset its sidebar when the state moved to `WindowState`.
     private static let sidebarCollapsedKey = "sidebar.collapsed"
     private static let sidebarWidthKey = "sidebar.width"
-    private static let littleArcPanelWidthKey = "prefs.littleArcPanelWidth"
-    private static let littleArcPanelHeightKey = "prefs.littleArcPanelHeight"
+    private static let littleChordPanelWidthKey = "prefs.littleArcPanelWidth"
+    private static let littleChordPanelHeightKey = "prefs.littleArcPanelHeight"
     private static let swipeToCloseEnabledKey = "prefs.swipeToCloseEnabled"
 
     static func loadSearchEngine(
@@ -148,33 +148,33 @@ enum Preferences {
         defaults.set(Double(width), forKey: sidebarWidthKey)
     }
 
-    // MARK: - Little Arc / Peek panel
+    // MARK: - Little Chord / Peek panel
 
-    /// The Little Arc / Peek panel's size, as the user last left it (non-spec:
+    /// The Little Chord / Peek panel's size, as the user last left it (non-spec:
     /// user-requested). A choice, like the sidebar width — not schema-bound.
     ///
     /// `nil` until the user has resized the panel once, so the first ever use
     /// opens at the panel's built-in default.
-    static func loadLittleArcPanelSize(
+    static func loadLittleChordPanelSize(
         _ defaults: any PreferenceStore = UserDefaults.standard
     ) -> CGSize? {
-        let width = defaults.object(forKey: littleArcPanelWidthKey) as? Double
-        let height = defaults.object(forKey: littleArcPanelHeightKey) as? Double
+        let width = defaults.object(forKey: littleChordPanelWidthKey) as? Double
+        let height = defaults.object(forKey: littleChordPanelHeightKey) as? Double
         guard let width, let height, width > 0, height > 0 else { return nil }
         return CGSize(width: width, height: height)
     }
 
     static func save(
-        littleArcPanelSize size: CGSize, to defaults: any PreferenceStore = UserDefaults.standard
+        littleChordPanelSize size: CGSize, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
-        defaults.set(Double(size.width), forKey: littleArcPanelWidthKey)
-        defaults.set(Double(size.height), forKey: littleArcPanelHeightKey)
+        defaults.set(Double(size.width), forKey: littleChordPanelWidthKey)
+        defaults.set(Double(size.height), forKey: littleChordPanelHeightKey)
     }
 
     // MARK: - Swipe-to-close
 
     /// Whether a rightward swipe on a pane with no back history closes the tab
-    /// / Little Arc panel (non-spec: user-requested experiment). Defaults to on;
+    /// / Little Chord panel (non-spec: user-requested experiment). Defaults to on;
     /// a plain `Bool`, like the sidebar flags.
     static func loadSwipeToCloseEnabled(
         _ defaults: any PreferenceStore = UserDefaults.standard

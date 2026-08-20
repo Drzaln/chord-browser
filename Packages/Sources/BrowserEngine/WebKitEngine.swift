@@ -113,7 +113,7 @@ public final class WebKitEngine: WebEngine {
 
         // A rightward swipe that WebKit's native back/forward gesture had
         // nothing to navigate to: hand the pane up so the store can decide
-        // between closing its tab and dismissing a Little Arc panel.
+        // between closing its tab and dismissing a Little Chord panel.
         self.backSwipe.onSwipeRightNoHistory = { [weak self] webView in
             guard let self, let paneID = self.paneID(for: webView) else { return }
             self.delegate?.paneRequestedSwipeClose(paneID)
@@ -287,13 +287,13 @@ public final class WebKitEngine: WebEngine {
 
         // "Open in Little Chord" on a link's context menu. The URL is resolved at
         // click time from the pane's last reported link, and routed out through
-        // the engine's delegate to the app's Little Arc panel.
+        // the engine's delegate to the app's Little Chord panel.
         webView.contextLinkURL = { [weak self, weak webView] in
             guard let self, let webView, let paneID = self.paneID(for: webView) else { return nil }
             return self.contextLinkURL[paneID]
         }
-        webView.onOpenInLittleArc = { [weak self] url in
-            self?.delegate?.paneRequestedLittleArc(url: url)
+        webView.onOpenInLittleChord = { [weak self] url in
+            self?.delegate?.paneRequestedLittleChord(url: url)
         }
         // The pane is named so the tab lands in the window showing this page —
         // the same reason `window.open()` carries it.

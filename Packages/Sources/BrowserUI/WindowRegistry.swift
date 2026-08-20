@@ -2,7 +2,7 @@ import AppKit
 import BrowserStore
 
 /// Maps a `WindowState` to the `NSWindow` showing it, so an AppKit-side caller
-/// (Little Arc promotion) can bring the *focused* window forward after the store
+/// (Little Chord promotion) can bring the *focused* window forward after the store
 /// has decided a tab lands there.
 ///
 /// `WindowState` is a pure, AppKit-free type (it lives in `BrowserStore`), so the

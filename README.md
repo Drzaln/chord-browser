@@ -52,7 +52,7 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **Session restore** — `interactionState` persistence; a force-quit relaunch
   restores everything, including scroll and form state.
 - **Downloads** — `WKDownload` handling with progress UI.
-- **Split view + Little Arc** — multi-pane tabs and a floating quick-open panel
+- **Split view + Little Chord** — multi-pane tabs and a floating quick-open panel
   (shared with Peek; resizable and size-remembered).
 - **Polish** — swipe-driven Space switching, cross-section drag-and-drop,
   find-in-page, print, and PDF viewing.

@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The floating panel's contents: the page, and just enough chrome to know
 /// where you are and what the keys do (4.6).
-struct LittleArcView: View {
+struct LittleChordView: View {
     @Bindable var store: TabStore
     let pane: Pane
     /// The Space whose data store the page uses. `nil` → primary window's
@@ -21,15 +21,15 @@ struct LittleArcView: View {
             ZStack {
                 Color(nsColor: .textBackgroundColor)
 
-                if let surface = store.littleArcSurface(for: pane, in: spaceID) {
+                if let surface = store.littleChordSurface(for: pane, in: spaceID) {
                     surface.id(pane.id)
                 }
             }
         }
         .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.littleArcCornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.littleChordCornerRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: Metrics.littleArcCornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: Metrics.littleChordCornerRadius, style: .continuous)
                 .strokeBorder(.separator, lineWidth: 0.5)
         }
     }

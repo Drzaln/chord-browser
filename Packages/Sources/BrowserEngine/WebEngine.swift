@@ -79,7 +79,7 @@ public protocol WebEngineDelegate: AnyObject {
     /// script-created windows can close themselves, so this identifies a popup
     /// tab: close it, so the auth popup the user just finished does not linger.
     func panePopupDidClose(_ paneID: UUID)
-    /// A link's context menu asked to open it in the Little Arc panel (non-spec:
+    /// A link's context menu asked to open it in the Little Chord panel (non-spec:
     /// user-requested).
     /// "Open Link in New Tab" from a link's context menu: a tab in the window
     /// showing that page, left in the background.
@@ -88,11 +88,11 @@ public protocol WebEngineDelegate: AnyObject {
     /// "Open Link in New Private Window" from a link's context menu.
     func paneRequestedPrivateWindow(url: URL)
 
-    func paneRequestedLittleArc(url: URL)
+    func paneRequestedLittleChord(url: URL)
     /// The user performed the "undo page" swipe (a two-finger rightward drag) on
     /// a pane that had nothing to undo — WebKit's native back/forward gesture
     /// did not navigate, so it fell through to our monitor. The store decides
-    /// what that means: close the tab, or dismiss a Little Arc panel
+    /// what that means: close the tab, or dismiss a Little Chord panel
     /// (non-spec: user-requested experiment).
     func paneRequestedSwipeClose(_ paneID: UUID)
     /// A plain left-click on a link inside a favourite/pinned tab (non-spec:
@@ -137,7 +137,7 @@ extension WebEngineDelegate {
     public func paneRequestedPopup(url: URL?, popupPaneID: UUID, fromPane paneID: UUID?) {}
     public func panePopupDidClose(_ paneID: UUID) {}
     public func paneRequestedPrivateWindow(url: URL) {}
-    public func paneRequestedLittleArc(url: URL) {}
+    public func paneRequestedLittleChord(url: URL) {}
     public func paneRequestedSwipeClose(_ paneID: UUID) {}
     public func paneRequestedPeek(url: URL, fromPane paneID: UUID) -> Bool { false }
     public func paneRequestedNotification(_ request: WebNotificationRequest, fromPane paneID: UUID) {}

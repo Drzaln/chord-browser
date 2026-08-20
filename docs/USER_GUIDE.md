@@ -1,7 +1,7 @@
 # Chord Browser — User Guide
 
 How to drive Chord Browser day-to-day: keyboard shortcuts, the command bar, Spaces,
-split view, Little Arc, downloads, find-in-page, content blocking, and extensions.
+split view, Little Chord, downloads, find-in-page, content blocking, and extensions.
 
 This guide describes what is actually wired in the shipping app. Where a
 capability exists in the engine but has no user-facing control yet, it says so
@@ -296,14 +296,14 @@ across _every_ Space at once, use **Settings → Privacy & Data**.)
 The command bar (`Cmd+T` / `Cmd+L`) likewise ranks history from the active Space
 only.
 
-### Little Arc
+### Little Chord
 
 | Shortcut | Action                                                                  |
 | -------- | ----------------------------------------------------------------------- |
-| `Cmd+O`  | **Promote** the Little Arc page into a full tab (while the panel is up) |
-| `Esc`    | Dismiss the Little Arc panel                                            |
+| `Cmd+O`  | **Promote** the Little Chord page into a full tab (while the panel is up) |
+| `Esc`    | Dismiss the Little Chord panel                                            |
 
-See [Little Arc](#little-arc-1) below.
+See [Little Chord](#little-arc-1) below.
 
 ### Debug (debug builds only)
 
@@ -362,16 +362,16 @@ Close the focused pane with `Cmd+Shift+Option+D`. Up to four panes per tab.
 
 ---
 
-## Little Arc
+## Little Chord
 
-Little Arc is a floating panel for a **quick glance** at a page — read it, then
+Little Chord is a floating panel for a **quick glance** at a page — read it, then
 toss it, without adding a tab. There are two ways to open one:
 
 1. **Right-click any link in a page → “Open in Little Chord.”** The link opens in
    the floating panel, using the active Space's session (so it's already logged
    in to whatever that Space is).
 2. **Click a link in another app** (Mail, Messages, Notes…) while Chord is your
-   default browser — it opens in Little Arc instead of stealing focus into the
+   default browser — it opens in Little Chord instead of stealing focus into the
    main window.
 
 From the panel:
@@ -381,18 +381,18 @@ From the panel:
 - press `Esc` (or click away) to dismiss it — nothing is kept.
 
 The panel is resizable, and its size is remembered: resize it once and the next
-panel (Peek or Little Arc — they share it) opens at that size.
+panel (Peek or Little Chord — they share it) opens at that size.
 
 > **Testing it without setting a default browser:** from Terminal, run
 > `open -a Chord https://example.com` — this routes a URL to Chord exactly like
-> an external link and pops a Little Arc panel.
+> an external link and pops a Little Chord panel.
 
-The Little Arc panel can be the only window open, so the app stays alive to
+The Little Chord panel can be the only window open, so the app stays alive to
 handle these even when the main window is closed.
 
-Little Arc is distinct from Peek — see [Peek](#peek) above. The two share the
+Little Chord is distinct from Peek — see [Peek](#peek) above. The two share the
 same floating panel; Peek is the inline preview of a favourite/pinned tab's
-links, Little Arc is the external-link arrival.
+links, Little Chord is the external-link arrival.
 
 ---
 
@@ -579,7 +579,7 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | Spaces with isolated cookie stores                        | ✅                                      |
 | Ephemeral tabs with auto-sweep + archive                  | ✅                                      |
 | Split view (up to 4 panes)                                | ✅                                      |
-| Little Arc (external-link panel)                          | ✅                                      |
+| Little Chord (external-link panel)                          | ✅                                      |
 | Session restore after force-quit                          | ✅                                      |
 | Downloads with progress                                   | ✅                                      |
 | Find-in-page, print, PDF viewing                          | ✅                                      |

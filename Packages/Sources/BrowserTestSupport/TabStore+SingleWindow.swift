@@ -103,8 +103,8 @@ extension TabStore {
     }
     public func clearActiveSpaceHistory() async { await clearActiveSpaceHistory(in: primaryWindow) }
     public func openHistoryEntry(_ url: URL) { openHistoryEntry(url, in: primaryWindow) }
-    public func promoteLittleArc(_ pane: Pane) -> UUID? {
-        promoteLittleArc(pane, in: primaryWindow)
+    public func promoteLittleChord(_ pane: Pane) -> UUID? {
+        promoteLittleChord(pane, in: primaryWindow)
     }
 
     // MARK: - Space swipe

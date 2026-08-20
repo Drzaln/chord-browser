@@ -20,7 +20,7 @@ final class ChordWebView: WKWebView {
     /// The URL of the most recently right-clicked link, resolved at click time.
     var contextLinkURL: (() -> URL?)?
     /// Invoked with that URL when the user chooses "Open in Little Chord".
-    var onOpenInLittleArc: ((URL) -> Void)?
+    var onOpenInLittleChord: ((URL) -> Void)?
     /// "Open Link in New Tab" — a background tab in this pane's own window.
     var onOpenInNewTab: ((URL) -> Void)?
     /// "Open Link in New Private Window".
@@ -43,7 +43,7 @@ final class ChordWebView: WKWebView {
             ),
             NSMenuItem(
                 title: "Open in Little Chord",
-                action: #selector(openInLittleArc(_:)), keyEquivalent: ""
+                action: #selector(openInLittleChord(_:)), keyEquivalent: ""
             ),
         ]
         for (offset, item) in items.enumerated() {
@@ -62,9 +62,9 @@ final class ChordWebView: WKWebView {
         }
     }
 
-    @objc private func openInLittleArc(_ sender: Any?) {
+    @objc private func openInLittleChord(_ sender: Any?) {
         guard let url = contextLinkURL?() else { return }
-        onOpenInLittleArc?(url)
+        onOpenInLittleChord?(url)
     }
 
     @objc private func openInNewTab(_ sender: Any?) {

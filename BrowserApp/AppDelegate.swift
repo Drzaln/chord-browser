@@ -20,12 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return CommandBarController(store: store)
     }()
 
-    /// Little Arc (4.6). Built lazily for the same reason as the command bar.
+    /// Little Chord (4.6). Built lazily for the same reason as the command bar.
     /// Also hosts the Peek panel — a link clicked in a favourite/pinned tab is
     /// the same floating, promotable panel (non-spec: user-requested).
-    private(set) lazy var littleArc: LittleArcController? = {
+    private(set) lazy var littleChord: LittleChordController? = {
         guard let store = launch.store else { return nil }
-        return LittleArcController(store: store)
+        return LittleChordController(store: store)
     }()
 
     /// Web notifications bridged to macOS Notification Center (non-spec:
@@ -128,22 +128,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // "Open in Little Chord" from a link's context menu routes here: the engine
         // asks the store, the store forwards to this presenter, which owns the
         // panel. Set once — the closure holds the controller lazily.
-        launch.store?.littleArcPresenter = { [weak self] url in
-            self?.littleArc?.present(url: url)
+        launch.store?.littleChordPresenter = { [weak self] url in
+            self?.littleChord?.present(url: url)
         }
 
         // The swipe-to-close path in the engine (a rightward swipe on a panel
         // page that has nothing to undo) asks the store, which forwards here to
         // dismiss the panel — the one browser surface that has no toolbar.
-        launch.store?.littleArcDismisser = { [weak self] in
-            self?.littleArc?.dismiss()
+        launch.store?.littleChordDismisser = { [weak self] in
+            self?.littleChord?.dismiss()
         }
 
         // A plain click on a link inside a favourite/pinned tab routes here:
         // engine → store (placement check) → this presenter. The panel lives in
         // the Space the click came from, so it arrives already logged in.
         launch.store?.peekPresenter = { [weak self] url, spaceID in
-            self?.littleArc?.present(url: url, inSpace: spaceID)
+            self?.littleChord?.present(url: url, inSpace: spaceID)
         }
 
         // Web notifications route engine (polyfill) → store → these hooks. The
@@ -172,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// A web link from another app opens in the Little Arc panel (4.6).
+    /// A web link from another app opens in the Little Chord panel (4.6).
     ///
     /// The panel is deliberately *not* a tab: most links from other apps are a
     /// glance, and promoting is one keystroke away.
@@ -182,20 +182,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if webLinks.count > 1 {
             // Several at once is a "open all of these" gesture, not a peek. They
-            // land in the window the user last focused (the same window Little Arc
+            // land in the window the user last focused (the same window Little Chord
             // promotion targets), falling back to the primary at a cold launch.
             for extra in webLinks.dropFirst() {
                 guard let store = launch.store else { break }
                 store.newTab(url: extra, in: store.focusedNonPrivateWindow)
             }
         }
-        littleArc?.present(url: url)
+        littleChord?.present(url: url)
     }
 
-    /// The Little Arc panel can be the only window there is (4.6), so the app
+    /// The Little Chord panel can be the only window there is (4.6), so the app
     /// must not quit when the main window closes while a panel is up.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // littleArc?.isVisible != true
+        // littleChord?.isVisible != true
         return false
     }
 

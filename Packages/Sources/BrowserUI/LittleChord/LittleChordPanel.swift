@@ -5,7 +5,7 @@ import AppKit
 /// Borderless and independent of the main window — it may appear when no main
 /// window exists at all, which is why it is a panel the app owns directly
 /// rather than anything hung off `RootView`.
-final class LittleArcPanel: NSPanel {
+final class LittleChordPanel: NSPanel {
     static let defaultSize = NSSize(width: 720, height: 560)
     static let minimumSize = NSSize(width: 560, height: 400)
 

@@ -9,7 +9,7 @@ This skill contains distilled knowledge from README.md, BROWSER_SPEC.md, and CHE
 
 ## Project Overview
 
-Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replicates Arc's interaction model (Spaces, vertical tabs, command bar, ephemeral tabs, split view, Little Arc) while running on Apple's WebKit engine. All spec milestones (M1–M7) plus native content blocking are shipped and verified.
+Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replicates Arc's interaction model (Spaces, vertical tabs, command bar, ephemeral tabs, split view, Little Chord) while running on Apple's WebKit engine. All spec milestones (M1–M7) plus native content blocking are shipped and verified.
 
 **Status:** 621 tests in 94 suites. Schema **v14**. `./scripts/prepush.sh` green. Post-spec additions have landed on top of M1–M7 (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site permissions, web notifications, YouTube ad skipping, General settings, the password vault (V1–V7), private windows, per-domain UA rules, file-backed logging, Arc-style Peek, user-renamed tabs, **`window.open()` popups as real web views** (keeps the `window.open()` reference; `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018), and **swipe-to-close** (rightward swipe on a pane with no back history closes the tab / Little Chord; WebKit's native gesture untouched, on-by-default flag in Settings → General → Gestures, `BackSwipeMonitor` in Engine).
 
@@ -25,8 +25,8 @@ Packages/Sources/
   BrowserPersistence/    GRDB, migrations, row types, mappers
   BrowserEngine/         The ONLY package importing WebKit (with BrowserExtensions)
   BrowserExtensions/     WKWebExtension host + .crx unpack + signature verdict stamping
-  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleArc/+Restore/+Find)
-  BrowserUI/             SwiftUI views + command bar and Little Arc panels. Never WebKit.
+  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleChord/+Restore/+Find)
+  BrowserUI/             SwiftUI views + command bar and Little Chord panels. Never WebKit.
   BrowserTestSupport/    Fakes, TabBuilder, TestHTTPServer
 Packages/Tests/
   Browser*Tests/         Unit tests per package

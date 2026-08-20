@@ -6,9 +6,9 @@ import Testing
 
 @testable import BrowserStore
 
-@Suite("Little Arc")
+@Suite("Little Chord")
 @MainActor
-struct LittleArcTests {
+struct LittleChordTests {
 
     private func makeStore() -> (TabStore, FakeWebEngine) {
         let engine = FakeWebEngine()
@@ -26,7 +26,7 @@ struct LittleArcTests {
         await store.restore()
         let before = store.tabs.count
 
-        let pane = store.makeLittleArcPane(url: link)
+        let pane = store.makeLittleChordPane(url: link)
 
         // Invisible to the sidebar, the sweep, and persistence — it is not in
         // `tabs` at all.
@@ -39,20 +39,20 @@ struct LittleArcTests {
         let (store, _) = makeStore()
         await store.restore()
 
-        let pane = store.makeLittleArcPane(url: link)
+        let pane = store.makeLittleChordPane(url: link)
 
         // Nothing is stored for a brand-new pane, so withholding its surface
         // would only cost a frame for a read that must come back empty.
-        #expect(store.littleArcSurface(for: pane) != nil)
+        #expect(store.littleChordSurface(for: pane) != nil)
     }
 
     @Test("The panel uses the active Space")
     func panelUsesActiveSpace() async {
         let (store, engine) = makeStore()
         await store.restore()
-        let pane = store.makeLittleArcPane(url: link)
+        let pane = store.makeLittleChordPane(url: link)
 
-        _ = store.littleArcSurface(for: pane)
+        _ = store.littleChordSurface(for: pane)
 
         // 4.6's point: a link arrives already logged in to whatever the active
         // Space is logged in to.
@@ -71,8 +71,8 @@ struct LittleArcTests {
         let clickSpace = store.addSpace(name: "Work")
         _ = store.addSpace(name: "Personal 2")
 
-        let pane = store.makeLittleArcPane(url: link)
-        _ = store.littleArcSurface(for: pane, in: clickSpace.id)
+        let pane = store.makeLittleChordPane(url: link)
+        _ = store.littleChordSurface(for: pane, in: clickSpace.id)
 
         #expect(engine.spaceForPane[pane.id] == clickSpace.id)
     }
@@ -83,11 +83,11 @@ struct LittleArcTests {
         await store.restore()
         let before = store.tabs.count
 
-        let pane = store.makeLittleArcPane(url: link)
-        _ = store.littleArcSurface(for: pane)
+        let pane = store.makeLittleChordPane(url: link)
+        _ = store.littleChordSurface(for: pane)
         #expect(engine.hasLiveView(paneID: pane.id))
 
-        let tabID = store.promoteLittleArc(pane)
+        let tabID = store.promoteLittleChord(pane)
 
         #expect(store.tabs.count == before + 1)
         #expect(store.selectedTabID == tabID)
@@ -102,8 +102,8 @@ struct LittleArcTests {
         let (store, _) = makeStore()
         await store.restore()
 
-        let pane = store.makeLittleArcPane(url: link)
-        _ = store.littleArcSurface(for: pane)
+        let pane = store.makeLittleChordPane(url: link)
+        _ = store.littleChordSurface(for: pane)
 
         // Follow a link inside the panel before promoting.
         let followed = URL(string: "https://example.com/followed")!
@@ -111,7 +111,7 @@ struct LittleArcTests {
             PaneSnapshot(url: followed, title: "Followed", isLoading: false)
         )
 
-        store.promoteLittleArc(pane)
+        store.promoteLittleChord(pane)
 
         #expect(store.selectedTab?.focusedPane.url == followed)
     }
@@ -122,24 +122,24 @@ struct LittleArcTests {
         await store.restore()
         let before = store.tabs.count
 
-        let pane = store.makeLittleArcPane(url: link)
-        _ = store.littleArcSurface(for: pane)
+        let pane = store.makeLittleChordPane(url: link)
+        _ = store.littleChordSurface(for: pane)
 
-        store.discardLittleArc(pane)
+        store.discardLittleChord(pane)
 
         #expect(!engine.hasLiveView(paneID: pane.id))
         #expect(store.tabs.count == before)
     }
 
-    @Test("Swipe-to-close on a Little Arc pane dismisses the panel")
-    func swipeCloseDismissesLittleArc() async {
+    @Test("Swipe-to-close on a Little Chord pane dismisses the panel")
+    func swipeCloseDismissesLittleChord() async {
         let (store, engine) = makeStore()
         await store.restore()
         var dismissed = false
-        store.littleArcDismisser = { dismissed = true }
+        store.littleChordDismisser = { dismissed = true }
 
-        let pane = store.makeLittleArcPane(url: link)
-        _ = store.littleArcSurface(for: pane)
+        let pane = store.makeLittleChordPane(url: link)
+        _ = store.littleChordSurface(for: pane)
         #expect(engine.hasLiveView(paneID: pane.id))
 
         store.paneRequestedSwipeClose(pane.id)

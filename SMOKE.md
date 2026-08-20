@@ -366,7 +366,7 @@ Automated coverage: `ClearBrowsingDataTests` (Store fan-out), `BrowsingDataType`
 - [x] An open tab in _another_ Space is findable, and its row names the Space
 - [x] Commands ("new space", "close tab") are reachable by name
 
-## M5 — Split view + Little Arc
+## M5 — Split view + Little Chord
 
 ### Split view
 
@@ -407,7 +407,7 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
 - [x] Pane widths survive quit and relaunch (a 4-pane tab restored equal-width,
       and lazily — no web view until it was shown)
 
-### Little Arc (§4.6)
+### Little Chord (§4.6)
 
 - [x] A web link from another app opens the floating panel, not a tab
 - [x] The panel appears at the cursor, borderless, over the main window
@@ -611,7 +611,7 @@ and the total oscillates around a flat mean. No leak signal.
 #### M5 re-run, 2026-07-23
 
 §8 gates every milestone on this, and the run above predates split view and
-Little Arc — both of which add live web views (a 4-pane tab is 4 at once).
+Little Chord — both of which add live web views (a 4-pane tab is 4 at once).
 Re-run with `scripts/soak.sh`, which did not exist before and is why the soak
 had been run exactly once: `seed` writes the fixture, `run` drives and samples.
 
@@ -1132,7 +1132,7 @@ switches for 30 minutes.
 
 Peek was reworked from the ⌘-hover preview into Arc-style: clicking a link
 inside a Favourite or Pinned tab lifts the click into the floating panel instead
-of navigating the protected page away. The panel is the same one Little Arc uses
+of navigating the protected page away. The panel is the same one Little Chord uses
 (promote with ⌘O, dismiss with Esc). Driving this by hand needs a page with a
 link inside a `.pinned`/`.bookmarked` tab.
 

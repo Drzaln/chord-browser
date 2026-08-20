@@ -681,7 +681,7 @@ struct MultiWindowTests {
         #expect(layouts[1].selectedTabID == second.selectedTabID)
     }
 
-    /// App-opened URLs and a promoted Little Arc tab used to always hit the
+    /// App-opened URLs and a promoted Little Chord tab used to always hit the
     /// primary; they now follow the window the user last focused.
     @Test("focusedWindow tracks the last-focused window, falling back to primary")
     func focusedWindowTracksLastFocused() async {

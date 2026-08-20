@@ -3,15 +3,15 @@ import BrowserCore
 import BrowserStore
 import SwiftUI
 
-/// Owns the Little Arc panel and its lifetime (4.6).
+/// Owns the Little Chord panel and its lifetime (4.6).
 ///
 /// One panel at a time: a second link replaces the first rather than stacking
 /// panels, which is what makes this feel like a peek rather than a window
 /// manager.
 @MainActor
-public final class LittleArcController {
+public final class LittleChordController {
     private let store: TabStore
-    private var panel: LittleArcPanel?
+    private var panel: LittleChordPanel?
     private var pane: Pane?
 
     public init(store: TabStore) {
@@ -25,15 +25,15 @@ public final class LittleArcController {
     /// `spaceID` picks which Space's data store the page uses, so a preview
     /// arriving from a click in a favourite is already logged in to that
     /// favourite's Space. `nil` means the primary window's active Space — the
-    /// Little Arc path.
+    /// Little Chord path.
     public func present(url: URL, inSpace spaceID: UUID? = nil) {
         dismiss()
 
-        let pane = store.makeLittleArcPane(url: url)
+        let pane = store.makeLittleChordPane(url: url)
         self.pane = pane
 
         let hosting = NSHostingController(
-            rootView: LittleArcView(
+            rootView: LittleChordView(
                 store: store,
                 pane: pane,
                 spaceID: spaceID,
@@ -42,12 +42,12 @@ public final class LittleArcController {
             )
         )
 
-        let panel = LittleArcPanel(contentViewController: hosting, size: store.littleArcPanelSize)
+        let panel = LittleChordPanel(contentViewController: hosting, size: store.littleChordPanelSize)
         panel.onDismiss = { [weak self] in self?.dismiss() }
         panel.onPromote = { [weak self] in self?.promote() }
         // The size the user just dragged the panel to is what the next panel
         // should open at (non-spec: user-requested).
-        panel.onResize = { [weak self] size in self?.store.littleArcPanelSize = size }
+        panel.onResize = { [weak self] size in self?.store.littleChordPanelSize = size }
         self.panel = panel
 
         position(panel)
@@ -66,7 +66,7 @@ public final class LittleArcController {
         // when the link arrived. A URL opened at a cold launch has no focused
         // window and falls back to the primary.
         let target = store.focusedNonPrivateWindow
-        store.promoteLittleArc(pane, in: target)
+        store.promoteLittleChord(pane, in: target)
 
         closePanel()
 
@@ -74,7 +74,7 @@ public final class LittleArcController {
         // back to any main-capable window if its NSWindow is somehow gone.
         NSApp.activate(ignoringOtherApps: true)
         let front = WindowRegistry.nsWindow(for: target)
-            ?? NSApp.windows.first { $0 is LittleArcPanel == false && $0.canBecomeMain }
+            ?? NSApp.windows.first { $0 is LittleChordPanel == false && $0.canBecomeMain }
         front?.makeKeyAndOrderFront(nil)
     }
 
@@ -82,7 +82,7 @@ public final class LittleArcController {
         if let pane {
             // Nothing else refers to this pane, so its web view has to go
             // explicitly or it lives as long as the app does.
-            store.discardLittleArc(pane)
+            store.discardLittleChord(pane)
             self.pane = nil
         }
         closePanel()
@@ -97,7 +97,7 @@ public final class LittleArcController {
     // MARK: - Placement and animation
 
     /// Centred on the cursor, then nudged to stay fully on its screen.
-    private func position(_ panel: LittleArcPanel) {
+    private func position(_ panel: LittleChordPanel) {
         let cursor = NSEvent.mouseLocation
         let size = panel.frame.size
         let screen = NSScreen.screens.first { $0.frame.contains(cursor) }
@@ -113,7 +113,7 @@ public final class LittleArcController {
     }
 
     /// Scale-and-fade in from the cursor (4.6), honouring Reduce Motion.
-    private func animateIn(_ panel: LittleArcPanel) {
+    private func animateIn(_ panel: LittleChordPanel) {
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
 
@@ -125,7 +125,7 @@ public final class LittleArcController {
         let final = panel.frame
         // Start small, centred on the same point, so it grows out of the cursor
         // rather than sliding in from a corner.
-        let scale = Motion.littleArcEntryScale
+        let scale = Motion.littleChordEntryScale
         let start = NSRect(
             x: final.midX - final.width * scale / 2,
             y: final.midY - final.height * scale / 2,
@@ -135,7 +135,7 @@ public final class LittleArcController {
         panel.setFrame(start, display: false)
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = Motion.littleArcEntryDuration
+            context.duration = Motion.littleChordEntryDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().setFrame(final, display: true)
             panel.animator().alphaValue = 1

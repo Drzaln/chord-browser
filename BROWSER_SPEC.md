@@ -44,7 +44,7 @@ deliberately small and closed — it replicates only what I actually use in Arc:
 | 3 | Ephemeral tabs | Unpinned tabs auto-close after a configurable idle window (default 12h) |
 | 4 | Command bar | Cmd+T overlay: navigate, search, jump to open tab, run commands |
 | 5 | Split view | 2–4 web views tiled in one tab, resizable, persisted |
-| 6 | Little Arc | Links from other apps open in a floating panel, promotable to a real tab |
+| 6 | Little Chord | Links from other apps open in a floating panel, promotable to a real tab |
 | 7 | Extensions | WKWebExtension-hosted MV3 extensions, loaded from unpacked directories |
 
 **Explicit non-goals.** No AI features. No Easels/Notes. No cross-device sync in
@@ -343,7 +343,7 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
 - Each pane has independent focus, navigation, and back/forward history.
 - Closing down to one pane converts the tab back to a normal tab.
 
-### 4.6 Little Arc
+### 4.6 Little Chord
 
 - App registers as an HTTP/HTTPS handler in `Info.plist`.
 - External link → borderless `NSPanel`, scale-and-fade in from cursor position.
@@ -714,7 +714,7 @@ archive.
 restore on launch, `WKDownload` handling with progress UI.
 *Done when:* force-quit and relaunch restores everything.
 
-**M5 — Split view + Little Arc.** Multi-pane tabs, URL handler, floating panel.
+**M5 — Split view + Little Chord.** Multi-pane tabs, URL handler, floating panel.
 
 **M6 — Polish.** Swipe-driven Space switching, cross-section drag-and-drop,
 animation tuning pass, find-in-page, print, PDF viewing.

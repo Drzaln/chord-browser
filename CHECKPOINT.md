@@ -13,7 +13,7 @@ only the current position within it.
 
 |                                  |                                                                                                                                                                                                   |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Completed**                    | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Arc, M6 Polish                                                                                       |
+| **Completed**                    | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Chord, M6 Polish                                                                                       |
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
@@ -49,14 +49,14 @@ rightward swipe ends on a pane whose `canGoBack` was **false at the start of the
 gesture** — that snapshot at `.began` is the guard against misreading a successful
 back navigation (which flips `canGoBack` false mid-swipe) as a failed one. The
 store routes the result: a pane owned by a tab closes the tab; a pane owned by no
-tab is a Little Arc panel and dismisses it. **Disable flag**: `Settings → General
+tab is a Little Chord panel and dismisses it. **Disable flag**: `Settings → General
 → Gestures`, persisted as `prefs.swipeToCloseEnabled` (default **on**), pushed to
 the engine which starts/stops the monitor — WebKit's default (the swipe just does
 nothing) is restored when off. Known trade-off, by design: on a page with no back
 history, a deliberate rightward *scroll* of wide content can read as a close —
 `BackSwipeDecision.commitDistance` (60 pt) and the horizontal-dominance guard are
 the tuning knobs. Tests: `BackSwipeMonitorTests`, the store routing cases in
-`TabStoreTests`/`LittleArcTests`, and `PreferencesTests` for the flag.
+`TabStoreTests`/`LittleChordTests`, and `PreferencesTests` for the flag.
 
 **AdBlock cannot block on WebKit — DNR rule limit (2026-07-25, diagnosis).**
 After the two fixes below, **Enhancer for YouTube works** (content script) and
@@ -428,8 +428,8 @@ Packages/Sources/
   BrowserCore/           value types + pure logic (ranking, sweep policy). Foundation only.
   BrowserPersistence/    GRDB, migrations, row types, mappers
   BrowserEngine/         the ONLY package importing WebKit
-  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleArc/+Restore/+Find)
-  BrowserUI/             SwiftUI + command bar and Little Arc panels. Never WebKit.
+  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleChord/+Restore/+Find)
+  BrowserUI/             SwiftUI + command bar and Little Chord panels. Never WebKit.
   BrowserTestSupport/    fakes, TabBuilder, TestHTTPServer
 Packages/Tests/
   Browser*Tests/         unit tests per package
@@ -488,7 +488,7 @@ own vertical tabs and do not want the system tab bar or its shortcut claims.
 **Any panel must size itself from its content, and say so twice.** This has now
 bitten in two milestones. Assigning `contentViewController` makes the window
 adopt that controller's _fitting_ size, and a web surface has no intrinsic
-height — Little Arc's panel opened at 105x37 until `setContentSize` was called
+height — Little Chord's panel opened at 105x37 until `setContentSize` was called
 _after_ the assignment.
 
 **The panel must size itself from its content.** It shipped in M3 with a fixed
@@ -509,7 +509,7 @@ and the bar would otherwise crawl upward as you type.
 - A divider drag must be measured in **`.global`** space and applied to the
   widths snapshotted at drag _start_. The divider moves as it resizes; local
   coordinates and accumulated deltas both make it run away from the cursor.
-- **Little Arc's page is an ordinary `Pane` that is in no `Tab`** — invisible to
+- **Little Chord's page is an ordinary `Pane` that is in no `Tab`** — invisible to
   the sidebar, the sweep, and persistence. It uses the active Space's data
   store, so a link arrives already logged in. Promotion reads the _current_ URL,
   not the one it opened with, then tears the panel's view down: nothing else
@@ -714,7 +714,7 @@ engageMaxX`, where `RootView` keeps `engageMaxX` at the sidebar's right edge —
 - **Every animation entry point already routes through one helper**,
   `Motion.respectingReduceMotion`, or honours the setting explicitly: the tab and
   Space-switch springs, the sidebar collapse, the progress bar, the swipe
-  release, and Little Arc's scale-in (which skips straight to `alphaValue = 1`
+  release, and Little Chord's scale-in (which skips straight to `alphaValue = 1`
   under Reduce Motion). This was an audit as much as a change — the discipline was
   already there.
 - **The sidebar reveal now _fades_ under Reduce Motion** rather than sliding.
@@ -990,7 +990,7 @@ see and drive tabs.
 - **Lifecycle gap closed.** The only runtime tab create/remove path that did not
   already notify the host was **`moveTab` across Spaces** — now fires
   `didClose(fromSpace)` + `didOpen(toSpace)`. Everything else already routes
-  through `newTab`/`closeTab`: Little Arc promotion calls `newTab`, drag-to-split
+  through `newTab`/`closeTab`: Little Chord promotion calls `newTab`, drag-to-split
   absorb and last-pane close call `closeTab`, and restored/adopted tabs are seen
   via the load-time `tabs(for:)` query (extensions load after restore). A
   same-Space split adds a pane to an existing `Tab`, so there is no extension-tab
@@ -1951,8 +1951,8 @@ you mean" is a compile error rather than a silent answer.
   `closeTab(id)` still compiled because the `in window:` *defaults* were still
   there. Both had to go.
 - Sites that legitimately have no originating window now say so out loud rather
-  than defaulting: `restore()` and `application(_:open:)` and Little Arc's
-  promote/surface all name `primaryWindow` with the reason. Little Arc promoting
+  than defaulting: `restore()` and `application(_:open:)` and Little Chord's
+  promote/surface all name `primaryWindow` with the reason. Little Chord promoting
   into the primary while a second window is focused is a **known limitation**,
   commented at the call site.
 - Two `WindowState? = nil` remain and are correct:
@@ -2082,7 +2082,7 @@ list is kept because it is what the batch was aimed at.
 1. **Empty area below the tab list is not a drop target** — a drop there is
    silently ignored, which reads as a broken drag. Most browsers accept a drop
    anywhere in the list. Small papercut, worth closing.
-2. **Little Arc and app-opened URLs land in the primary window**, never the
+2. **Little Chord and app-opened URLs land in the primary window**, never the
    focused one — the panel does not track a window. Commented at the call sites.
 3. **Dragging a tab onto a Space button does not prompt** on a cross-Space move,
    unlike every other cross-Space drag. Inconsistent; deliberately left.
@@ -2106,10 +2106,10 @@ tests). Not yet committed.
   (`.frame(maxHeight: .infinity)`, Spacer removed) so the drop target covers it;
   `insertionIndex(forY:)` already clamps to the end, so a drop there appends.
 
-- **#3 Little Arc / app-opened URLs → focused window** — the store now tracks
+- **#3 Little Chord / app-opened URLs → focused window** — the store now tracks
   the last-focused `WindowState` (`focusedWindow` / `windowDidBecomeFocused`,
   fed by RootView on `didBecomeKey`); `WindowRegistry` (BrowserUI) maps a
-  `WindowState` to its `NSWindow` for bring-forward. `LittleArcController.promote`
+  `WindowState` to its `NSWindow` for bring-forward. `LittleChordController.promote`
   and `AppDelegate.application(_:open:)` target `focusedWindow`, not the primary.
   Tested in `MultiWindowTests` (tracks last-focused; weak fallback to primary).
 
@@ -2490,7 +2490,7 @@ WebKit's own menu-item identifiers, the URL is read at click time).
 - **Open Link in New Private Window** → `paneRequestedPrivateWindow(url:)` →
   `markNextWindowPrivate(opening:)` + a new `privateWindowPresenter`, set by
   `AppRootView` because SwiftUI's `openWindow` exists only in a scene's
-  environment. Same shape as `littleArcPresenter`.
+  environment. Same shape as `littleChordPresenter`.
 
 **The URL rides on the enum case** — `WindowKind.private(url:)` — rather than in
 a second stored property beside the latch. The first cut had both cleared by one
@@ -2595,8 +2595,8 @@ popover. The peek pane is an ordinary pane, so its navigation hit the response
 policy, which turns anything WebKit cannot render into a `WKDownload`.
 
 Fixed with a pane-level flag: `WebEngine.setPreviewOnly(_:paneID:)`, set by a new
-`TabStore.peekSurface(for:)` and cleared in `discardLittleArc`. The response
-policy cancels instead of downloading for those panes. **Little Arc keeps the
+`TabStore.peekSurface(for:)` and cleared in `discardLittleChord`. The response
+policy cancels instead of downloading for those panes. **Little Chord keeps the
 ordinary behaviour** — you clicked a link to get there, and can click one inside
 it; a hover cannot consent to anything.
 
@@ -3218,7 +3218,7 @@ The shipped "Peek" was a ⌘-hover preview — hold ⌘ and rest on a link for a
 popover. It turned out to be what the user did **not** want, and the rework
 replaced it with Arc's actual Peek: **a plain left-click on a link inside a
 Favourite or Pinned tab lifts the click into a floating panel** instead of
-navigating the protected page away. The panel is the same one Little Arc uses —
+navigating the protected page away. The panel is the same one Little Chord uses —
 fully interactive, ⌘O promotes to a real tab, Esc dismisses.
 
 What changed:
@@ -3249,24 +3249,24 @@ What changed:
   3. For a synthesized click, WebKit can report `buttonNumber == 1` even though
      the user left-clicked — the gate excludes only the **middle** button
      (`buttonNumber != 2`) rather than requiring `buttonNumber == 0`.
-- **The panel remembers its size.** `Preferences.loadLittleArcPanelSize` /
+- **The panel remembers its size.** `Preferences.loadLittleChordPanelSize` /
   `save` (two `UserDefaults` doubles, like the sidebar width), exposed on
-  `TabStore.littleArcPanelSize`; the controller opens the panel at the saved size
+  `TabStore.littleChordPanelSize`; the controller opens the panel at the saved size
   and saves on `NSWindow.didEndLiveResizeNotification`. Listened on
   `didResize` first and the scale-and-fade entry animation shrank the panel a
   little on every open (each animation frame was persisted) — `didEndLiveResize`
-  fires only for a real user drag. `LittleArcPanel.minimumSize` was also raised
+  fires only for a real user drag. `LittleChordPanel.minimumSize` was also raised
   from 420×320 to **560×400**, and the panel clamps any remembered size to it so
   a stale value cannot shrink the panel.
-- **Space-aware panel surface.** `littleArcSurface(for:in:)` now takes the Space
+- **Space-aware panel surface.** `littleChordSurface(for:in:)` now takes the Space
   the click came from, so a Peek from a favourite in Space B is already logged in
   to Space B, not whatever the primary window is on. The controller passes the
   source tab's `spaceID` through `present(url:inSpace:)`.
 
 SMOKE section "Peek (link click in a favourite/pinned tab) — 2026-08-08" has the
-manual checklist; the store tests are `LittleArcRequestTests`
+manual checklist; the store tests are `LittleChordRequestTests`
 (`paneRequestedPeek` forwards url+space for a favourite, click-through for an
-ephemeral) and `LittleArcTests` (space-aware surface). Verified live by the user:
+ephemeral) and `LittleChordTests` (space-aware surface). Verified live by the user:
 LinkedIn job links and Gmail/Braincup GitHub links both peek now, and the panel
 holds its resized size across opens.
 

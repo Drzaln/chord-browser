@@ -124,7 +124,7 @@ public final class TabStore {
     /// primary in `focusedWindow`.
     @ObservationIgnored private weak var lastFocusedWindow: WindowState?
 
-    /// The window that app-opened URLs and a promoted Little Arc tab land in: the
+    /// The window that app-opened URLs and a promoted Little Chord tab land in: the
     /// one the user last focused, or the primary when none has been (a URL that
     /// opens the app cold). This is why those two used to always hit the primary —
     /// nothing tracked which window was current.
@@ -171,14 +171,14 @@ public final class TabStore {
         didSet { Preferences.save(newTabBehavior) }
     }
 
-    /// The Little Arc / Peek panel's size, as the user last left it (non-spec:
+    /// The Little Chord / Peek panel's size, as the user last left it (non-spec:
     /// user-requested). `nil` until the first resize; the controller falls back
     /// to the panel's built-in default.
-    public var littleArcPanelSize: CGSize? {
-        get { Preferences.loadLittleArcPanelSize(preferenceStore) }
+    public var littleChordPanelSize: CGSize? {
+        get { Preferences.loadLittleChordPanelSize(preferenceStore) }
         set {
             guard let newValue else { return }
-            Preferences.save(littleArcPanelSize: newValue, to: preferenceStore)
+            Preferences.save(littleChordPanelSize: newValue, to: preferenceStore)
         }
     }
 
@@ -226,7 +226,7 @@ public final class TabStore {
         userAgentOverrides.removeAll { $0.domain == domain }
     }
 
-    /// Swipe-right-with-no-history closes the tab / Little Arc panel
+    /// Swipe-right-with-no-history closes the tab / Little Chord panel
     /// (non-spec: user-requested experiment). Defaults to on; the setter pushes
     /// it to the engine, which starts or stops its back-swipe monitor.
     public var swipeToCloseEnabled: Bool = Preferences.loadSwipeToCloseEnabled() {
@@ -504,16 +504,16 @@ public final class TabStore {
     /// the restored Spaces to exist first.
     @ObservationIgnored public var afterRestore: (@MainActor () async -> Void)?
 
-    /// Opens a URL in the Little Arc floating panel. Injected by the app layer,
+    /// Opens a URL in the Little Chord floating panel. Injected by the app layer,
     /// which owns the panel; `nil` (and inert) until then. Used by the link
     /// context-menu action "Open in Little Chord" (non-spec: user-requested).
-    @ObservationIgnored public var littleArcPresenter: (@MainActor (URL) -> Void)?
+    @ObservationIgnored public var littleChordPresenter: (@MainActor (URL) -> Void)?
 
-    /// Dismisses the Little Arc / Peek panel. Injected by the app layer, which
+    /// Dismisses the Little Chord / Peek panel. Injected by the app layer, which
     /// owns the panel; inert until then. Used by the swipe-to-close path: the
     /// panel's page has no chrome of its own, so the gesture that closes it
     /// arrives through the engine rather than a toolbar.
-    @ObservationIgnored public var littleArcDismisser: (@MainActor () -> Void)?
+    @ObservationIgnored public var littleChordDismisser: (@MainActor () -> Void)?
 
     /// Opens a new browser window. Set by the scene layer, which is the only
     /// place SwiftUI's `openWindow` exists; the store only ever asks.
@@ -1420,13 +1420,13 @@ extension TabStore: WebEngineDelegate {
 
     public func paneRequestedSwipeClose(_ paneID: UUID) {
         // A pane that a tab owns closes the tab; a pane that belongs to no tab
-        // is a Little Arc panel's page, and it dismisses the panel instead.
+        // is a Little Chord panel's page, and it dismisses the panel instead.
         if let tabID = tabID(owning: paneID) {
             closeTab(tabID, in: window(showingPane: paneID))
             return
         }
-        discardLittleArc(paneID: paneID)
-        littleArcDismisser?()
+        discardLittleChord(paneID: paneID)
+        littleChordDismisser?()
     }
 
     public func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?) {
@@ -1443,16 +1443,16 @@ extension TabStore: WebEngineDelegate {
 
     public func paneRequestedPrivateWindow(url: URL) {
         // Opening a window is a scene concern, so the store marks the intent and
-        // the app layer performs it — the same shape as `littleArcPresenter`.
+        // the app layer performs it — the same shape as `littleChordPresenter`.
         markNextWindowPrivate(opening: url)
         privateWindowPresenter?()
     }
 
-    public func paneRequestedLittleArc(url: URL) {
-        // The Little Arc panel is owned by the app layer (AppDelegate), so the
+    public func paneRequestedLittleChord(url: URL) {
+        // The Little Chord panel is owned by the app layer (AppDelegate), so the
         // store forwards through an injected presenter rather than depending on
         // UI. No-op until it is wired — the same shape as `afterRestore`.
-        littleArcPresenter?(url)
+        littleChordPresenter?(url)
     }
 
     /// A plain left-click on a link inside a favourite/pinned tab (non-spec:
