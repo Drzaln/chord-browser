@@ -2374,6 +2374,22 @@ it is a WebKit compositing bug, not a page bug.
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
 
+### Release 1.1.3 (build 7) — tagged `v1.1.3` (2026-08-20)
+
+Bugfix release: **closing a tab now keeps the selection within the tab's own
+section** (favourites grid / Pinned list / loose tabs) instead of hopping into
+another tier. Root cause: `visibleTabs` sorts every section by one shared
+`order`, but each section renumbers independently from 0, so ties made the
+"neighbour in the closed slot" / "last remaining" fallback land on a tab from a
+different section — e.g. closing a loose tab with a favourite at an equal order
+focused the favourite rather than the adjacent loose tab. `closeTab` (the loose
+removal path) and `unloadTab` (the favourite/Pinned close path) both now prefer a
+same-section successor, falling back to the flat order only when the section
+empties. `MARKETING_VERSION`/`CFBundleShortVersionString` `1.1.2` → `1.1.3`,
+`CURRENT_PROJECT_VERSION`/`CFBundleVersion` `6` → `7` in
+`Browser.xcodeproj/project.pbxproj` and `BrowserApp/Info.plist`. Regression tests
+added to `PinnedTests`. 624 tests, 94 suites, prepush green.
+
 ### Release 1.1.2 (build 6) — tagged `v1.1.2` (2026-08-20)
 
 Bugfix release: **the command bar's search fallback now pins to the top of the
