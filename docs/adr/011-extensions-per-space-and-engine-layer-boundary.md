@@ -35,24 +35,24 @@ controller would share the store.
 
 ## The engine *layer* is the WebKit boundary
 
-§7.1 said `BrowserEngine` is the only package that imports WebKit. The extension
+§7.1 said `ChordEngine` is the only package that imports WebKit. The extension
 host also needs WebKit — it constructs `WKWebExtensionController`s — and folding
-it into `BrowserEngine` would make that package own two unrelated jobs (page
+it into `ChordEngine` would make that package own two unrelated jobs (page
 rendering and extension hosting), against §7.6's "no file/target doing two
 jobs."
 
-So there is a second WebKit importer, `BrowserExtensions`, and §7.1 is amended
-from "`BrowserEngine` is the only WebKit importer" to **"the engine *layer* is
+So there is a second WebKit importer, `ChordExtensions`, and §7.1 is amended
+from "`ChordEngine` is the only WebKit importer" to **"the engine *layer* is
 the WebKit boundary."** Both packages import WebKit; neither lets a `WK*` type
 cross into Store or UI. The rule that actually protects view code is unchanged:
-no framework type appears in any signature `BrowserUI` or `BrowserCore` can see.
+no framework type appears in any signature `ChordUI` or `ChordCore` can see.
 
 The seam is the same opaque-wrapper trick as `AnyWebSurface`:
 
-- `BrowserEngine` declares `ExtensionControllerHandle` — an opaque struct whose
+- `ChordEngine` declares `ExtensionControllerHandle` — an opaque struct whose
   `WKWebExtensionController` is *internal* to the engine — and a WebKit-free
   `ExtensionControllerProviding` protocol (`Space` in, opaque handle out).
-- `BrowserExtensions` owns `ExtensionHost` (WebKit-free) and the concrete
+- `ChordExtensions` owns `ExtensionHost` (WebKit-free) and the concrete
   `WebKitExtensionHost`, which builds the controllers and conforms to
   `ExtensionControllerProviding`.
 - The engine attaches `config.webExtensionController = handle.controller` when
@@ -60,9 +60,9 @@ The seam is the same opaque-wrapper trick as `AnyWebSurface`:
   seam.
 
 Because the provider and the host are both WebKit-free in their public surface,
-`AppEnvironment` — in the WebKit-free `BrowserStore` — wires the host to the
-engine without ever naming a `WK*` type. `BrowserStore` gains a dependency on
-`BrowserExtensions`; dependencies still flow downward (Store sits above both
+`AppEnvironment` — in the WebKit-free `ChordStore` — wires the host to the
+engine without ever naming a `WK*` type. `ChordStore` gains a dependency on
+`ChordExtensions`; dependencies still flow downward (Store sits above both
 Engine and Extensions).
 
 ## Flagged off while it is built
@@ -112,8 +112,8 @@ That cleaves 7.3 along a natural line:
   enforcement point (WebKit accepts MV2; the policy is ours, applied where the
   manifest is first parsed).
 - **7.3b — the tab/window model** needs tab state from `TabStore`, which sits
-  *above* `BrowserExtensions` — so a WebKit-free model protocol is defined in
-  `BrowserExtensions` and the Store conforms (inject downward, §3.5). It also
+  *above* `ChordExtensions` — so a WebKit-free model protocol is defined in
+  `ChordExtensions` and the Store conforms (inject downward, §3.5). It also
   needs a pane's live `WKWebView`, held privately by the engine, reached through
   an engine-layer accessor. And it cannot be trusted without a real extension in
   the real app (§11) — the loaded context has nothing observable until it has
@@ -128,7 +128,7 @@ host built the `WKWebExtensionController`, the engine only stored it, and
 `WKWebExtensionTab.webView(for:)` reverses that. It must return the pane's live
 `WKWebView`, which the engine owns, so the host has to read it — and an opaque
 wrapper cannot help, because WebKit wants the real view, not a box. So
-`BrowserEngine` exposes `PaneWebViewProviding` (`paneWebView(_:) -> WKWebView?`),
+`ChordEngine` exposes `PaneWebViewProviding` (`paneWebView(_:) -> WKWebView?`),
 which names `WKWebView` in its signature.
 
 This is allowed by the amendment above ("the two engine-layer packages may share

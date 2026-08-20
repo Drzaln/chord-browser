@@ -183,10 +183,10 @@ No third-party runtime beyond the Swift packages resolved automatically
 ### In Xcode
 
 ```bash
-open Browser.xcodeproj
+open Chord.xcodeproj
 ```
 
-Select the **Browser** scheme and run (`Cmd+R`).
+Select the **Chord** scheme and run (`Cmd+R`).
 
 ### From the command line
 
@@ -234,17 +234,17 @@ harmless: the app recreates a fresh `Data/Library` on next launch.
 ## Project layout
 
 ```
-BrowserApp/            The macOS app target (AppDelegate, entitlements, Info.plist)
-Browser.xcodeproj/     Xcode project wrapping the app + Swift packages
-Packages/              All logic, as a Swift package (BrowserPackages)
+ChordApp/            The macOS app target (AppDelegate, entitlements, Info.plist)
+Chord.xcodeproj/     Xcode project wrapping the app + Swift packages
+Packages/              All logic, as a Swift package (ChordPackages)
   Sources/
-    BrowserCore/         Value types, no WebKit — models, converters, ranking
-    BrowserPersistence/  GRDB-backed storage (history, tabs, spaces)
-    BrowserEngine/       The WebKit-importing layer (WKWebView, content blocking)
-    BrowserExtensions/   WKWebExtension host + .crx unpack + signature stamping
-    BrowserCrypto/       Security/CryptoKit — extension signature verification
-    BrowserStore/        App state store
-    BrowserUI/           SwiftUI views
+    ChordCore/         Value types, no WebKit — models, converters, ranking
+    ChordPersistence/  GRDB-backed storage (history, tabs, spaces)
+    ChordEngine/       The WebKit-importing layer (WKWebView, content blocking)
+    ChordExtensions/   WKWebExtension host + .crx unpack + signature stamping
+    ChordCrypto/       Security/CryptoKit — extension signature verification
+    ChordStore/        App state store
+    ChordUI/           SwiftUI views
   Tests/                 One test suite per source module
 scripts/               prepush.sh (local CI), soak.sh (memory soak harness)
 docs/adr/              Architecture Decision Records
@@ -253,7 +253,7 @@ CHECKPOINT.md          Living status log, updated with the work it describes
 SMOKE.md               Manual smoke-test checklists and soak measurements
 ```
 
-**Architectural rule:** WebKit is imported only inside `BrowserEngine` (and the
+**Architectural rule:** WebKit is imported only inside `ChordEngine` (and the
 extension/UI layers that need it). Compiled `WKContentRuleList`s and `WKWebView`s
 never leak above the engine boundary — everything above it works in plain value
 types. See [BROWSER_SPEC §3](BROWSER_SPEC.md) and [docs/adr/](docs/adr).

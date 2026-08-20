@@ -5,7 +5,7 @@ description: Periodic compatibility checks and selector upkeep for the built-in 
 
 # YouTube Ad Blocker Compatibility Check
 
-The ad blocker is a single injected user script (`Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift`) that is **inherently a cat-and-mouse game** — YouTube changes selectors on its own schedule, and there is no URL filter that can replace the script (ads share the same host and the same `<video>` as content). This skill is the recurring maintenance loop that keeps it working.
+The ad blocker is a single injected user script (`Packages/Sources/ChordEngine/YouTubeAdBlocker.swift`) that is **inherently a cat-and-mouse game** — YouTube changes selectors on its own schedule, and there is no URL filter that can replace the script (ads share the same host and the same `<video>` as content). This skill is the recurring maintenance loop that keeps it working.
 
 ---
 
@@ -136,7 +136,7 @@ let url = URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!
 
 // Pull the blocker source out of YouTubeAdBlocker.swift (best-effort regex).
 let src = try! String(contentsOfFile:
-    "Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift", encoding: .utf8)
+    "Packages/Sources/ChordEngine/YouTubeAdBlocker.swift", encoding: .utf8)
 let js = src
     .split(separator: "\n").drop(while: { !$0.contains("private static let source") })
     .dropFirst().dropLast().joined(separator: "\n")
@@ -180,7 +180,7 @@ Run from the repo root. Adjust the delay (e.g. 35 s) so a pre-roll has time to f
 ## Layer 3 — Visual Smoke (ground truth)
 
 `os.Logger` is unreadable on this machine, but AppLog mirrors every line to
-`Application Support/Browser/Logs/browser.log` (the `engine` category logs
+`Application Support/Chord/Logs/chord.log` (the `engine` category logs
 content-process deaths and navigation failures, which a screenshot can't show).
 Confirm the ad surfaces with screenshots in the real app:
 
@@ -203,7 +203,7 @@ Verify **each** of these is clean:
 
 ## What to Change When Something Broke
 
-All edits stay in `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift`:
+All edits stay in `Packages/Sources/ChordEngine/YouTubeAdBlocker.swift`:
 
 1. **Static ads visible** → update the `css` array (rename/replace dead selectors with the live ones from Layer 2).
 2. **Video ads not skipped / not fast-forwarded** →
@@ -222,7 +222,7 @@ All edits stay in `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift`:
 
 ### Tests
 
-`Packages/Tests/BrowserEngineTests/YouTubeAdBlockerTests.swift` asserts the injection shape (`.atDocumentStart`, all frames), anchors the source to `youtube`, `ad-showing`, and the `__chordYTAdBlock` singleton guard, checks the ad-mute save/restore (`video.muted = true`, `__chordAdMuted`, `__chordPrevMuted`), and anchors the wall handling (`ytd-enforcement-message-view-model`, `tp-yt-iron-overlay-backdrop`, `dismantleEnforcementWall`, `MutationObserver`). If a rewrite drops any of those anchors, update the test — but don't remove the anchors lightly; they're what make a refactor fail loudly.
+`Packages/Tests/ChordEngineTests/YouTubeAdBlockerTests.swift` asserts the injection shape (`.atDocumentStart`, all frames), anchors the source to `youtube`, `ad-showing`, and the `__chordYTAdBlock` singleton guard, checks the ad-mute save/restore (`video.muted = true`, `__chordAdMuted`, `__chordPrevMuted`), and anchors the wall handling (`ytd-enforcement-message-view-model`, `tp-yt-iron-overlay-backdrop`, `dismantleEnforcementWall`, `MutationObserver`). If a rewrite drops any of those anchors, update the test — but don't remove the anchors lightly; they're what make a refactor fail loudly.
 
 ```bash
 swift test --package-path Packages --filter YouTubeAdBlockerTests
@@ -255,7 +255,7 @@ Update the `bd` issue with what changed (or that nothing needed changing), and c
 
 | What | Where |
 |---|---|
-| Ad blocker script | `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift` |
-| Script registration | `Packages/Sources/BrowserEngine/WebKitEngine.swift:214` |
-| Tests | `Packages/Tests/BrowserEngineTests/YouTubeAdBlockerTests.swift` |
+| Ad blocker script | `Packages/Sources/ChordEngine/YouTubeAdBlocker.swift` |
+| Script registration | `Packages/Sources/ChordEngine/WebKitEngine.swift:214` |
+| Tests | `Packages/Tests/ChordEngineTests/YouTubeAdBlockerTests.swift` |
 | Full maintenance guide | `.agents/skills/chord-browser-maintenance/SKILL.md` |

@@ -2,7 +2,7 @@
 
 The project's user-facing name is **Chord**. The built app is `Chord.app` with a
 `Chord` executable (`PRODUCT_NAME = Chord`). The Xcode **target/scheme** name and
-the **bundle id** stay `Browser` / `com.rizal.browser` — see below.
+the **bundle id** stay `Chord` / `com.rizal.chord` — see below.
 
 ## Icon
 
@@ -25,22 +25,22 @@ the circle, the geometric "chord" the name plays on. Source of truth:
 - **App name / filename** — `PRODUCT_NAME = Chord` (project.pbxproj) → the bundle
   is `Chord.app` and the executable/process is `Chord`.
 - **Display name** — `CFBundleName` / `CFBundleDisplayName = "Chord"` in
-  `BrowserApp/Info.plist` (menu bar, Finder, Dock), and the window title in
-  `BrowserApp/BrowserApp.swift`.
-- **Not changed on purpose:**
-  - **Bundle identifier** stays `com.rizal.browser`. It keys the on-disk profile
-    (cookies, Spaces, extensions, granted permissions). Changing it orphans all
-    existing user data.
-  - **Xcode target and scheme** stay named `Browser` — the scheme is referenced
-    by `scripts/prepush.sh` (`-scheme Browser`) and renaming it is invasive for
-    no user-visible gain (`PRODUCT_NAME` already controls the app's name).
+  `ChordApp/Info.plist` (menu bar, Finder, Dock), and the window title in
+  `ChordApp/ChordApp.swift`.
+- **Renamed from `Browser` in one pass** (the codebase's old internal name):
+  - **Bundle identifier** is `com.rizal.chord` (was `com.rizal.browser`). Note:
+    it keys the on-disk profile (cookies, Spaces, extensions, granted
+    permissions) and Application Support folder, so changing it orphans any
+    data saved under the old bundle id / folder.
+  - **Xcode target and scheme** are named `Chord` — the scheme is referenced
+    by `scripts/prepush.sh` (`-scheme Chord`).
 
 ## App icon — wiring (one manual Xcode step)
 
 A ready `AppIcon.appiconset` is generated at
-`BrowserApp/Assets.xcassets/AppIcon.appiconset`. To make the build use it:
+`ChordApp/Assets.xcassets/AppIcon.appiconset`. To make the build use it:
 
-1. In Xcode, add the `BrowserApp/Assets.xcassets` catalog to the **Browser**
+1. In Xcode, add the `ChordApp/Assets.xcassets` catalog to the **Chord**
    target (drag it in, or File → Add Files, ensuring target membership).
 2. Set the target's **App Icon Set** to `AppIcon` (General → App Icons, or the
    `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` build setting).

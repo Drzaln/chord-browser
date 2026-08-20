@@ -63,29 +63,29 @@ design from pretending an unachievable guarantee.
 5. Never fill a **hidden or off-screen** field, and never a field the page moved
    under the pointer after the click began.
 6. Secrets never touch the model layer as plaintext beyond the moment of use, and
-   never enter `browser.sqlite`, logs, or `interactionState`.
+   never enter `chord.sqlite`, logs, or `interactionState`.
 
 ## Where the code goes
 
 The module rules (§3.5) decide most of this. One new package, for the same reason
-`BrowserExtensions` exists (ADR 011): a distinct OS-framework boundary earns its
+`ChordExtensions` exists (ADR 011): a distinct OS-framework boundary earns its
 own target rather than being folded into a package doing another job.
 
 ```
-BrowserSecrets/       The ONLY importer of Security / LocalAuthentication for
+ChordSecrets/       The ONLY importer of Security / LocalAuthentication for
                       the vault's keychain access and unlock gate.
-                      No WebKit, no UI, no SQLite. (BrowserCrypto — ADR 017 — is
+                      No WebKit, no UI, no SQLite. (ChordCrypto — ADR 017 — is
                       the other Security importer, for extension signatures.)
-BrowserCore/          Credential *metadata* value types, origin-matching rules,
+ChordCore/          Credential *metadata* value types, origin-matching rules,
                       form-field classification heuristics — all pure, all
                       testable without a keychain or a web view. Foundation only.
-BrowserPersistence/   Metadata rows only (origin, username, timestamps, last-used
+ChordPersistence/   Metadata rows only (origin, username, timestamps, last-used
                       Space). NEVER the secret.
-BrowserEngine/        The page-side half: a user script that finds login forms,
+ChordEngine/        The page-side half: a user script that finds login forms,
                       reports them, and fills on command. Same family as
                       MediaActivityMonitor / NotificationBridge (ADR 008, 015).
-BrowserStore/         Policy: what to offer, when to prompt, what to remember.
-BrowserUI/            The save bar, the credential picker, Settings management.
+ChordStore/         Policy: what to offer, when to prompt, what to remember.
+ChordUI/            The save bar, the credential picker, Settings management.
 ```
 
 The split that matters: **metadata in SQLite, secret in the Keychain**, joined by
@@ -141,14 +141,14 @@ data" paths cannot accidentally take the vault with them.
 - **Ad-hoc signing costs a Keychain prompt after every rebuild (found 2026-07-31,
   live).** A saved password read back by a *rebuilt* app raises the system
   "Chord wants to use your confidential information stored in
-  com.rizal.browser.vault" dialog, asking for the login-keychain password. The
+  com.rizal.chord.vault" dialog, asking for the login-keychain password. The
   item's ACL trusts the code identity that created it, and an ad-hoc signature
   changes on every build. The V1 probe missed this: it tested one rebuild and got
   away with it.
 
   **A stable self-signed certificate was tried and abandoned (2026-07-31).** The
   theory was sound — signing with one certificate makes the designated
-  requirement `identifier "com.rizal.browser" and certificate root = H"…"`, which
+  requirement `identifier "com.rizal.chord" and certificate root = H"…"`, which
   is identical before and after a rebuild, so the ACL keeps matching. That part
   worked. What killed it was the **Debug bundle's nested `Chord.debug.dylib`**:
   re-signing the app leaves the dylib on its old signature, and dyld then refuses
@@ -179,7 +179,7 @@ data" paths cannot accidentally take the vault with them.
 1. `PasswordFormMonitor` (user script, `atDocumentStart`, **main frame only**)
    *collects* a descriptor per input — type, `autocomplete`, name, id, label,
    visibility — and posts them. It makes no decisions: `LoginFormClassifier` in
-   `BrowserCore` does, so the judgement is testable against captured markup with
+   `ChordCore` does, so the judgement is testable against captured markup with
    no browser involved.
 
    **What a spike against real sites found (2026-07-31)**, each of which would
@@ -201,7 +201,7 @@ data" paths cannot accidentally take the vault with them.
    not-yet-revealed field in one rule.
 2. If a credential exists for the exact origin, the field gets a small affordance.
    Clicking it — a user gesture, rule 4 — asks the store, which asks
-   `BrowserSecrets`, which returns the secret for exactly one fill.
+   `ChordSecrets`, which returns the secret for exactly one fill.
 3. The script sets the values and dispatches `input`/`change` so frameworks
    notice. React-controlled inputs need the native setter dance, which is the one
    fiddly part and the reason this needs an e2e test rather than a unit test.
@@ -229,10 +229,10 @@ shape that has worked here.
 
 | Phase | Scope | Done when |
 |---|---|---|
-| **V1** | `BrowserSecrets` + models + origin matching, **written with the biometric access control from the start**. No UI. | A credential round-trips through the Keychain in a test, and the origin matcher rejects every near-miss in its table |
+| **V1** | `ChordSecrets` + models + origin matching, **written with the biometric access control from the start**. No UI. | A credential round-trips through the Keychain in a test, and the origin matcher rejects every near-miss in its table |
 | **V2** | Metadata schema (v12) + repository | Migration has a fixture test; deleting a credential leaves no orphan row or orphan Keychain item |
 | **V3** | Form detection user script + classification | The classifier scores a corpus of real login pages; the e2e server serves one and the script reports it |
-| **V4** | Fill on gesture, incl. the framework-setter path | End-to-end against a real page in `BrowserE2ETests`: fill, submit, session established |
+| **V4** | Fill on gesture, incl. the framework-setter path | End-to-end against a real page in `ChordE2ETests`: fill, submit, session established |
 | **V5** | Capture + save bar | Logging in on the test page offers to save; relaunch offers it back |
 | **V6** | Settings management: list, reveal (gated), delete, "never" list | Every stored item is visible and removable; nothing is reachable that the list does not show |
 | **V7** | Lock UI + auto-lock policy (the storage half landed in V1) | Idle, sleep, and screen-lock all lock the vault; a denied or cancelled auth fills nothing and says so; no enrolled biometry falls back to the device passcode |

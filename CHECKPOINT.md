@@ -17,7 +17,7 @@ only the current position within it.
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `BrowserCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
+| **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. Known cost, accepted: an ad-hoc-signed rebuild raises one login-keychain dialog when reading a saved password — click **Always Allow**. Self-signed signing was tried and reverted (see the design doc). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
 | **Tests**                        | **621 passing** (`swift test`, 94 suites), measured 2026-08-18                                                                                                                                |
@@ -97,17 +97,17 @@ coordinated changes (verified live):
   type-check in reasonable time"). The material only reads as glass because the
   window is non-opaque; the web content card stays opaque so pages are unaffected.
 
-**Rebrand → "Chord" (2026-07-25).** User-facing name is now **Chord
-Browser** (icon: a white chord across a coral→magenta gradient circle,
+**Rebrand → "Chord" (2026-07-25).** User-facing name is now **Chord**
+(icon: a white chord across a coral→magenta gradient circle,
 `#FF512F`→`#DD2476`). Applied **display-only** to avoid data loss:
 
 - `CFBundleDisplayName = "Chord"` (Info.plist) + window title in
-  `BrowserApp.swift`. `PRODUCT_NAME`/target stay `Browser`; **bundle id stays
-  `com.rizal.browser`** — it keys the on-disk profile, so renaming it orphans
+  `ChordApp.swift`. `PRODUCT_NAME`/target stay `Chord`; **bundle id stays
+  `com.rizal.chord`** — it keys the on-disk profile, so renaming it orphans
   cookies/Spaces/extensions.
 - Brand assets + rationale in `docs/branding/` (`chord-icon.svg`,
   `chord-icon-1024.png`, `BRANDING.md`). A ready `AppIcon.appiconset` is at
-  `BrowserApp/Assets.xcassets/` but **needs a manual Xcode step** to wire (add
+  `ChordApp/Assets.xcassets/` but **needs a manual Xcode step** to wire (add
   the catalog to the target + set the app-icon name — both are `project.pbxproj`
   changes this repo excludes from commits).
 - Icon is a circle on transparent; macOS masks to a squircle so it floats. A
@@ -286,9 +286,9 @@ re-presents over an open bar (the `@FocusState` stale-true trap — read that
 section before touching `CommandBarView.reset()`). Before it, **file-backed
 logging** (2026-08-06)
 — every `os.Logger` line is now mirrored to a rotating file in
-`Application Support/Browser/Logs/browser.log`, because `log show`/`log stream`
+`Application Support/Chord/Logs/chord.log`, because `log show`/`log stream`
 have never been readable on this machine (all previous debugging went through
-screenshots). Read that section before touching the `BrowserLogging` package or
+screenshots). Read that section before touching the `ChordLogging` package or
 any `Log.*` call site. Before it, **per-domain User-Agent rules**
 (§9.6, 2026-08-01) — read that section for the two traps it turned up, one of
 which (`customUserAgent` reading back as `""`) breaks navigation outright. Before
@@ -315,7 +315,7 @@ section below). Still never run: the full Instruments GUI trace and sidebar-scro
 ## Vault rules you must not break
 
 - **Secrets never enter SQLite, logs, or observable state.** Metadata rows in
-  `credential`; passwords in the Keychain via `BrowserSecrets`, joined by id.
+  `credential`; passwords in the Keychain via `ChordSecrets`, joined by id.
   `CredentialSavePrompt` deliberately has no password field — the secret sits in a
   private side table on `TabStore`.
 - **Fill matching is exact origin equality** (scheme + host + port). No
@@ -370,7 +370,7 @@ change every build and the item's ACL trusts the creating identity. Click "Alway
 Allow". Self-signed signing was tried and reverted — read that section before
 suggesting it again.
 
-Stage with `git add -A ':!Browser.xcodeproj/project.pbxproj'` and commit/push ONLY
+Stage with `git add -A ':!Chord.xcodeproj/project.pbxproj'` and commit/push ONLY
 when the user asks. Update CHECKPOINT.md in the same commit as the work it
 describes.
 ```
@@ -385,13 +385,13 @@ Builds all packages, runs all tests, builds the app. Warnings are errors.
 Manual checks live in [SMOKE.md](SMOKE.md).
 
 The app is sandboxed; runtime data lives at
-`~/Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser/`.
-Inspecting `browser.sqlite` with `sqlite3` is the quickest way to confirm real
+`~/Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord/`.
+Inspecting `chord.sqlite` with `sqlite3` is the quickest way to confirm real
 behaviour after driving the UI.
 
 **Never `cp` that database to back it up, and never restore one next to a
 stale `-wal`.** GRDB runs in WAL mode: recent commits live in
-`browser.sqlite-wal`, so a copy of the main file alone is stale, and dropping
+`chord.sqlite-wal`, so a copy of the main file alone is stale, and dropping
 it back beside a _newer_ WAL replays that WAL over an older database. That
 corrupted the store on 2026-07-23 and took a `sqlite3 .recover` pass to undo
 (history and archive survived; the tab list did not). Use `.backup` to snapshot
@@ -403,9 +403,9 @@ Accessibility automation **is** granted on this machine, and it is how the
 command bar was verified. This works:
 
 ```bash
-osascript -e 'tell application "System Events" to tell process "Browser" to set frontmost to true'
+osascript -e 'tell application "System Events" to tell process "Chord" to set frontmost to true'
 osascript -e 'tell application "System Events" to keystroke "t" using command down'
-osascript -e 'tell application "System Events" to tell process "Browser" to return count of windows'
+osascript -e 'tell application "System Events" to tell process "Chord" to return count of windows'
 ```
 
 Window count is the cheapest signal: 1 = main window only, 2 = command bar open.
@@ -423,26 +423,26 @@ read its text you need a screenshot.
 ## Where things are
 
 ```
-BrowserApp/              @main, AppDelegate, debug overlay (Cmd+Ctrl+P, DEBUG only)
+ChordApp/              @main, AppDelegate, debug overlay (Cmd+Ctrl+P, DEBUG only)
 Packages/Sources/
-  BrowserCore/           value types + pure logic (ranking, sweep policy). Foundation only.
-  BrowserPersistence/    GRDB, migrations, row types, mappers
-  BrowserEngine/         the ONLY package importing WebKit
-  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleChord/+Restore/+Find)
-  BrowserUI/             SwiftUI + command bar and Little Chord panels. Never WebKit.
-  BrowserTestSupport/    fakes, TabBuilder, TestHTTPServer
+  ChordCore/           value types + pure logic (ranking, sweep policy). Foundation only.
+  ChordPersistence/    GRDB, migrations, row types, mappers
+  ChordEngine/         the ONLY package importing WebKit
+  ChordStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleChord/+Restore/+Find)
+  ChordUI/             SwiftUI + command bar and Little Chord panels. Never WebKit.
+  ChordTestSupport/    fakes, TabBuilder, TestHTTPServer
 Packages/Tests/
-  Browser*Tests/         unit tests per package
-  BrowserE2ETests/       full stack: real engine + real SQLite + real HTTP
+  Chord*Tests/         unit tests per package
+  ChordE2ETests/       full stack: real engine + real SQLite + real HTTP
 docs/adr/                why the non-obvious calls were made
 ```
 
 ## Invariants — do not break these
 
-1. **No `WK*` type in `BrowserEngine`'s public interface.** UI sees web content
+1. **No `WK*` type in `ChordEngine`'s public interface.** UI sees web content
    only as `AnyWebSurface`. Resist adding a JS-eval method to observe pages —
    the e2e tests report through the page title instead, precisely to avoid it.
-2. **`BrowserCore` imports Foundation and nothing else.** The interesting logic
+2. **`ChordCore` imports Foundation and nothing else.** The interesting logic
    (fuzzy ranking, sweep eligibility) lives there as pure functions, which is
    why it is testable without a UI, a clock, or WebKit.
 3. **Restore is lazy.** N saved tabs must create 0 web views. Asserted in unit
@@ -453,7 +453,7 @@ docs/adr/                why the non-obvious calls were made
 6. **Per-view `WKUserContentController`.** `WKWebViewConfiguration.copy()` shares
    it, and a duplicate script-handler name throws and kills the app on the
    second tab. ADR 008.
-7. **Keyboard shortcuts live in `BrowserCommands` only.** A view-level
+7. **Keyboard shortcuts live in `ChordCommands` only.** A view-level
    `.keyboardShortcut` is handled in the window's responder chain and silently
    beats the menu item with the same key. See "Keyboard shortcut hazards".
 8. **Never persist `Codable` app models.** Row types + mappers only.
@@ -471,7 +471,7 @@ All three of these cost real debugging time. They are not obvious from the code.
 - A SwiftUI **view-level `.keyboardShortcut` beats a menu item** with the same
   key. A leftover `Cmd+T` on the sidebar's New Tab button silently swallowed the
   command bar shortcut and quietly opened tabs instead. Shortcuts belong in
-  `BrowserCommands`.
+  `ChordCommands`.
 - A focused **`TextField` consumes Return** for its own submit, and **ignores
   Cmd+Return entirely** — `onSubmit`, `onKeyPress`, and a scoped
   `.keyboardShortcut(.return, modifiers: .command)` all fail to see it. Cmd+Enter
@@ -522,7 +522,7 @@ Both ends of the drag are AppKit and both are ours. That is the whole fix.
 - **The source is `TabDragSource`**, an `NSView` overlaid on the sidebar row
   that starts a `beginDraggingSession` with an `NSPasteboardItem`. SwiftUI's
   `onDrag` is what held this up for a milestone: its `NSItemProvider` reaches
-  the destination with `com.rizal.browser.tab` advertised on the pasteboard and
+  the destination with `com.rizal.chord.tab` advertised on the pasteboard and
   **zero bytes** behind it — `data(forType:)` returns empty `Data`, not nil, via
   both the pasteboard and `pasteboardItems`. A lazy `registerDataRepresentation`
   and an eager `NSItemProvider(item:typeIdentifier:)` both do it. Do not go back
@@ -546,7 +546,7 @@ Both ends of the drag are AppKit and both are ours. That is the whole fix.
   it in `draggingSession(_:endedAt:operation:)` let a mouse-up arriving
   afterwards read as a plain click, so ending _any_ drag also selected the row
   that had just been dragged.
-- Tests cover the payload only (`BrowserUITests`). **No test covers the drag**,
+- Tests cover the payload only (`ChordUITests`). **No test covers the drag**,
   and the one that would have mattered cannot be written: the empty-payload bug
   only happens inside a live drag session. It was found, and the fix verified,
   by driving the real app — see SMOKE.md.
@@ -697,7 +697,7 @@ engageMaxX`, where `RootView` keeps `engageMaxX` at the sidebar's right edge —
 - **The sandbox needs `com.apple.security.print`.** Without it the print system
   is refused and you get the _same_ "does not support printing" alert even with
   the correct call — which is the trap, since it looks identical to the code bug.
-  Added to `Browser.entitlements`. `swift test` runs unsandboxed and cannot catch
+  Added to `Chord.entitlements`. `swift test` runs unsandboxed and cannot catch
   this; it was found and the fix confirmed by driving the real app (the print
   panel with a live page preview now appears). Re-verify by hand after touching
   entitlements — no automated test covers it, exactly as with downloads.
@@ -819,21 +819,21 @@ Two things worth knowing:
   identifier — the storage isolation lives on the controller's config, so
   per-Space _contexts_ on a shared controller would not isolate. A private Space
   gets `.nonPersistent()`.
-- **The engine layer is the WebKit boundary now, not just `BrowserEngine`.**
+- **The engine layer is the WebKit boundary now, not just `ChordEngine`.**
   §7.1 was amended: the extension host is a _second_ WebKit importer,
-  `BrowserExtensions` (imports Core + Engine), rather than bloating the engine
+  `ChordExtensions` (imports Core + Engine), rather than bloating the engine
   with an unrelated job. The two engine-layer packages share `WK*` types with
   each other; nothing WebKit-shaped crosses into Store or UI.
-- **The seam is the `AnyWebSurface` trick.** `BrowserEngine` declares
+- **The seam is the `AnyWebSurface` trick.** `ChordEngine` declares
   `ExtensionControllerHandle` (opaque; its `WKWebExtensionController` is
   _internal_ to the engine) and a WebKit-free `ExtensionControllerProviding`
   protocol. `WebKitEngine.makeWebView` sets `config.webExtensionController =
 handle.controller` when the provider has one for the Space, unwrapping on its
-  own side. `WebKitExtensionHost` (in `BrowserExtensions`) builds the
+  own side. `WebKitExtensionHost` (in `ChordExtensions`) builds the
   controllers and conforms to the provider.
 - **`AppEnvironment` wires it without importing WebKit** — provider and host are
-  WebKit-free in their public surface. `BrowserStore` gained a dependency on
-  `BrowserExtensions`; dependencies still flow downward. The host is retained by
+  WebKit-free in their public surface. `ChordStore` gained a dependency on
+  `ChordExtensions`; dependencies still flow downward. The host is retained by
   `AppEnvironment` (the engine holds the provider `weak`).
 - **Behind a flag** (§7.4): new `FeatureFlags` in Core, `extensionsEnabled`
   default off. With it off `AppEnvironment` builds no host and attaches no
@@ -842,7 +842,7 @@ handle.controller` when the provider has one for the Space, unwrapping on its
 - **SPM platform floor raised `.v15` → `15.4`** to match the documented hard
   floor (§2/§7.3) so the extension API is available without scattering
   `if #available`. The app target was already 15.4.
-- **Tests** (`BrowserExtensionsTests/PerSpaceControllerTests`, 6): per-Space
+- **Tests** (`ChordExtensionsTests/PerSpaceControllerTests`, 6): per-Space
   controller identity and isolation, idempotent `prepare`, nil handle before
   `prepare`, persistent-vs-private configuration. The isolation test was
   confirmed to go red against a deliberately shared-controller bug, then
@@ -873,7 +873,7 @@ handle.controller` when the provider has one for the Space, unwrapping on its
   `installedExtensions()`, `remove(slug:)` over the on-disk library. Slug from
   the source filename stem, sanitised so a hostile name cannot escape the
   directory. Reinstalling overwrites in place. It is WebKit-free — pure file +
-  byte work — living in `BrowserExtensions` because that is the subsystem.
+  byte work — living in `ChordExtensions` because that is the subsystem.
 - **MV3 enforcement is deferred to load (7.3).** Nothing in 7.2 reads inside the
   ZIP; `WKWebExtension.manifestVersion` is where "MV3 only" gets enforced (WebKit
   itself accepts MV2, so it is our policy at load, not WebKit's).
@@ -923,10 +923,10 @@ see and drive tabs.
   Space's controller sees exactly its Space's tabs. In a split, the extension
   sees the focused pane — the one the user is reading, like find (§4.1).
 - **The seam runs three ways.** (1) A WebKit-free `ExtensionTabModel` protocol is
-  defined _in_ `BrowserExtensions` and `TabStore` conforms
+  defined _in_ `ChordExtensions` and `TabStore` conforms
   (`TabStore+Extensions.swift`) — the adapters sit below the Store, so tab state
   is injected downward (§3.5). (2) `webView(for:)` must return a pane's live
-  `WKWebView`, which the engine holds privately, so `BrowserEngine` gained a
+  `WKWebView`, which the engine holds privately, so `ChordEngine` gained a
   `PaneWebViewProviding` protocol (WebKit-typed, kept **off** the `WebEngine`
   protocol; `AppEnvironment` forwards it as an existential without naming
   `WKWebView`). This is the one place the boundary runs Engine→Extensions; the
@@ -978,7 +978,7 @@ see and drive tabs.
   no existing data touched. Schema is now **v4**.
 - **`ExtensionEnablementRepository`** in Core (WebKit-free, beside the other repo
   protocols), `SQLiteExtensionEnablementRepository` in Persistence.
-- **`ExtensionsService`** (BrowserStore, WebKit-free) coordinates the three
+- **`ExtensionsService`** (ChordStore, WebKit-free) coordinates the three
   parts: `ExtensionInstaller` (library), `ExtensionHost` (load/unload), and the
   enablement repo. `enable` = load **then** persist (a bundle that fails to load
   is not left marked on); `disable` = unload then unpersist; `restoreEnabled`
@@ -1006,7 +1006,7 @@ see and drive tabs.
 First slice of 7.5. Builds the WebKit-free action surface the sidebar header
 (7.5b) will render; no UI yet.
 
-- **`ExtensionActionSnapshot`** (BrowserExtensions, WK-free): slug, spaceID,
+- **`ExtensionActionSnapshot`** (ChordExtensions, WK-free): slug, spaceID,
   `label`, `badgeText`, `presentsPopup`, `enabled`, `icon` as pre-rendered PNG
   `Data?`. The live `WKWebExtension.Action` never leaves the host — the icon is
   rasterised to PNG inside the host (`NSImage` → `NSBitmapImageRep` → PNG) so no
@@ -1037,7 +1037,7 @@ First slice of 7.5. Builds the WebKit-free action surface the sidebar header
 The first extension UI. Behind `extensionsEnabled`, so with the flag off the
 sidebar header is byte-for-byte what it was.
 
-- **`ExtensionActionsBar`** (BrowserUI/Sidebar) renders one button per action in
+- **`ExtensionActionsBar`** (ChordUI/Sidebar) renders one button per action in
   the active Space, in the header between the spacer and the collapse button. It
   reads `store.extensionActionsToken` to observe 7.5a's change signal and
   `store.activeSpace` to rescope, then queries `host.actions(in:)`. Icons come
@@ -1056,12 +1056,12 @@ sidebar header is byte-for-byte what it was.
   a removed button clears itself with no explicit unregister. Both a user click
   and an extension-initiated popup resolve the anchor by `locate(context)` →
   (Space, slug) → the weak view.
-- **Layering:** `BrowserUI` now depends on `BrowserExtensions` (to name
-  `ExtensionActionSnapshot` and `any ExtensionHost`) — same as `BrowserStore`
-  already does, and `BrowserExtensions`' public surface stays WebKit-free so UI
+- **Layering:** `ChordUI` now depends on `ChordExtensions` (to name
+  `ExtensionActionSnapshot` and `any ExtensionHost`) — same as `ChordStore`
+  already does, and `ChordExtensions`' public surface stays WebKit-free so UI
   imports no `WK*` type. The `NSView` anchor lives on the `ExtensionHost`
-  protocol; `BrowserStore` is untouched and still imports no AppKit. `RootView`
-  and `SidebarView` gained an `extensionHost` param (default `nil`); `BrowserApp`
+  protocol; `ChordStore` is untouched and still imports no AppKit. `RootView`
+  and `SidebarView` gained an `extensionHost` param (default `nil`); `ChordApp`
   passes `environment.extensionHost`.
 - **API note:** the click/popup entry point is
   `context.performAction(for:)` (verified in the SDK header — it triggers an
@@ -1120,7 +1120,7 @@ extension actually do anything.
 - **Wiring:** `AppEnvironment` sets `host.permissionsRepository =
 SQLiteGrantedPermissionsRepository(...)` and
   `host.onPermissionRequest = { store.pendingPermissionRequests.append($0) }`.
-  `BrowserStore` still imports no AppKit/WebKit — the whole surface is WK-free
+  `ChordStore` still imports no AppKit/WebKit — the whole surface is WK-free
   values.
 - **Tests:** 5 persistence (v5 migration, round-trip across all three kinds,
   idempotency, `revokeAll` scoping, per-Space) + 1 Store (resolve forwards to
@@ -1172,7 +1172,7 @@ affordance the 7.5c live finding showed was needed.
   in** (ADR 011), which the panel makes visible. **Memory itself stays deferred**
   — no `WKWebExtension*` API exposes per-process memory (re-checked); proc
   sampling is SPI-adjacent and was explicitly ruled out.
-- **`ExtensionsPanel`** (BrowserUI) is a SwiftUI `.popover` off a new
+- **`ExtensionsPanel`** (ChordUI) is a SwiftUI `.popover` off a new
   `ellipsis.circle` "Manage Extensions" button in the header (shown whenever any
   extension is loaded — an extension may have no toolbar action of its own). Per
   extension it shows the name, a ⚡ background-worker chip
@@ -1301,7 +1301,7 @@ re-runs our own code over the real lists (fits §2/§3.6 and the solo-tool manda
 
 ### Phase C2 — ContentBlocker compile/cache/attach (2026-07-25)
 
-- **`ContentBlocker`** (BrowserEngine, WebKit-importing) owns a
+- **`ContentBlocker`** (ChordEngine, WebKit-importing) owns a
   `WKContentRuleListStore` and the compiled `WKContentRuleList`, which never
   leaves the engine. `prepare()` looks the list up by identifier (the store is
   the on-disk cache — §6.6's "never compile on window open"); only when it is
@@ -1317,7 +1317,7 @@ re-runs our own code over the real lists (fits §2/§3.6 and the solo-tool manda
 - **Bundled seed list** (`Resources/seed-blocklist.txt`, a curated
   EasyList/EasyPrivacy subset — major ad/tracker networks) so blocking works on
   first launch offline; C3 replaces it with the full fetched lists. Loaded via
-  `Bundle.module` (added `resources: [.process(...)]` to the BrowserEngine SPM
+  `Bundle.module` (added `resources: [.process(...)]` to the ChordEngine SPM
   target). `bundledSeedList()` is `nonisolated` so it can be the default provider.
 - **Flag-gated:** `FeatureFlags.contentBlockingEnabled` (default off). With it
   off, `AppEnvironment` builds no blocker and attaches nothing — the engine is
@@ -1547,7 +1547,7 @@ against the SDK headers before use — they were spot-checked on 2026-07-24 (mac
 - **Loading:** `WKWebExtension.extension(resourceBaseURL:)` (an unpacked dir) →
   `WKWebExtensionContext(for:)` → `controller.load(context)`. `.crx` (Chrome) and
   `.xpi` (Firefox) are both ZIPs to unpack into
-  `~/Library/Application Support/Browser/Extensions/`; MV3 only.
+  `~/Library/Application Support/Chord/Extensions/`; MV3 only.
 - **The bulk of the work is the tab/window model:** implement the
   `WKWebExtensionTab` / `WKWebExtensionWindow` protocols over `Tab`/`Pane`/main
   window and feed each controller via its delegate
@@ -1558,8 +1558,8 @@ against the SDK headers before use — they were spot-checked on 2026-07-24 (mac
   (icon/badge/popover); delegate `presentPopupForAction:` surfaces the popover in
   the sidebar header; `didUpdateAction:` for badge changes. Permissions via
   `grantedPermissions` + delegate prompts.
-- **Layering call for the user:** §7.1 says `BrowserEngine` is the only WebKit
-  importer, but the host needs WebKit too. Recommendation: a `BrowserExtensions`
+- **Layering call for the user:** §7.1 says `ChordEngine` is the only WebKit
+  importer, but the host needs WebKit too. Recommendation: a `ChordExtensions`
   target that imports WebKit + Engine, behind an `ExtensionHost` protocol (no
   `WK*` type reaches Store/UI), and amend §7.1 to "the **engine layer** is the
   WebKit boundary." Confirm before building 7.1.
@@ -1580,7 +1580,7 @@ and Reduce Motion toggled in System Settings.
 
 Not blocking, and worth doing whenever: the Instruments pass §6.7 wants
 (Allocations/Leaks, never run), and sidebar-scroll fps now that screen recording
-is available. `BrowserUITests` now exists (it did not, which is why panel sizing
+is available. `ChordUITests` now exists (it did not, which is why panel sizing
 broke twice with a green suite), but it holds only the drag payload — panel
 sizing is still uncovered.
 
@@ -1672,7 +1672,7 @@ sizing is still uncovered.
 Each has an ADR; the spec text was updated in the same commit.
 
 - `WKProcessPool` unused — Apple deprecated it to a no-op (ADR 004)
-- `BrowserStore` is a package the §3.5 list omitted (ADR 005)
+- `ChordStore` is a package the §3.5 list omitted (ADR 005)
 - Audio playback detected by user script, not the SPI everyone else uses (ADR 008)
 - `Cmd+T` opens the command bar per §4.4; plain new tab moved to `Cmd+N`
 - **Every way of making a tab or a pane opens the command bar first**, not a
@@ -1937,15 +1937,15 @@ The `primaryWindow`-backed conveniences on `TabStore` are gone from the shipping
 targets. `in window: WindowState` has no default any more, so "which window did
 you mean" is a compile error rather than a silent answer.
 
-- **The scaffolding moved to `BrowserTestSupport`**
+- **The scaffolding moved to `ChordTestSupport`**
   (`TabStore+SingleWindow.swift`), which only the *test* targets link. A headless
   test genuinely has one window, so `store.selectedTab` stays readable there;
-  the same expression in `BrowserUI` or the app does not compile. All 381 tests
-  needed **zero** edits. `BrowserTestSupport` gained a `BrowserStore`
+  the same expression in `ChordUI` or the app does not compile. All 381 tests
+  needed **zero** edits. `ChordTestSupport` gained a `ChordStore`
   dependency — no cycle, because nothing in `Sources` links it.
 - **Verify the enforcement with a concrete type, not `Any`.** A first probe of
   `-> Any? { s.selectedTab }` compiled and looked like a leak — it was binding
-  the *unapplied method* `(WindowState) -> Tab?`. Only `-> BrowserCore.Tab?`
+  the *unapplied method* `(WindowState) -> Tab?`. Only `-> ChordCore.Tab?`
   proved the property is genuinely invisible.
 - **Removing the properties was not enough**, which the probe also caught:
   `closeTab(id)` still compiled because the `in window:` *defaults* were still
@@ -2108,7 +2108,7 @@ tests). Not yet committed.
 
 - **#3 Little Chord / app-opened URLs → focused window** — the store now tracks
   the last-focused `WindowState` (`focusedWindow` / `windowDidBecomeFocused`,
-  fed by RootView on `didBecomeKey`); `WindowRegistry` (BrowserUI) maps a
+  fed by RootView on `didBecomeKey`); `WindowRegistry` (ChordUI) maps a
   `WindowState` to its `NSWindow` for bring-forward. `LittleChordController.promote`
   and `AppDelegate.application(_:open:)` target `focusedWindow`, not the primary.
   Tested in `MultiWindowTests` (tracks last-focused; weak fallback to primary).
@@ -2152,7 +2152,7 @@ permission, observe a banner + click routing) and #7 camera/mic on a real site
 registration and media delegate — the regression that mattered.
 
 **Xcode project note:** `NotificationController.swift` was added to
-`Browser.xcodeproj/project.pbxproj` (the app target lists files explicitly — not
+`Chord.xcodeproj/project.pbxproj` (the app target lists files explicitly — not
 a synchronized group — so a new file must be referenced there to build). The
 repo's git rule excludes the pbxproj from commits; this addition needs to ride
 along (or be re-added in Xcode) or the app target won't compile the file.
@@ -2180,7 +2180,7 @@ follows the commits.
   014, schema v10 → v11.** The previous behaviour was a blanket `.grant` in
   `NavigationCoordinator` — every site could open the camera unasked. Now one
   model covers all three kinds: `SitePermissionKind` / `SitePermissionPrompt` /
-  `SitePermissionRecord` in `BrowserCore` (WebKit-free), suspended requests
+  `SitePermissionRecord` in `ChordCore` (WebKit-free), suspended requests
   resolved through `TabStore.requestSitePermission` / `resolveSitePermission` and
   a single `SitePermissionSheet`, decisions keyed on **(Space, origin, kind)**.
   `v10_site_permissions` adds the table; `v11_site_permissions_per_space`
@@ -2242,7 +2242,7 @@ code identity, so the vault item's ACL no longer matches and macOS asks for the
 login-keychain password.
 
 The mechanism worked: a self-signed certificate produces
-`designated => identifier "com.rizal.browser" and certificate root = H"…"`,
+`designated => identifier "com.rizal.chord" and certificate root = H"…"`,
 identical across rebuilds. **The Debug bundle killed it.** It ships a nested
 `Chord.debug.dylib`, and re-signing the app alone leaves that dylib on its old
 signature; dyld then refuses to load it — *"mapping process and mapped file
@@ -2271,10 +2271,10 @@ ships to anyone but its author. An allow-any-application ACL stays refused.
 `os.Logger` has been write-only on this machine since day one (`log show` /
 `log stream` unreadable), so every debug read went through screenshots. Now every
 log line is mirrored to a file the agent can read back:
-`Application Support/Browser/Logs/browser.log`, rotating at 5 MB (keeps
-`browser.log.1`).
+`Application Support/Chord/Logs/chord.log`, rotating at 5 MB (keeps
+`chord.log.1`).
 
-**One new bottom-layer package, `BrowserLogging`** (Foundation + `os` only, sits
+**One new bottom-layer package, `ChordLogging`** (Foundation + `os` only, sits
 beside Core; Core stays Foundation-only). `AppLog.category(name)` returns a
 value-typed `Category` with `.debug/.info/.notice/.error/.fault`; each package's
 `enum Log` is now just `static let store = AppLog.category("store")`, so call
@@ -2291,7 +2291,7 @@ wants the raw text anyway; logging the whole line at `.public` preserves unified
 readability. This is why call sites now look like `Log.store.error("pane \(id)")`.
 
 `OSSignposter`s are untouched (they were never the problem). 4 tests
-(`BrowserLoggingTests`: sink off until installed, file write, rotation at cap).
+(`ChordLoggingTests`: sink off until installed, file write, rotation at cap).
 `swift test` 562, prepush green.
 
 ### Collapsed sidebar keeps a loading indicator (2026-08-06)
@@ -2316,7 +2316,7 @@ automation (`AXTextField` value + selection, keystrokes landing in the field):
 
 - **`Cmd+L` opened an empty bar.** The menu item called `toggle` without a query;
   only the toolbar address button passed one. The menu path now computes the
-  focused tab's URL (`BrowserCommands.currentURLString`, the same expression the
+  focused tab's URL (`ChordCommands.currentURLString`, the same expression the
   address button uses) and hands it to `toggle(initialQuery:)`, which gained the
   parameter. `Cmd+L` now opens with the current URL **selected** — first keystroke
   replaces it, matching the address button.
@@ -2387,7 +2387,7 @@ removal path) and `unloadTab` (the favourite/Pinned close path) both now prefer 
 same-section successor, falling back to the flat order only when the section
 empties. `MARKETING_VERSION`/`CFBundleShortVersionString` `1.1.2` → `1.1.3`,
 `CURRENT_PROJECT_VERSION`/`CFBundleVersion` `6` → `7` in
-`Browser.xcodeproj/project.pbxproj` and `BrowserApp/Info.plist`. Regression tests
+`Chord.xcodeproj/project.pbxproj` and `ChordApp/Info.plist`. Regression tests
 added to `PinnedTests`. 624 tests, 94 suites, prepush green.
 
 ### Release 1.1.2 (build 6) — tagged `v1.1.2` (2026-08-20)
@@ -2399,7 +2399,7 @@ the list first. Both `navigate` and `search` fallbacks insert at index 0 in
 `CommandBarRanking.suggestions`; open tabs/history still follow, ranked by
 score. `MARKETING_VERSION`/`CFBundleShortVersionString` `1.1.1` → `1.1.2`,
 `CURRENT_PROJECT_VERSION`/`CFBundleVersion` `5` → `6` in
-`Browser.xcodeproj/project.pbxproj` and `BrowserApp/Info.plist`. Ranking tests
+`Chord.xcodeproj/project.pbxproj` and `ChordApp/Info.plist`. Ranking tests
 updated to assert the new slot. 621 tests, 94 suites, prepush green.
 
 ### Release 1.1.1 (build 5) — tagged `v1.1.1` (2026-08-18)
@@ -2409,8 +2409,8 @@ history closes the tab or Little Chord panel (WebKit's native back-swipe
 untouched), with a disable flag in Settings → General → Gestures
 (`prefs.swipeToCloseEnabled`, default on). `MARKETING_VERSION`/
 `CFBundleShortVersionString` `1.1.0` → `1.1.1`, `CURRENT_PROJECT_VERSION`/
-`CFBundleVersion` `4` → `5` in `Browser.xcodeproj/project.pbxproj` and
-`BrowserApp/Info.plist`. Build verified against the built app's Info.plist.
+`CFBundleVersion` `4` → `5` in `Chord.xcodeproj/project.pbxproj` and
+`ChordApp/Info.plist`. Build verified against the built app's Info.plist.
 621 tests, 94 suites, prepush green.
 
 ### Release 1.1.0 (build 4) — 2026-08-18
@@ -2418,14 +2418,14 @@ untouched), with a disable flag in Settings → General → Gestures
 Feature release: **user-renamed tabs** (schema v14). `MARKETING_VERSION`/
 `CFBundleShortVersionString` `1.0.1` → `1.1.0`,
 `CURRENT_PROJECT_VERSION`/`CFBundleVersion` `3` → `4` in
-`Browser.xcodeproj/project.pbxproj` and `BrowserApp/Info.plist`. Build verified
+`Chord.xcodeproj/project.pbxproj` and `ChordApp/Info.plist`. Build verified
 against the built app's Info.plist. 614 tests, 93 suites, prepush green.
 
 ### Release 1.0.1 (build 3) — tagged `v1.0.1` (2026-08-14)
 
 Version bump only: `MARKETING_VERSION`/`CFBundleShortVersionString` `1.0` →
 `1.0.1`, `CURRENT_PROJECT_VERSION`/`CFBundleVersion` `2` → `3` in
-`Browser.xcodeproj/project.pbxproj` and `BrowserApp/Info.plist`. Build verified
+`Chord.xcodeproj/project.pbxproj` and `ChordApp/Info.plist`. Build verified
 against the built app's Info.plist. First tag since `v1.0.0`.
 
 ### YouTube page freeze after an ad is dismantled — the anti-adblock wall is now removed, not hidden (2026-08-14)
@@ -2545,7 +2545,7 @@ forget.
 ### Downloads land in the real ~/Downloads again (2026-08-01)
 
 Found while probing Peek. Every downloaded file was going to
-`~/Library/Containers/com.rizal.browser/Data/Downloads/` — a path Finder's
+`~/Library/Containers/com.rizal.chord/Data/Downloads/` — a path Finder's
 Downloads never shows — so a download looked like it had silently failed.
 
 **The entitlement was never the problem; the path lookup was.**
@@ -2640,7 +2640,7 @@ leak and no new steady-state cost**.
   throughout and the run ends on the lower one.
 
 Fixture was 3 Spaces / 21 tabs / 40 panes via `scripts/soak.sh seed`; the real
-session was backed up to `browser.sqlite.presoak` and restored afterwards
+session was backed up to `chord.sqlite.presoak` and restored afterwards
 (`integrity_check` ok, 2 Spaces / 10 tabs back, and a favourite that had been
 navigated during the UA check was returned to its pinned URL).
 
@@ -2783,7 +2783,7 @@ lock, and fast user switching — those three are not settings, because they are
 the cases where the user has demonstrably walked away. The event locks are wired
 in `AppDelegate.attachVaultLockObservers` (`NSWorkspace.willSleep` /
 `screensDidSleep` / `sessionDidResignActive`, plus the distributed
-`com.apple.screenIsLocked`), which is where they belong: `BrowserStore` imports
+`com.apple.screenIsLocked`), which is where they belong: `ChordStore` imports
 no AppKit.
 
 **Nothing polls.** `isVaultLocked` is recomputed at each vault touchpoint and
@@ -2973,7 +2973,7 @@ hide a `#if DEBUG` inside it, there is now an explicit `CredentialOrigin.Policy`
 exist solely to stop that opt-in becoming the default, and to keep it narrow —
 `http://localhost.evil.com` is still refused.
 
-**Snag worth knowing:** a second `BrowserDatabase` over the same file fails with
+**Snag worth knowing:** a second `ChordDatabase` over the same file fails with
 "database is locked" (WAL contention). `E2EHarness` now exposes its `database` so
 a test needing its own repository shares the one connection.
 
@@ -3125,14 +3125,14 @@ identity ever exists is a re-write of every item, not a redesign; the note is in
 
 **What landed:**
 
-- **`BrowserSecrets`**, a new package and the only importer of Security /
+- **`ChordSecrets`**, a new package and the only importer of Security /
   LocalAuthentication — the same one-target-per-OS-boundary rule that gave
-  `BrowserExtensions` its own target (ADR 011). `SecretStore` protocol,
+  `ChordExtensions` its own target (ADR 011). `SecretStore` protocol,
   `KeychainSecretStore`, `VaultLockPolicy` (pure idle arithmetic),
   `VaultAuthenticator` + `BiometricAuthenticator`.
-- **`Credential`** and **`CredentialOrigin`** in `BrowserCore` — metadata only,
+- **`Credential`** and **`CredentialOrigin`** in `ChordCore` — metadata only,
   Foundation only. The secret never appears on the model, which is what keeps a
-  password out of `browser.sqlite`, backups, and `.recover` dumps.
+  password out of `chord.sqlite`, backups, and `.recover` dumps.
 - **Matching is exact origin equality** (scheme + host + port), and the test table
   of near-misses is longer than the happy path: subdomains, suffix attacks
   (`example.com.evil.com`), scheme downgrade, port changes, punycode. **Verified
@@ -3165,7 +3165,7 @@ Wiring, and why it is a broadcast: `WebKitExtensionHost` becomes the popover's
 `.extensionPopupVisibilityChanged` notification; each window's `RootView` filters
 on identity against its own window. A plain closure would be **last-writer-wins
 across windows** — the second window to open would silently steal the first's.
-The window crosses the seam as an opaque `AnyObject` because `BrowserStore`
+The window crosses the seam as an opaque `AnyObject` because `ChordStore`
 imports no AppKit and must not start.
 
 5 tests in `ExtensionPopupSidebarTests`; **verified failing against the bug** by

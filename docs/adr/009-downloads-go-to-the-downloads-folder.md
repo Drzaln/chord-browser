@@ -24,7 +24,7 @@ Three options were on the table:
 ## Decision
 
 Option 1. `com.apple.security.files.downloads.read-write` is added to
-`Browser.entitlements`, and downloads land in `~/Downloads` with no prompt.
+`Chord.entitlements`, and downloads land in `~/Downloads` with no prompt.
 
 This matches what Safari, Chrome, and Arc do, and it is the interaction model
 this browser is replicating — a modal on every download is not it. The

@@ -181,25 +181,25 @@ boundaries are enforced by the compiler, which is the only enforcement that
 survives a year of changes.
 
 ```
-BrowserApp/              // thin: App, main window, wiring only
+ChordApp/              // thin: App, main window, wiring only
 Packages/
-  BrowserCore/           // Space, Tab, Pane, value types. Zero imports.
-  BrowserPersistence/    // schema, migrations, repositories. Imports Core.
-  BrowserEngine/         // WebKit isolation layer. Imports Core.
-  BrowserStore/          // observable app state + commands. Core+Engine+Persistence.
-  BrowserExtensions/     // WKWebExtension host. Imports Core + Engine. (M7)
-  BrowserUI/             // SwiftUI views. Imports Core + Engine + Store.
-  BrowserTestSupport/    // fakes, fixtures, builders. Test-only.
+  ChordCore/           // Space, Tab, Pane, value types. Zero imports.
+  ChordPersistence/    // schema, migrations, repositories. Imports Core.
+  ChordEngine/         // WebKit isolation layer. Imports Core.
+  ChordStore/          // observable app state + commands. Core+Engine+Persistence.
+  ChordExtensions/     // WKWebExtension host. Imports Core + Engine. (M7)
+  ChordUI/             // SwiftUI views. Imports Core + Engine + Store.
+  ChordTestSupport/    // fakes, fixtures, builders. Test-only.
 ```
 
 Implemented as one `Packages/Package.swift` with a target per entry, not one
 manifest each — identical compile-time enforcement, one file to maintain. See
-ADR 005 for `BrowserStore`, which 3.1 requires but the original list omitted.
+ADR 005 for `ChordStore`, which 3.1 requires but the original list omitted.
 
 Rules:
-- `BrowserCore` imports nothing but Foundation. No WebKit, no SwiftUI. If a type
+- `ChordCore` imports nothing but Foundation. No WebKit, no SwiftUI. If a type
   in Core needs to know about `WKWebView`, the design is wrong.
-- **`BrowserUI` must not import WebKit.** It receives an opaque view from Engine
+- **`ChordUI` must not import WebKit.** It receives an opaque view from Engine
   via a `NSViewRepresentable` factory (`AnyWebSurface`). This single rule is what
   will let you swap, wrap, or mock the engine later. UI does import Engine — it
   has to, to name the surface type — but no `WK*` type appears in Engine's
@@ -234,7 +234,7 @@ protocol ExtensionHost { ... }
 - Inject through a single `AppEnvironment` struct constructed at launch and
   passed down. No singletons, no service locator, no `@EnvironmentObject` for
   services — SwiftUI environment is for view concerns only.
-- Every protocol has a fake in `BrowserTestSupport`. Sweep logic, ranking, and
+- Every protocol has a fake in `ChordTestSupport`. Sweep logic, ranking, and
   restore should be testable with zero WebKit involvement.
 
 ### 3.7 Errors, logging, diagnostics
@@ -244,7 +244,7 @@ protocol ExtensionHost { ... }
 - Use `os.Logger` with one subsystem and a category per package. No `print`.
   Signposts around launch, Space switch, and restore so Instruments traces are
   readable without instrumentation work later. All text logging goes through the
-  `BrowserLogging` package's `AppLog`, which mirrors every line to a **rotating
+  `ChordLogging` package's `AppLog`, which mirrors every line to a **rotating
   file** (5 MB, keeps one backup) in `Application Support/<app>/Logs/` — the file
   is the read-back path on machines where `log show` is unavailable.
 - User-facing failures degrade gracefully: a corrupt tab row is skipped and
@@ -362,7 +362,7 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
 - Ship a small CLI or in-app helper to unpack a `.crx` into that directory. Do
   **not** attempt Chrome Web Store install flows — CWS blocks non-Chrome agents.
 - MV3 only. Do not add MV2 shims.
-- **Signature verification is warn-but-install (ADR 017).** `BrowserCrypto`
+- **Signature verification is warn-but-install (ADR 017).** `ChordCrypto`
   verifies the CRX2/CRX3 signature at install; a valid signature from a pinned
   key is `.trusted`, a valid one from an unknown signer is `.verified`, and
   unsigned `.xpi`/`.zip` or tampered bundles still install but are flagged in the
@@ -437,7 +437,7 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   `GeneralSettings.perDomainRules`). A rule applies on the next load.
 - **Password vault** — saves and fills logins. Metadata in SQLite
   (`v12_credentials`, `v13_credential_never_save`), secrets in the Keychain via a
-  new `BrowserSecrets` package (with `BrowserCrypto`, one of two Security
+  new `ChordSecrets` package (with `ChordCrypto`, one of two Security
   importers, handling extension signatures — **ADR 017**). Fill requires an exact origin match and a user gesture;
   reveal is gated on Touch ID. Built because the alternatives were measured shut:
   WebKit exposes no autofill API, passkeys need an entitlement a free account
@@ -616,12 +616,12 @@ away.
 ### 7.1 Isolating WebKit
 
 WebKit is the fastest-moving dependency and the one Apple changes without asking.
-The **engine layer is the WebKit boundary**: `BrowserEngine` and — from M7 —
-`BrowserExtensions` are the only packages that import it (amended by ADR 011,
+The **engine layer is the WebKit boundary**: `ChordEngine` and — from M7 —
+`ChordExtensions` are the only packages that import it (amended by ADR 011,
 which adds the extension host as a second WebKit importer rather than folding it
-into `BrowserEngine`). Inside those packages, framework types must not leak
+into `ChordEngine`). Inside those packages, framework types must not leak
 through the public interface — no `WKWebView`, `WKNavigationDelegate`, or
-`WKWebExtensionContext` in any signature `BrowserUI` or `BrowserCore` can see.
+`WKWebExtensionContext` in any signature `ChordUI` or `ChordCore` can see.
 Wrap them. The two engine-layer packages may share `WK*` types with each other
 (the extension controller reaches the engine as an opaque
 `ExtensionControllerHandle`); nothing WebKit-shaped crosses into Store or UI.
@@ -641,7 +641,7 @@ Schema changes are the most common way a personal tool eats its own data.
   with a test that runs it against a fixture database from the prior version.
   Keep those fixtures in the repo permanently.
 - Back up the database file before running any migration; keep the last three.
-- Model types in `BrowserCore` are the in-memory shape. Persistence uses its own
+- Model types in `ChordCore` are the in-memory shape. Persistence uses its own
   row types and maps between them. Do not persist `Codable` app models directly —
   the day you rename a field, every existing profile breaks.
 - Never delete user data as part of a migration. Orphan it and log.
@@ -747,7 +747,7 @@ Flag these early rather than discovering them late:
   math, model codable round-trips.
 - Integration test: create Space → set a cookie → switch Space → assert cookie
   absent. Done twice: at the data-store level, and end-to-end through a real
-  page (`BrowserE2ETests`).
+  page (`ChordE2ETests`).
 - End-to-end suite: real `WKWebView`, real SQLite, real HTTP from a localhost
   test server. No fakes. This is the layer that catches wiring mistakes unit
   tests cannot see — it found the duplicate script-handler crash in ADR 008.

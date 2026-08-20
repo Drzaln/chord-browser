@@ -10,18 +10,18 @@
 #   scripts/soak.sh run      # drive and sample a running app (default 30 min)
 #   SOAK_MINUTES=5 scripts/soak.sh run
 #
-# `seed` writes the fixture straight into browser.sqlite rather than driving 20
+# `seed` writes the fixture straight into chord.sqlite rather than driving 20
 # new-tab commands through the UI. That is deliberate: it makes the soak start
 # from a *restored* session, which is the state the budgets are written against
 # and the one that exercises lazy restore (§6.2 — N saved tabs must create 0
 # web views).
 set -euo pipefail
 
-# The app is now "Chord" (display rename only — bundle id com.rizal.browser and
-# the "Browser" Application Support folder are unchanged), so the process and app
-# name driven below are "Chord" while this path stays "Browser".
-APP_SUPPORT=~/"Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser"
-DB="$APP_SUPPORT/browser.sqlite"
+# The app is now "Chord" (display rename only — bundle id com.rizal.chord and
+# the "Chord" Application Support folder are unchanged), so the process and app
+# name driven below are "Chord" while this path stays "Chord".
+APP_SUPPORT=~/"Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord"
+DB="$APP_SUPPORT/chord.sqlite"
 MINUTES="${SOAK_MINUTES:-30}"
 
 # Sites that are cheap, stable, and not ours to hammer.
@@ -57,7 +57,7 @@ seed() {
     [ -f "$DB" ] || { echo "no database at $DB — launch the app once first" >&2; exit 1; }
 
     # `.backup`, never `cp`. GRDB runs in WAL mode, so the recent commits live
-    # in browser.sqlite-wal and a plain copy of the main file alone is stale.
+    # in chord.sqlite-wal and a plain copy of the main file alone is stale.
     # Restoring such a copy next to the *newer* WAL replays it over an older
     # database and corrupts it — that is not hypothetical, it happened here on
     # 2026-07-23 and cost a `.recover` pass. `.backup` checkpoints into one
@@ -143,7 +143,7 @@ $(sqlite3 "$DB" 'select count(*) from pane;') panes"
 # phys_footprint in MB, for the app process and for the app plus every WebKit
 # helper it owns. `footprint` reports the same number the debug overlay shows.
 footprint_mb() {
-    # "Browser [123]: 64-bit    Footprint: 38 MB (16384 bytes per page)".
+    # "Chord [123]: 64-bit    Footprint: 38 MB (16384 bytes per page)".
     # The unit really does vary — helper processes report KB — so normalise it
     # rather than trusting MB.
     footprint -p "$1" 2>/dev/null | awk '
@@ -161,7 +161,7 @@ footprint_mb() {
 run() {
     local pid
     pid=$(pgrep -x Chord | head -1)
-    [ -n "$pid" ] || { echo "Browser is not running" >&2; exit 1; }
+    [ -n "$pid" ] || { echo "Chord is not running" >&2; exit 1; }
 
     local samples="/tmp/soak-$(date +%H%M%S).tsv"
     echo -e "minute\tapp_mb\ttotal_mb" | tee "$samples"

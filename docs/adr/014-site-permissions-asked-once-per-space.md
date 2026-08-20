@@ -28,8 +28,8 @@ There is one model for all three capabilities: a decision is remembered per
 **(Space, origin, kind)**, asked once, and reused thereafter.
 
 - `SitePermissionKind` (`camera`, `microphone`, `notification`) and
-  `SitePermissionDecision` (`granted`, `denied`) live in `BrowserCore` — WebKit-free,
-  so `BrowserStore` can hold the policy and `BrowserPersistence` can store it.
+  `SitePermissionDecision` (`granted`, `denied`) live in `ChordCore` — WebKit-free,
+  so `ChordStore` can hold the policy and `ChordPersistence` can store it.
 - A request that has no remembered decision is **suspended** behind a
   `SitePermissionPrompt` → `SitePermissionSheet`, and resolved by
   `TabStore.requestSitePermission` / `resolveSitePermission`. Camera and

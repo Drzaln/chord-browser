@@ -14,7 +14,7 @@
 #     scripts/reset-data.sh --build    # also clears build artifacts
 set -euo pipefail
 
-BUNDLE_ID="com.rizal.browser"   # keep in sync with PRODUCT_BUNDLE_IDENTIFIER
+BUNDLE_ID="com.rizal.chord"   # keep in sync with PRODUCT_BUNDLE_IDENTIFIER
 APP_NAME="Chord"                 # CFBundleName, used to quit the running app
 CONTAINER="$HOME/Library/Containers/$BUNDLE_ID"
 
@@ -33,7 +33,7 @@ echo "  $CONTAINER/Data"
 if [ ! -d "$CONTAINER/Data" ] || [ -z "$(ls -A "$CONTAINER/Data" 2>/dev/null)" ]; then
     echo "  (already empty — nothing to delete)"
 fi
-[ "$CLEAN_BUILD" -eq 1 ] && echo "  + build artifacts (DerivedData/Browser-*, Packages/.build)"
+[ "$CLEAN_BUILD" -eq 1 ] && echo "  + build artifacts (DerivedData/Chord-*, Packages/.build)"
 
 if [ "$ASSUME_YES" -ne 1 ]; then
     printf "Type 'y' to continue: "
@@ -44,7 +44,7 @@ fi
 # Quit the app first, or open files keep the container half-alive.
 osascript -e "tell application \"$APP_NAME\" to quit" >/dev/null 2>&1 || true
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-pkill -x Browser     >/dev/null 2>&1 || true   # in case it launched as the target name
+pkill -x Chord     >/dev/null 2>&1 || true   # in case it launched as the target name
 sleep 1
 
 # Delete everything *inside* Data/ (the profile: Library/, symlinks, dotfiles).
@@ -62,7 +62,7 @@ else
 fi
 
 if [ "$CLEAN_BUILD" -eq 1 ]; then
-    rm -rf "$HOME/Library/Developer/Xcode/DerivedData/"Browser-*
+    rm -rf "$HOME/Library/Developer/Xcode/DerivedData/"Chord-*
     rm -rf "$(dirname "$0")/../Packages/.build"
     echo "Cleared build artifacts."
 fi

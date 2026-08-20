@@ -21,7 +21,7 @@ Run this whenever you pick up the project after time away:
 swift test --package-path Packages 2>&1 | tail -5
 
 # 3. Check current schema version (should be v14)
-sqlite3 ~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/browser.sqlite \
+sqlite3 ~/Library/Containers/com.rizal.chord/Data/Library/Application\ Support/Chord/chord.sqlite \
   "SELECT * FROM grdb_migrations ORDER BY identifier;"
 ```
 
@@ -38,7 +38,7 @@ The hard-coded Safari version in `WebKitEngine.safariUserAgentSuffix` goes stale
 ```bash
 # Find the current value
 grep -n "safariUserAgentSuffix\|applicationNameForUserAgent" \
-  Packages/Sources/BrowserEngine/*.swift
+  Packages/Sources/ChordEngine/*.swift
 ```
 
 Compare against the Safari version shipping with the current macOS. The UA should look like `Version/XX.Y Safari/605.1.15`. A stale-but-plausible version degrades far better than no token.
@@ -52,10 +52,10 @@ launch). Verify it's working:
 
 ```bash
 # Check last refresh dates and the current per-list identifiers
-defaults read com.rizal.browser 2>/dev/null | grep -i block
+defaults read com.rizal.chord 2>/dev/null | grep -i block
 ```
 
-If the upstream URLs change or the ABP format evolves, update `ContentBlocker`'s fetch URLs in `BrowserEngine`. The in-house converter (`ContentBlockConverter` in `BrowserCore`) handles the ABP→JSON conversion — if new ABP syntax appears, add support there.
+If the upstream URLs change or the ABP format evolves, update `ContentBlocker`'s fetch URLs in `ChordEngine`. The in-house converter (`ContentBlockConverter` in `ChordCore`) handles the ABP→JSON conversion — if new ABP syntax appears, add support there.
 
 **Key numbers to remember:**
 - ~137k rules from EasyList + EasyPrivacy combined
@@ -82,7 +82,7 @@ Never float the version. Review changelogs deliberately before bumping.
 ### 4. YouTube Ad Blocker Selectors (every ~2 weeks)
 
 YouTube changes ad DOM constantly, so the injected script in
-`Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift` goes stale on its own
+`Packages/Sources/ChordEngine/YouTubeAdBlocker.swift` goes stale on its own
 schedule — the selectors, not the browser, are what breaks. Follow the dedicated
 playbook: **`.agents/skills/chord-browser-youtube-ads/SKILL.md`**. It covers the
 upstream-signal check (uAssets / EasyList), the live-DOM probe, the visual smoke
@@ -97,14 +97,14 @@ When Apple ships a new Xcode or macOS:
 
 ### Step 1 — Verify WebKit API
 
-Every `WK*` symbol used in `BrowserEngine` and `BrowserExtensions` must be checked against the new SDK headers:
+Every `WK*` symbol used in `ChordEngine` and `ChordExtensions` must be checked against the new SDK headers:
 
 ```bash
 SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
 HEADERS="$SDK_PATH/System/Library/Frameworks/WebKit.framework/Headers"
 
 # List all WK* types we reference
-grep -rh "WK[A-Z]" Packages/Sources/BrowserEngine/ Packages/Sources/BrowserExtensions/ \
+grep -rh "WK[A-Z]" Packages/Sources/ChordEngine/ Packages/Sources/ChordExtensions/ \
   | grep -oE 'WK[A-Za-z]+' | sort -u
 
 # Then spot-check each against headers
@@ -165,7 +165,7 @@ Current: **v14**. Every migration is forward-only, named, never edited once ship
 
 ### Procedure
 
-1. **Create the migration** in `BrowserPersistence` — a named function (`v15_description`)
+1. **Create the migration** in `ChordPersistence` — a named function (`v15_description`)
 2. **Add a fixture test** using the prior version's database, migrating `upTo:` the previous migration
    - **Two test files assert `Migrations.currentVersion` literally** — update both or prepush goes red
 3. **Update row types and mappers** — never persist `Codable` app models directly
@@ -186,10 +186,10 @@ Before writing any code:
 
 1. **Check scope** — §11 forbids adding features not in the current scope. Ask the user first
 2. **Check the module boundary** — which package does this belong in?
-   - Pure logic → `BrowserCore` (Foundation only)
-   - WebKit interaction → `BrowserEngine` (the ONLY WebKit importer, with `BrowserExtensions`)
-   - State management → `BrowserStore`
-   - UI → `BrowserUI` (NO WebKit imports)
+   - Pure logic → `ChordCore` (Foundation only)
+   - WebKit interaction → `ChordEngine` (the ONLY WebKit importer, with `ChordExtensions`)
+   - State management → `ChordStore`
+   - UI → `ChordUI` (NO WebKit imports)
 3. **Check for WebKit API** — verify symbols exist in SDK headers before using them
 4. **Check performance** — flag anything that costs memory or main-thread time
 5. **Write tests** — unit tests in the matching `Tests/` target, e2e if it touches the full stack
@@ -197,13 +197,13 @@ Before writing any code:
 ### Module Import Rules (compiler-enforced)
 
 ```
-BrowserCore          ← Foundation ONLY
-BrowserSecrets       ← Core + Security/LocalAuthentication (the vault's secret half)
-BrowserPersistence   ← Core + GRDB
-BrowserEngine        ← Core + WebKit
-BrowserExtensions    ← Core + Engine + WebKit
-BrowserStore         ← Core + Engine + Persistence + Extensions + Secrets (NO WebKit, NO AppKit)
-BrowserUI            ← Core + Engine + Store + Extensions (NO WebKit)
+ChordCore          ← Foundation ONLY
+ChordSecrets       ← Core + Security/LocalAuthentication (the vault's secret half)
+ChordPersistence   ← Core + GRDB
+ChordEngine        ← Core + WebKit
+ChordExtensions    ← Core + Engine + WebKit
+ChordStore         ← Core + Engine + Persistence + Extensions + Secrets (NO WebKit, NO AppKit)
+ChordUI            ← Core + Engine + Store + Extensions (NO WebKit)
 ```
 
 If you need an upward call, define a protocol in the lower target and inject.
@@ -226,10 +226,10 @@ scripts/reset-data.sh
 
 ```bash
 # Correct way to snapshot
-sqlite3 ~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/browser.sqlite ".backup /tmp/browser-backup.sqlite"
+sqlite3 ~/Library/Containers/com.rizal.chord/Data/Library/Application\ Support/Chord/chord.sqlite ".backup /tmp/chord-backup.sqlite"
 
 # If corrupted, attempt recovery
-sqlite3 ~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/browser.sqlite ".recover" | sqlite3 /tmp/recovered.sqlite
+sqlite3 ~/Library/Containers/com.rizal.chord/Data/Library/Application\ Support/Chord/chord.sqlite ".recover" | sqlite3 /tmp/recovered.sqlite
 ```
 
 ### Content processes crashing
@@ -251,7 +251,7 @@ grep -oE '"reasons":\[[^]]*\]' "$(ls -t ~/Library/Logs/DiagnosticReports/Chord* 
 ```
 
 **Fix by clean-building, not by re-signing:** `xcodebuild -project
-Browser.xcodeproj -scheme Browser -configuration Debug clean build`. Manual
+Chord.xcodeproj -scheme Chord -configuration Debug clean build`. Manual
 `codesign --force` on the app and its dylibs does *not* recover it (measured
 2026-07-31).
 
@@ -268,7 +268,7 @@ Almost always the entitlements, and it will look like a code bug because it is
 **Release-only**: Hardened Runtime (Release) gates the mic behind
 `com.apple.security.device.audio-input`, while App Sandbox uses
 `com.apple.security.device.microphone`. Camera shares one key across both, which
-is why it keeps working. Both mic keys must be in `BrowserApp/Browser.entitlements`.
+is why it keeps working. Both mic keys must be in `ChordApp/Chord.entitlements`.
 Debug builds disable Hardened Runtime under ad-hoc signing, so they cannot
 reproduce it.
 
@@ -289,7 +289,7 @@ Space).
 
 ### An extension loads but does nothing (diagnose it directly)
 
-First check the AppLog file (`Application Support/Browser/Logs/browser.log`) for
+First check the AppLog file (`Application Support/Chord/Logs/chord.log`) for
 the `extensions` category — `WebKitExtensionHost` logs load/unload and errors
 there. For the raw WebKit error surface, load the bundle into a real
 `WKWebExtensionController` from a throwaway
@@ -331,14 +331,14 @@ How to read it:
 `AppLog` mirrors every line to a rotating file. Read that:
 
 ```bash
-LOG=~/Library/Containers/com.rizal.browser/Data/Library/Application\ Support/Browser/Logs/browser.log
+LOG=~/Library/Containers/com.rizal.chord/Data/Library/Application\ Support/Chord/Logs/chord.log
 tail -200 "$LOG"                                  # recent entries
 grep -i "error\|fault" "$LOG"                     # errors across the session
 tail -20 "${LOG}.1"                               # the rotated backup
 ```
 
 Entries look like `2026-08-06T19:47:12Z [store] notice: …`. The file rotates at
-5 MB (`browser.log.1` is the previous chunk).
+5 MB (`chord.log.1` is the previous chunk).
 
 ### Visual verification
 
@@ -371,7 +371,7 @@ Items owed but not blocking. Check off as completed:
 
 ```bash
 # Stage everything except the Xcode project file
-git add -A ':!Browser.xcodeproj/project.pbxproj'
+git add -A ':!Chord.xcodeproj/project.pbxproj'
 
 # Commit/push ONLY when the user asks
 # Always update CHECKPOINT.md in the same commit as the work it describes
@@ -385,27 +385,27 @@ Single `main` branch, linear history. No feature branches.
 
 | What | Where |
 |---|---|
-| App entrypoint | `BrowserApp/BrowserApp.swift` |
-| AppDelegate | `BrowserApp/AppDelegate.swift` |
-| Entitlements | `BrowserApp/Browser.entitlements` |
+| App entrypoint | `ChordApp/ChordApp.swift` |
+| AppDelegate | `ChordApp/AppDelegate.swift` |
+| Entitlements | `ChordApp/Chord.entitlements` |
 | Package manifest | `Packages/Package.swift` |
-| Migrations | `Packages/Sources/BrowserPersistence/Migrations/` |
-| Content blocker | `Packages/Sources/BrowserEngine/ContentBlocker.swift` |
-| ABP converter | `Packages/Sources/BrowserCore/ContentBlockConverter.swift` |
-| Sweep policy | `Packages/Sources/BrowserCore/SweepPolicy.swift` |
-| Site permissions (model) | `Packages/Sources/BrowserCore/SitePermission.swift` |
-| Site permissions (storage) | `Packages/Sources/BrowserPersistence/SQLiteSitePermissionsRepository.swift` |
-| Notification shim | `Packages/Sources/BrowserEngine/NotificationBridge.swift` + `BrowserApp/NotificationController.swift` |
-| Logging sink | `Packages/Sources/BrowserLogging/AppLog.swift` |
-| Log file | `~/Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser/Logs/browser.log` |
-| YouTube ad script | `Packages/Sources/BrowserEngine/YouTubeAdBlocker.swift` |
-| Screen-share monitor | `Packages/Sources/BrowserEngine/ScreenShareMonitor.swift` |
-| User-Agent presets | `Packages/Sources/BrowserCore/UserAgent.swift` |
-| Fuzzy ranking | `Packages/Sources/BrowserCore/FuzzyRanking.swift` |
+| Migrations | `Packages/Sources/ChordPersistence/Migrations/` |
+| Content blocker | `Packages/Sources/ChordEngine/ContentBlocker.swift` |
+| ABP converter | `Packages/Sources/ChordCore/ContentBlockConverter.swift` |
+| Sweep policy | `Packages/Sources/ChordCore/SweepPolicy.swift` |
+| Site permissions (model) | `Packages/Sources/ChordCore/SitePermission.swift` |
+| Site permissions (storage) | `Packages/Sources/ChordPersistence/SQLiteSitePermissionsRepository.swift` |
+| Notification shim | `Packages/Sources/ChordEngine/NotificationBridge.swift` + `ChordApp/NotificationController.swift` |
+| Logging sink | `Packages/Sources/ChordLogging/AppLog.swift` |
+| Log file | `~/Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord/Logs/chord.log` |
+| YouTube ad script | `Packages/Sources/ChordEngine/YouTubeAdBlocker.swift` |
+| Screen-share monitor | `Packages/Sources/ChordEngine/ScreenShareMonitor.swift` |
+| User-Agent presets | `Packages/Sources/ChordCore/UserAgent.swift` |
+| Fuzzy ranking | `Packages/Sources/ChordCore/FuzzyRanking.swift` |
 | ADRs | `docs/adr/` |
 | Smoke tests | `SMOKE.md` |
 | Soak harness | `scripts/soak.sh` |
-| Seed blocklist | `Packages/Sources/BrowserEngine/Resources/seed-blocklist.txt` |
+| Seed blocklist | `Packages/Sources/ChordEngine/Resources/seed-blocklist.txt` |
 | Branding assets | `docs/branding/` |
 | User guide | `docs/USER_GUIDE.md` |
-| Sandboxed data | `~/Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser/` |
+| Sandboxed data | `~/Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord/` |

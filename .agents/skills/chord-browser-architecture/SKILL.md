@@ -16,21 +16,21 @@ Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replic
 ## Project Layout
 
 ```
-BrowserApp/              @main, AppDelegate, debug overlay (Cmd+Ctrl+P, DEBUG only)
+ChordApp/              @main, AppDelegate, debug overlay (Cmd+Ctrl+P, DEBUG only)
 Packages/Sources/
-  BrowserCore/           Value types + pure logic (ranking, sweep policy). Foundation only.
-  BrowserLogging/        AppLog: every line → os.Logger + rotating file. Foundation + os only.
-  BrowserSecrets/        Keychain + LocalAuthentication. The vault's secret half.
-  BrowserCrypto/         Security + CryptoKit. Extension-bundle signature verification.
-  BrowserPersistence/    GRDB, migrations, row types, mappers
-  BrowserEngine/         The ONLY package importing WebKit (with BrowserExtensions)
-  BrowserExtensions/     WKWebExtension host + .crx unpack + signature verdict stamping
-  BrowserStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleChord/+Restore/+Find)
-  BrowserUI/             SwiftUI views + command bar and Little Chord panels. Never WebKit.
-  BrowserTestSupport/    Fakes, TabBuilder, TestHTTPServer
+  ChordCore/           Value types + pure logic (ranking, sweep policy). Foundation only.
+  ChordLogging/        AppLog: every line → os.Logger + rotating file. Foundation + os only.
+  ChordSecrets/        Keychain + LocalAuthentication. The vault's secret half.
+  ChordCrypto/         Security + CryptoKit. Extension-bundle signature verification.
+  ChordPersistence/    GRDB, migrations, row types, mappers
+  ChordEngine/         The ONLY package importing WebKit (with ChordExtensions)
+  ChordExtensions/     WKWebExtension host + .crx unpack + signature verdict stamping
+  ChordStore/          TabStore (+Spaces/+Sweep/+CommandBar/+Split/+LittleChord/+Restore/+Find)
+  ChordUI/             SwiftUI views + command bar and Little Chord panels. Never WebKit.
+  ChordTestSupport/    Fakes, TabBuilder, TestHTTPServer
 Packages/Tests/
-  Browser*Tests/         Unit tests per package
-  BrowserE2ETests/       Full stack: real engine + real SQLite + real HTTP
+  Chord*Tests/         Unit tests per package
+  ChordE2ETests/       Full stack: real engine + real SQLite + real HTTP
 docs/adr/                Why the non-obvious calls were made
 scripts/                 prepush.sh (local CI), soak.sh (memory soak harness), reset-data.sh
 ```
@@ -98,18 +98,18 @@ UI never touches `WKWebView` directly. It talks to the Store; the Store owns the
 
 ### Extensions (M7, §4.7)
 - Per-Space `WKWebExtensionController` (ADR 011). One controller per Space, config keyed by Space's `dataStoreID`.
-- `BrowserExtensions` is a second WebKit importer (alongside `BrowserEngine`).
+- `ChordExtensions` is a second WebKit importer (alongside `ChordEngine`).
 - MV3 only. No MV2 shims.
 - **Apple's runtime is a subset, and each big extension trips a different missing piece.** Unimplemented: `offscreen`, `sidePanel`, `nativeMessaging`, `webRequestAuthProvider`, blocking `webRequest`, scriptlet injection; `declarativeNetRequest` caps ~50k rules/list. WebKit *silently drops* unimplemented permissions, so the API object is `undefined` and an extension touching it at startup dies with `WKWebExtensionContextErrorDomain` code 6 (background content failed to load) — which presents as a popup spinning forever. AdBlock fails on the rule cap; **Bitwarden fails on `offscreen`** (2026-07-31). Diagnosis procedure is in the maintenance skill.
 - An extension **popup pins its window's sidebar open** while visible (`WindowState.isSidebarHeldOpen`) — the popover is anchored to the sidebar-header button, so an auto-hiding sidebar closes it mid-use.
-- `.crx`/`.xpi` unpack to `~/Library/Application Support/Browser/Extensions/` as `Extensions/<slug>.zip` plus a `<slug>.verification` sidecar.
+- `.crx`/`.xpi` unpack to `~/Library/Application Support/Chord/Extensions/` as `Extensions/<slug>.zip` plus a `<slug>.verification` sidecar.
 
 ### Extension signature verification (ADR 017)
-- **Warn-but-install.** `BrowserCrypto.ExtensionSignatureVerifier` verifies the CRX2/CRX3 signature at install; unsigned/unknown-signer bundles still install but are flagged (orange warning icon on the row, an install-time message, and an enable-time confirmation). Verified-with-pinned-key → `.trusted`, verified-with-embedded-key → `.verified`, tampered → `.tampered`, plain ZIP → `.unsigned`.
+- **Warn-but-install.** `ChordCrypto.ExtensionSignatureVerifier` verifies the CRX2/CRX3 signature at install; unsigned/unknown-signer bundles still install but are flagged (orange warning icon on the row, an install-time message, and an enable-time confirmation). Verified-with-pinned-key → `.trusted`, verified-with-embedded-key → `.verified`, tampered → `.tampered`, plain ZIP → `.unsigned`.
 - **The verdict is persisted** (`Extensions/<slug>.verification`), because the CRX header that proves it is stripped at install.
 - **Pinned key set is empty today** (no extension store); the API takes `pinnedKeys:` so a store key slots in later.
 - CRX3 verification is real: it parses the protobuf `CrxFileHeader`/`SignedData`, verifies the RSA-SHA256 proof over `signed_header_data`, and checks the ZIP against `SignedData.sha256_with_rsa`. ECDSA-only headers → `.unsupported`.
-- `BrowserCrypto` is the second Security/CryptoKit importer (after `BrowserSecrets`).
+- `ChordCrypto` is the second Security/CryptoKit importer (after `ChordSecrets`).
 
 ### Content Blocking (§4.8)
 - Compiles EasyList + EasyPrivacy into `WKContentRuleList`s. ~137k rules chunked at 50k per list.
@@ -133,7 +133,7 @@ persists (`v9_window_layout`).
 - Camera / microphone / notifications: one model, decided per **(Space, origin,
   kind)**, asked once, remembered, revocable in Settings → Privacy & Data.
   `SitePermissionKind` / `SitePermissionPrompt` / `SitePermissionRecord` live in
-  `BrowserCore` (WebKit-free). Schema `v10_site_permissions`, re-scoped by
+  `ChordCore` (WebKit-free). Schema `v10_site_permissions`, re-scoped by
   `v11_site_permissions_per_space`. **ADR 014.** Never restore a blanket grant.
 - Web notifications are an in-page shim (`NotificationBridge`) over
   `UNUserNotificationCenter` — public `WKWebView` has no notification hook. Two
@@ -150,7 +150,7 @@ persists (`v9_window_layout`).
 `docs/design/password-vault.md` is the source of truth. The load-bearing rules:
 
 - **Metadata in SQLite (`credential`, v12), password in the Keychain** via
-  `BrowserSecrets` — one of two Security importers (`BrowserCrypto`, ADR 017, is
+  `ChordSecrets` — one of two Security importers (`ChordCrypto`, ADR 017, is
   the other). A secret must never reach the database, a log, or observable state
   (`CredentialSavePrompt` has no password field by design).
 - **Exact origin equality** for every fill — scheme + host + port, never
@@ -210,12 +210,12 @@ see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 ### Build / Test
 - `swift test` runs unsandboxed — cannot verify entitlement-dependent features.
 - Never `cp` the GRDB database — use `.backup`. Restoring a main file beside a newer WAL corrupts it.
-- `os.Logger` logs are not retrievable via `log show`/`log stream` on this machine — but `AppLog` mirrors every line to `Application Support/Browser/Logs/browser.log` (rotating, 5 MB), so read that file instead of using screenshots. Screenshots are only for visual verification.
+- `os.Logger` logs are not retrievable via `log show`/`log stream` on this machine — but `AppLog` mirrors every line to `Application Support/Chord/Logs/chord.log` (rotating, 5 MB), so read that file instead of using screenshots. Screenshots are only for visual verification.
 - The app is a `Window`, NOT a `WindowGroup` — a group spawns a second window on external URLs.
 
 ## Sandboxed App Data Path
 
-`~/Library/Containers/com.rizal.browser/Data/Library/Application Support/Browser/`
+`~/Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord/`
 
 ## Performance Budgets (§6.1)
 

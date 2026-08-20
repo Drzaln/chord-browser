@@ -6,45 +6,45 @@ let strict: [SwiftSetting] = [
 ]
 
 let package = Package(
-    name: "BrowserPackages",
+    name: "ChordPackages",
     // 15.4 is the hard floor (BROWSER_SPEC 2), set by WKWebExtension
     // availability. Matching it here — rather than .v15 (15.0) — lets M7 use the
     // extension API without scattering `if #available`, per §7.3.
     platforms: [.macOS("15.4")],
     products: [
-        .library(name: "BrowserCore", targets: ["BrowserCore"]),
-        .library(name: "BrowserLogging", targets: ["BrowserLogging"]),
-        .library(name: "BrowserCrypto", targets: ["BrowserCrypto"]),
-        .library(name: "BrowserPersistence", targets: ["BrowserPersistence"]),
-        .library(name: "BrowserEngine", targets: ["BrowserEngine"]),
-        .library(name: "BrowserExtensions", targets: ["BrowserExtensions"]),
-        .library(name: "BrowserStore", targets: ["BrowserStore"]),
-        .library(name: "BrowserUI", targets: ["BrowserUI"]),
-        .library(name: "BrowserSecrets", targets: ["BrowserSecrets"]),
-        .library(name: "BrowserTestSupport", targets: ["BrowserTestSupport"]),
+        .library(name: "ChordCore", targets: ["ChordCore"]),
+        .library(name: "ChordLogging", targets: ["ChordLogging"]),
+        .library(name: "ChordCrypto", targets: ["ChordCrypto"]),
+        .library(name: "ChordPersistence", targets: ["ChordPersistence"]),
+        .library(name: "ChordEngine", targets: ["ChordEngine"]),
+        .library(name: "ChordExtensions", targets: ["ChordExtensions"]),
+        .library(name: "ChordStore", targets: ["ChordStore"]),
+        .library(name: "ChordUI", targets: ["ChordUI"]),
+        .library(name: "ChordSecrets", targets: ["ChordSecrets"]),
+        .library(name: "ChordTestSupport", targets: ["ChordTestSupport"]),
     ],
     dependencies: [
         // Sequential, named, individually testable migrations (BROWSER_SPEC 7.2).
         .package(url: "https://github.com/groue/GRDB.swift.git", exact: "7.7.1"),
     ],
     targets: [
-        .target(name: "BrowserCore", swiftSettings: strict),
+        .target(name: "ChordCore", swiftSettings: strict),
 
         // The one logging sink (BROWSER_SPEC 3.7): mirrors every line to
         // os.Logger and, once installed, to a rotating file. Sits beside Core
         // at the bottom of the dependency tree — no app package imports it,
         // every package that logs does. Foundation + os only, like Core.
-        .target(name: "BrowserLogging", swiftSettings: strict),
+        .target(name: "ChordLogging", swiftSettings: strict),
 
         .target(
-            name: "BrowserPersistence",
-            dependencies: ["BrowserCore", "BrowserLogging", .product(name: "GRDB", package: "GRDB.swift")],
+            name: "ChordPersistence",
+            dependencies: ["ChordCore", "ChordLogging", .product(name: "GRDB", package: "GRDB.swift")],
             swiftSettings: strict
         ),
 
         .target(
-            name: "BrowserEngine",
-            dependencies: ["BrowserCore", "BrowserLogging"],
+            name: "ChordEngine",
+            dependencies: ["ChordCore", "ChordLogging"],
             resources: [.process("Resources/seed-blocklist.txt")],
             swiftSettings: strict
         ),
@@ -54,103 +54,103 @@ let package = Package(
         // WK* type reaches Store/UI — it talks to them through ExtensionHost
         // and the engine's opaque ExtensionControllerHandle. See ADR 011.
         .target(
-            name: "BrowserExtensions",
-            dependencies: ["BrowserCore", "BrowserCrypto", "BrowserEngine", "BrowserLogging"],
+            name: "ChordExtensions",
+            dependencies: ["ChordCore", "ChordCrypto", "ChordEngine", "ChordLogging"],
             swiftSettings: strict
         ),
 
         // Extension-bundle signature verification (M7.5f). The ONLY Security/
-        // CryptoKit importer besides BrowserSecrets — same one-OS-framework-per-
-        // target rule (ADR 011). BrowserExtensions depends on it so the
+        // CryptoKit importer besides ChordSecrets — same one-OS-framework-per-
+        // target rule (ADR 011). ChordExtensions depends on it so the
         // installer can stamp a verdict on every bundle it accepts.
         .target(
-            name: "BrowserCrypto",
-            dependencies: ["BrowserCore"],
+            name: "ChordCrypto",
+            dependencies: ["ChordCore"],
             swiftSettings: strict
         ),
 
         // The password vault's secret half (V1). The ONLY importer of Security /
         // LocalAuthentication — the same "one target per OS-framework boundary"
-        // rule that gave BrowserExtensions its own target (ADR 011). No secret
+        // rule that gave ChordExtensions its own target (ADR 011). No secret
         // reaches SQLite, and no Keychain type leaves this package.
         .target(
-            name: "BrowserSecrets",
-            dependencies: ["BrowserCore"],
+            name: "ChordSecrets",
+            dependencies: ["ChordCore"],
             swiftSettings: strict
         ),
 
         .target(
-            name: "BrowserStore",
+            name: "ChordStore",
             dependencies: [
-                "BrowserCore", "BrowserEngine", "BrowserExtensions", "BrowserPersistence",
-                "BrowserSecrets", "BrowserLogging",
+                "ChordCore", "ChordEngine", "ChordExtensions", "ChordPersistence",
+                "ChordSecrets", "ChordLogging",
             ],
             swiftSettings: strict
         ),
 
         .target(
-            name: "BrowserUI",
-            dependencies: ["BrowserCore", "BrowserEngine", "BrowserExtensions", "BrowserStore", "BrowserLogging"],
+            name: "ChordUI",
+            dependencies: ["ChordCore", "ChordEngine", "ChordExtensions", "ChordStore", "ChordLogging"],
             swiftSettings: strict
         ),
 
         .target(
-            name: "BrowserTestSupport",
+            name: "ChordTestSupport",
             // Store, for the single-window conveniences in
             // `TabStore+SingleWindow`. Nothing in Sources depends on this target
             // — only the test targets do — so this adds no cycle.
-            dependencies: ["BrowserCore", "BrowserEngine", "BrowserStore"],
+            dependencies: ["ChordCore", "ChordEngine", "ChordStore"],
             swiftSettings: strict
         ),
 
         // End-to-end: real engine, real database, real HTTP. No fakes.
         .testTarget(
-            name: "BrowserE2ETests",
+            name: "ChordE2ETests",
             dependencies: [
-                "BrowserCore", "BrowserEngine", "BrowserPersistence", "BrowserStore",
-                "BrowserTestSupport",
+                "ChordCore", "ChordEngine", "ChordPersistence", "ChordStore",
+                "ChordTestSupport",
             ],
             swiftSettings: strict
         ),
 
         .testTarget(
-            name: "BrowserCoreTests",
-            dependencies: ["BrowserCore", "BrowserTestSupport"],
+            name: "ChordCoreTests",
+            dependencies: ["ChordCore", "ChordTestSupport"],
             swiftSettings: strict
         ),
         .testTarget(
-            name: "BrowserPersistenceTests",
-            dependencies: ["BrowserPersistence", "BrowserTestSupport"],
+            name: "ChordPersistenceTests",
+            dependencies: ["ChordPersistence", "ChordTestSupport"],
             swiftSettings: strict
         ),
         .testTarget(
-            name: "BrowserEngineTests",
-            dependencies: ["BrowserEngine", "BrowserTestSupport"],
+            name: "ChordEngineTests",
+            dependencies: ["ChordEngine", "ChordTestSupport"],
             swiftSettings: strict
         ),
         .testTarget(
-            name: "BrowserExtensionsTests",
-            dependencies: ["BrowserExtensions", "BrowserTestSupport"],
+            name: "ChordExtensionsTests",
+            dependencies: ["ChordExtensions", "ChordTestSupport"],
             swiftSettings: strict
         ),
         .testTarget(
-            name: "BrowserUITests",
-            dependencies: ["BrowserUI", "BrowserTestSupport"],
+            name: "ChordUITests",
+            dependencies: ["ChordUI", "ChordTestSupport"],
             swiftSettings: strict
         ),
         .testTarget(
-            name: "BrowserSecretsTests",
-            dependencies: ["BrowserSecrets", "BrowserCore"],
+            name: "ChordSecretsTests",
+            dependencies: ["ChordSecrets", "ChordCore"],
             swiftSettings: strict
         ),
         .testTarget(
-            name: "BrowserLoggingTests",
-            dependencies: ["BrowserLogging"],
+            name: "ChordLoggingTests",
+            dependencies: ["ChordLogging"],
             swiftSettings: strict
         ),
         .testTarget(
-            name: "BrowserStoreTests",
-            dependencies: ["BrowserStore", "BrowserSecrets", "BrowserTestSupport"],
+            name: "ChordStoreTests",
+            dependencies: ["ChordStore", "ChordSecrets", "ChordTestSupport"],
             swiftSettings: strict
         ),
     ]

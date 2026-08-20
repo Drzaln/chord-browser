@@ -19,8 +19,8 @@ build_log="$(mktemp -t chord-build)"
 trap 'rm -f "$build_log"' EXIT
 
 if xcodebuild \
-    -project Browser.xcodeproj \
-    -scheme Browser \
+    -project Chord.xcodeproj \
+    -scheme Chord \
     -configuration Debug \
     -destination 'platform=macOS' \
     build > "$build_log" 2>&1

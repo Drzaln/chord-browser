@@ -27,10 +27,10 @@ So: build it, or type passwords by hand forever.
 A vault, split in two by design:
 
 - **Metadata in SQLite** (`credential`, v12) — origin, username, timestamps.
-- **The password in the macOS Keychain**, behind `BrowserSecrets`, a new package
+- **The password in the macOS Keychain**, behind `ChordSecrets`, a new package
   that is the only importer of Security and LocalAuthentication for the vault
-  (the same one-target-per-OS-boundary rule that gave `BrowserExtensions` its own
-  target, ADR 011; `BrowserCrypto`, ADR 017, later became a second Security
+  (the same one-target-per-OS-boundary rule that gave `ChordExtensions` its own
+  target, ADR 011; `ChordCrypto`, ADR 017, later became a second Security
   importer for extension signatures).
 
 The split is the point: a database backup, a `.recover` dump, or a stray

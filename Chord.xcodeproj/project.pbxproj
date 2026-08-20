@@ -1,0 +1,308 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1000101000000000000001 /* ChordApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000201000000000000001 /* ChordApp.swift */; };
+		A1000102000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000202000000000000001 /* AppDelegate.swift */; };
+		A1000103000000000000001 /* DebugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000203000000000000001 /* DebugOverlay.swift */; };
+		A1000104000000000000001 /* NotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000206000000000000001 /* NotificationController.swift */; };
+		A1000301000000000000001 /* ChordUI in Frameworks */ = {isa = PBXBuildFile; productRef = A1000401000000000000001 /* ChordUI */; };
+		A1000302000000000000001 /* ChordStore in Frameworks */ = {isa = PBXBuildFile; productRef = A1000402000000000000001 /* ChordStore */; };
+		A1000303000000000000001 /* ChordCore in Frameworks */ = {isa = PBXBuildFile; productRef = A1000403000000000000001 /* ChordCore */; };
+		C42B564430149E4B00869681 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C42B564330149E4B00869681 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A1000001000000000000001 /* Chord.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chord.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000201000000000000001 /* ChordApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChordApp.swift; sourceTree = "<group>"; };
+		A1000202000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A1000203000000000000001 /* DebugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugOverlay.swift; sourceTree = "<group>"; };
+		A1000204000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1000205000000000000001 /* Chord.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Chord.entitlements; sourceTree = "<group>"; };
+		A1000206000000000000001 /* NotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationController.swift; sourceTree = "<group>"; };
+		C42B564330149E4B00869681 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1000501000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000301000000000000001 /* ChordUI in Frameworks */,
+				A1000302000000000000001 /* ChordStore in Frameworks */,
+				A1000303000000000000001 /* ChordCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A1000601000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				C42B564330149E4B00869681 /* Assets.xcassets */,
+				A1000602000000000000001 /* ChordApp */,
+				A1000603000000000000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1000602000000000000001 /* ChordApp */ = {
+			isa = PBXGroup;
+			children = (
+				A1000201000000000000001 /* ChordApp.swift */,
+				A1000202000000000000001 /* AppDelegate.swift */,
+				A1000203000000000000001 /* DebugOverlay.swift */,
+				A1000206000000000000001 /* NotificationController.swift */,
+				A1000204000000000000001 /* Info.plist */,
+				A1000205000000000000001 /* Chord.entitlements */,
+			);
+			path = ChordApp;
+			sourceTree = "<group>";
+		};
+		A1000603000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1000001000000000000001 /* Chord.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1000701000000000000001 /* Chord */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000801000000000000001 /* Build configuration list for PBXNativeTarget "Chord" */;
+			buildPhases = (
+				A1000901000000000000001 /* Sources */,
+				A1000501000000000000001 /* Frameworks */,
+				A1000A01000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Chord;
+			packageProductDependencies = (
+				A1000401000000000000001 /* ChordUI */,
+				A1000402000000000000001 /* ChordStore */,
+				A1000403000000000000001 /* ChordCore */,
+			);
+			productName = Chord;
+			productReference = A1000001000000000000001 /* Chord.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1000B01000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A1000701000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = A1000C01000000000000001 /* Build configuration list for PBXProject "Chord" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A1000601000000000000001;
+			packageReferences = (
+				A1000D01000000000000001 /* XCLocalSwiftPackageReference "Packages" */,
+			);
+			productRefGroup = A1000603000000000000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1000701000000000000001 /* Chord */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1000A01000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C42B564430149E4B00869681 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1000901000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000101000000000000001 /* ChordApp.swift in Sources */,
+				A1000102000000000000001 /* AppDelegate.swift in Sources */,
+				A1000103000000000000001 /* DebugOverlay.swift in Sources */,
+				A1000104000000000000001 /* NotificationController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1000E01000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A1000E02000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A1000F01000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = ChordApp/Chord.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 7;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ChordApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Chord;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.rizal.chord;
+				PRODUCT_NAME = Chord;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		A1000F02000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = ChordApp/Chord.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 7;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ChordApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Chord;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.rizal.chord;
+				PRODUCT_NAME = Chord;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1000801000000000000001 /* Build configuration list for PBXNativeTarget "Chord" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000F01000000000000001 /* Debug */,
+				A1000F02000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1000C01000000000000001 /* Build configuration list for PBXProject "Chord" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000E01000000000000001 /* Debug */,
+				A1000E02000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A1000D01000000000000001 /* XCLocalSwiftPackageReference "Packages" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1000401000000000000001 /* ChordUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChordUI;
+		};
+		A1000402000000000000001 /* ChordStore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChordStore;
+		};
+		A1000403000000000000001 /* ChordCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChordCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A1000B01000000000000001 /* Project object */;
+}

@@ -40,10 +40,10 @@ bundles this browser exists to load.
 
 ## Where the check lives
 
-A new package, **`BrowserCrypto`** — the second Security/CryptoKit importer
-(after `BrowserSecrets`). It is the application of ADR 011's
+A new package, **`ChordCrypto`** — the second Security/CryptoKit importer
+(after `ChordSecrets`). It is the application of ADR 011's
 one-OS-framework-per-target rule to signing: the vault owns Keychain/LocalAuth,
-crypto owns signing; neither bleeds into the WebKit layers. `BrowserExtensions`
+crypto owns signing; neither bleeds into the WebKit layers. `ChordExtensions`
 depends on it so `ExtensionInstaller` stamps the verdict before the header is
 stripped.
 
@@ -61,13 +61,13 @@ unreachable until a signer is actually pinned — the code refuses to fake it.
 ## Consequences
 
 - **CRX3 parsing is real.** The header is a protobuf (`CrxFileHeader` /
-  `SignedData`); a minimal bounds-checked protobuf reader lives in `BrowserCrypto`
+  `SignedData`); a minimal bounds-checked protobuf reader lives in `ChordCrypto`
   and verifies the RSA-SHA256 proof over `signed_header_data`, plus the ZIP
   against `SignedData.sha256_with_rsa`. ECDSA-only headers (unsupported) read as
   `.unsupported`, never as verified.
 - **No paid Apple identity involved** — this needs only a public key, unlike the
   vault's Keychain hardening (ADR 016's `-34018` blocker), which stays out.
-- **The UI copy is a test.** Status → warning text is pinned in a `BrowserUITests`
+- **The UI copy is a test.** Status → warning text is pinned in a `ChordUITests`
   suite so a verdict can never silently render as trusted.
 - **No signing of our own** — a future feature (signing bundles we distribute)
   would need a private key and a distribution story, both out of scope here.

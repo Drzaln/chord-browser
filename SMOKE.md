@@ -381,7 +381,7 @@ Automated coverage: `ClearBrowsingDataTests` (Store fan-out), `BrowsingDataType`
 ### Drag a tab into a split (§4.5)
 
 Verified 2026-07-23 by driving the real app with `cliclick` and reading the
-result from screenshots and `browser.sqlite` — not from the test suite, which
+result from screenshots and `chord.sqlite` — not from the test suite, which
 cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
 
 - [x] Dragging a sidebar row over the content area highlights the pane it would
@@ -500,7 +500,7 @@ setting this sweep did not change), and whether typing "feels" lag-free.
       real restore from a reload)
 - [x] After relaunch, no tab has loaded until it is clicked
 - [x] `paneInteractionState` has rows after a normal quit (it had none before M4;
-      check with `sqlite3 browser.sqlite "select count(*) from paneInteractionState"`)
+      check with `sqlite3 chord.sqlite "select count(*) from paneInteractionState"`)
 - [ ] Scroll position comes back on a long page
 - [ ] Text typed into a form comes back
 - [ ] Switch tabs, then force-quit: the tab you switched _away_ from restores,
@@ -694,8 +694,8 @@ for 17397 of 17398 samples. Do not chase this one without re-measuring settled.
 Override the seed's URL set for a realistic run with `SOAK_URLS` (space-separated,
 read by `seed`): `SOAK_URLS="https://a https://b" scripts/soak.sh seed`. The app
 is now **Chord** — `scripts/soak.sh` drives and samples the `Chord` process, but
-the profile still lives under the `Browser` Application Support folder (the rename
-is display-only; bundle id `com.rizal.browser` is unchanged).
+the profile still lives under the `Chord` Application Support folder (the rename
+is display-only; bundle id `com.rizal.chord` is unchanged).
 
 
 ## Multiple windows, added 2026-07-27
@@ -1102,7 +1102,7 @@ tabs, 40 panes**, spanning both pinned tiers and a 4-pane split, driven with
 ## 30-minute soak — 2026-08-07 (security pass)
 
 Re-run for the §8/§6.1 gate after the 2026-08-07 security pass: extension
-signature verification (`BrowserCrypto`, runs once at install), per-list
+signature verification (`ChordCrypto`, runs once at install), per-list
 content-blocker refresh, and the shared Safari UA token. None add a steady-state
 memory path, but the gate is the gate.
 
