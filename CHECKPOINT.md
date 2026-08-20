@@ -2374,6 +2374,31 @@ it is a WebKit compositing bug, not a page bug.
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
 
+### Release 1.1.4 (build 8) — tagged `v1.1.4` (2026-08-20)
+
+Rebrand + identity release. Two prior commits land before this tag:
+**`refactor: rename Little Arc to Little Chord`** — the floating-panel feature
+drops the Arc-era name for the app's own brand (identifiers `LittleArc` →
+`LittleChord`, display text, files; stored `prefs.littleArcPanelWidth/Height`
+keys kept so the saved panel size survives). **`refactor: rename internal code
+name Browser to Chord`** — the codebase's internal identity moves to the
+user-facing brand in one pass: the 10 Swift modules (`BrowserCore` →
+`ChordCore`, etc.), the app target (`BrowserApp` → `ChordApp`, `ChordApp.swift`,
+`struct ChordApp`, `Chord.entitlements`, `Chord.xcodeproj`), the Xcode
+target/scheme/product and package links, and the data identity —
+`PRODUCT_BUNDLE_IDENTIFIER` `com.rizal.browser` → `com.rizal.chord`, the
+Application Support folder (`applicationName` "Browser" → "Chord"),
+`browser.sqlite` → `chord.sqlite`, `browser.log` → `chord.log`. Proper noun
+"Chord Browser" and third-party "KeePassXC-Browser" preserved. A one-time
+migration (`scripts/migrate-bundle-id.sh`) moves the sandbox container,
+UserDefaults, and unsandboxed dev path from the old bundle id to the new; vault
+passwords migrate in-app at launch via `KeychainSecretStore.migrateVault`
+(secrets are Keychain-service-scoped, unlike the sandbox container).
+`MARKETING_VERSION`/`CFBundleShortVersionString` `1.1.3` → `1.1.4`,
+`CURRENT_PROJECT_VERSION`/`CFBundleVersion` `7` → `8` in
+`Chord.xcodeproj/project.pbxproj` and `ChordApp/Info.plist`. 626 tests, 94
+suites, prepush green.
+
 ### Release 1.1.3 (build 7) — tagged `v1.1.3` (2026-08-20)
 
 Bugfix release: **closing a tab now keeps the selection within the tab's own
