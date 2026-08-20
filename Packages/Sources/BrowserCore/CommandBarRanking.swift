@@ -129,16 +129,14 @@ public enum CommandBarRanking {
 
         // The raw URL or search fallback always stays reachable (4.4).
         //
-        // A *complete* address goes first: having typed one, Return must go
-        // there. It previously sorted last on `Int.min`, so any open tab that
-        // fuzzy-matched the text won the highlight and Return jumped Spaces
-        // instead of navigating. A search query still sorts last, because there
-        // an open tab or a history hit really is the better guess.
+        // Both go first: having typed them, Return must act on them. A
+        // *complete* address previously sorted last on `Int.min`, so any open
+        // tab that fuzzy-matched the text won the highlight and Return jumped
+        // Spaces instead of navigating. A search query used to sort last too,
+        // burying it below every matching tab and history row; the bar is for
+        // getting somewhere, so the fallback keeps the top slot.
         if let fallback = fallback(query: query, input: input) {
-            switch fallback.kind {
-            case .navigate: results.insert(fallback, at: 0)
-            default: results.append(fallback)
-            }
+            results.insert(fallback, at: 0)
         }
         return results
     }

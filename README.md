@@ -41,7 +41,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **Spaces** — isolated browsing contexts, each with its own
   `WKWebsiteDataStore`, so two Google accounts stay logged in simultaneously in
   two Spaces. Gradient theming per Space, `Cmd+1…9` to switch.
-- **Command bar** — `Cmd+T` panel with fuzzy ranking over tabs and history.
+- **Command bar** — `Cmd+T` panel with fuzzy ranking over tabs and history, and a
+  URL/search fallback pinned to the top so Return always acts on what you typed.
 - **Ephemeral tabs** — auto-sweep timer with archive.
 - **Favourites & Pinned tabs** — three tab tiers: a Favourites icon grid, a
   collapsible Pinned-tabs list (both sweep-exempt and homed at the URL they were

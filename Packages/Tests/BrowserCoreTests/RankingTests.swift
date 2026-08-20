@@ -101,11 +101,12 @@ struct CommandBarRankingTests {
         )
 
         // 4.4 states this explicitly: open tabs outrank history at equal score.
-        let first = try #require(results.first)
-        guard case .openTab = first.kind else {
-            Issue.record("expected an open tab first, got \(first.kind)")
-            return
-        }
+        // The search fallback sits above both, so compare the two relative to
+        // each other rather than expecting the tab at the very top.
+        let kinds = results.map(\.kind)
+        let tabIndex = try #require(kinds.firstIndex { if case .openTab = $0 { true } else { false } })
+        let historyIndex = try #require(kinds.firstIndex { if case .history = $0 { true } else { false } })
+        #expect(tabIndex < historyIndex)
     }
 
     @Test("Recent items outrank stale ones")
@@ -261,22 +262,18 @@ struct CommandBarRankingTests {
         }
     }
 
-    @Test("A search query still sorts last, so an open tab keeps the top slot")
-    func searchQueryStaysLast() throws {
-        // Only a *complete* address jumps the queue. For ordinary words an open
-        // tab really is the better guess, which is 4.4's rule.
+    @Test("A search query keeps the top slot")
+    func searchQueryKeepsTopSlot() throws {
+        // Like a typed address, the search fallback jumps the queue so Return
+        // acts on it without scrolling the list.
         let tab = TabBuilder().url("https://github.com").title("GitHub").build()
 
         let results = CommandBarRanking.suggestions(
             for: input(query: "github", tabs: [tab])
         )
 
-        guard case .openTab = try #require(results.first).kind else {
-            Issue.record("expected the open tab first for a non-address query")
-            return
-        }
-        guard case .search = try #require(results.last).kind else {
-            Issue.record("expected the search fallback last")
+        guard case .search = try #require(results.first).kind else {
+            Issue.record("expected the search fallback first, got \(String(describing: results.first?.kind))")
             return
         }
     }

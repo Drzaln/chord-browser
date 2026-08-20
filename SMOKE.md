@@ -466,8 +466,9 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 - [ ] `Cmd+Enter` forces a new tab from either mode
 - [x] Typing a complete address (`github.com`) highlights that address, **not**
       an open tab that happens to fuzzy-match it
-- [x] Typing a word (`github`) still highlights the open tab, with the search
-      fallback last
+- [x] Typing a word (`github`) highlights the **search fallback, pinned to the
+      top** — Return searches without scrolling to the bottom (changed 2026-08-20;
+      the fallback was last before, and an open tab held the top slot)
 - [x] Every row shows what Return will do — a cross-Space result reads
       "Switch to Tab" _before_ you press it
 

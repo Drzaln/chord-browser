@@ -319,8 +319,8 @@ See [Little Arc](#little-arc-1) below.
 where the result lands (a new tab vs. the current tab). As you type it ranks:
 
 - **Open tabs** and **history** by fuzzy match, and
-- a raw **URL** or **search** fallback that always stays reachable at the bottom,
-  so you can always just navigate to exactly what you typed.
+- a raw **URL** or **search** fallback **pinned to the top** of the list, so
+  Return always acts on exactly what you typed without scrolling for it.
 
 `Cmd+L` opens the bar with the current tab's address already in the field and
 selected, so the first keystroke replaces it — the same as the address button in

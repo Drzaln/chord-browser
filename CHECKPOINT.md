@@ -2374,6 +2374,18 @@ it is a WebKit compositing bug, not a page bug.
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
 
+### Release 1.1.1 (build 6) — 2026-08-20
+
+Bugfix release: **the command bar's search fallback now pins to the top of the
+results** instead of sorting last, matching the typed-address fallback — typing
+a search query and pressing Return no longer means scrolling to the bottom of
+the list first. Both `navigate` and `search` fallbacks insert at index 0 in
+`CommandBarRanking.suggestions`; open tabs/history still follow, ranked by
+score. `CURRENT_PROJECT_VERSION`/`CFBundleVersion` `5` → `6` in
+`Browser.xcodeproj/project.pbxproj` and `BrowserApp/Info.plist`
+(`MARKETING_VERSION` stays `1.1.1`). Ranking tests updated to assert the new
+slot. 621 tests, 94 suites, prepush green.
+
 ### Release 1.1.1 (build 5) — tagged `v1.1.1` (2026-08-18)
 
 Feature release: **swipe-to-close** — a rightward swipe on a pane with no back

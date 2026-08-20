@@ -322,8 +322,9 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
   bookmarks, commands, then raw URL / search-query fallback.
 - Fuzzy scoring with recency weighting. Open tabs outrank history at equal score.
 - A **complete typed address takes the top slot**, ahead of open tabs. A search
-  query does not — there an open tab or a history hit is the better guess, so
-  the fallback stays last.
+  query is pinned next to it: the fallback — URL or search — always holds the top
+  slot, because the bar is for getting somewhere and Return must act on what was
+  typed. Matched tabs and history follow, ranked by score.
 - Every row states what Return will do to it ("Switch to Tab", "Go to Page",
   "Search"…). A result that switches Space must announce that before it happens,
   not after.
