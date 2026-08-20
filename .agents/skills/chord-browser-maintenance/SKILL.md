@@ -21,7 +21,7 @@ Run this whenever you pick up the project after time away:
 swift test --package-path Packages 2>&1 | tail -5
 
 # 3. Check current schema version (should be v14)
-sqlite3 ~/Library/Containers/com.rizal.chord/Data/Library/Application\ Support/Chord/chord.sqlite \
+sqlite3 ~/Library/Application\ Support/Chord/chord.sqlite \
   "SELECT * FROM grdb_migrations ORDER BY identifier;"
 ```
 
@@ -226,10 +226,10 @@ scripts/reset-data.sh
 
 ```bash
 # Correct way to snapshot
-sqlite3 ~/Library/Containers/com.rizal.chord/Data/Library/Application\ Support/Chord/chord.sqlite ".backup /tmp/chord-backup.sqlite"
+sqlite3 ~/Library/Application\ Support/Chord/chord.sqlite ".backup /tmp/chord-backup.sqlite"
 
 # If corrupted, attempt recovery
-sqlite3 ~/Library/Containers/com.rizal.chord/Data/Library/Application\ Support/Chord/chord.sqlite ".recover" | sqlite3 /tmp/recovered.sqlite
+sqlite3 ~/Library/Application\ Support/Chord/chord.sqlite ".recover" | sqlite3 /tmp/recovered.sqlite
 ```
 
 ### Content processes crashing
@@ -331,7 +331,7 @@ How to read it:
 `AppLog` mirrors every line to a rotating file. Read that:
 
 ```bash
-LOG=~/Library/Containers/com.rizal.chord/Data/Library/Application\ Support/Chord/Logs/chord.log
+LOG=~/Library/Application\ Support/Chord/Logs/chord.log
 tail -200 "$LOG"                                  # recent entries
 grep -i "error\|fault" "$LOG"                     # errors across the session
 tail -20 "${LOG}.1"                               # the rotated backup
@@ -397,7 +397,7 @@ Single `main` branch, linear history. No feature branches.
 | Site permissions (storage) | `Packages/Sources/ChordPersistence/SQLiteSitePermissionsRepository.swift` |
 | Notification shim | `Packages/Sources/ChordEngine/NotificationBridge.swift` + `ChordApp/NotificationController.swift` |
 | Logging sink | `Packages/Sources/ChordLogging/AppLog.swift` |
-| Log file | `~/Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord/Logs/chord.log` |
+| Log file | `~/Library/Application Support/Chord/Logs/chord.log` |
 | YouTube ad script | `Packages/Sources/ChordEngine/YouTubeAdBlocker.swift` |
 | Screen-share monitor | `Packages/Sources/ChordEngine/ScreenShareMonitor.swift` |
 | User-Agent presets | `Packages/Sources/ChordCore/UserAgent.swift` |
@@ -408,4 +408,4 @@ Single `main` branch, linear history. No feature branches.
 | Seed blocklist | `Packages/Sources/ChordEngine/Resources/seed-blocklist.txt` |
 | Branding assets | `docs/branding/` |
 | User guide | `docs/USER_GUIDE.md` |
-| Sandboxed data | `~/Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord/` |
+| User data (unsandboxed) | `~/Library/Application Support/Chord/` |

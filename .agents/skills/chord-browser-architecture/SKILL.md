@@ -213,9 +213,14 @@ see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 - `os.Logger` logs are not retrievable via `log show`/`log stream` on this machine — but `AppLog` mirrors every line to `Application Support/Chord/Logs/chord.log` (rotating, 5 MB), so read that file instead of using screenshots. Screenshots are only for visual verification.
 - The app is a `Window`, NOT a `WindowGroup` — a group spawns a second window on external URLs.
 
-## Sandboxed App Data Path
+## App Data Path (unsandboxed)
 
-`~/Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord/`
+The app ships **unsandboxed** (direct/notarized, not the Mac App Store). User
+data lives at `~/Library/Application Support/Chord/`, with cookies/sessions in
+`~/Library/WebKit/com.rizal.chord` and preferences in
+`~/Library/Preferences/com.rizal.chord.plist`. A leftover sandbox container
+(`~/Library/Containers/com.rizal.chord/Data/...`) from an older sandboxed build
+is migrated to these paths on first launch (see `AppEnvironment.live()`).
 
 ## Performance Budgets (§6.1)
 

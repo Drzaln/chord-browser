@@ -213,9 +213,10 @@ swift test  --package-path Packages
 
 ### Resetting to a clean profile
 
-The app is sandboxed, so all user state (cookies, Spaces, tabs, history,
-extensions, caches, preferences) lives in one container. To wipe it and start
-fresh — e.g. before using a Release build daily:
+Chord is unsandboxed (direct/notarized distribution, not the Mac App Store), so
+user state (cookies, Spaces, tabs, history, extensions, caches, preferences)
+lives in the real Application Support folder. To wipe it and start fresh — e.g.
+before using a Release build daily:
 
 ```bash
 scripts/reset-data.sh
@@ -224,10 +225,9 @@ scripts/reset-data.sh
 It quits the app and prompts before deleting. Flags: `--yes` skips the prompt,
 `--build` also clears `DerivedData`/`Packages/.build`. Irreversible.
 
-It clears the profile *inside* the container's `Data/` folder — it deliberately
-leaves the container shell and its `.com.apple.containermanagerd.metadata.plist`,
-which macOS manages and won't let you delete without Full Disk Access. That's
-harmless: the app recreates a fresh `Data/Library` on next launch.
+The data lives in `~/Library/Application Support/Chord` (plus `~/Library/WebKit`
+and the preferences plist). A leftover sandbox container from an older sandboxed
+build is also cleared.
 
 ---
 

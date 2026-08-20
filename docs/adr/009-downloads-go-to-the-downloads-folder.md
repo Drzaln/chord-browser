@@ -1,6 +1,11 @@
 # 009 — Downloads go straight to ~/Downloads
 
-**Status:** accepted (M4, 2026-07-23)
+**Status:** accepted (M4, 2026-07-23). **Superseded in part (1.1.5, 2026-08-20):**
+the app dropped the App Sandbox, so `com.apple.security.files.downloads.read-write`
+is no longer required — an unsandboxed app can write to `~/Downloads` directly.
+The decision's download UX (silent save to `~/Downloads`, no panel) is unchanged;
+only the entitlement that made it possible under the sandbox is moot. See
+`ChordApp/Chord.entitlements`.
 
 ## Context
 

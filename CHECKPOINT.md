@@ -384,10 +384,13 @@ describes.
 Builds all packages, runs all tests, builds the app. Warnings are errors.
 Manual checks live in [SMOKE.md](SMOKE.md).
 
-The app is sandboxed; runtime data lives at
-`~/Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord/`.
-Inspecting `chord.sqlite` with `sqlite3` is the quickest way to confirm real
-behaviour after driving the UI.
+The app ships **unsandboxed** (direct/notarized, not the Mac App Store); runtime
+data lives at `~/Library/Application Support/Chord/` (with cookies/sessions in
+`~/Library/WebKit` and preferences in `~/Library/Preferences/com.rizal.chord.plist`).
+The old sandbox container
+(`~/Library/Containers/com.rizal.chord/Data/...`) is migrated to the real paths
+on first launch. Inspecting `chord.sqlite` with `sqlite3` is the quickest way to
+confirm real behaviour after driving the UI.
 
 **Never `cp` that database to back it up, and never restore one next to a
 stale `-wal`.** GRDB runs in WAL mode: recent commits live in
@@ -2373,6 +2376,30 @@ it is a WebKit compositing bug, not a page bug.
   If it ever recurs after an OS/WebKit update, the log line
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
+
+### Release 1.1.5 (build 9) — tagged `v1.1.5` (2026-08-20)
+
+**Unsandboxing release.** Chord is distributed direct/notarized (Developer ID),
+not through the Mac App Store (which requires sandboxing), so the App Sandbox
+is dropped — the same trade Chrome/Firefox/Edge make. `com.apple.security.app-sandbox`
+and the now-moot sandbox-scoped keys (`network.client`,
+`files.user-selected.read-write`, `files.downloads.read-write`, `print`,
+`device.camera/microphone/audio-input`) are removed from
+`ChordApp/Chord.entitlements`; camera/mic/print/downloads still work via TCC and
+the Info.plist usage strings. Because the browser can now spawn child processes
+and write anywhere, an unsandboxed host is also the prerequisite for any future
+native-messaging integration (e.g. a password-manager bridge).
+
+On-disk data moves out of the sandbox container: a one-time in-app migration
+(`AppEnvironment.live()` → `migrateOutOfSandboxContainerIfNeeded`) moves the
+Application Support contents, WebKit store, and preferences from
+`~/Library/Containers/com.rizal.chord/Data/...` to the real `~/Library/...` on
+first launch. Idempotent and non-fatal per item. `scripts/reset-data.sh` now
+clears the real unsandboxed paths (and any leftover container).
+`MARKETING_VERSION`/`CFBundleShortVersionString` `1.1.4` → `1.1.5`,
+`CURRENT_PROJECT_VERSION`/`CFBundleVersion` `8` → `9` in
+`Chord.xcodeproj/project.pbxproj` and `ChordApp/Info.plist`. 626 tests, 94
+suites, prepush green.
 
 ### Release 1.1.4 (build 8) — tagged `v1.1.4` (2026-08-20)
 
