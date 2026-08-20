@@ -49,6 +49,11 @@ public struct AppEnvironment {
             create: true
         ).appending(path: applicationName)
 
+        // One-time migration for the release that dropped the App Sandbox. Must
+        // run before anything opens the database or the log file, so the files
+        // are already where this launch will look.
+        migrateOutOfSandboxContainerIfNeeded(to: support, applicationName: applicationName)
+
         // File-backed logging (BROWSER_SPEC 3.7). Every os.Logger line is
         // mirrored to a rotating file here, because `log show`/`log stream` are
         // unreadable on this machine — the file is where debugging is read back.
@@ -194,5 +199,80 @@ public struct AppEnvironment {
             extensions: extensionsService,
             contentBlocker: contentBlocker
         )
+    }
+
+    /// One-time move of user data out of the App Sandbox container, for the
+    /// release that dropped the sandbox.
+    ///
+    /// Until then every bit of on-disk state lived inside the container —
+    /// `~/Library/Containers/com.rizal.chord/Data/Library/…` — which an
+    /// unsandboxed app no longer reads. Because the app can now see the whole
+    /// filesystem, the old container is readable directly and the move happens
+    /// in-app on the first launch that finds old data but no new data.
+    ///
+    /// Idempotent and best-effort: an item moves only when its destination does
+    /// not already exist, and a failed item is skipped, never fatal. It covers
+    /// the load-bearing Application Support folder (database, logs, favicons,
+    /// extensions), then best-effort WebKit's persistent store (cookies,
+    /// sessions) and the preferences plist.
+    private static func migrateOutOfSandboxContainerIfNeeded(
+        to support: URL, applicationName: String
+    ) {
+        // Still sandboxed: nothing has moved, the normal paths are still right.
+        guard !isAppSandboxed else { return }
+        // Already migrated, or a genuinely fresh install with no legacy data.
+        guard !FileManager.default.fileExists(atPath: support.appending(path: "chord.sqlite").path)
+        else { return }
+
+        let fileManager = FileManager.default
+        let home = fileManager.homeDirectoryForCurrentUser
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.rizal.chord"
+        let container = home
+            .appendingPathComponent("Library/Containers/\(bundleID)/Data/Library/Application Support")
+            .appendingPathComponent(applicationName)
+        guard fileManager.fileExists(atPath: container.appending(path: "chord.sqlite").path)
+        else { return }
+
+        Log.store.notice("migrating user data out of the App Sandbox container into \(support.path)")
+        try? fileManager.createDirectory(at: support, withIntermediateDirectories: true)
+
+        if let items = try? fileManager.contentsOfDirectory(
+            at: container, includingPropertiesForKeys: nil
+        ) {
+            for item in items {
+                let destination = support.appendingPathComponent(item.lastPathComponent)
+                if fileManager.fileExists(atPath: destination.path) { continue }
+                try? fileManager.moveItem(at: item, to: destination)
+            }
+        }
+
+        // Best-effort companion moves: cookies/sessions and preferences.
+        moveIfPossible(
+            from: home.appendingPathComponent(
+                "Library/Containers/\(bundleID)/Data/Library/WebKit/\(bundleID)"
+            ),
+            to: home.appendingPathComponent("Library/WebKit/\(bundleID)")
+        )
+        moveIfPossible(
+            from: home.appendingPathComponent(
+                "Library/Containers/\(bundleID)/Data/Library/Preferences/\(bundleID).plist"
+            ),
+            to: home.appendingPathComponent("Library/Preferences/\(bundleID).plist")
+        )
+    }
+
+    private static func moveIfPossible(from: URL, to: URL) {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: from.path),
+            !fileManager.fileExists(atPath: to.path)
+        else { return }
+        try? fileManager.moveItem(at: from, to: to)
+    }
+
+    /// Whether this process runs inside the macOS App Sandbox, read from the
+    /// environment variable the kernel's sandbox init sets at exec time.
+    private static var isAppSandboxed: Bool {
+        guard let value = getenv("APP_SANDBOX_CONTAINER_ID") else { return false }
+        return String(cString: value).isEmpty == false
     }
 }
