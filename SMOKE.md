@@ -1141,6 +1141,40 @@ switches for 30 minutes.
   stands — nothing in this pass adds a timer or per-view JS.
 - Samples: `/tmp/soak-185505.tsv`.
 
+## 30-minute soak — 2026-08-21 (engine state hygiene + split close)
+
+Re-run for the §8/§6.1 gate after the 2026-08-21 session: `engine.forget`
+(closed tabs stop leaking `interactionState`), the `interactionStates` LRU cap
+(20), `closeAllMediaPresentations` on teardown, and the Arc-style split-close +
+pane-undo changes. **The soak script's data path was also fixed this run** — it
+still pointed at the old sandbox container
+(`~/Library/Containers/com.rizal.chord/Data/...`, empty since the app went
+unsandboxed); it now reads the real `~/Library/Application Support/Chord/`. Its
+`restore()` also switched from `cp` to `.backup` (the WAL-corruption trap).
+
+`scripts/soak.sh seed` → launch the **Debug** build → `run` → `restore`. Fixture:
+**3 Spaces, 21 tabs, 39 panes**, both pinned tiers + a 4-pane split, driven with
+⌘1–3 Space switches for 30 minutes.
+
+| Budget (§6.1) | Target | Ceiling | Measured |
+|---|---|---|---|
+| App process RSS | < 150 MB | 250 MB | **59–65 MB, flat from minute 6** |
+| Total footprint | < 1.2 GB | 1.8 GB | **108 → 1169 MB, but plateaus when idle** |
+| Idle CPU, window visible | < 0.5% | 1% | not re-measured (see 2026-08-01) |
+
+- **App process flat — the state hygiene fixes hold.** 59 MB at minute 0, 65 MB
+  by minute 6, **still 65 MB at minute 29**: closed tabs no longer grow the app
+  process (`forget` + LRU cap working).
+- **The total grows only while actively switching Spaces, then plateaus.** 108 →
+  1169 MB across the 30 min of ⌘1–3 switching, but measured idle afterwards it is
+  **flat** (1136 → 1134 → 1127 MB; the single 955 MB WebContent process held
+  steady over 90 s). This is WebKit's **process-reuse cache** accumulating as the
+  3-Space fixture repeatedly tears down and revives web views — the behaviour
+  documented in the 2026-08-21 session (WebKit keeps content processes alive for
+  reuse; not an app leak, and not addressable without the private-SPI kill that
+  was explicitly skipped).
+- Samples: `/tmp/soak-205211.tsv`.
+
 ## Peek (link click in a favourite/pinned tab) — 2026-08-08
 
 Peek was reworked from the ⌘-hover preview into Arc-style: clicking a link

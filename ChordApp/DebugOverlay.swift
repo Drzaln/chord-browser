@@ -13,6 +13,8 @@ struct DebugOverlay: View {
     @State private var isVisible = false
     @State private var footprintMB: Double = 0
     @State private var liveViews = 0
+    /// Interaction-state cache vs. its LRU cap, and panes forgotten so far.
+    @State private var stateCache = (cached: 0, cap: 0, forgotten: 0)
     @State private var frameMilliseconds: Double = 0
     /// Codec support for the active pane (AV1/VP9/HEVC/H.264) — why Reels/Shorts
     /// look soft while YouTube stays crisp. Probed on show and on tab change, not
@@ -32,6 +34,8 @@ struct DebugOverlay: View {
                     row("windows open", "\(store.windows.count)")
                     row("also showing it", "\(othersShowingSelection)")
                     row("live web views", "\(liveViews)")
+                    row("interaction blobs", "\(stateCache.cached)/\(stateCache.cap)")
+                    row("forgotten panes", "\(stateCache.forgotten)")
                     row("footprint", String(format: "%.0f MB", footprintMB))
                     row("main frame", String(format: "%.1f ms", frameMilliseconds))
                     if !codecs.isEmpty {
@@ -101,6 +105,7 @@ struct DebugOverlay: View {
         while !Task.isCancelled && isVisible {
             let start = CFAbsoluteTimeGetCurrent()
             liveViews = store.liveWebViewCount
+            stateCache = store.interactionStateDiagnostics
             footprintMB = Diagnostics.footprintMB()
             frameMilliseconds = (CFAbsoluteTimeGetCurrent() - start) * 1000
 

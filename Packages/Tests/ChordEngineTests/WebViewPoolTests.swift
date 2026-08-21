@@ -85,6 +85,32 @@ struct WebViewPoolTests {
         #expect(pool.paneID(matching: live.webView) == id)
         #expect(pool.paneID(matching: WKWebView(frame: .zero)) == nil)
     }
+
+    @Test("The interaction-state cache is LRU-capped and counts forgets")
+    func interactionStateCacheCapsAndForgets() {
+        let engine = WebKitEngine(
+            configuration: EngineConfiguration(
+                faviconCacheDirectory: URL(fileURLWithPath: "/tmp/engine-tests")
+            )
+        )
+
+        // Seed more blobs than the cap; the oldest must fall out.
+        for i in 0..<30 {
+            engine.seedInteractionState(Data(repeating: UInt8(i % 256), count: 16), for: UUID())
+        }
+
+        let (cached, cap, forgotten) = engine.interactionStateDiagnostics()
+        #expect(cap == 20)
+        #expect(cached == 20, "the cache must not grow past its cap")
+
+        // forget() counts and drops a pane's state.
+        let paneID = UUID()
+        engine.seedInteractionState(Data("state".utf8), for: paneID)
+        engine.forget(paneID: paneID)
+        let after = engine.interactionStateDiagnostics()
+        #expect(after.forgotten == forgotten + 1)
+        #expect(engine.interactionState(for: paneID) == nil)
+    }
 }
 
 @Suite("Web surface container layout")

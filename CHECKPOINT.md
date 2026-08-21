@@ -75,6 +75,18 @@ position, LIFO across pane+tab closes), `SplitViewE2ETests.reopenClosedPaneReloa
 `WebViewPoolTests`/engine tests for the LRU cap and `forget`. **633 tests, 94
 suites.**
 
+**2026-08-21 follow-up (same session).** The debug overlay (Cmd+Ctrl+P) now shows
+`interaction blobs` (cached interaction-state count vs. the 20 cap) and
+`forgotten panes` (running `forget` count), so the state-hygiene fixes are
+observable while testing — engine `interactionStateDiagnostics()` → store → overlay
+(DEBUG-only). The 30-minute soak was re-run (see SMOKE.md): **app process flat at
+65 MB** over the run (state hygiene holds); the WebKit-helper total grows only
+during active Space switching and plateaus when idle — WebKit's process-reuse
+cache, not an app leak (the private-SPI kill that would address it was explicitly
+skipped). Also fixed `scripts/soak.sh`: its data path still pointed at the old
+sandbox container (empty since the app went unsandboxed) and its `restore()`
+used `cp` instead of `.backup` — both corrected.
+
 **Swipe-to-close — the "undo page" swipe closes a tab with no history (2026-08-18).**
 The two-finger rightward swipe that would normally go back now does something when
 there is nothing to go back to: it closes the tab — or the **Little Chord**

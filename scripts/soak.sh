@@ -17,10 +17,11 @@
 # web views).
 set -euo pipefail
 
-# The app is now "Chord" (display rename only — bundle id com.rizal.chord and
-# the "Chord" Application Support folder are unchanged), so the process and app
-# name driven below are "Chord" while this path stays "Chord".
-APP_SUPPORT=~/"Library/Containers/com.rizal.chord/Data/Library/Application Support/Chord"
+# The app is unsandboxed (since 2026-08-20), so user data lives in
+# ~/Library/Application Support/Chord — NOT the old sandbox container at
+# ~/Library/Containers/com.rizal.chord/Data/..., which is a leftover from the
+# pre-unsandboxed build and is empty. The bundle id stays com.rizal.chord.
+APP_SUPPORT=~/"Library/Application Support/Chord"
 DB="$APP_SUPPORT/chord.sqlite"
 MINUTES="${SOAK_MINUTES:-30}"
 
@@ -213,10 +214,11 @@ restore() {
     sleep 3
     [ -f "$DB.presoak" ] || { echo "no $DB.presoak to restore" >&2; exit 1; }
 
-    # The sidecars belong to the database being replaced, not to the one coming
-    # back. Leaving them is exactly how the restore corrupts what it restores.
+    # Restore from the sidecar with `.backup`, never `cp` — the sidecar is a
+    # self-contained checkpointed database, and dropping it in next to a newer
+    # WAL is exactly the corruption the seed backup is trying to avoid.
     rm -f "$DB" "$DB-wal" "$DB-shm"
-    cp "$DB.presoak" "$DB"
+    sqlite3 "$DB.presoak" ".backup '$DB'"
     sqlite3 "$DB" "pragma integrity_check;"
     echo "restored; the soak fixture is gone"
 }

@@ -771,6 +771,9 @@ public final class WebKitEngine: WebEngine {
     /// `WebEngine.forget`). The sleep-timer work item is cancelled so a
     /// pending fire cannot run against a pane whose view and model are gone.
     public func forget(paneID: UUID) {
+        #if DEBUG
+        forgottenPaneCount += 1
+        #endif
         interactionStates.removeValue(forKey: paneID)
         interactionStateOrder.removeAll { $0 == paneID }
         lastKnownURL.removeValue(forKey: paneID)
@@ -781,6 +784,20 @@ public final class WebKitEngine: WebEngine {
     }
 
     public func liveViewCount() -> Int { pool.count }
+
+    #if DEBUG
+    /// Diagnostic: how many captured interaction-state blobs are cached in
+    /// memory right now (capped at `interactionStateCap`), and how many panes
+    /// were forgotten since launch. Shows whether closed tabs stop leaking
+    /// state and whether the LRU cap is actually holding.
+    public func interactionStateDiagnostics() -> (cached: Int, cap: Int, forgotten: Int) {
+        (interactionStates.count, Self.interactionStateCap, forgottenPaneCount)
+    }
+
+    /// Count of `forget` calls, reset nowhere — monotone, so a delta across two
+    /// overlay samples is "panes forgotten in between".
+    private var forgottenPaneCount = 0
+    #endif
 
     #if DEBUG
     public func codecSupport(for paneID: UUID) async -> [CodecProbe]? {

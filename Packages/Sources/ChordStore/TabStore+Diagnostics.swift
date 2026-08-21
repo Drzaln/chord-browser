@@ -16,5 +16,13 @@ extension TabStore {
         guard let probes = await engine.codecSupport(for: paneID) else { return nil }
         return probes.map { ($0.label, $0.isSupported, $0.isPowerEfficient) }
     }
+
+    /// Developer diagnostic: the engine's interaction-state cache vs. its LRU
+    /// cap, and how many panes have been forgotten since launch. A flat cached
+    /// count while tabs open and close is the proof that closed tabs stop
+    /// leaking state. Surfaced by the Cmd+Ctrl+P overlay; compiled out of release.
+    public var interactionStateDiagnostics: (cached: Int, cap: Int, forgotten: Int) {
+        engine.interactionStateDiagnostics()
+    }
 }
 #endif

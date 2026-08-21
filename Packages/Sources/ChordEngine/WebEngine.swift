@@ -314,15 +314,22 @@ public protocol WebEngine: AnyObject {
 
     func liveViewCount() -> Int
 
-    #if DEBUG
+#if DEBUG
     /// Developer diagnostic (non-spec): whether this engine's WebKit advertises
     /// decode support for a set of media codec strings, via
     /// `MediaSource.isTypeSupported` run in the pane's live view. `nil` when the
     /// pane has no live view. The result is a property of the WebKit build and
     /// the host's hardware, not of the document, so it answers "does Chord get
-    /// offered AV1/VP9/HEVC?" directly — the question behind streaming quality on
+    /// offered AV1/VP9/HEVC directly?" — the question behind streaming quality on
     /// Reels/Shorts. Surfaced by the Cmd+Ctrl+P overlay. Compiled out of release.
     func codecSupport(for paneID: UUID) async -> [CodecProbe]?
+
+    /// Developer diagnostic (non-spec): how many captured interaction-state
+    /// blobs are held in memory vs. the LRU cap, plus how many panes the engine
+    /// has been asked to forget. The first number being flat while tabs open and
+    /// close is the proof that closed tabs stop leaking state (A2). Surfaced by
+    /// the Cmd+Ctrl+P overlay. Compiled out of release.
+    func interactionStateDiagnostics() -> (cached: Int, cap: Int, forgotten: Int)
     #endif
 }
 
@@ -331,6 +338,9 @@ extension WebEngine {
     /// Default so test doubles and any non-WebKit engine need not implement the
     /// diagnostic; only `WebKitEngine` gives a real answer.
     public func codecSupport(for paneID: UUID) async -> [CodecProbe]? { nil }
+    public func interactionStateDiagnostics() -> (cached: Int, cap: Int, forgotten: Int) {
+        (0, 0, 0)
+    }
 }
 
 /// One codec-support probe result (DEBUG diagnostic). WebKit-free, like every
