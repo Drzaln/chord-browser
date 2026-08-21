@@ -14,6 +14,14 @@ enum Log {
     )
 }
 
+/// One undoable close, for Cmd+Shift+T. Either a whole tab or a single pane
+/// closed out of a split — the reopen restores whichever was most recently
+/// closed, a pane back into its tab at its previous position.
+enum RecentlyClosed: Equatable {
+    case tab(Tab)
+    case pane(Pane, tabID: UUID, position: Int)
+}
+
 /// Owns app state and the engine. The UI layer talks only to this.
 @MainActor
 @Observable
@@ -287,11 +295,14 @@ public final class TabStore {
     @ObservationIgnored var cachedHistory: [HistoryEntry] = []
     @ObservationIgnored var cachedArchive: [ArchivedTab] = []
 
-    /// Tabs closed by hand (Cmd+W), newest last, for Cmd+Shift+T. Distinct from
-    /// the sweep's archive: the sweep never hard-closes and has its own recovery
-    /// path (4.3), whereas a deliberate close needs an immediate one-key undo.
-    /// In memory only — a reopen is a "just now" affordance, not session state.
-    @ObservationIgnored var recentlyClosed: [Tab] = []
+    /// Closes made by hand (Cmd+W, close button, pane close), newest last, for
+    /// Cmd+Shift+T. A pane close (in a split) records the pane and its position,
+    /// so the reopen re-inserts it where it was; a whole-tab close records the
+    /// tab. Distinct from the sweep's archive: the sweep never hard-closes and
+    /// has its own recovery path (4.3), whereas a deliberate close needs an
+    /// immediate one-key undo. In memory only — a reopen is a "just now"
+    /// affordance, not session state.
+    @ObservationIgnored var recentlyClosed: [RecentlyClosed] = []
     /// Bound so a long session cannot grow this without limit.
     @ObservationIgnored static let recentlyClosedLimit = 25
 
@@ -781,6 +792,24 @@ public final class TabStore {
             return
         }
 
+        // Arc: a split tab closes one pane at a time — Cmd+W removes just the
+        // focused pane, leaving the rest of the split. Only the last pane
+        // closes the tab itself.
+        if tabs[index].panes.count > 1 {
+            closePane(tabs[index].focusedPaneID, in: window)
+            return
+        }
+
+        closeTabRemovingEveryPane(tabID, in: window)
+    }
+
+    /// The whole-tab close: tears down every pane and removes the tab. This is
+    /// what `closeTab` does for a single-pane tab, and what drag-to-split needs
+    /// for its source — a source tab is *moved* into the target, so it must go
+    /// entirely even if it was itself a split.
+    func closeTabRemovingEveryPane(_ tabID: UUID, in window: WindowState) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+
         // Remember it for Cmd+Shift+T before the panes are torn down, so the
         // reopened tab carries its URLs, title, favicon, and pinned placement.
         //
@@ -789,12 +818,15 @@ public final class TabStore {
         // private session that has already ended. The least visible leak in this
         // feature, and the reason it is closed here rather than at reopen.
         if !isPrivate(spaceID: tabs[index].spaceID) {
-            recentlyClosed.append(tabs[index])
+            recentlyClosed.append(.tab(tabs[index]))
             if recentlyClosed.count > Self.recentlyClosedLimit { recentlyClosed.removeFirst() }
         }
 
         for pane in tabs[index].panes {
             engine.evict(paneID: pane.id)
+            // The tab is gone for good, so its engine-side state must not
+            // linger: interaction state, last-known URL, mute, sleep timer.
+            engine.forget(paneID: pane.id)
             runtimes[pane.id] = nil
         }
         // The tab and its panes are gone for good, so its sleep timer must not
@@ -1419,10 +1451,17 @@ extension TabStore: WebEngineDelegate {
     }
 
     public func paneRequestedSwipeClose(_ paneID: UUID) {
-        // A pane that a tab owns closes the tab; a pane that belongs to no tab
-        // is a Little Chord panel's page, and it dismisses the panel instead.
+        // A pane that a tab owns closes the tab — unless the tab is a split,
+        // in which case the swipe closes just that side and leaves the rest
+        // (4.5). A pane that belongs to no tab is a Little Chord panel's page,
+        // and it dismisses the panel instead.
         if let tabID = tabID(owning: paneID) {
-            closeTab(tabID, in: window(showingPane: paneID))
+            let isSplit = tabs.first { $0.id == tabID }?.panes.count ?? 0 > 1
+            if isSplit {
+                closePane(paneID, in: window(showingPane: paneID))
+            } else {
+                closeTab(tabID, in: window(showingPane: paneID))
+            }
             return
         }
         discardLittleChord(paneID: paneID)

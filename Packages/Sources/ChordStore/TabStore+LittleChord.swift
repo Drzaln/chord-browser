@@ -68,6 +68,7 @@ extension TabStore {
     /// the `Pane` object (the app layer owns the panel).
     public func discardLittleChord(paneID: UUID) {
         engine.evict(paneID: paneID)
+        engine.forget(paneID: paneID)
         runtimes[paneID] = nil
         forgetStateResolution(forPanes: [paneID])
     }

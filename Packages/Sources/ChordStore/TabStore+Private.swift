@@ -127,6 +127,8 @@ extension TabStore {
                 // Discarding what `evict` returns is the point: capturing
                 // interaction state here is precisely what must not happen.
                 engine.evict(paneID: pane.id)
+                // And no engine-side state may outlive the session either.
+                engine.forget(paneID: pane.id)
                 runtimes[pane.id] = nil
             }
             extensionHost?.extensionTabDidClose(tab.id, inSpace: spaceID)

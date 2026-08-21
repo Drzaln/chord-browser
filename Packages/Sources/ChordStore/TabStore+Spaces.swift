@@ -113,6 +113,7 @@ extension TabStore {
         for tab in tabs where tab.spaceID == spaceID {
             for pane in tab.panes {
                 engine.evict(paneID: pane.id)
+                engine.forget(paneID: pane.id)
                 runtimes[pane.id] = nil
             }
         }

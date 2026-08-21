@@ -251,7 +251,7 @@ struct PrivateWindowTests {
 
         // `recentlyClosed` is store-wide, so without the guard Cmd+Shift+T in a
         // *normal* window would reopen a page from a session that has ended.
-        #expect(store.recentlyClosed.contains { $0.id == tab.id } == false)
+        #expect(store.recentlyClosed.isEmpty)
     }
 
     // MARK: - Vault

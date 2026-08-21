@@ -2,17 +2,27 @@ import ChordCore
 import Foundation
 
 /// Keyboard-driven tab commands (non-spec: user-requested) — reopen the last
-/// closed tab, and cycle the selection through the active Space's tabs.
+/// closed tab or pane, and cycle the selection through the active Space's tabs.
 @MainActor
 extension TabStore {
 
-    /// Reopens the most recently closed tab (Cmd+Shift+T), restoring its URLs,
-    /// title, favicon, and pinned state. Lands in its original Space when that
-    /// still exists, otherwise the active one — the same rule the archive
-    /// restore uses (4.3).
+    /// Reopens the most recently closed tab or pane (Cmd+Shift+T).
+    ///
+    /// A closed *tab* comes back with its URLs, title, favicon, and pinned
+    /// state, in its original Space when that still exists, otherwise the
+    /// active one — the same rule the archive restore uses (4.3). A closed
+    /// *pane* goes back into its tab at the position it left (Arc behaviour).
     public func reopenLastClosedTab(in window: WindowState) {
-        guard var tab = recentlyClosed.popLast() else { return }
+        guard let closed = recentlyClosed.popLast() else { return }
+        switch closed {
+        case .tab(let tab):
+            reopenTab(tab, in: window)
+        case .pane(let pane, let tabID, let position):
+            reopenClosedPane(pane, tabID: tabID, position: position, in: window)
+        }
+    }
 
+    private func reopenTab(_ tab: Tab, in window: WindowState) {
         let spaceID = spaces.contains { $0.id == tab.spaceID }
             ? tab.spaceID
             : activeSpace(in: window)?.id
@@ -28,6 +38,7 @@ extension TabStore {
             .max()
             .map { $0 + 1 } ?? 0
 
+        var tab = tab
         tab.spaceID = spaceID
         tab.placement = tab.placement.withOrder(order)
         tab.lastAccessedAt = clock.now

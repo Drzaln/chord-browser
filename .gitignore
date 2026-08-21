@@ -12,3 +12,6 @@ xcuserdata/
 .beads-credential-key
 .beads/proxieddb/
 .beads.gate.lock
+
+# Codebase memory MCP index
+.codebase-memory/

@@ -109,7 +109,10 @@ extension TabStore {
         // that no longer exists.
         let url = source.focusedPane.url
 
-        closeTab(sourceTabID, in: window)
+        // The source tab is *moved* into the target, so it must go entirely —
+        // even if it was itself a split. `closeTab` would only close the
+        // focused pane of a split; the whole-tab variant is required here.
+        closeTabRemovingEveryPane(sourceTabID, in: window)
         // closeTab may have moved the selection; the split must still land on
         // the tab that was dropped onto.
         window.selectedTabID = tabID
@@ -129,13 +132,29 @@ extension TabStore {
         }
 
         // The web view goes before the model does — it belongs to this pane and
-        // nothing will reclaim it once the pane is gone.
+        // nothing will reclaim it once the pane is gone. The model pane is
+        // captured *first*: tearing the view down navigates it to `about:blank`
+        // (`tearDown`), whose KVO snapshot would otherwise overwrite this
+        // pane's URL before the reopen could record it.
+        let removedPosition = tabs[index].panes.firstIndex { $0.id == paneID }
+        guard let removedPosition else { return }
+        let closedPane = tabs[index].panes[removedPosition]
+
         captureInteractionState(for: paneID)
         engine.evict(paneID: paneID)
+        engine.forget(paneID: paneID)
         runtimes[paneID] = nil
 
-        let removedPosition = tabs[index].panes.firstIndex { $0.id == paneID }
-        tabs[index].panes.removeAll { $0.id == paneID }
+        tabs[index].panes.remove(at: removedPosition)
+
+        // Cmd+Shift+T can undo a pane close: record the pane and where it sat,
+        // so the reopen re-inserts it at that position (Arc behaviour). Never
+        // for a private pane — the same store-wide reason whole private tabs are
+        // excluded from `recentlyClosed`.
+        if !isPrivate(spaceID: tabs[index].spaceID) {
+            recentlyClosed.append(.pane(closedPane, tabID: tabs[index].id, position: removedPosition))
+            if recentlyClosed.count > Self.recentlyClosedLimit { recentlyClosed.removeFirst() }
+        }
 
         // Survivors keep their relative widths rather than snapping to equal.
         applyFractions(
@@ -143,7 +162,7 @@ extension TabStore {
         )
 
         if tabs[index].focusedPaneID == paneID {
-            let fallback = removedPosition.map { min($0, tabs[index].panes.count - 1) } ?? 0
+            let fallback = min(removedPosition, tabs[index].panes.count - 1)
             tabs[index].focusedPaneID = tabs[index].panes[fallback].id
         }
         scheduleSave()
@@ -198,5 +217,29 @@ extension TabStore {
         where tabs[index].panes.indices.contains(position) {
             tabs[index].panes[position].widthFraction = fraction
         }
+    }
+
+    /// Re-inserts a closed pane into its tab at its previous position.
+    ///
+    /// A no-op when the tab is gone (closed again, or its Space was deleted) —
+    /// the pane has nothing to return to. The pane's saved URL is carried, but
+    /// its interaction state was pruned on close, so it reloads rather than
+    /// restoring scroll — the same trade the tab reopen makes.
+    func reopenClosedPane(_ pane: Pane, tabID: UUID, position: Int, in window: WindowState) {
+        guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        guard tabs[index].panes.count < SplitLayout.maxPanes else { return }
+
+        let insertAt = min(position, tabs[index].panes.count)
+        tabs[index].panes.insert(pane, at: insertAt)
+        applyFractions(
+            SplitLayout.normalized(tabs[index].panes.map(\.widthFraction)), toTabAt: index
+        )
+        tabs[index].focusedPaneID = pane.id
+        markInteractionStateResolved(pane.id)
+        window.selectedTabID = tabID
+        if tabs[index].spaceID != window.activeSpaceID {
+            selectSpace(tabs[index].spaceID, in: window)
+        }
+        scheduleSave()
     }
 }

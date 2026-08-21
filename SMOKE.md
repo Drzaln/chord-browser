@@ -10,7 +10,7 @@ check that still applies.
 ```
 
 Builds all packages, runs all tests, and builds the app — warnings as errors.
-Baseline: **621 tests in 94 suites** (2026-08-18), schema **v14**.
+Baseline: **633 tests in 94 suites** (2026-08-21), schema **v14**.
 
 A reminder that decides what belongs on this page at all: `swift test` runs
 **unsandboxed**, so anything gated by an entitlement or an OS permission —
@@ -406,6 +406,15 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
       back to a normal tab with no divider
 - [x] Pane widths survive quit and relaunch (a 4-pane tab restored equal-width,
       and lazily — no web view until it was shown)
+- [ ] On a 2-pane split, `Cmd+W` (and the sidebar close button) close only the
+      **focused pane** — the tab survives with the other pane
+- [ ] Swiping a pane of a split closes just that pane; swiping a single-pane tab
+      still closes the tab
+- [ ] `Cmd+Shift+T` reopens a closed pane at its **previous position** with its
+      web content (not a blank page) — close the left pane, reopen, it is back on
+      the left
+- [ ] Close a pane, then close the tab: first `Cmd+Shift+T` restores the tab,
+      the second restores the pane into it (LIFO)
 
 ### Little Chord (§4.6)
 

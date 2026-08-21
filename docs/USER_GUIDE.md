@@ -44,8 +44,8 @@ its own tab** once you finish signing in instead of lingering.
 | `Cmd+L`          | Open the command bar aimed at the **current tab** (edit the address)          |
 | `Cmd+N`          | New **window**                                                                |
 | `Cmd+Shift+N`    | New **blank** tab (no command bar)                                            |
-| `Cmd+W`          | Close the current tab                                                         |
-| `Cmd+Shift+T`    | **Reopen** the last closed tab (repeat to walk back further)                  |
+| `Cmd+W`          | Close the current tab (a split tab closes its focused pane)                    |
+| `Cmd+Shift+T`    | **Reopen** the last closed tab or pane (repeat to walk back further)           |
 | `Ctrl+Tab`       | **Next** tab (wraps around)                                                   |
 | `Ctrl+Shift+Tab` | **Previous** tab (wraps around)                                               |
 | `Cmd+D`          | **Pin or unpin** the current tab (Arc-style favourites in place of bookmarks) |
@@ -55,8 +55,10 @@ its own tab** once you finish signing in instead of lingering.
 | `Cmd+]`          | Forward                                                                       |
 
 Tab cycling walks the active Space's tabs in sidebar order — favourites first,
-then the ephemeral list. `Cmd+Shift+T` restores a closed tab with its URL,
-title, favicon, and pinned state, in its original Space when it still exists.
+then the ephemeral list. `Cmd+Shift+T` restores what was most recently closed,
+in its original Space when it still exists: a closed tab comes back with its URL,
+title, favicon, and pinned state; a closed **pane** of a split comes back in the
+**same position** it left (Arc-style).
 
 ### Split view (panes)
 
@@ -67,6 +69,11 @@ title, favicon, and pinned state, in its original Space when it still exists.
 
 A tab holds up to **four panes**. Asking to split beyond four is declined rather
 than replacing an existing pane.
+
+Closing a split tab with `Cmd+W` (or the close button, or a swipe on a pane with
+no back history) closes only the **focused pane** — the rest of the split stays.
+Close the last remaining pane to close the tab itself. `Cmd+Shift+T` undoes a
+pane close, re-inserting the pane at its previous position.
 
 ### Spaces
 

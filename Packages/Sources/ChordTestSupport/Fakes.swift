@@ -176,6 +176,13 @@ public final class FakeWebEngine: WebEngine {
         createdPanes.removeAll()
     }
 
+    public func forget(paneID: UUID) {
+        evictedPanes.append(paneID)
+        createdPanes.removeAll { $0 == paneID }
+        interactionStates[paneID] = nil
+        seededStates[paneID] = nil
+    }
+
     public func liveViewCount() -> Int { createdPanes.count }
 
     /// State the fake will report for a live pane, as WebKit would.

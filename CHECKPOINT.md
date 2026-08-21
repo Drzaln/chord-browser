@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **621 passing** (`swift test`, 94 suites), measured 2026-08-18                                                                                                                                |
+| **Tests**                        | **633 passing** (`swift test`, 94 suites), measured 2026-08-21                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **User-renamed tabs (2026-08-18).** Any tab can be given its own name — right-click
@@ -36,6 +36,44 @@ holds the revealed sidebar open while it is on screen — otherwise the
 auto-hiding sidebar collapsed beneath the alert and dismissed it. Tests:
 `DisplayTitleTests`, `RenameTests` (store), `MappingTests.customTitleRoundTrip`,
 `MigrationTests.v14AddsCustomTitle`, `RenameAlertSidebarTests`.
+
+**Engine state hygiene + Arc-style split close & pane undo (2026-08-21).** Three
+memory/behaviour changes, verified live:
+
+- **Closed tabs no longer leak engine state.** `engine.forget(paneID:)` (new on
+  the `WebEngine` protocol) clears a pane's interaction-state cache, last-known
+  URL, context-link URL, mute flag, and pending sleep-timer work item. It is
+  called on every true-close path — ephemeral `closeTab`, `closePane`, the sweep,
+  `deleteSpace`, private-session teardown, Little Chord discard — but **never** on
+  `unloadTab`/`moveTab`, where the cached state is what lets a favourite/pinned
+  tab revive without a reload. Before this, every closed tab's `interactionState`
+  blob stayed parked in `WebKitEngine.interactionStates` for the life of the
+  process (real, silent RAM growth).
+- **Interaction-state cache is LRU-capped at 20.** `interactionStates` now keeps
+  only the 20 newest blobs in memory. The persistence layer is restore's source
+  of truth (written on deactivation, §6.5), so a dropped entry costs a disk read
+  on revive, never a reload.
+- **`tearDown` releases the media pipeline.** `closeAllMediaPresentations()` now
+  runs before the JS pause/flush in `LiveWebView.tearDown()`, so closing a tab
+  with media (Meet, YouTube) actually releases its AVPlayer/audio buffers instead
+  of relying on the page-side flush alone.
+- **Arc-style split close.** `closeTab` on a split tab (Cmd+W, close button,
+  swipe) closes only the **focused pane**, leaving the rest — Arc behaviour. The
+  whole-tab close was split into `closeTabRemovingEveryPane`, which drag-to-split
+  still uses for its source tab (a source is *moved*, so it must go entirely even
+  if it was itself a split). See ADR 020.
+- **Pane-level Cmd+Shift+T undo.** `recentlyClosed` is now a unified stack of
+  `RecentlyClosed` (`.tab` or `.pane`). Closing a pane records the pane, its tab,
+  and its position; Cmd+Shift+T re-inserts it at that position and re-focuses it.
+  The pane is captured **before** eviction — `tearDown()` navigates the view to
+  `about:blank`, whose KVO snapshot would otherwise overwrite the recorded URL
+  and make the reopened pane come back blank (found via a real-engine E2E test).
+  Private panes are never recorded (store-wide rule, same as tabs).
+
+Tests: `SplitTests` (pane-close-on-`closeTab`, swipe-on-split, reopen-restores-
+position, LIFO across pane+tab closes), `SplitViewE2ETests.reopenClosedPaneReloadsURL`,
+`WebViewPoolTests`/engine tests for the LRU cap and `forget`. **633 tests, 94
+suites.**
 
 **Swipe-to-close — the "undo page" swipe closes a tab with no history (2026-08-18).**
 The two-finger rightward swipe that would normally go back now does something when
@@ -295,12 +333,19 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **621 tests**, `./scripts/prepush.sh` green, **schema v14**.
+State: single `main`, **633 tests**, `./scripts/prepush.sh` green, **schema v14**.
 
 ## Where the work is
 
-**Nothing is assigned.** The newest work is the **swipe-to-close gesture**
-(2026-08-18): a rightward swipe on a page with no back history closes the tab (or
+**Nothing is assigned.** The newest work is **Arc-style split closing and
+pane-level undo** (2026-08-21): Cmd+W / the close button / a swipe on a split tab
+close only the focused pane, and Cmd+Shift+T reopens a closed pane at its previous
+position (plus the engine-state hygiene pass that stops closed tabs leaking
+`interactionState` blobs and releases media on teardown — read the dated section
+before touching `engine.forget`, the `interactionStates` LRU cap,
+`LiveWebView.tearDown`, or the `RecentlyClosed` stack). Before it, the
+**swipe-to-close gesture** (2026-08-18): a rightward swipe on a page with no back
+history closes the tab (or
 Little Chord), off via **Settings → General → Gestures** — read the dated section
 before touching `BackSwipeMonitor` or `paneRequestedSwipeClose`. Before it, the
 **command bar focus / `Cmd+L`

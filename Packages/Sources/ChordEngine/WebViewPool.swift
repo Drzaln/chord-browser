@@ -150,6 +150,13 @@ final class LiveWebView {
     /// Explicit teardown. KVO observations and the delegate wiring are classic
     /// retain-cycle sources, so nothing here is left to deinit ordering.
     func tearDown() {
+        // 0. Release the media pipeline WebKit holds for this view — AVPlayer,
+        // audio buffers, the media daemon session. The JS below pauses the
+        // page's elements, but this is the public API that tells WebKit to
+        // drop the resources behind them; it is safe to call on a view that
+        // has no media.
+        webView.closeAllMediaPresentations(completionHandler: nil)
+
         // 1. Force WebKit's media daemon to stop immediately
         webView.evaluateJavaScript("""
             document.querySelectorAll('video, audio').forEach(media => {

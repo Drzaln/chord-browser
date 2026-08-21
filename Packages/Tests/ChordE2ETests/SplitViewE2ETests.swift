@@ -182,4 +182,42 @@ struct SplitViewE2ETests {
         }
         return condition()
     }
+
+    @Test("Reopening a closed pane reloads its URL with the real engine")
+    func reopenClosedPaneReloadsURL() async throws {
+        let harness = try await E2EHarness.make(routes: Self.routes())
+        defer { Task { await harness.tearDown() } }
+
+        await harness.store.restore()
+        #expect(await harness.openAndLoad(await harness.server.url("/left")))
+        harness.store.splitSelectedTab(url: await harness.server.url("/right"))
+
+        var tab = try #require(harness.store.selectedTab)
+        let leftPane = tab.panes[0]
+        for pane in tab.panes { _ = harness.store.surface(for: pane, in: tab) }
+        _ = await harness.wait {
+            tab.panes.allSatisfy { !harness.store.runtime(for: $0.id).isLoading }
+        }
+
+        // The model holds the left pane's real URL.
+        tab = try #require(harness.store.selectedTab)
+        #expect(tab.pane(leftPane.id)?.url.path == "/left")
+
+        // Close the left pane, then reopen it.
+        harness.store.closePane(leftPane.id)
+        harness.store.reopenLastClosedTab(in: harness.store.primaryWindow)
+
+        let restored = try #require(harness.store.selectedTab)
+        #expect(restored.panes.count == 2, "the pane came back")
+        let reopened = try #require(restored.pane(leftPane.id))
+        #expect(reopened.url.path == "/left", "the reopened pane keeps its URL, got: \(reopened.url)")
+
+        // Rendering it must actually load the URL, not show a blank view.
+        _ = harness.store.surface(for: reopened, in: restored)
+        let appeared = await harness.wait {
+            harness.store.runtime(for: reopened.id).currentURL?.path == "/left"
+                && !harness.store.runtime(for: reopened.id).isLoading
+        }
+        #expect(appeared, "the reopened pane never loaded its URL")
+    }
 }

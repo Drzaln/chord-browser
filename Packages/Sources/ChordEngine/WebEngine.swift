@@ -287,6 +287,15 @@ public protocol WebEngine: AnyObject {
     func evict(paneID: UUID) -> Data?
     func evictAll()
 
+    /// Drops every engine-side state a pane no longer needs because it is
+    /// truly gone — a closed tab, a swept tab, a closed split pane, a deleted
+    /// Space, a ended private session. Clears the interaction-state cache, the
+    /// last-known URL, the context-link URL, the mute flag, and any sleep
+    /// timer. Never call for a pane that still exists but was merely unloaded
+    /// (favourite/pinned close): its cached state is what lets it revive
+    /// without a reload.
+    func forget(paneID: UUID)
+
     /// `interactionState` for a pane that is still live, without disturbing it.
     ///
     /// This is what makes restore worth anything: `evict` only yields state for

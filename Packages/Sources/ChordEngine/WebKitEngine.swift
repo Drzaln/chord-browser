@@ -72,8 +72,13 @@ public final class WebKitEngine: WebEngine {
     private var userAgentOverrides: [UserAgentOverride] = []
 
     /// Retained so an evicted or crashed pane can be revived without the model
-    /// layer having to hand its state back.
+    /// layer having to hand its state back. Capped at `interactionStateCap`
+    /// newest entries — the persistence layer is the source of truth for
+    /// restore (it is written on deactivation, §6.5), so a dropped cache entry
+    /// costs a disk read on revive, never a reload.
     private var interactionStates: [UUID: Data] = [:]
+    private var interactionStateOrder: [UUID] = []
+    private static let interactionStateCap = 20
     /// Last known URL per pane, for reload-after-crash.
     private var lastKnownURL: [UUID: URL] = [:]
 
@@ -108,7 +113,7 @@ public final class WebKitEngine: WebEngine {
         self.coordinator = NavigationCoordinator(engine: self)
         self.pool.willEvict = { [weak self] paneID, state in
             guard let self, let state else { return }
-            self.interactionStates[paneID] = state
+            self.setInteractionState(state, for: paneID)
         }
 
         // A rightward swipe that WebKit's native back/forward gesture had
@@ -717,7 +722,7 @@ public final class WebKitEngine: WebEngine {
     @discardableResult
     public func evict(paneID: UUID) -> Data? {
         let state = pool.evict(paneID)
-        if let state { interactionStates[paneID] = state }
+        if let state { setInteractionState(state, for: paneID) }
         return state
     }
 
@@ -728,7 +733,7 @@ public final class WebKitEngine: WebEngine {
     /// actually left it.
     public func interactionState(for paneID: UUID) -> Data? {
         if let live = pool.peek(paneID), let state = live.interactionState {
-            interactionStates[paneID] = state
+            setInteractionState(state, for: paneID)
             return state
         }
         return interactionStates[paneID]
@@ -745,7 +750,34 @@ public final class WebKitEngine: WebEngine {
 
     public func seedInteractionState(_ data: Data, for paneID: UUID) {
         guard !pool.contains(paneID) else { return }
-        interactionStates[paneID] = data
+        setInteractionState(data, for: paneID)
+    }
+
+    /// Records a captured interaction state, keeping only the newest
+    /// `interactionStateCap` in memory. The persistence layer is the restore
+    /// source of truth; this cache only skips a disk read on revive, so
+    /// dropping the oldest is a read cost, not a reload.
+    private func setInteractionState(_ state: Data, for paneID: UUID) {
+        interactionStates[paneID] = state
+        interactionStateOrder.removeAll { $0 == paneID }
+        interactionStateOrder.append(paneID)
+        while interactionStateOrder.count > Self.interactionStateCap {
+            let oldest = interactionStateOrder.removeFirst()
+            interactionStates.removeValue(forKey: oldest)
+        }
+    }
+
+    /// Drops all engine-side state for a pane that no longer exists (see
+    /// `WebEngine.forget`). The sleep-timer work item is cancelled so a
+    /// pending fire cannot run against a pane whose view and model are gone.
+    public func forget(paneID: UUID) {
+        interactionStates.removeValue(forKey: paneID)
+        interactionStateOrder.removeAll { $0 == paneID }
+        lastKnownURL.removeValue(forKey: paneID)
+        contextLinkURL.removeValue(forKey: paneID)
+        mutedPanes.remove(paneID)
+        cancelSleepTimerWorkItem(paneID)
+        sleepTimers.removeValue(forKey: paneID)
     }
 
     public func liveViewCount() -> Int { pool.count }

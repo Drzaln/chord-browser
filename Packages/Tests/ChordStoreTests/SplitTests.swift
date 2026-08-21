@@ -95,6 +95,128 @@ struct SplitTests {
         #expect(!store.tabs.contains { $0.id == victim.id })
     }
 
+    @Test("Swipe-to-close on one pane of a split closes only that pane")
+    func swipeCloseOnSplitPaneKeepsTab() async {
+        let (store, engine, _) = makeStore()
+        await store.restore()
+        store.splitSelectedTab()
+
+        let tab = try! #require(store.selectedTab)
+        let doomed = tab.panes[0].id
+        _ = store.surface(for: tab.panes[0], in: tab)
+
+        store.paneRequestedSwipeClose(doomed)
+
+        #expect(store.tabs.count == 1, "the tab must survive a pane swipe-close")
+        let after = try! #require(store.selectedTab)
+        #expect(after.panes.count == 1)
+        #expect(!after.panes.contains { $0.id == doomed })
+        #expect(!engine.hasLiveView(paneID: doomed))
+    }
+
+    @Test("Swipe-to-close on a single-pane tab still closes the tab")
+    func swipeCloseOnSinglePaneClosesTab() async {
+        let (store, engine, tab) = await {
+            let (store, engine, _) = makeStore()
+            await store.restore()
+            let tab = try! #require(store.selectedTab)
+            return (store, engine, tab)
+        }()
+
+        store.paneRequestedSwipeClose(tab.focusedPane.id)
+
+        #expect(!store.tabs.contains { $0.id == tab.id })
+        #expect(engine.evictedPanes.contains(tab.focusedPane.id))
+    }
+
+    @Test("Cmd+W on a split closes only the focused pane, like Arc")
+    func closeTabOnSplitClosesFocusedPane() async {
+        let (store, engine, _) = makeStore()
+        await store.restore()
+        store.splitSelectedTab()
+
+        let tab = try! #require(store.selectedTab)
+        let focused = tab.focusedPaneID
+        let survivor = tab.panes.first { $0.id != focused }!.id
+        // Surface both panes so "survivor keeps its view" is actually asserted.
+        for pane in tab.panes { _ = store.surface(for: pane, in: tab) }
+
+        store.closeTab(tab.id)
+
+        // The tab survives with just the other pane; the focused pane's view
+        // is gone.
+        let after = try! #require(store.selectedTab)
+        #expect(store.tabs.count == 1)
+        #expect(after.panes.count == 1)
+        #expect(after.panes[0].id == survivor)
+        #expect(!engine.hasLiveView(paneID: focused))
+        #expect(engine.hasLiveView(paneID: survivor))
+    }
+
+    @Test("Cmd+Shift+T reopens a closed pane in its previous position, like Arc")
+    func reopenClosedPaneRestoresPosition() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+        store.splitSelectedTab()
+
+        let tab = try! #require(store.selectedTab)
+        let doomed = tab.panes[0].id  // the left pane
+        store.closePane(doomed)
+
+        #expect(store.selectedTab?.panes.count == 1)
+        #expect(!store.selectedTab!.panes.contains { $0.id == doomed })
+
+        store.reopenLastClosedTab(in: store.primaryWindow)
+
+        let after = try! #require(store.selectedTab)
+        #expect(after.panes.count == 2, "the closed pane comes back")
+        #expect(after.panes[0].id == doomed, "reopened in its previous position")
+        #expect(after.focusedPaneID == doomed)
+    }
+
+    @Test("Cmd+Shift+T reopens a closed right pane in its position too")
+    func reopenClosedRightPaneRestoresPosition() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+        store.splitSelectedTab()
+
+        let tab = try! #require(store.selectedTab)
+        let doomed = tab.panes[1].id  // the right pane
+        store.closePane(doomed)
+
+        store.reopenLastClosedTab(in: store.primaryWindow)
+
+        let after = try! #require(store.selectedTab)
+        #expect(after.panes.count == 2)
+        #expect(after.panes[1].id == doomed, "reopened on the right")
+    }
+
+    @Test("Close pane then close tab: reopen restores tab first, then the pane")
+    func reopenAfterClosePaneThenTabIsLIFO() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+        store.splitSelectedTab()
+
+        let tab = try! #require(store.selectedTab)
+        let doomed = tab.panes[0].id
+        store.closePane(doomed)  // push .pane(doomed)
+
+        let survivor = try! #require(store.selectedTab)
+        store.closeTab(survivor.id)  // push .tab(survivor)
+
+        // First reopen pops the newer tab entry: the survivor tab comes back,
+        // and since it keeps its id, the pane entry below it still has a home.
+        store.reopenLastClosedTab(in: store.primaryWindow)
+        let first = try! #require(store.tabs.first { $0.id == survivor.id })
+        #expect(first.panes.count == 1)
+
+        // Second reopen pops the pane entry and puts it back where it was.
+        store.reopenLastClosedTab(in: store.primaryWindow)
+        let restored = try! #require(store.tabs.first { $0.id == survivor.id })
+        #expect(restored.panes.count == 2)
+        #expect(restored.panes[0].id == doomed, "reopened in its previous position")
+    }
+
     @Test("Survivors keep their relative widths when a pane closes")
     func closeKeepsProportions() async {
         let (store, _, _) = makeStore()

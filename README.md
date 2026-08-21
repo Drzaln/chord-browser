@@ -14,8 +14,9 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > **Status:** all spec milestones (M1–M7) plus native content blocking are
 > shipped on `main` and verified live, along with a run of post-spec additions
 > (multiple windows, folders, per-site permissions, notifications, YouTube ad
-> skipping, a built-in password vault, user-renamed tabs, and swipe-to-close).
-> 621 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
+> skipping, a built-in password vault, user-renamed tabs, swipe-to-close, and
+> Arc-style split closing with pane-level reopen).
+> 633 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
@@ -53,12 +54,15 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   restores everything, including scroll and form state.
 - **Downloads** — `WKDownload` handling with progress UI.
 - **Split view + Little Chord** — multi-pane tabs and a floating quick-open panel
-  (shared with Peek; resizable and size-remembered).
+  (shared with Peek; resizable and size-remembered). Closing a split tab (Cmd+W,
+  close button, or swipe) closes only the focused pane, Arc-style; Cmd+Shift+T
+  reopens a closed pane at its previous position.
 - **Polish** — swipe-driven Space switching, cross-section drag-and-drop,
   find-in-page, print, and PDF viewing.
 - **Swipe-to-close** — the "undo page" swipe (a two-finger rightward drag) on a
   page with **no back history** closes the tab — or the Little Chord panel, if
-  that's what you're swiping on. WebKit's own back-swipe is untouched when there
+  that's what you're swiping on. On a split tab it closes the swiped pane only.
+  WebKit's own back-swipe is untouched when there
   *is* history. Toggleable in **Settings → General → Gestures**.
 - **Frosted-glass chrome** — the sidebar and border frame are `.ultraThinMaterial`
   over the Space tint, blurring the desktop behind a non-opaque window; the web
