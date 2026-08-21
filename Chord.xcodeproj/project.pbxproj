@@ -218,23 +218,23 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = ChordApp/Chord.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
-				DEVELOPMENT_TEAM = 74XUPW85K2;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = ChordApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Chord;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MARKETING_VERSION = 1.1.5;
-				PRODUCT_BUNDLE_IDENTIFIER = com.rizal.chord;
-				PRODUCT_NAME = Chord;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-			};
-			name = Debug;
+			COMBINE_HIDPI_IMAGES = YES;
+			CURRENT_PROJECT_VERSION = 10;
+			DEVELOPMENT_TEAM = 74XUPW85K2;
+			ENABLE_HARDENED_RUNTIME = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = ChordApp/Info.plist;
+			INFOPLIST_KEY_CFBundleDisplayName = Chord;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/../Frameworks",
+			);
+			MARKETING_VERSION = 1.2.0;
+			PRODUCT_BUNDLE_IDENTIFIER = com.rizal.chord;
+			PRODUCT_NAME = Chord;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+		};
+		name = Debug;
 		};
 		A1000F02000000000000001 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -243,23 +243,23 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = ChordApp/Chord.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 9;
-				DEVELOPMENT_TEAM = 74XUPW85K2;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = ChordApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Chord;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MARKETING_VERSION = 1.1.5;
-				PRODUCT_BUNDLE_IDENTIFIER = com.rizal.chord;
-				PRODUCT_NAME = Chord;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-			};
-			name = Release;
+			COMBINE_HIDPI_IMAGES = YES;
+			CURRENT_PROJECT_VERSION = 10;
+			DEVELOPMENT_TEAM = 74XUPW85K2;
+			ENABLE_HARDENED_RUNTIME = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = ChordApp/Info.plist;
+			INFOPLIST_KEY_CFBundleDisplayName = Chord;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/../Frameworks",
+			);
+			MARKETING_VERSION = 1.2.0;
+			PRODUCT_BUNDLE_IDENTIFIER = com.rizal.chord;
+			PRODUCT_NAME = Chord;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+		};
+		name = Release;
 		};
 /* End XCBuildConfiguration section */
 

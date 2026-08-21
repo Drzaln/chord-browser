@@ -2463,6 +2463,41 @@ it is a WebKit compositing bug, not a page bug.
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
 
+### Release 1.2.0 (build 10) — tagged `v1.2.0` (2026-08-21)
+
+**Arc-style split closing + engine state hygiene release.** Three commits land
+before this tag: `feat: Arc-style split close + pane-level undo, engine state
+hygiene` (836ae66), `feat: debug overlay shows interaction-state cache; fix soak
+script` (2c45a6b), and this version bump.
+
+- **Arc-style split close.** Cmd+W / the close button / a swipe on a split tab
+  close only the **focused pane**, leaving the rest — Arc behaviour. The
+  whole-tab close was extracted as `closeTabRemovingEveryPane`, which
+  drag-to-split still uses for its source tab (ADR 020).
+- **Pane-level Cmd+Shift+T undo.** `recentlyClosed` is a unified `.tab`/`.pane`
+  stack; reopening a closed pane re-inserts it at its previous position and
+  re-focuses it. The pane is captured *before* eviction — the `about:blank`
+  teardown navigation was overwriting the recorded URL (found via a real-engine
+  E2E test). Private panes are never recorded.
+- **Engine state hygiene.** `engine.forget` clears a truly-closed pane's cached
+  state (interaction state, last-known URL, mute, sleep timer); the
+  `interactionStates` cache is LRU-capped at 20; `LiveWebView.tearDown()` calls
+  `closeAllMediaPresentations()` so a closed media tab releases its buffers.
+- **Observability.** The Cmd+Ctrl+P debug overlay now shows `interaction blobs`
+  (cached vs. cap) and `forgotten panes`.
+- **Soak script fixes.** `scripts/soak.sh` pointed at the old sandbox container
+  (empty since the app went unsandboxed) — now reads the real
+  `~/Library/Application Support/Chord`; `restore()` uses `.backup` instead of
+  `cp` (the WAL-corruption trap).
+- **Soak re-run (30 min).** App process flat at 65 MB — the state-hygiene fixes
+  hold. WebKit-helper total grows only during active Space switching and
+  plateaus idle (process-reuse cache, not an app leak).
+
+`MARKETING_VERSION`/`CFBundleShortVersionString` `1.1.5` → `1.2.0`,
+`CURRENT_PROJECT_VERSION`/`CFBundleVersion` `9` → `10` in
+`Chord.xcodeproj/project.pbxproj` and `ChordApp/Info.plist`. **634 tests, 94
+suites, prepush green.**
+
 ### Release 1.1.5 (build 9) — tagged `v1.1.5` (2026-08-20)
 
 **Unsandboxing release.** Chord is distributed direct/notarized (Developer ID),
