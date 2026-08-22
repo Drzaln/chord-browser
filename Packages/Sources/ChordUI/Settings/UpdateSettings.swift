@@ -150,10 +150,15 @@ struct UpdateSettings: View {
     @ViewBuilder
     private var actionRow: some View {
         switch controller.phase {
-        case .idle, .checking:
+        case .idle:
             EmptyView()
+        case .checking:
+            Button("Check for Updates") {}
+                .disabled(true)
         case .upToDate, .failed:
-            Button("Check for Updates") { Task { await controller.checkForUpdates() } }
+            Button("Check for Updates") {
+                Task { await controller.checkForUpdates(force: true) }
+            }
         case .updateAvailable:
             Button("Download & Install") {
                 Task { await controller.downloadAndInstall() }
@@ -168,9 +173,8 @@ struct UpdateSettings: View {
 
     // MARK: - Helpers
 
-    /// Runs the first check on appear. A re-visit while the result is still
-    /// showing does not hammer the network again — only `idle` and `failed`
-    /// re-check.
+    /// Runs the first check on appear. Throttled by the controller's cooldown,
+    /// so reopening the section — or the app — does not hit GitHub again.
     private func checkIfNeeded() async {
         if case .idle = controller.phase {
             await controller.checkForUpdates()

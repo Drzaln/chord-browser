@@ -22,6 +22,13 @@ public final class UpdateController {
     public private(set) var phase: Phase = .idle
     public let currentVersion: Version
 
+    /// Minimum time between non-forced checks. The check runs on Settings open;
+    /// a cooldown stops a Settings session from hammering GitHub's 60 req/hr
+    /// unauthenticated budget.
+    private static let checkCooldown: TimeInterval = 300 // 5 minutes
+
+    private var lastCheckedAt: Date?
+
     private let releaseChecker: any ReleaseChecking
     private let installer: AppInstaller
 
@@ -42,8 +49,13 @@ public final class UpdateController {
     }
 
     /// Compares the latest GitHub release against `currentVersion` and moves
-    /// the state forward. Never downloads.
-    public func checkForUpdates() async {
+    /// the state forward. Never downloads. `force` bypasses the cooldown for an
+    /// explicit user click; automatic checks (Settings open) are throttled.
+    public func checkForUpdates(force: Bool = false) async {
+        if !force, let lastCheckedAt, Date().timeIntervalSince(lastCheckedAt) < Self.checkCooldown {
+            return
+        }
+        lastCheckedAt = Date()
         phase = .checking
         do {
             guard let release = try await releaseChecker.latestRelease() else {

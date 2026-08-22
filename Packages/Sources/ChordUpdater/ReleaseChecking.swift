@@ -11,6 +11,8 @@ public enum ReleaseCheckingError: Error, LocalizedError, Sendable {
     case invalidURL
     case badResponse
     case httpStatus(Int)
+    /// GitHub's unauthenticated API budget (60 req/hr per IP) is spent.
+    case rateLimited(resetAt: Date?)
     case decoding(String)
 
     public var errorDescription: String? {
@@ -18,6 +20,7 @@ public enum ReleaseCheckingError: Error, LocalizedError, Sendable {
         case .invalidURL: "The repository address is invalid."
         case .badResponse: "GitHub returned a response the updater could not read."
         case .httpStatus(let code): "GitHub responded with HTTP \(code)."
+        case .rateLimited: "GitHub's update-check budget is exhausted — try again in a few minutes."
         case .decoding(let detail): "Could not read the release data: \(detail)"
         }
     }
@@ -55,6 +58,16 @@ public struct GitHubReleaseChecking: ReleaseChecking {
         }
         switch http.statusCode {
         case 200: break
+        case 403:
+            // GitHub's unauthenticated budget is 60 requests/hour per IP. When
+            // it is spent, tell the user why rather than a bare "HTTP 403".
+            if http.value(forHTTPHeaderField: "X-RateLimit-Remaining") == "0" {
+                let reset = http.value(forHTTPHeaderField: "X-RateLimit-Reset")
+                    .flatMap(Double.init)
+                    .map { Date(timeIntervalSince1970: $0) }
+                throw ReleaseCheckingError.rateLimited(resetAt: reset)
+            }
+            throw ReleaseCheckingError.httpStatus(403)
         case 404: return nil // no releases published yet
         default: throw ReleaseCheckingError.httpStatus(http.statusCode)
         }
