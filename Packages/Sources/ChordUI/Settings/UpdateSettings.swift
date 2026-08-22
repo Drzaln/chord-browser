@@ -181,17 +181,32 @@ struct UpdateSettings: View {
     /// terminates this instance so the graceful shutdown path (state flush) runs.
     private func relaunch(appAt url: URL) {
         // A detached helper waits for THIS exact process (by PID) to be gone —
-        // a zombie counts as gone — before `open -n` fires. Waiting by name
-        // (`pgrep -x Chord`) could return while the old instance was still
-        // alive, which launched the new app alongside it and left two Chords
-        // in the dock (verified live on the 1.4.0 → 1.4.1 update).
+        // a zombie counts as gone — then opens the new app. If the old process
+        // is still alive after a short grace period, it is force-killed first:
+        // a stuck shutdown (the async flush in applicationShouldTerminate
+        // hanging) must not leave a second Chord in the dock. Verified live:
+        // the 1.4.0→1.4.1 and 1.4.1→1.4.2 updates both left the old instance
+        // alive next to the relaunched one.
         let pid = ProcessInfo.processInfo.processIdentifier
         let script = """
-        while :; do
+        # 1. Sweep any other Chord instances still alive from earlier updates —
+        #    they are stale and must not survive the relaunch.
+        for p in $(pgrep -x Chord || true); do
+          if [[ "$p" != \(pid) ]]; then kill "$p" 2>/dev/null || true; fi
+        done
+        # 2. Wait briefly for this instance to exit cleanly (state flush), then
+        #    force-kill it if the async shutdown hangs.
+        for _ in $(seq 1 20); do
           stat=$(ps -p \(pid) -o stat= 2>/dev/null || true)
           if [[ -z "$stat" || "$stat" == Z* ]]; then break; fi
-          sleep 0.5
+          sleep 0.25
         done
+        if ps -p \(pid) > /dev/null 2>&1; then
+          kill \(pid) 2>/dev/null || true
+          sleep 1
+          kill -9 \(pid) 2>/dev/null || true
+        fi
+        # 3. Only now open the new instance.
         open -n "\(url.path)"
         """
         let process = Process()
