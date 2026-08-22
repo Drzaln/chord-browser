@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **633 passing** (`swift test`, 94 suites), measured 2026-08-21                                                                                                                                |
+| **Tests**                        | **638 passing** (`swift test`, 95 suites), measured 2026-08-22                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **User-renamed tabs (2026-08-18).** Any tab can be given its own name — right-click
@@ -345,7 +345,7 @@ top (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site
 camera/mic/notification permissions, web notifications, YouTube ad skipping, the
 UA setting, a **built-in password vault**, and — most recently — **private windows**.
 
-State: single `main`, **633 tests**, `./scripts/prepush.sh` green, **schema v14**.
+State: single `main`, **638 tests**, `./scripts/prepush.sh` green, **schema v14**.
 
 ## Where the work is
 
@@ -2462,6 +2462,48 @@ it is a WebKit compositing bug, not a page bug.
   If it ever recurs after an OS/WebKit update, the log line
   `re-anchoring web view for pane …` marks the same failure; the workaround
   remains harmless even after Apple fixes the bug upstream.
+
+### Release 1.3.0 (build 11) — tagged `v1.3.0` (2026-08-22)
+
+**Web geolocation release.** `navigator.geolocation` now works for Google Maps,
+Apple Maps web, and any other geolocation-using site. The route to it was
+non-obvious and is worth remembering.
+
+- **The native hook does not exist on macOS.** `WKUIDelegate`'s geolocation
+  permission delegate (`requestGeolocationPermissionFor`) was private SPI for
+  years and only public since Feb 2026 (WebKit PR #58447, bug 140208) — absent
+  from this SDK's public *and* private headers. Wired the SPI by declaring the
+  selector ourselves, but a live test failed hard: **"Google Maps does not have
+  permission to use your location", no TCC prompt, no delegate call.** Root
+  cause: WebKit's built-in CoreLocation provider is iOS-only
+  (`WKGeolocationProviderIOS`), so on macOS the UIProcess never routes a
+  geolocation request to the delegate. Orion's approach is not portable to the
+  system WebKit.
+- **The shim is the only supported route.** `navigator.geolocation` is replaced
+  in the page (`GeolocationBridge` user script) and answers from the host's own
+  `CLLocationManager` (`ChordLocationProvider`) over a with-reply message
+  handler — the Electron-on-macOS approach applied to WKWebView. Three ops:
+  `query` (remembered per-origin decision, seeds
+  `navigator.permissions.query({name:'geolocation'})`, no prompt), `request`
+  (the existing ask-once per-(Space, origin) site-permission path, now with a
+  `.geolocation` kind — ADR 014 shape), and `position` (one fix; the first call
+  surfaces the OS TCC prompt, waited on before the fix is requested so the first
+  attempt succeeds). `watchPosition` polls in-page, so leaving the page stops it.
+- **Platform plumbing.** `NSLocationWhenInUseUsageDescription` in Info.plist
+  (the TCC string) and `com.apple.security.personal-information.location` in
+  the entitlements so WebKit's WebContent child can reach CoreLocation — the
+  same unsandboxed-child derivation the camera/mic keys use. The SPI stays wired
+  as belt-and-suspenders for a WebKit build that does route geolocation
+  natively.
+- **Verified live by the user** — Google Maps prompts once, the OS TCC prompt
+  follows, and the blue dot lands. 4 store tests
+  (`GeolocationPermissionTests`: ask-once grant/deny, state query, no-repo
+  fallback).
+
+`MARKETING_VERSION`/`CFBundleShortVersionString` `1.2.0` → `1.3.0`,
+`CURRENT_PROJECT_VERSION`/`CFBundleVersion` `10` → `11` in
+`Chord.xcodeproj/project.pbxproj` and `ChordApp/Info.plist`. **638 tests, 95
+suites, prepush green.**
 
 ### Release 1.2.0 (build 10) — tagged `v1.2.0` (2026-08-21)
 
