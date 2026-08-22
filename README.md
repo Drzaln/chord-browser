@@ -17,7 +17,7 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > skipping, a built-in password vault, user-renamed tabs, swipe-to-close,
 > Arc-style split closing with pane-level reopen, web geolocation, and
 > self-updates from GitHub releases).
-> 654 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
+> 657 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
