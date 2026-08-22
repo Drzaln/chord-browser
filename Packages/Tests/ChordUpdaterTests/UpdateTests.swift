@@ -108,6 +108,29 @@ struct GitHubReleaseTests {
     }
 }
 
+struct GitHubReleaseCheckingTests {
+    @Test func parsesTagFromLatestRedirect() {
+        #expect(
+            GitHubReleaseChecking.parseTag(
+                from: "https://github.com/Drzaln/chord-browser/releases/tag/v1.4.4"
+            ) == "v1.4.4"
+        )
+    }
+
+    @Test func parsesTagFromRedirectWithSlashInTag() {
+        #expect(
+            GitHubReleaseChecking.parseTag(
+                from: "https://github.com/Drzaln/chord-browser/releases/tag/release/candidate-2"
+            ) == "release/candidate-2"
+        )
+    }
+
+    @Test func parseTagHandlesBarePath() {
+        #expect(GitHubReleaseChecking.parseTag(from: "/Drzaln/chord-browser/releases/tag/v1.0.0") == "v1.0.0")
+        #expect(GitHubReleaseChecking.parseTag(from: "") == nil)
+    }
+}
+
 struct UpdateControllerTests {
     /// A fake release checker so the controller's branching is tested without
     /// the network.

@@ -25,9 +25,14 @@ The project has two load-bearing constraints that shaped the design:
 **Build a Foundation-only `ChordUpdater` package; keep every step manual; keep
 relaunch in the UI layer.**
 
-- **Check.** `GitHubReleaseChecking` hits `GET /repos/Drzaln/chord-browser/
-  releases/latest` (with a `User-Agent`, which GitHub requires). 404 → "no
-  releases yet". Prereleases are never offered.
+- **Check.** `GitHubReleaseChecking` follows `https://github.com/Drzaln/
+  chord-browser/releases/latest` and reads the tag from the 302 `Location`
+  header — deliberately **not** the GitHub REST API, whose unauthenticated
+  budget (60 requests/hour per IP) a user's update checks can exhaust (a 403
+  hit this app in the field; the web redirect has no such limit). The zip URL
+  needs no version either: `releases/latest/download/<asset>` always resolves
+  to the newest `Chord.zip`. 404 → "no releases yet". Prereleases are never
+  offered (`/releases/latest` excludes them).
 - **Compare.** A small SemVer `Version` type (`major.minor.patch`, optional
   `-prerelease`, `v` prefix tolerated) with proper precedence: a prerelease
   sorts below the corresponding release, so `1.3.0-beta` is not an update over

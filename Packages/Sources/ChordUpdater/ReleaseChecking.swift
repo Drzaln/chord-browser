@@ -11,8 +11,6 @@ public enum ReleaseCheckingError: Error, LocalizedError, Sendable {
     case invalidURL
     case badResponse
     case httpStatus(Int)
-    /// GitHub's unauthenticated API budget (60 req/hr per IP) is spent.
-    case rateLimited(resetAt: Date?)
     case decoding(String)
 
     public var errorDescription: String? {
@@ -20,64 +18,111 @@ public enum ReleaseCheckingError: Error, LocalizedError, Sendable {
         case .invalidURL: "The repository address is invalid."
         case .badResponse: "GitHub returned a response the updater could not read."
         case .httpStatus(let code): "GitHub responded with HTTP \(code)."
-        case .rateLimited: "GitHub's update-check budget is exhausted — try again in a few minutes."
         case .decoding(let detail): "Could not read the release data: \(detail)"
         }
     }
 }
 
-/// Live implementation against the GitHub REST API (`/releases/latest`).
-/// GitHub requires a User-Agent header, so one is always sent.
+/// Live implementation that reads the latest release **without the GitHub API**.
+///
+/// The REST endpoint (`api.github.com/.../releases/latest`) is rate-limited to
+/// 60 requests/hour per IP for unauthenticated callers — easy to exhaust, and
+/// the update check paid for it with a 403. The public *web* URLs have no such
+/// limit, and they already encode what the updater needs:
+///
+/// - `https://github.com/<repo>/releases/latest` 302-redirects to the actual
+///   tag page, so the version is read from the `Location` header.
+/// - `https://github.com/<repo>/releases/latest/download/<asset>` redirects to
+///   that version's asset, so the zip URL needs no version number at all.
 public struct GitHubReleaseChecking: ReleaseChecking {
     public let repository: String // "owner/repo"
     public let userAgent: String
+    public let assetName: String
     private let session: URLSession
 
-    public init(repository: String, userAgent: String, session: URLSession = .shared) {
+    public init(
+        repository: String,
+        userAgent: String,
+        assetName: String = "Chord.zip",
+        session: URLSession = .shared
+    ) {
         self.repository = repository
         self.userAgent = userAgent
+        self.assetName = assetName
         self.session = session
     }
 
     public func latestRelease() async throws -> GitHubRelease? {
-        guard let url = URL(string: "https://api.github.com/repos/\(repository)/releases/latest") else {
+        guard let url = URL(string: "https://github.com/\(repository)/releases/latest") else {
             throw ReleaseCheckingError.invalidURL
         }
         var request = URLRequest(url: url)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
 
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw error
-        }
+        // Don't follow the redirect: the 302's Location header carries the tag.
+        let noRedirect = URLSession(
+            configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil
+        )
+        defer { noRedirect.finishTasksAndInvalidate() }
+
+        let (_, response) = try await noRedirect.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw ReleaseCheckingError.badResponse
         }
         switch http.statusCode {
-        case 200: break
-        case 403:
-            // GitHub's unauthenticated budget is 60 requests/hour per IP. When
-            // it is spent, tell the user why rather than a bare "HTTP 403".
-            if http.value(forHTTPHeaderField: "X-RateLimit-Remaining") == "0" {
-                let reset = http.value(forHTTPHeaderField: "X-RateLimit-Reset")
-                    .flatMap(Double.init)
-                    .map { Date(timeIntervalSince1970: $0) }
-                throw ReleaseCheckingError.rateLimited(resetAt: reset)
+        case 302:
+            guard let location = http.value(forHTTPHeaderField: "Location"),
+                  let tag = Self.parseTag(from: location) else {
+                throw ReleaseCheckingError.badResponse
             }
-            throw ReleaseCheckingError.httpStatus(403)
-        case 404: return nil // no releases published yet
-        default: throw ReleaseCheckingError.httpStatus(http.statusCode)
+            return makeRelease(tag: tag)
+        case 404:
+            return nil // no releases published yet
+        default:
+            throw ReleaseCheckingError.httpStatus(http.statusCode)
         }
+    }
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        do {
-            return try decoder.decode(GitHubRelease.self, from: data)
-        } catch {
-            throw ReleaseCheckingError.decoding(String(describing: error))
+    /// The tag from a `releases/latest` redirect, e.g.
+    /// `https://github.com/Drzaln/chord-browser/releases/tag/v1.4.4` → `v1.4.4`.
+    /// Everything after `/releases/tag/` is kept, so tags containing `/` work.
+    static func parseTag(from location: String) -> String? {
+        if let range = location.range(of: "/releases/tag/") {
+            let tag = String(location[range.upperBound...])
+            return tag.isEmpty ? nil : tag
         }
+        return URL(string: location)?.lastPathComponent
+    }
+
+    private func makeRelease(tag: String) -> GitHubRelease {
+        let base = "https://github.com/\(repository)"
+        return GitHubRelease(
+            tagName: tag,
+            name: tag,
+            htmlURL: URL(string: "\(base)/releases/tag/\(tag)")!,
+            isPrerelease: false,
+            publishedAt: nil,
+            assets: [
+                GitHubRelease.Asset(
+                    name: assetName,
+                    downloadURL: URL(string: "\(base)/releases/latest/download/\(assetName)")!,
+                    sizeBytes: nil,
+                    contentType: "application/zip"
+                )
+            ]
+        )
+    }
+}
+
+/// Tells URLSession to hand back the redirect response instead of following it.
+private final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
     }
 }
