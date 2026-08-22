@@ -1267,3 +1267,31 @@ wrong they are all wrong.
 - **Photographing it:** `screencapture` is far too slow for a 0.32 s spring; the
   first still already shows the destination. Slow `Motion.spaceSwitch` to ~2.4 s,
   capture, then **restore it**.
+
+## Self-updates from GitHub releases (added 2026-08-22)
+
+The **Settings → Updates** section drives a Foundation-only `ChordUpdater`
+package; a `ditto`-extracted zip gets swapped into `/Applications`. Everything
+is manual — check on open, but download and install only on a click.
+
+- [ ] `Cmd+,` → **Updates** → the section shows the installed version
+- [ ] With the installed version **equal to or newer than** the latest GitHub
+      release (the standing case: 1.3.0 installed, v1.2.0 latest) it shows
+      "up to date" — no network error, no download button
+- [ ] A newer release (or a test tag) shows **Download & Install**, not "up to
+      date"
+- [ ] **Download & Install** shows a progress bar, then "installed. Restart to
+      finish."
+- [ ] **Restart Now** quits and relaunches the new version via LaunchServices
+      (tabs/Spaces restored, as after a normal quit) — the detached helper
+      waits for this process to exit first
+- [ ] A release with a non-SemVer tag (or no `.zip` asset) fails gracefully:
+      an orange message, never a crash
+- [ ] Offline: the check fails gracefully with the error message, and
+      **Check for Updates** re-runs
+
+**Development note:** the pipeline was verified live against the real
+`Chord.zip` into a temporary directory (not `/Applications`). The update path
+replaces the app in `/Applications`, so testing end-to-end here means publishing
+a release — verify by eyeballing that an installed copy newer than the latest
+release reports "up to date".

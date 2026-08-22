@@ -20,6 +20,7 @@ public struct SettingsView: View {
         case passwords = "Passwords"
         case privacy = "Privacy & Data"
         case extensions = "Extensions"
+        case updates = "Updates"
         var id: String { rawValue }
     }
     @State private var section: Section = .general
@@ -67,6 +68,9 @@ public struct SettingsView: View {
                         .padding(20)
                 case .extensions:
                     ExtensionsSettings(store: store, windowState: windowState, extensions: extensions)
+                        .padding(20)
+                case .updates:
+                    UpdateSettings()
                         .padding(20)
                 }
             }

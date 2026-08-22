@@ -21,6 +21,7 @@ let package = Package(
         .library(name: "ChordStore", targets: ["ChordStore"]),
         .library(name: "ChordUI", targets: ["ChordUI"]),
         .library(name: "ChordSecrets", targets: ["ChordSecrets"]),
+        .library(name: "ChordUpdater", targets: ["ChordUpdater"]),
         .library(name: "ChordTestSupport", targets: ["ChordTestSupport"]),
     ],
     dependencies: [
@@ -90,7 +91,16 @@ let package = Package(
 
         .target(
             name: "ChordUI",
-            dependencies: ["ChordCore", "ChordEngine", "ChordExtensions", "ChordStore", "ChordLogging"],
+            dependencies: ["ChordCore", "ChordEngine", "ChordExtensions", "ChordStore", "ChordLogging", "ChordUpdater"],
+            swiftSettings: strict
+        ),
+
+        // GitHub-release self-updater. Foundation + Observation only: it checks
+        // /releases/latest, compares versions, downloads the zip, extracts it
+        // with ditto, and swaps the .app into /Applications. Relaunching stays
+        // in the UI layer, so this target never sees AppKit.
+        .target(
+            name: "ChordUpdater",
             swiftSettings: strict
         ),
 
@@ -151,6 +161,11 @@ let package = Package(
         .testTarget(
             name: "ChordStoreTests",
             dependencies: ["ChordStore", "ChordSecrets", "ChordTestSupport"],
+            swiftSettings: strict
+        ),
+        .testTarget(
+            name: "ChordUpdaterTests",
+            dependencies: ["ChordUpdater"],
             swiftSettings: strict
         ),
     ]

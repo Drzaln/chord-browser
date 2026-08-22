@@ -15,8 +15,9 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > shipped on `main` and verified live, along with a run of post-spec additions
 > (multiple windows, folders, per-site permissions, notifications, YouTube ad
 > skipping, a built-in password vault, user-renamed tabs, swipe-to-close,
-> Arc-style split closing with pane-level reopen, and web geolocation).
-> 638 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
+> Arc-style split closing with pane-level reopen, web geolocation, and
+> self-updates from GitHub releases).
+> 654 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
@@ -119,7 +120,14 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   force `meet.google.com` back to Default), for the occasional site that sniffs.
 - **Settings** (`Cmd+,`) — General preferences, clear browsing data (cache,
   cookies, site storage, history) across every Space, per-site permission
-  management, and extensions.
+  management, extensions, and updates.
+- **Self-updates** — **Settings → Updates** checks the GitHub releases page
+  (`Drzaln/chord-browser`), compares the latest tag against the installed
+  version (SemVer), and — when a click confirms — downloads the zip, extracts
+  it, and swaps the new `.app` into `/Applications`. Everything is manual: the
+  check runs on open, but nothing downloads without a **Download & Install**
+  click, and relaunching waits for the old instance to quit so session state is
+  flushed first ([ADR 021](docs/adr/021-github-release-self-updater.md)).
 - **Native content blocking** — see below.
 
 ### Content blocking
@@ -264,6 +272,7 @@ Packages/              All logic, as a Swift package (ChordPackages)
     ChordEngine/       The WebKit-importing layer (WKWebView, content blocking)
     ChordExtensions/   WKWebExtension host + .crx unpack + signature stamping
     ChordCrypto/       Security/CryptoKit — extension signature verification
+    ChordUpdater/      GitHub-release self-updater (check, download, install)
     ChordStore/        App state store
     ChordUI/           SwiftUI views
   Tests/                 One test suite per source module

@@ -45,6 +45,7 @@ This is **Chord Browser**, a native macOS browser in Swift on `WKWebView`. It re
 ChordCore          ← Foundation only, no WebKit, no SwiftUI
 ChordSecrets       ← Core + Security/LocalAuthentication (vault half — ADR 016)
 ChordCrypto        ← Core + Security/CryptoKit (extension signature verification — ADR 017)
+ChordUpdater       ← Foundation + Observation only (GitHub-release self-updater — ADR 021)
 ChordPersistence   ← Core + GRDB
 ChordEngine        ← Core + WebKit (the ONLY WebKit importer, with ChordExtensions)
 ChordExtensions    ← Core + Crypto + Engine + WebKit
@@ -55,7 +56,7 @@ ChordTestSupport   ← fakes, fixtures, builders (test-only)
 
 ## Schema
 
-Current version: **v14**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, `v6_history_per_space`, `v7_folders`, `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`. Each migration has a fixture test, and **two test files assert `Migrations.currentVersion` literally** — update both. Test baseline: **633** (`swift test`).
+Current version: **v14**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history_and_archive`, `v4_extension_enablement`, `v5_granted_permissions`, `v6_history_per_space`, `v7_folders`, `v8_pinned_home_url`, `v9_window_layout`, `v10_site_permissions`, `v11_site_permissions_per_space`, `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`. Each migration has a fixture test, and **two test files assert `Migrations.currentVersion` literally** — update both. Test baseline: **654** (`swift test`).
 
 ## Git
 

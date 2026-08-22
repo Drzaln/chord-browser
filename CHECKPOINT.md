@@ -18,10 +18,40 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **638 passing** (`swift test`, 95 suites), measured 2026-08-22                                                                                                                                |
+| **Tests**                        | **654 passing** (`swift test`, 98 suites), measured 2026-08-22                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
+
+**Self-updates from GitHub releases (2026-08-22).** A built-in updater
+(non-spec: user-requested) keeps the app current without a browser download.
+**Settings → Updates** shows the installed version and checks
+`GET /repos/Drzaln/chord-browser/releases/latest` on open; if the latest tag
+outranks the installed version (SemVer, `v` prefix tolerated, prereleases never
+offered) it offers **Download & Install**, which downloads the zip, extracts it
+with `ditto` (preserves the bundle's symlinks/permissions), and swaps the `.app`
+into `/Applications` — replacing a running app is safe on macOS, and the
+quarantine attribute is stripped so Gatekeeper does not flag the update the user
+just asked for. Relaunch is deferred: a detached helper waits for this process
+to exit (so `applicationShouldTerminate` flushes session state) and then
+`open -n`s the new app through LaunchServices.
+
+Everything lives in a new Foundation-only **`ChordUpdater`** package (`Version`
+semver type, `GitHubRelease` decoding, `GitHubReleaseChecking` over the real
+API, `AppInstaller`, and a `@MainActor @Observable UpdateController` that drives
+the Settings UI). The UI layer alone imports AppKit, for relaunch/terminate — the
+one-OS-framework-per-target rule of ADR 011 holds. Deliberately **manual**: the
+check runs on open, but nothing downloads without a click and nothing is
+installed without another (ADR 021). The user's installed copy (1.2.0, build 10)
+matched the latest release (v1.2.0) at ship time, so the section shows "up to
+date" until a newer release is published.
+
+Tests: `ChordUpdaterTests` — `VersionTests` (parse/compare/prerelease
+precedence), `GitHubReleaseTests` (payload decoding, zip-asset selection),
+`UpdateControllerTests` (fake release checker: up-to-date, update, prerelease
+ignored, no-release, failure). The full download→extract→install pipeline was
+verified live against the real `Chord.zip` into a temp directory (not
+`/Applications`) during development. **654 tests, 98 suites.**
 
 **User-renamed tabs (2026-08-18).** Any tab can be given its own name — right-click
 a favourite, a Pinned tab, or a loose tab and choose **Rename Tab…** (non-spec:

@@ -130,8 +130,25 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
 - **Gestures** — **swipe right to close**. The "undo page" swipe (two-finger
   rightward drag) closes a tab when it has no back history — or closes the Little
   Chord panel, if that's what you're swiping on. Off by default this is WebKit's
-  native behaviour (the swipe just does nothing); toggle it off here any time.
-  When a page *does* have history, WebKit's own back-swipe is unchanged.
+native behaviour (the swipe just does nothing); toggle it off here any time.
+   When a page *does* have history, WebKit's own back-swipe is unchanged.
+
+## Updates
+
+**Settings → Updates** keeps Chord current without a manual download:
+
+- The section shows the **installed version**, and a check against the GitHub
+  releases page (`Drzaln/chord-browser`) runs automatically when you open it.
+- If a newer release exists, a **Download & Install** button appears. Click it
+  and Chord downloads the zip, extracts it, and replaces the copy in
+  `/Applications`.
+- Once installed, **Restart Now** quits Chord and relaunches the new version —
+  your tabs, Spaces, and session are restored as on a normal quit.
+
+Everything is manual: the check runs on open, but nothing downloads or installs
+until you click. If the version you are running is newer than the latest release
+(for example, a build ahead of the published one), the section simply says you're
+up to date.
 
 ## Windows
 

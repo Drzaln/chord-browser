@@ -14,6 +14,7 @@
 		A1000301000000000000001 /* ChordUI in Frameworks */ = {isa = PBXBuildFile; productRef = A1000401000000000000001 /* ChordUI */; };
 		A1000302000000000000001 /* ChordStore in Frameworks */ = {isa = PBXBuildFile; productRef = A1000402000000000000001 /* ChordStore */; };
 		A1000303000000000000001 /* ChordCore in Frameworks */ = {isa = PBXBuildFile; productRef = A1000403000000000000001 /* ChordCore */; };
+		A1000304000000000000001 /* ChordUpdater in Frameworks */ = {isa = PBXBuildFile; productRef = A1000404000000000000001 /* ChordUpdater */; };
 		C42B564430149E4B00869681 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C42B564330149E4B00869681 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -36,6 +37,7 @@
 				A1000301000000000000001 /* ChordUI in Frameworks */,
 				A1000302000000000000001 /* ChordStore in Frameworks */,
 				A1000303000000000000001 /* ChordCore in Frameworks */,
+				A1000304000000000000001 /* ChordUpdater in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +94,7 @@
 				A1000401000000000000001 /* ChordUI */,
 				A1000402000000000000001 /* ChordStore */,
 				A1000403000000000000001 /* ChordCore */,
+				A1000404000000000000001 /* ChordUpdater */,
 			);
 			productName = Chord;
 			productReference = A1000001000000000000001 /* Chord.app */;
@@ -303,6 +306,10 @@
 		A1000403000000000000001 /* ChordCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ChordCore;
+		};
+		A1000404000000000000001 /* ChordUpdater */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ChordUpdater;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

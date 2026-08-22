@@ -467,6 +467,17 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   (`v6_history_per_space`), with search, grouping by day, and delete.
 - **Settings sheet** (`Cmd+,`) — General, Privacy & Data (clear browsing data
   across every Space; site-permission management), Extensions.
+- **Self-updates from GitHub releases** — **Settings → Updates** hits
+  `GET /repos/Drzaln/chord-browser/releases/latest`, compares the tag to the
+  installed version (SemVer; prereleases are never offered), and — only on a
+  click — downloads the zip, extracts it with `ditto` (preserves bundle
+  symlinks/permissions), and swaps the `.app` into `/Applications`. Manual by
+  design: nothing downloads without consent, and relaunch waits for the old
+  process to exit so the session flush runs. All of it lives in a new
+  Foundation-only `ChordUpdater` package (`Version`, `GitHubRelease`,
+  `GitHubReleaseChecking`, `AppInstaller`, `UpdateController`); the UI layer
+  alone touches AppKit (relaunch/terminate), so the one-OS-framework-per-target
+  rule of ADR 011 holds. **ADR 021.**
 - **Frosted-glass chrome** — see §5.
 
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
