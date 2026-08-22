@@ -180,9 +180,20 @@ struct UpdateSettings: View {
     /// Launches the freshly installed app once this instance has quit, then
     /// terminates this instance so the graceful shutdown path (state flush) runs.
     private func relaunch(appAt url: URL) {
-        // A detached helper waits for this process to exit — the `open` goes
-        // through LaunchServices, which restores windows and entitlements.
-        let script = "while pgrep -x Chord > /dev/null; do sleep 0.5; done; open -n \"\(url.path)\""
+        // A detached helper waits for THIS exact process (by PID) to be gone —
+        // a zombie counts as gone — before `open -n` fires. Waiting by name
+        // (`pgrep -x Chord`) could return while the old instance was still
+        // alive, which launched the new app alongside it and left two Chords
+        // in the dock (verified live on the 1.4.0 → 1.4.1 update).
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let script = """
+        while :; do
+          stat=$(ps -p \(pid) -o stat= 2>/dev/null || true)
+          if [[ -z "$stat" || "$stat" == Z* ]]; then break; fi
+          sleep 0.5
+        done
+        open -n "\(url.path)"
+        """
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = ["-c", script]
