@@ -1,0 +1,119 @@
+name: Release
+
+# Builds a tagged version into Chord.zip and publishes it as a GitHub Release.
+# Triggered by any `v*` tag push (e.g. `git tag v1.4.0 && git push origin v1.4.0`),
+# or manually from the Actions tab.
+#
+# The updater (ADR 021) reads `GET /releases/latest`, so a release MUST exist
+# for the browser to offer an update — this workflow is that release mechanism.
+#
+# Signing:
+#   - If the MACOS_CERTIFICATE_BASE64 secret is set (your Apple Development
+#     .p12 exported as base64 + its password in MACOS_CERTIFICATE_PASSWORD),
+#     the workflow imports it and builds with the project's automatic signing
+#     (DEVELOPMENT_TEAM = 74XUPW85K2). This keeps the signature stable across
+#     rebuilds, so TCC/Keychain permissions survive updates.
+#   - Otherwise it ad-hoc signs (CODE_SIGN_IDENTITY=-), which arm64 requires
+#     to launch at all, but which changes the signature on every build and can
+#     re-trigger macOS permission prompts.
+#
+# It also fails the build if the tag does not match the app's
+# CFBundleShortVersionString — the exact mismatch that would make the updater
+# show "up to date" forever.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # needed by softprops/action-gh-release to create the release
+
+jobs:
+  build-and-release:
+    runs-on: macos-15
+    env:
+      # Empty until the certificate secrets are set; the steps test this to
+      # decide between real and ad-hoc signing.
+      CERT_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+      CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          XCODE="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | head -1 || true)"
+          if [[ -n "$XCODE" ]]; then
+            sudo xcode-select -s "$XCODE/Contents/Developer"
+          fi
+          xcodebuild -version
+
+      - name: Import signing certificate
+        if: env.CERT_BASE64 != ''
+        run: |
+          set -euo pipefail
+          echo "$CERT_BASE64" | base64 --decode > /tmp/chord-cert.p12
+          security create-keychain -p chord build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p chord build.keychain
+          security import /tmp/chord-cert.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k chord build.keychain
+          security list-keychains -d user -s build.keychain
+
+      - name: Build Release
+        run: |
+          set -euo pipefail
+          if [[ -n "$CERT_BASE64" ]]; then
+            # Automatic signing (DEVELOPMENT_TEAM from the project); the
+            # imported development cert satisfies "Sign to Run Locally" with no
+            # provisioning profile for a plain macOS app.
+            xcodebuild -project Chord.xcodeproj -scheme Chord -configuration Release \
+              -destination 'platform=macOS' \
+              -derivedDataPath .build-release \
+              build
+          else
+            # Ad-hoc: arm64 requires a signature to launch; the updater strips
+            # quarantine, so it will still open, but the signature changes per
+            # build. Add the MACOS_CERTIFICATE_* secrets to keep it stable.
+            xcodebuild -project Chord.xcodeproj -scheme Chord -configuration Release \
+              -destination 'platform=macOS' \
+              -derivedDataPath .build-release \
+              CODE_SIGN_IDENTITY=- \
+              build
+          fi
+
+      - name: Verify version matches tag
+        run: |
+          set -euo pipefail
+          APP=".build-release/Build/Products/Release/Chord.app"
+          TAG="${GITHUB_REF_NAME#v}"
+          APP_VERSION="$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")"
+          echo "tag=$GITHUB_REF_NAME app=$APP_VERSION"
+          if [[ "$TAG" != "$APP_VERSION" ]]; then
+            echo "::error::Tag v$TAG does not match app version $APP_VERSION — bump MARKETING_VERSION / Info.plist before tagging." >&2
+            exit 1
+          fi
+
+      - name: Package Chord.zip
+        run: |
+          set -euo pipefail
+          # Same layout as existing releases: Chord/Chord.app. ditto preserves
+          # the bundle's symlinks, permissions, and code signature.
+          mkdir -p dist/Chord
+          ditto ".build-release/Build/Products/Release/Chord.app" "dist/Chord/Chord.app"
+          ditto -c -k --sequesterRsrc --keepParent "dist/Chord" "dist/Chord.zip"
+          ls -lh dist/Chord.zip
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Chord.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true

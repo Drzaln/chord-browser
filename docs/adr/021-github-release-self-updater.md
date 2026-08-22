@@ -65,6 +65,15 @@ signed-update-channel infrastructure — is acceptable for a personal browser.
 
 - Users update from **Settings → Updates** with two explicit clicks
   (Download & Install, then Restart Now). Nothing downloads on its own.
+- Publishing a release is **automated** (2026-08-22): `.github/workflows/
+  release.yml` runs on any `v*` tag push, builds the Release configuration on a
+  macOS runner, packages `Chord.zip` (same `Chord/Chord.app` layout), and
+  creates the GitHub Release via `softprops/action-gh-release` — so the updater
+  finds it the moment the tag lands. It verifies the tag matches the app's
+  `CFBundleShortVersionString` (the exact failure that would make the updater
+  report "up to date" forever) and fails otherwise. It signs with the developer
+  certificate when `MACOS_CERTIFICATE_BASE64`/`MACOS_CERTIFICATE_PASSWORD`
+  secrets are set (keeping the signature stable for TCC/Keychain), else ad-hoc.
 - Release cadence now matters to the running app: a published release must have
   a SemVer tag **and** a `Chord.zip` asset, or the section shows "up to date"
   (no asset) or an error (bad tag).

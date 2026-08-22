@@ -53,6 +53,14 @@ ignored, no-release, failure). The full download→extract→install pipeline wa
 verified live against the real `Chord.zip` into a temp directory (not
 `/Applications`) during development. **654 tests, 98 suites.**
 
+**Releases are automated from here (2026-08-22).** `.github/workflows/release.yml`
+runs on every `v*` tag push: builds the Release configuration on a `macos-15`
+runner, fails if the tag doesn't match the app's `CFBundleShortVersionString`,
+packages `Chord.zip` (`Chord/Chord.app`, ditto), and publishes the GitHub
+Release — so the updater sees the new version the moment the tag lands. Signing
+uses the developer certificate when the `MACOS_CERTIFICATE_BASE64`/
+`MACOS_CERTIFICATE_PASSWORD` secrets are set (stable signature), else ad-hoc.
+
 **User-renamed tabs (2026-08-18).** Any tab can be given its own name — right-click
 a favourite, a Pinned tab, or a loose tab and choose **Rename Tab…** (non-spec:
 user-requested). The name lives as a nullable `customTitle` on the pane

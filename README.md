@@ -258,6 +258,21 @@ The data lives in `~/Library/Application Support/Chord` (plus `~/Library/WebKit`
 and the preferences plist). A leftover sandbox container from an older sandboxed
 build is also cleared.
 
+### Releasing
+
+Push a `v*` tag and `.github/workflows/release.yml` does the rest: builds the
+Release configuration on a macOS runner, fails if the tag doesn't match the
+app's `CFBundleShortVersionString`, packages `Chord.zip` (same `Chord/Chord.app`
+layout), and creates the GitHub Release — which is what the built-in updater
+(ADR 021) reads. Signing is stable when the `MACOS_CERTIFICATE_BASE64` /
+`MACOS_CERTIFICATE_PASSWORD` secrets are set (your Apple Development `.p12`),
+otherwise ad-hoc.
+
+```bash
+./scripts/prepush.sh          # gate first
+git tag v1.4.0 && git push origin v1.4.0
+```
+
 ---
 
 ## Project layout
