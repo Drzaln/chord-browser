@@ -10,14 +10,15 @@ check that still applies.
 ```
 
 Builds all packages, runs all tests, and builds the app — warnings as errors.
-Baseline: **633 tests in 94 suites** (2026-08-21), schema **v14**.
+Baseline: **638 tests in 95 suites** (2026-08-22), schema **v14**.
 
 A reminder that decides what belongs on this page at all: `swift test` runs
 **unsandboxed**, so anything gated by an entitlement or an OS permission —
-downloads, print, camera, microphone, notifications, data-store isolation — can
-only be proved here, by hand, against the real app. Debug and Release share the
-same entitlements and Hardened Runtime, so a Debug build can reproduce device
-bugs; a production build is still the honest check for distribution.
+downloads, print, camera, microphone, location, notifications, data-store
+isolation — can only be proved here, by hand, against the real app. Debug and
+Release share the same entitlements and Hardened Runtime, so a Debug build can
+reproduce device bugs; a production build is still the honest check for
+distribution.
 
 ## M1 — Browse
 
@@ -913,7 +914,7 @@ credential if a read fails.
 - [ ] Nor on plain **http://**
 - [ ] Nor after the page navigates elsewhere between the offer and the click
 
-## Site permissions — camera, microphone, notifications (added 2026-07-31)
+## Site permissions — camera, microphone, location, notifications (added 2026-07-31)
 
 None of this is reachable from `swift test`: the media path needs entitlements
 and a real TCC grant, and notifications need the OS permission. It has to be
@@ -958,6 +959,36 @@ nothing, and that is the expected behaviour, not a bug.
 - [ ] A second site prompts on its own behalf
 - [ ] Notifications from a **backgrounded/occluded** tab still arrive
 - [ ] Closing the tab stops delivery — expected, this is not Web Push
+
+### Geolocation (added 2026-08-22)
+
+Same two layers as camera/mic: Chord's per-site decision, then macOS's per-app
+TCC grant in System Settings → Privacy & Security → Location Services. macOS
+WKWebView has no CoreLocation provider, so `navigator.geolocation` is shimmed
+and served from the host's `CLLocationManager` (see `GeolocationBridge` /
+`ChordLocationProvider`).
+
+- [ ] A site calling `navigator.geolocation.getCurrentPosition()` (Google Maps
+      `google.com/maps`, Apple Maps `maps.apple.com`, or
+      `webcamtests.com`-style geolocation test pages) prompts **once**, naming the
+      host, with a location sheet
+- [ ] **Allow** → macOS's own TCC prompt appears the first time for the app as a
+      whole; allow it → the page gets coordinates and maps shows the blue dot
+- [ ] Revisiting the same site in the same Space **does not prompt again**
+- [ ] Quit and relaunch → still no prompt (the decision is on disk)
+- [ ] The **same site in another Space prompts again** — per-Space scoping, as
+      with camera/mic
+- [ ] **Deny** at the site layer → the page's callback rejects with
+      `PERMISSION_DENIED`; revisiting does not re-prompt
+- [ ] **Deny at the OS layer** → site is allowed in Chord but the page still gets
+      no coordinates — expected, not a bug (the app cannot read TCC)
+- [ ] `navigator.permissions.query({name:'geolocation'})` reports
+      `granted`/`denied`/`prompt` to match the remembered decision
+- [ ] Settings → Privacy & Data → **Site Permissions** lists the location
+      decision with the Space name; **×** removes it and the site asks again
+- [ ] **Both Debug and Release** deliver coordinates; both configs carry
+      `com.apple.security.personal-information.location` so WebKit's WebContent
+      child can reach CoreLocation
 
 ## Extension popups vs. the collapsed sidebar (added 2026-07-31)
 

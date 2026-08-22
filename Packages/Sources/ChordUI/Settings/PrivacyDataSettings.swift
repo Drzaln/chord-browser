@@ -134,7 +134,7 @@ struct PrivacyDataSettings: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         } else {
-            Text("Camera, microphone, and notification choices you have made, per Space. Removing one asks again next time.")
+            Text("Camera, microphone, location, and notification choices you have made, per Space. Removing one asks again next time.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 

@@ -1527,6 +1527,23 @@ extension TabStore: WebEngineDelegate {
         await requestSitePermission(prompt)
     }
 
+    public func paneRequestedGeolocation(_ prompt: SitePermissionPrompt) async -> Bool {
+        await requestSitePermission(prompt)
+    }
+
+    public func paneGeolocationPermissionState(
+        origin: String, paneID: UUID?
+    ) async -> WebGeolocationPermission {
+        guard let spaceID = spaceID(forPane: paneID) else { return .notDetermined }
+        let stored =
+            (try? await sitePermissions?.decisions(forOrigin: origin, spaceID: spaceID)) ?? [:]
+        switch stored[.geolocation] {
+        case .granted: return .granted
+        case .denied: return .denied
+        case nil: return .notDetermined
+        }
+    }
+
     public func paneRequestedNotificationPermission(_ prompt: SitePermissionPrompt) async -> Bool {
         await requestSitePermission(prompt)
     }

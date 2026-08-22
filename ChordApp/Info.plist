@@ -40,6 +40,8 @@
 	<string>Chord needs camera access so sites like Google Meet can use your camera.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Chord needs your location so sites like Google Maps and Apple Maps can show where you are.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Chord needs microphone access so sites like Google Meet can use your microphone.</string>
 	<key>NSSupportsAutomaticTermination</key>

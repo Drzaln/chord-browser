@@ -19,6 +19,11 @@
 	     by the NS*UsageDescription strings in Info.plist) still gates the user's
 	     first-time consent.
 
+	     com.apple.security.personal-information.location plays the same role for
+	     navigator.geolocation: unsandboxed, it does not restrict the app, but it
+	     tells WebKit to let the WebContent child reach CoreLocation. The TCC gate
+	     is NSLocationWhenInUseUsageDescription in Info.plist.
+
 	     On-disk data moves from the sandbox container to the real
 	     ~/Library/Application Support — see AppEnvironment.live(), which migrates
 	     it on first launch. -->
@@ -27,6 +32,8 @@
 	<key>com.apple.security.device.camera</key>
 	<true/>
 	<key>com.apple.security.device.microphone</key>
+	<true/>
+	<key>com.apple.security.personal-information.location</key>
 	<true/>
 </dict>
 </plist>

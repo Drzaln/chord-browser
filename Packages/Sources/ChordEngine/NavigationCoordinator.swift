@@ -12,6 +12,10 @@ import WebKit
 final class NavigationCoordinator: NSObject {
     weak var engine: WebKitEngine?
 
+    /// Answers the page's shimmed `navigator.geolocation` position requests
+    /// with real CoreLocation fixes (see `GeolocationBridge`).
+    private let locationProvider = ChordLocationProvider()
+
     init(engine: WebKitEngine) {
         self.engine = engine
         super.init()
@@ -229,43 +233,90 @@ extension NavigationCoordinator: WKScriptMessageHandler {
 
 extension NavigationCoordinator: WKScriptMessageHandlerWithReply {
 
-    /// The Web Notifications permission channel, per-origin. `query` reads the
-    /// remembered decision (seeds `Notification.permission` at load, no prompt);
-    /// `request` is `requestPermission()` and prompts the first time. A with-reply
-    /// handler because both need a value back; resolves to the web-spec strings.
+    /// The shared origin-string builder used by the two with-reply channels.
+    /// WebKit's `WKSecurityOrigin` gives protocol + host without the trailing
+    /// slash, so "https://meet.google.com" is reconstructed by hand.
+    private func originString(for securityOrigin: WKSecurityOrigin) -> String {
+        let host = securityOrigin.host
+        return host.isEmpty ? securityOrigin.`protocol` : "\(securityOrigin.`protocol`)://\(host)"
+    }
+
+    /// The with-reply channels (things a page needs a value back from):
+    /// Web Notifications permission, and geolocation. Each op resolves to the
+    /// web-spec strings the shim expects.
     func userContentController(
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage,
         replyHandler: @escaping @MainActor (Any?, String?) -> Void
     ) {
-        guard message.name == NotificationBridge.permissionMessageName else {
-            replyHandler(nil, "unexpected message")
-            return
-        }
         let origin = message.frameInfo.securityOrigin
+        let originString = originString(for: origin)
         let host = origin.host
-        let originString =
-            host.isEmpty ? origin.`protocol` : "\(origin.`protocol`)://\(host)"
         let requestPaneID = message.webView.flatMap { self.paneID(for: $0) }
-        let isRequest = NotificationBridge.isRequest(message.body)
 
-        Task { @MainActor in
-            guard let delegate = engine?.delegate else {
-                replyHandler("default", nil)
+        switch message.name {
+        case NotificationBridge.permissionMessageName:
+            let isRequest = NotificationBridge.isRequest(message.body)
+
+            Task { @MainActor in
+                guard let delegate = engine?.delegate else {
+                    replyHandler("default", nil)
+                    return
+                }
+                if isRequest {
+                    let prompt = SitePermissionPrompt(
+                        origin: originString, host: host, kinds: [.notification],
+                        paneID: requestPaneID
+                    )
+                    let granted = await delegate.paneRequestedNotificationPermission(prompt)
+                    replyHandler(granted ? "granted" : "denied", nil)
+                } else {
+                    let state = await delegate.paneNotificationPermissionState(
+                        origin: originString, paneID: requestPaneID
+                    )
+                    replyHandler(state.jsValue, nil)
+                }
+            }
+
+        case GeolocationBridge.messageName:
+            guard let op = GeolocationBridge.op(from: message.body) else {
+                replyHandler(nil, "unexpected message")
                 return
             }
-            if isRequest {
-                let prompt = SitePermissionPrompt(
-                    origin: originString, host: host, kinds: [.notification], paneID: requestPaneID
-                )
-                let granted = await delegate.paneRequestedNotificationPermission(prompt)
-                replyHandler(granted ? "granted" : "denied", nil)
-            } else {
-                let state = await delegate.paneNotificationPermissionState(
-                    origin: originString, paneID: requestPaneID
-                )
-                replyHandler(state.jsValue, nil)
+
+            switch op {
+            case "query":
+                Task { @MainActor in
+                    let state =
+                        await engine?.delegate?.paneGeolocationPermissionState(
+                            origin: originString, paneID: requestPaneID
+                        ) ?? .notDetermined
+                    replyHandler(state.jsValue, nil)
+                }
+            case "request":
+                Task { @MainActor in
+                    let prompt = SitePermissionPrompt(
+                        origin: originString, host: host, kinds: [.geolocation],
+                        paneID: requestPaneID
+                    )
+                    let granted =
+                        await engine?.delegate?.paneRequestedGeolocation(prompt) ?? false
+                    replyHandler(granted ? "granted" : "denied", nil)
+                }
+            case "position":
+                Task { @MainActor in
+                    guard let coordinate = await locationProvider.currentPosition() else {
+                        replyHandler(["error": "Position unavailable"], nil)
+                        return
+                    }
+                    replyHandler(GeolocationBridge.positionPayload(coordinate), nil)
+                }
+            default:
+                replyHandler(nil, "unknown op")
             }
+
+        default:
+            replyHandler(nil, "unexpected message")
         }
     }
 }
@@ -358,6 +409,45 @@ extension NavigationCoordinator: WKUIDelegate {
         )
         Task { @MainActor in
             let granted = await engine?.delegate?.paneRequestedMediaCapture(prompt) ?? false
+            decisionHandler(granted ? .grant : .deny)
+        }
+    }
+
+    /// Geolocation for `navigator.geolocation` — Google Maps, Apple Maps web,
+    /// etc.
+    ///
+    /// WebKit exposes no public geolocation permission hook in the SDK we ship
+    /// against (verified against WKUIDelegate.h): the `requestGeolocationPermissionFor`
+    /// delegate was private SPI for years and only promoted to public API in
+    /// February 2026 (WebKit PR #58447, tracking WebKit bug 140208). The SDK's
+    /// headers — public or private — carry neither, so this method is declared
+    /// here with the SPI selector and WebKit calls it by name via the ObjC
+    /// runtime.
+    ///
+    /// On macOS this is effectively a no-op: WebKit's built-in CoreLocation
+    /// provider is iOS-only (`WKGeolocationProviderIOS`), so the UIProcess never
+    /// routes a geolocation request to the delegate and a page's geolocation is
+    /// silently denied (verified in the field: no call, no TCC prompt). Pages
+    /// therefore get a shimmed `navigator.geolocation` (see `GeolocationBridge`)
+    /// that answers from the host's `CLLocationManager`. This method is kept as
+    /// belt-and-suspenders: on a WebKit build that does route geolocation here,
+    /// the same per-origin ask-once path answers it.
+    @objc func _webView(
+        _ webView: WKWebView,
+        requestGeolocationPermissionFor origin: WKSecurityOrigin,
+        initiatedByFrame frame: WKFrameInfo,
+        decisionHandler: @escaping @MainActor (WKPermissionDecision) -> Void
+    ) {
+        let host = origin.host
+        let originString = host.isEmpty ? origin.`protocol` : "\(origin.`protocol`)://\(host)"
+        let prompt = SitePermissionPrompt(
+            origin: originString,
+            host: host,
+            kinds: [.geolocation],
+            paneID: paneID(for: webView)
+        )
+        Task { @MainActor in
+            let granted = await engine?.delegate?.paneRequestedGeolocation(prompt) ?? false
             decisionHandler(granted ? .grant : .deny)
         }
     }

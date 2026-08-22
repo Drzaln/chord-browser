@@ -205,11 +205,11 @@ you told "Never" are listed at the bottom with an **Ask Again** button.
 > is macOS noticing the app was rebuilt, not something being wrong. Click **Always
 > Allow** and it stops for that build.
 
-## Site permissions — camera, microphone, notifications
+## Site permissions — camera, microphone, location, notifications
 
-The first time a site asks for your **camera**, **microphone**, or permission to
-send **notifications**, Chord asks you, once, and remembers the answer. Camera and
-microphone are asked together when a site wants both.
+The first time a site asks for your **camera**, **microphone**, **location**, or
+permission to send **notifications**, Chord asks you, once, and remembers the
+answer. Camera and microphone are asked together when a site wants both.
 
 Decisions are remembered per **site, per Space** — the same isolation your cookies
 and logins already have. Allowing `meet.google.com` the camera in your Work Space
@@ -223,8 +223,8 @@ Two permission layers are stacked, and **both** must say yes:
 
 1. Chord's per-site decision, above.
 2. macOS's own permission for the app, in **System Settings → Privacy & Security**
-   (Camera, Microphone, Notifications). The first time you allow a site, macOS
-   asks for the app as a whole.
+   (Camera, Microphone, Location, Notifications). The first time you allow a
+   site, macOS asks for the app as a whole.
 
 If a site you allowed still gets nothing, it is almost always layer 2 — check
 System Settings. Chord cannot see or fix that state on your behalf.
@@ -510,8 +510,9 @@ history is cleared from the app's own database. Each Space's store is cleared
 independently, so isolation is preserved.
 
 Below the clear-data controls, **Site Permissions** lists every camera,
-microphone, and notification choice you have made, per Space, with an **×** to
-forget one — see [Site permissions](#site-permissions--camera-microphone-notifications).
+microphone, location, and notification choice you have made, per Space, with an
+**×** to forget one — see
+[Site permissions](#site-permissions--camera-microphone-location-notifications).
 
 ### Extensions
 
@@ -575,6 +576,7 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | Tabbed browsing, favicons, titles                         | ✅                                      |
 | Multiple windows (`Cmd+N`), cross-window tab drag         | ✅ (Space/tab per window restored)      |
 | Camera & microphone, asked once per site and Space        | ✅                                      |
+| Web geolocation (`navigator.geolocation`), asked once per site and Space | ✅ (host `CLLocationManager` shim)   |
 | Saving and filling passwords, with a Keychain-backed vault | ✅                                     |
 | Passkeys                                                  | ❌ not available to a WKWebView app     |
 | Password-manager extensions (Bitwarden, 1Password)        | ❌ MV3 APIs missing; use the built-in vault |

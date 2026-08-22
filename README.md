@@ -14,9 +14,9 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > **Status:** all spec milestones (M1–M7) plus native content blocking are
 > shipped on `main` and verified live, along with a run of post-spec additions
 > (multiple windows, folders, per-site permissions, notifications, YouTube ad
-> skipping, a built-in password vault, user-renamed tabs, swipe-to-close, and
-> Arc-style split closing with pane-level reopen).
-> 633 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
+> skipping, a built-in password vault, user-renamed tabs, swipe-to-close,
+> Arc-style split closing with pane-level reopen, and web geolocation).
+> 638 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
@@ -92,12 +92,18 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   Passwords**, where revealing a password is gated behind Touch ID. Design,
   threat model, and phases in
   [docs/design/password-vault.md](docs/design/password-vault.md).
-- **Site permissions** — camera, microphone, and web notifications are asked for
-  **once per site, per Space**, then remembered, and are reviewable/revocable in
-  Settings ([ADR 014](docs/adr/014-site-permissions-asked-once-per-space.md)).
+- **Site permissions** — camera, microphone, location, and web notifications are
+  asked for **once per site, per Space**, then remembered, and are
+  reviewable/revocable in Settings
+  ([ADR 014](docs/adr/014-site-permissions-asked-once-per-space.md)).
 - **Web notifications** — `window.Notification` is shimmed and delivered through
   Notification Center, with click-through back to the tab. Not Web Push: the page
   must be open ([ADR 015](docs/adr/015-web-notifications-by-shim.md)).
+- **Web geolocation** — `navigator.geolocation` works for Google Maps, Apple Maps,
+  etc. macOS WKWebView ships no CoreLocation provider (the WebKit one is iOS-only,
+  so the native permission delegate never fires), so the page API is shimmed and
+  served from the host's own `CLLocationManager` — ask-once per site per Space,
+  then the OS TCC prompt. `watchPosition` polls in-page.
 - **Screen-share awareness** — a "this page is sharing your screen" banner with a
   working Stop, plus Presentation mode (`Cmd+Ctrl+S`) for clean window sharing.
   Tab capture does not exist on WebKit
@@ -218,6 +224,9 @@ The camera/mic device entitlements live in `ChordApp/Chord.entitlements` even
 though the app is unsandboxed: WebKit's WebContent child process derives its
 sandbox from those host entitlements, so without them `getUserMedia` is denied
 before the OS prompt ever appears (2026-08-20).
+`com.apple.security.personal-information.location` plays the same role for
+`navigator.geolocation`, letting the WebContent child reach CoreLocation
+(2026-08-22).
 
 > **Note:** `swift test` runs **unsandboxed**, so anything entitlement-dependent
 > (data-store isolation, downloads to protected locations) must be verified

@@ -126,6 +126,17 @@ public protocol WebEngineDelegate: AnyObject {
     /// first time for a site, prompts the user (normal browser behaviour). This
     /// replaces the old blanket auto-grant.
     func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> Bool
+    /// A page asked for its location (`navigator.geolocation`). Return whether
+    /// to grant: the store consults its remembered per-origin decision and, the
+    /// first time for a site, prompts the user (normal browser behaviour), then
+    /// the OS TCC gate decides whether Chord itself is location-aware.
+    func paneRequestedGeolocation(_ prompt: SitePermissionPrompt) async -> Bool
+    /// A page read the remembered geolocation decision (`navigator.permissions.query`
+    /// or the shimmed `navigator.geolocation` at load) — report it without
+    /// prompting so the synchronous read reflects a real choice.
+    func paneGeolocationPermissionState(
+        origin: String, paneID: UUID?
+    ) async -> WebGeolocationPermission
     /// The content process died. The pane's model is intact; the view is gone.
     func paneContentProcessDidTerminate(_ paneID: UUID)
 }
@@ -147,7 +158,15 @@ extension WebEngineDelegate {
     public func paneNotificationPermissionState(
         origin: String, paneID: UUID?
     ) async -> WebNotificationPermission { .notDetermined }
-    public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> Bool { false }
+public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> Bool {
+        false
+    }
+    public func paneRequestedGeolocation(_ prompt: SitePermissionPrompt) async -> Bool {
+        false
+    }
+    public func paneGeolocationPermissionState(
+        origin: String, paneID: UUID?
+    ) async -> WebGeolocationPermission { .notDetermined }
     public func paneDidSubmitLogin(
         origin: String, username: String, password: String, fromPane paneID: UUID
     ) {}

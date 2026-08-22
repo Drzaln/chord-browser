@@ -8,6 +8,7 @@ public enum SitePermissionKind: String, Sendable, CaseIterable, Codable {
     case camera
     case microphone
     case notification
+    case geolocation
 
     /// Sentence-case label for the prompt and settings ("Camera", "Notifications").
     public var label: String {
@@ -15,6 +16,7 @@ public enum SitePermissionKind: String, Sendable, CaseIterable, Codable {
         case .camera: "Camera"
         case .microphone: "Microphone"
         case .notification: "Notifications"
+        case .geolocation: "Location"
         }
     }
 }

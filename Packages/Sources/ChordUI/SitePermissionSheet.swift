@@ -22,6 +22,7 @@ struct SitePermissionSheet: View {
 
     private var icon: String {
         if isNotification { return "bell.fill" }
+        if prompt.kinds.contains(.geolocation) { return "location.fill" }
         return prompt.kinds.contains(.camera) ? "video.fill" : "mic.fill"
     }
 

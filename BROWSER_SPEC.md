@@ -420,11 +420,18 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   tabs are sweep-exempt, alongside the two pinned tiers of §4.1a.
 - **Per-tab mute**, and **Peek** (a link clicked in a Favourite/Pinned tab opens
   in a floating, promotable panel instead of navigating the protected page away).
-- **Site permissions** — camera, microphone, and notifications asked once per
-  (Space, origin) and remembered, managed in Settings. `v10_site_permissions`,
-  re-scoped by `v11_site_permissions_per_space`. **ADR 014.**
+- **Site permissions** — camera, microphone, location, and notifications asked
+  once per (Space, origin) and remembered, managed in Settings.
+  `v10_site_permissions`, re-scoped by `v11_site_permissions_per_space`. **ADR
+  014.**
 - **Web notifications** — `window.Notification` shimmed and delivered through
   `UNUserNotificationCenter`; not Web Push. **ADR 015.**
+- **Web geolocation** — `navigator.geolocation` shimmed and served from the
+  host's `CLLocationManager` (macOS WKWebView has no CoreLocation provider, so
+  the native permission delegate never fires); ask-once per (Space, origin) via
+  the site-permission path above, then the OS TCC gate. `watchPosition` polls
+  in-page. The requestGeolocationPermissionFor SPI stays wired as
+  belt-and-suspenders for a WebKit build that does route geolocation natively.
 - **Screen-share awareness** — banner, working Stop, Presentation mode. Tab
   capture is not available on WebKit. **ADR 012.**
 - **YouTube ad skipping** — a page-side user script, deliberately outside the
@@ -802,6 +809,13 @@ Raise these when the relevant milestone starts; do not decide unilaterally.
   §7.2's discipline.
 - ~~Whether camera/mic/notification permission is global or per-Space.~~
   Resolved: per (Space, origin), asked once and remembered (ADR 014).
+- ~~Whether web geolocation rides the native permission hook or a shim.~~
+  Resolved (2026-08-22): a `navigator.geolocation` shim + the host's
+  `CLLocationManager`. macOS WKWebView has no CoreLocation provider (WebKit's is
+  iOS-only), so the `requestGeolocationPermissionFor` delegate — public API only
+  since Feb 2026, absent from this SDK's headers — never fires on macOS (verified
+  in the field: no delegate call, no TCC prompt). The shim answers from the host
+  and reuses the per-origin site-permission path.
 
 - ~~Per-domain User-Agent overrides (§9.6).~~ Resolved: shipped 2026-08-01,
   Settings → General → Per-Site Rules. A rule covers a domain and its

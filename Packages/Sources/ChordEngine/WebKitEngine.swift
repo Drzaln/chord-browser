@@ -254,6 +254,7 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
         controller.addUserScript(PasswordFormMonitor.makeUserScript())
+        controller.addUserScript(GeolocationBridge.makeUserScript())
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
@@ -268,6 +269,13 @@ public final class WebKitEngine: WebEngine {
                 coordinator as any WKScriptMessageHandlerWithReply,
                 contentWorld: .page,
                 name: NotificationBridge.permissionMessageName
+            )
+            // The geolocation shim (`navigator.geolocation`) needs values back
+            // for every op — remembered permission, granted/denied, and a fix.
+            controller.addScriptMessageHandler(
+                coordinator as any WKScriptMessageHandlerWithReply,
+                contentWorld: .page,
+                name: GeolocationBridge.messageName
             )
         }
         // Native content blocking (§4.8, C2). The compiled list is shared and
