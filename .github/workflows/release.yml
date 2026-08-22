@@ -49,11 +49,16 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          XCODE="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | head -1 || true)"
+          # Newest Xcode, excluding betas. Picking the FIRST Xcode_16*.app
+          # once grabbed Xcode 16.0 (macOS 15.0 SDK), whose supported
+          # deployment range tops out at 15.0.99 — this project targets 15.4,
+          # so the build failed. Newest stable SDK handles it fine.
+          XCODE="$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1 || true)"
           if [[ -n "$XCODE" ]]; then
             sudo xcode-select -s "$XCODE/Contents/Developer"
           fi
           xcodebuild -version
+          xcodebuild -version -sdk macosx
 
       - name: Import signing certificate
         if: env.CERT_BASE64 != ''
@@ -68,8 +73,9 @@ jobs:
           security list-keychains -d user -s build.keychain
 
       - name: Build Release
+        id: build
         run: |
-          set -euo pipefail
+          set -uo pipefail
           if [[ -n "$CERT_BASE64" ]]; then
             # Automatic signing (DEVELOPMENT_TEAM from the project); the
             # imported development cert satisfies "Sign to Run Locally" with no
@@ -77,7 +83,7 @@ jobs:
             xcodebuild -project Chord.xcodeproj -scheme Chord -configuration Release \
               -destination 'platform=macOS' \
               -derivedDataPath .build-release \
-              build
+              build > xcodebuild.log 2>&1
           else
             # Ad-hoc: arm64 requires a signature to launch; the updater strips
             # quarantine, so it will still open, but the signature changes per
@@ -86,8 +92,22 @@ jobs:
               -destination 'platform=macOS' \
               -derivedDataPath .build-release \
               CODE_SIGN_IDENTITY=- \
-              build
+              build > xcodebuild.log 2>&1
           fi
+          status=$?
+          if [[ $status -ne 0 ]]; then
+            echo "::group::xcodebuild log (tail)"
+            tail -n 100 xcodebuild.log
+            echo "::endgroup::"
+          fi
+          exit $status
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild.log
+          path: xcodebuild.log
 
       - name: Verify version, compute release tag
         run: |
