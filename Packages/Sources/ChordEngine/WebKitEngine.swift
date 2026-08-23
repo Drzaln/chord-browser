@@ -662,6 +662,97 @@ public final class WebKitEngine: WebEngine {
         pool.view(for: paneID)?.snapshot
     }
 
+    public func focus(paneID: UUID) -> Bool {
+        // `peek`, not `view`: focusing must not count as a use that reorders
+        // the pool's LRU.
+        guard let live = pool.peek(paneID), let window = live.webView.window else {
+            return false
+        }
+        return window.makeFirstResponder(live.webView)
+    }
+
+    public func captureThumbnail(for paneID: UUID) {
+        // Only a pane whose view is actually on screen can be snapshot: a view
+        // detached from its window has no backing store, so `takeSnapshot`
+        // hands back a blank image and the render is pure waste. The switcher's
+        // candidates are all background tabs, which is why captures come only
+        // from the on-show path (`refreshThumbnail`), not from the switcher.
+        guard let live = pool.peek(paneID), live.webView.window != nil else { return }
+
+        let config = WKSnapshotConfiguration()
+        // Render the page at the card's display width (176 pt at 2×), so the
+        // snapshot is independent of the view's on-screen size. `afterScreenUpdates`
+        // stays off: a view that is not on screen has no scheduled screen update,
+        // so asking to wait for one can stall the capture.
+        config.snapshotWidth = 352
+
+        live.webView.takeSnapshot(with: config) { [weak self] image, error in
+            MainActor.assumeIsolated {
+                guard let self, let image, error == nil,
+                      let data = Self.thumbnailPNG(from: image)
+                else { return }
+                self.delegate?.paneDidCaptureThumbnail(paneID, data: data)
+            }
+        }
+    }
+
+    /// Downsamples a full-size snapshot to the thumbnail's display size, as a
+    /// PNG. Full-size images are never retained (6.5) — same rule as favicons.
+    ///
+    /// Returns nil for a capture with no visible content. WebKit hands back an
+    /// empty, transparent, or solid-colour image for a pane whose view is not on
+    /// screen or has not painted yet; storing that would show a white/black card
+    /// instead of the favicon tile fallback, which is worse.
+    private static func thumbnailPNG(from image: NSImage) -> Data? {
+        guard let rep = NSBitmapImageRep(data: image.tiffRepresentation ?? Data()),
+              hasVisibleContent(rep)
+        else { return nil }
+
+        let size = CGSize(width: 352, height: 220)
+        let target = NSImage(size: size)
+        target.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        image.draw(
+            in: NSRect(origin: .zero, size: size),
+            from: .zero,
+            operation: .copy,
+            fraction: 1.0
+        )
+        target.unlockFocus()
+
+        guard let tiff = target.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff)
+        else { return nil }
+        return bitmap.representation(using: .png, properties: [:])
+    }
+
+    /// True when the capture shows real page content rather than a blank
+    /// backing store: some opaque pixels, not all one colour. A sample of the
+    /// grid is enough — a thumbnail either has visible content or it does not.
+    static func hasVisibleContent(_ rep: NSBitmapImageRep) -> Bool {
+        guard rep.pixelsWide > 0, rep.pixelsHigh > 0 else { return false }
+
+        let stepX = max(1, rep.pixelsWide / 5)
+        let stepY = max(1, rep.pixelsHigh / 4)
+        var first: (r: CGFloat, g: CGFloat, b: CGFloat)?
+        for y in stride(from: 0, to: rep.pixelsHigh, by: stepY) {
+            for x in stride(from: 0, to: rep.pixelsWide, by: stepX) {
+                guard let c = rep.colorAt(x: x, y: y), c.alphaComponent > 0.5 else { continue }
+                let sample = (c.redComponent, c.greenComponent, c.blueComponent)
+                if let f = first {
+                    if abs(f.r - sample.0) > 0.03
+                        || abs(f.g - sample.1) > 0.03
+                        || abs(f.b - sample.2) > 0.03 {
+                        return true
+                    }
+                } else {
+                    first = sample
+                }
+            }
+        }
+        return false
+    }
+
     // MARK: - Print
 
     public func printPane(paneID: UUID) {

@@ -64,6 +64,12 @@ Current version: **v14**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history
 - Stage with `git add -A ':!Chord.xcodeproj/project.pbxproj'` — exclude the Xcode project file, *unless* the change is a deliberate build-config edit (e.g. the 2026-08-20 signing fix that removed the ad-hoc `CODE_SIGN_IDENTITY[sdk=macosx*] = "-"` override).
 - Commit/push ONLY when the user asks.
 - Update `CHECKPOINT.md` in the same commit as the work it describes.
+- **"Push to GitHub" / "release" / "ship it" is the explicit authority for the
+  release procedure** — see AGENTS.md → "Push to GitHub / release". That one
+  path: commit feature + docs, `./scripts/prepush.sh`, then
+  `./scripts/release.sh <version>` (bumps version/build, tags `v<version>`,
+  pushes), reindex the code graph, `bd dolt push`. The tag must equal the app
+  version or the GitHub Release build fails.
 
 ## Logging
 

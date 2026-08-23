@@ -180,6 +180,22 @@ extension TabStore {
         scheduleSave()
     }
 
+    /// Gives the pane's web view keyboard focus, so page shortcuts — the
+    /// spacebar, arrow keys — reach the page without a prior click into it.
+    /// Switching tabs moves the model's selection; the web view still needs to
+    /// be the window's first responder for keys to land on the page.
+    ///
+    /// The surface appears one frame after the selection changes, so a call
+    /// made before the web view is in the window retries once, shortly after.
+    public func focusWebView(for paneID: UUID) {
+        if !engine.focus(paneID: paneID) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(50))
+                engine.focus(paneID: paneID)
+            }
+        }
+    }
+
     /// Drags the divider to the right of pane `index` within `tabID`.
     ///
     /// `delta` is a fraction of the tab's width, so the caller converts points

@@ -35,6 +35,8 @@ public struct RootView: View {
     /// Double-click the top strip to zoom, lost when the card was extended over
     /// the titlebar. Same lifecycle as the swipe monitor.
     @State private var titlebarMonitor: TitlebarDoubleClickMonitor?
+    /// The Ctrl+Tab MRU switcher's key monitor. Same lifecycle as the others.
+    @State private var mruMonitor: MRUTabKeyMonitor?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -147,6 +149,14 @@ public struct RootView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(3)
                 .id(sharingPaneID)
+            }
+
+            // Arc's Ctrl+Tab switcher, centred over the content while Ctrl is
+            // held. It must sit above everything but touch nothing.
+            if windowState.isMRUSessionPresented, !windowState.mruTabIDs.isEmpty {
+                MRUSwitcherOverlay(store: store, windowState: windowState)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .zIndex(10)
             }
 
             // The save bar sits with the screen-share banner rather than in the
@@ -301,12 +311,19 @@ public struct RootView: View {
             titlebar.window = window
             titlebar.start()
             titlebarMonitor = titlebar
+
+            let mru = MRUTabKeyMonitor(store: store, windowState: windowState)
+            mru.window = window
+            mru.start()
+            mruMonitor = mru
         }
         .onDisappear {
             swipeMonitor?.stop()
             swipeMonitor = nil
             titlebarMonitor?.stop()
             titlebarMonitor = nil
+            mruMonitor?.stop()
+            mruMonitor = nil
             // The private Space goes away with the window, so its cached
             // gradient should too. The Store cannot do this — the cache is a UI
             // concern and Store imports no UI.
@@ -322,6 +339,7 @@ public struct RootView: View {
         .onChange(of: window == nil) { _, _ in
             swipeMonitor?.window = window
             titlebarMonitor?.window = window
+            mruMonitor?.window = window
         }
     }
 

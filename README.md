@@ -15,9 +15,10 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > shipped on `main` and verified live, along with a run of post-spec additions
 > (multiple windows, folders, per-site permissions, notifications, YouTube ad
 > skipping, a built-in password vault, user-renamed tabs, swipe-to-close,
-> Arc-style split closing with pane-level reopen, web geolocation, and
-> self-updates from GitHub releases).
-> 657 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
+> Arc-style split closing with pane-level reopen, web geolocation,
+> self-updates from GitHub releases, and an Arc-style Ctrl+Tab
+> most-recently-used tab switcher).
+> 672 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
@@ -82,6 +83,12 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   `⌘O` or dismiss with `Esc`.
 - **Per-tab mute** — a speaker toggle on any tab making noise; sticks across
   reloads and silences every pane of a split.
+- **Ctrl+Tab MRU tab switcher** — Arc's most-recently-used switcher. Press
+  `Ctrl+Tab` to jump to the tab you were just on; hold `Ctrl` to show a
+  horizontal row of tabs (most recent first, with page thumbnails) and step
+  with `Tab`/`Shift+Tab`, releasing to commit. A bare `Ctrl` tap switches
+  nothing. Switching tabs hands the page keyboard focus, so the spacebar and
+  arrow keys work without a prior click into the page.
 - **Configurable search, new tab & archive time** — pick the search engine
   (Google, DuckDuckGo, Bing, Brave, or a custom `%s` template), what a new tab
   opens to (blank, the search engine's home, or a specific page), and how long

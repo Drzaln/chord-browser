@@ -479,6 +479,17 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   alone touches AppKit (relaunch/terminate), so the one-OS-framework-per-target
   rule of ADR 011 holds. **ADR 021.**
 - **Frosted-glass chrome** — see §5.
+- **Ctrl+Tab MRU tab switcher** — the active Space's tabs in
+  most-recently-used order (`Tab.lastAccessedAt`, bumped on every select), not
+  sidebar order. A quick `Ctrl+Tab` tap jumps to the most recent tab; holding
+  `Ctrl` shows a centered horizontal card row with page thumbnails (captured on
+  show via `WKWebView.takeSnapshot`; `Tab`/`Shift+Tab` step it, release commits).
+  Stepping lives in a local key monitor rather than the menu key equivalent —
+  a monitor sees every keyDown before AppKit's key-equivalent matching, which
+  the web view or full-keyboard access can swallow. Switching tabs also makes
+  the page the window's first responder (`focusWebView`), so page shortcuts
+  (spacebar, arrows) work without a click. Non-spec, user-requested; details in
+  the CHECKPOINT 2026-08-23 section.
 
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
 software-only in a general `WKWebView`: macOS reserves the hardware decode path

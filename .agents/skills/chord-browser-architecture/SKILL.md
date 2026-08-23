@@ -11,7 +11,7 @@ This skill contains distilled knowledge from README.md, BROWSER_SPEC.md, and CHE
 
 Chord Browser is a native macOS browser built in Swift on `WKWebView`. It replicates Arc's interaction model (Spaces, vertical tabs, command bar, ephemeral tabs, split view, Little Chord) while running on Apple's WebKit engine. All spec milestones (M1–M7) plus native content blocking are shipped and verified.
 
-**Status:** 657 tests in 98 suites. Schema **v14**. `./scripts/prepush.sh` green. Post-spec additions have landed on top of M1–M7 (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site permissions, web notifications, YouTube ad skipping, General settings, the password vault (V1–V7), private windows, per-domain UA rules, file-backed logging, Arc-style Peek, user-renamed tabs, **`window.open()` popups as real web views** (keeps the `window.open()` reference; `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018), **swipe-to-close** (rightward swipe on a pane with no back history closes the tab / Little Chord; WebKit's native gesture untouched, on-by-default flag in Settings → General → Gestures, `BackSwipeMonitor` in Engine), **Arc-style split closing + pane-level undo** (Cmd+W / close button / swipe on a split tab closes only the focused pane; Cmd+Shift+T reopens a closed pane at its previous position — `RecentlyClosed` is a unified `.tab`/`.pane` stack; ADR 020), and **self-updates from GitHub releases** (Settings → Updates; reads the version from the `releases/latest` **web redirect** — deliberately not the rate-limited REST API — manual download → `ditto` extract → swap into `/Applications`, self-healing relaunch; Foundation-only `ChordUpdater` package, ADR 021). Engine-state hygiene: `engine.forget(paneID:)` clears closed panes' cached state, `interactionStates` is LRU-capped at 20, and `LiveWebView.tearDown()` calls `closeAllMediaPresentations()`.
+**Status:** 672 tests in 100 suites. Schema **v14**. `./scripts/prepush.sh` green. Post-spec additions have landed on top of M1–M7 (BROWSER_SPEC §4.9): multiple windows, folders, per-Space history, per-site permissions, web notifications, YouTube ad skipping, General settings, the password vault (V1–V7), private windows, per-domain UA rules, file-backed logging, Arc-style Peek, user-renamed tabs, **`window.open()` popups as real web views** (keeps the `window.open()` reference; `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018), **swipe-to-close** (rightward swipe on a pane with no back history closes the tab / Little Chord; WebKit's native gesture untouched, on-by-default flag in Settings → General → Gestures, `BackSwipeMonitor` in Engine), **Arc-style split closing + pane-level undo** (Cmd+W / close button / swipe on a split tab closes only the focused pane; Cmd+Shift+T reopens a closed pane at its previous position — `RecentlyClosed` is a unified `.tab`/`.pane` stack; ADR 020), **self-updates from GitHub releases** (Settings → Updates; reads the version from the `releases/latest` **web redirect** — deliberately not the rate-limited REST API — manual download → `ditto` extract → swap into `/Applications`, self-healing relaunch; Foundation-only `ChordUpdater` package, ADR 021), and **the Ctrl+Tab MRU tab switcher with page thumbnails** (quick tap toggles to the last tab; holding Ctrl shows a centered horizontal card row; switching tabs focuses the page; see §Post-M7 Follow-ups). Engine-state hygiene: `engine.forget(paneID:)` clears closed panes' cached state, `interactionStates` is LRU-capped at 20, and `LiveWebView.tearDown()` calls `closeAllMediaPresentations()`.
 
 ## Project Layout
 
@@ -201,6 +201,7 @@ see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 - AV1 decodes in **software** here: macOS reserves the hardware path for Safari, so `mediaCapabilities…powerEfficient` is false for AV1 and sites drop to VP9. Not the UA, not fixable in app code.
 - `config.preferences.setValue(true, forKey: "managedMediaSourceEnabled")` is set by **KVC string key** — no typed accessor exists. It is the one spot outside §11's rule; if WebKit drops the key it raises `NSUnknownKeyException` while building the configuration, and no test covers it.
 - **Element fullscreen must not find the WKWebView AutoLayout-governed** (ADR 019). When a page element goes fullscreen WebKit replaces the web view with a placeholder, moves it into its own fullscreen window, and moves it back (`WKWebView.fullscreenState`, KVO-compliant — observe it and re-anchor on `.notInFullscreen`). A web view whose size is owned by constraints from a higher ancestor (SwiftUI hosting) comes back at a `0×0` frame and the fullscreen video renders **black until the app is relaunched** (webkit.org/b/313802, macOS 26). The web view is therefore installed frame + `autoresizingMask = [.width, .height]`, never pinned with constraints. A future overlay must go on the container, not the web view.
+- **`WKWebView.takeSnapshot` on a detached view returns blank** (the Ctrl+Tab thumbnails, 2026-08-23). A tab that is not the shown one has no backing store, so snapping it yields an empty/solid image — and snapping on the frame of appearance is blank too (the page hasn't painted). Only capture a view that is **in a window** (`webView.window != nil`), delay ~300 ms after it appears, and reject transparent/single-colour captures (`WebKitEngine.hasVisibleContent`). The engine's `captureThumbnail` bakes all three in.
 
 ### SwiftUI / AppKit
 - A SwiftUI view-level `.keyboardShortcut` beats a menu item with the same key silently.
@@ -263,5 +264,19 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
 - ~~Extension signature verification~~ **Done 2026-08-07 (warn-but-install, ADR 017)**
 - ~~Per-list content-blocker refresh~~ **Done 2026-08-07**
 - ~~Single source of truth for the Safari UA version token~~ **Done 2026-08-07**
+- ~~Ctrl+Tab MRU switcher + page thumbnails~~ **Done 2026-08-23 (1.5.0)** —
+  MRU tab switching (most-recently-used, not sidebar order). Quick `Ctrl+Tab`
+  toggles to the last tab; holding `Ctrl` shows a centered horizontal card row
+  (page thumbnails + favicon/name; `Tab`/`Shift+Tab` step, release commits).
+  Stepping lives in a local key monitor (sees every keyDown before menu
+  key-equivalent matching — the web view / full-keyboard access can swallow the
+  menu shortcut). Thumbnails: `WebKitEngine.captureThumbnail` via
+  `WKWebView.takeSnapshot` at 352×220, **only for a pane whose view is in a
+  window** (detached views return blank) and ~300 ms after show (before first
+  paint is blank too), with `hasVisibleContent` rejecting transparent/solid
+  captures; store-side observable LRU cache (40). Switching tabs focuses the
+  page (`WebEngine.focus` → `makeFirstResponder`), so spacebar works on the
+  switched-to page. Session state in `WindowState`, docs in CHECKPOINT
+  2026-08-23.
 - Full Instruments GUI trace (SwiftUI body counts, Energy Log)
 - Sidebar scroll fps measurement

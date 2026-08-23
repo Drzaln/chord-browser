@@ -51,6 +51,23 @@ distribution.
       (and only there, not also in the revealed sidebar); revealing the sidebar
       hands the indicator back to the sidebar's own bar
 
+### Ctrl+Tab MRU switcher (2026-08-23)
+
+- [ ] A quick `Ctrl+Tab` toggles to the tab you were just on; `Ctrl+Shift+Tab`
+      jumps to the least recently used
+- [ ] Holding `Ctrl` shows a **horizontal row of cards centered on the window**
+      (most recent first, current excluded); `Tab`/`Shift+Tab` step it, the
+      highlighted card scales up and the row scrolls to keep it centered
+- [ ] Releasing `Ctrl` commits the highlighted tab; a bare `Ctrl` tap (no Tab)
+      switches nothing
+- [ ] A card shows the page's **real thumbnail** when it was visited this
+      session (captured on show) and a favicon-on-tint tile otherwise — never a
+      blank white/black card
+- [ ] After switching to a page (Ctrl+Tab or a sidebar click), the **spacebar
+      plays/pauses YouTube / YouTube Music** without clicking into the page
+- [ ] Ctrl+Tab still works while a web page has focus and after a quick
+      Ctrl+Tab+Ctrl+Tab toggle sequence (key monitor, not menu, owns stepping)
+
 ### Persistence
 
 - [ ] Quit and relaunch: tabs come back with titles and favicons

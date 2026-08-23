@@ -132,6 +132,21 @@ public final class FakeWebEngine: WebEngine {
 
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
 
+    /// The fake has no window to focus; a test asserts the store *asked* by
+    /// checking `focusRequests` instead.
+    public private(set) var focusRequests: [UUID] = []
+    public func focus(paneID: UUID) -> Bool {
+        focusRequests.append(paneID)
+        return false
+    }
+
+    /// The fake has no page to snapshot; a test asserts the store *asked* by
+    /// checking `thumbnailCaptures` instead.
+    public private(set) var thumbnailCaptures: [UUID] = []
+    public func captureThumbnail(for paneID: UUID) {
+        thumbnailCaptures.append(paneID)
+    }
+
     public private(set) var notificationClicks: [(jsID: String, paneID: UUID)] = []
     public func dispatchNotificationClick(jsID: String, toPane paneID: UUID) {
         notificationClicks.append((jsID, paneID))

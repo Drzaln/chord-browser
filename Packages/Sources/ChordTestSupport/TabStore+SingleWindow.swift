@@ -78,6 +78,9 @@ extension TabStore {
 
     public func selectNextTab() { selectNextTab(in: primaryWindow) }
     public func selectPreviousTab() { selectPreviousTab(in: primaryWindow) }
+    public func beginMRUSwitch() { beginMRUSwitch(in: primaryWindow) }
+    public func commitMRUSwitch() { commitMRUSwitch(in: primaryWindow) }
+    public func cancelMRUSwitch() { cancelMRUSwitch(in: primaryWindow) }
     public func reopenLastClosedTab() { reopenLastClosedTab(in: primaryWindow) }
     public func returnToPinnedHome(_ tabID: UUID) { returnToPinnedHome(tabID, in: primaryWindow) }
 

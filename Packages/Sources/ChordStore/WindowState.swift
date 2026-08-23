@@ -152,6 +152,23 @@ public final class WindowState {
     /// showing, awaiting confirmation. Non-nil puts the dialog on screen.
     public var pendingTabMove: PendingTabMove?
 
+    // MARK: - MRU tab switching (Ctrl+Tab)
+
+    /// The active Space's tabs in most-recently-used order, cached while an
+    /// Arc-style Ctrl+Tab session is on screen so stepping is stable — the
+    /// store rebuilds it when Ctrl goes down and nothing moves until release.
+    /// Ephemeral and never persisted.
+    public internal(set) var mruTabIDs: [UUID] = []
+
+    /// The row the overlay is aiming at. `nil` until the first Tab press, so a
+    /// quick Ctrl+Tab tap commits the most-recent tab and a bare Ctrl tap —
+    /// pressed and released with no Tab — commits nothing.
+    public internal(set) var mruCursor: Int?
+
+    /// Whether the MRU switcher overlay is on screen. Set by the store as the
+    /// Ctrl key goes down and up; the overlay is purely presentational.
+    public internal(set) var isMRUSessionPresented = false
+
     // MARK: - Find in page
 
     /// Find-in-page state (M6), per-window because the bar belongs to a window

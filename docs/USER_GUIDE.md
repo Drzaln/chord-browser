@@ -46,16 +46,25 @@ its own tab** once you finish signing in instead of lingering.
 | `Cmd+Shift+N`    | New **blank** tab (no command bar)                                            |
 | `Cmd+W`          | Close the current tab (a split tab closes its focused pane)                    |
 | `Cmd+Shift+T`    | **Reopen** the last closed tab or pane (repeat to walk back further)           |
-| `Ctrl+Tab`       | **Next** tab (wraps around)                                                   |
-| `Ctrl+Shift+Tab` | **Previous** tab (wraps around)                                               |
+| `Ctrl+Tab`       | Jump to the **most recently used** tab (a quick tap toggles back)             |
+| `Ctrl+Shift+Tab` | Jump to the **least recently used** tab                                        |
 | `Cmd+D`          | **Pin or unpin** the current tab (Arc-style favourites in place of bookmarks) |
 | `Cmd+R`          | Reload the page                                                               |
 | `Cmd+.`          | Stop loading                                                                  |
 | `Cmd+[`          | Back                                                                          |
 | `Cmd+]`          | Forward                                                                       |
 
-Tab cycling walks the active Space's tabs in sidebar order — favourites first,
-then the ephemeral list. `Cmd+Shift+T` restores what was most recently closed,
+Tab cycling follows **most-recently-used order**, not sidebar order: a quick
+`Ctrl+Tab` toggles to the tab you were just on. Hold `Ctrl` to see the switcher —
+a horizontal row of cards, most recent first, each with the page's thumbnail and
+its favicon + web name — and step through with `Tab`/`Shift+Tab`; releasing
+`Ctrl` commits the highlighted tab, and a bare `Ctrl` tap switches nothing.
+Switching tabs also gives the page keyboard focus, so the spacebar and arrow
+keys work without a prior click into the page. Thumbnails are captured while a
+tab is on screen, so tabs you've visited this session show their real content;
+tabs never shown yet show a favicon tile instead.
+
+`Cmd+Shift+T` restores what was most recently closed,
 in its original Space when it still exists: a closed tab comes back with its URL,
 title, favicon, and pinned state; a closed **pane** of a split comes back in the
 **same position** it left (Arc-style).

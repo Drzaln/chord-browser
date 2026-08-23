@@ -243,9 +243,11 @@ struct ChordCommands: Commands {
 
             Divider()
 
-            // Cycle the selection through the active Space's tabs. Ctrl+Tab /
-            // Ctrl+Shift+Tab are what every browser binds; Cmd+1…9 is taken by
-            // Spaces here, so this is the only keyboard way to step through tabs.
+            // Most-recently-used tab switching (non-spec: user-requested, Arc
+            // style). Ctrl+Tab / Ctrl+Shift+Tab are what every browser binds;
+            // Cmd+1…9 is taken by Spaces here, so this is the only keyboard way
+            // to step through tabs. Pressing Ctrl shows the MRU overlay; these
+            // commands step it, and releasing Ctrl commits.
             Button("Next Tab") { withFocusedWindow { $0.selectNextTab(in: $1) } }
                 .keyboardShortcut(.tab, modifiers: .control)
 

@@ -381,6 +381,17 @@ git add -A ':!Chord.xcodeproj/project.pbxproj'
 
 Single `main` branch, linear history. No feature branches.
 
+**Releasing (the standard "push to GitHub" path — see AGENTS.md → "Push to
+GitHub / release"):** the user saying "push to GitHub" / "release" / "ship it"
+is the authority to commit and push. Sequence: commit feature code + its doc
+updates (`README.md`, `CHECKPOINT.md`, `docs/USER_GUIDE.md`, `BROWSER_SPEC.md`
+§4.9, `SMOKE.md`, the architecture skill) → `./scripts/prepush.sh` green →
+`./scripts/release.sh <version>` bumps the version/build in `project.pbxproj`
++ `ChordApp/Info.plist`, re-runs prepush, commits `release: X (build Y)`, tags
+`v<version>`, and pushes `main` + the tag. The tag **must** equal
+`MARKETING_VERSION` or the GitHub Release workflow fails the build. Then reindex
+the code graph (`codebase-memory-mcp index_repository`) and `bd dolt push`.
+
 ---
 
 ## Key File Locations

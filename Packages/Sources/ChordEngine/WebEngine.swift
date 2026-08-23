@@ -68,6 +68,10 @@ public struct PaneSnapshot: Equatable, Sendable {
 public protocol WebEngineDelegate: AnyObject {
     func paneDidUpdate(_ paneID: UUID, snapshot: PaneSnapshot)
     func paneDidLoadFavicon(_ paneID: UUID, data: Data?)
+    /// A page thumbnail was captured (non-spec: user-requested, the Ctrl+Tab
+    /// switcher). Carries the PNG; `nil` means the capture failed. The engine
+    /// never caches — the store owns the thumbnails.
+    func paneDidCaptureThumbnail(_ paneID: UUID, data: Data?)
     /// A page asked for a new window. The engine created a *real* popup web
     /// view first, so the page's `window.open()` call gets a live window
     /// reference and `window.close()` works — the two things OAuth flows
@@ -170,6 +174,7 @@ public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> B
     public func paneDidSubmitLogin(
         origin: String, username: String, password: String, fromPane paneID: UUID
     ) {}
+    public func paneDidCaptureThumbnail(_ paneID: UUID, data: Data?) {}
 }
 
 /// Why a fill did or did not happen. Distinguished because "we refused" and
@@ -281,6 +286,23 @@ public protocol WebEngine: AnyObject {
     func dispatchNotificationClick(jsID: String, toPane paneID: UUID)
 
     func snapshot(for paneID: UUID) -> PaneSnapshot?
+
+    /// Gives a live pane's web view keyboard focus, so page shortcuts — the
+    /// spacebar, arrow keys — reach the page without a prior click into it.
+    /// Tab switching moves the model's selection; making the web view the
+    /// window's first responder is what makes those keys land on the page.
+    ///
+    /// Returns false when the pane has no live view or its view is not yet
+    /// attached to a window, so the caller can retry once the surface is on
+    /// screen.
+    @discardableResult
+    func focus(paneID: UUID) -> Bool
+
+    /// Captures a page thumbnail for a live pane and reports it through
+    /// `paneDidCaptureThumbnail` (non-spec: user-requested, the Ctrl+Tab
+    /// switcher). A no-op for a pane with no live view — nothing to snapshot.
+    /// Asynchronous: the result arrives on the delegate later, never from here.
+    func captureThumbnail(for paneID: UUID)
 
     /// Presents the system print panel for a pane's page (M6). A no-op for a
     /// pane with no live view — you cannot print a page that was never shown.

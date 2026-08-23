@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **657 passing** (`swift test`, 98 suites), measured 2026-08-22                                                                                                                                |
+| **Tests**                        | **672 passing** (`swift test`, 100 suites), measured 2026-08-23                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
@@ -3585,3 +3585,71 @@ reference, the popup loads its destination, `window.close()` closes its tab, and
 the opener observes `win.closed === true`. SMOKE has the manual checklist;
 verified live by the user — Shopee Google login completes and the popup tab
 closes.
+
+---
+
+## Ctrl+Tab MRU tab switcher + page thumbnails (2026-08-23, 1.5.0)
+
+Non-spec, user-requested, Arc-style most-recently-used tab switching, replacing
+the old sidebar-order `Ctrl+Tab` cycling.
+
+**Behavior.** A quick `Ctrl+Tab` tap jumps to the most recently used tab (the
+toggle Arc/Chrome users expect). Hold `Ctrl` and a horizontal row of cards
+appears, centered on the window — tabs in MRU order (most recent first, current
+excluded) with page thumbnails and the favicon + web name below. `Tab`/`Shift+Tab`
+step the row, releasing `Ctrl` commits; a bare `Ctrl` tap switches nothing.
+`Ctrl+Shift+Tab` jumps to the least-recent tab. The menu items stay as the
+visible binding and a fallback — the stepping is handled by a key monitor, not
+the menu's key equivalent, because a local monitor sees every keyDown before
+AppKit's key-equivalent matching (the web view / a focused field / full-keyboard
+access can swallow the menu shortcut; that was the "sometimes Ctrl+Tab does
+nothing" bug). The monitor also resets its held-`Ctrl` state when the window
+resigns key, so a stale release can't mis-fire.
+
+**Keyboard focus on switch.** Tab switching only moved the model's selection —
+nothing made the new page the window's first responder, so the spacebar/arrow
+keys went nowhere after switching to YouTube. `PaneCard.onAppear` now calls
+`focusWebView(for:)` → `WebEngine.focus(paneID:)` →
+`window.makeFirstResponder(webView)`, with a one-shot retry when the view is
+still attaching. Browsers focus the newly shown page; this is the same.
+
+**Page thumbnails.** `WebEngine.captureThumbnail(for:)` snapshots a pane's page
+via `WKWebView.takeSnapshot` at the card's display size (352×220) and reports a
+downsampled PNG through `paneDidCaptureThumbnail`. Two hard-won constraints:
+(1) only a pane whose view is actually *on screen* can be captured — a background
+tab's view is detached from the window, and `takeSnapshot` on a detached view
+returns a blank, so the engine refuses captures unless `webView.window != nil`;
+(2) a capture taken before the first paint is blank, so captures are delayed
+~300 ms after a pane appears, and the engine additionally rejects any image with
+no visible content (transparent or single-colour — `hasVisibleContent`). The
+store keeps the thumbnails in an observable, LRU-capped cache (40 entries);
+a card swaps its favicon-tile placeholder for the real page the moment one
+arrives. Thumbnails are in-memory only, captured on show (not periodically and
+not for background tabs — both impossible with detached views).
+
+**Performance.** No idle cost — the key monitor is a couple of guards per event
+and holds no timer; the 300 ms capture tasks fire once and die. The overlay is
+only on screen while `Ctrl` is held; cards resolve their tab from a precomputed
+dictionary (O(1) per card, the switcher re-renders on every cursor step).
+Capture work is off the tab-switch path.
+
+**Files.** `MRUTabKeyMonitor.swift` + `MRUSwitcherOverlay.swift` (new, ChordUI);
+`WindowState` (session state: `mruTabIDs`, `mruCursor`, `isMRUSessionPresented`);
+`TabStore+Keyboard` (session commands); `WebEngine`/`WebKitEngine`
+(`focus(paneID:)`, `captureThumbnail(for:)`, `hasVisibleContent`); `TabStore`
+(thumbnail cache + delegate); `SplitContentView` (focus + refresh on show).
+
+**Tests (672 passing, 100 suites, prepush green).** Store: MRU ordering, quick
+tap, hold-and-step, wrap, previous, bare-tap-no-op, cancel, no-session fallback
+(toggle), thumbnail capture/refresh/LRU-cap. Engine: `hasVisibleContent`
+rejects solid/transparent, keeps real content. SMOKE has the manual checklist;
+verified live by the user (thumbnails show page content, spacebar works on the
+switched-to page, the switcher rows center).
+
+**Release workflow made standard (this release).** `scripts/release.sh` is now
+the one path from "push to GitHub" to a published release (AGENTS.md → "Push to
+GitHub / release", the maintenance skill, and `.agents/AGENTS.md` all point at
+it): commit feature + docs → `./scripts/prepush.sh` → `./scripts/release.sh
+<version>` bumps `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` (project.pbxproj
++ `ChordApp/Info.plist`), re-runs prepush, commits `release: X (build Y)`, tags
+`v<version>`, pushes `main` + the tag → reindex the code graph → `bd dolt push`.

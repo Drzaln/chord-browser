@@ -37,6 +37,17 @@ struct SplitTests {
         #expect(abs(sum(tab) - 1.0) < 0.000_001)
     }
 
+    @Test("Focusing a pane's web view asks the engine for the keyboard")
+    func focusWebViewAsksEngine() async {
+        let (store, engine, _) = makeStore()
+        await store.restore()
+        let tab = try! #require(store.selectedTab)
+
+        store.focusWebView(for: tab.focusedPaneID)
+
+        #expect(engine.focusRequests.contains(tab.focusedPaneID))
+    }
+
     @Test("Splitting stops at four panes")
     func splitCapsAtFour() async {
         let (store, _, _) = makeStore()

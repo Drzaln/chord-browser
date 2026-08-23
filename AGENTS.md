@@ -202,3 +202,35 @@ bd prime                # Refresh Beads context
 
 **Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 <!-- END BEADS CODEX SETUP -->
+
+## Push to GitHub / release (standard workflow)
+
+When the user says **"push to GitHub"**, **"release"**, **"ship it"**, or asks to
+create a release tag — that is the explicit authority for the whole git+release
+procedure. Do **not** ask again; follow this sequence exactly. It is the same
+for every agent (Claude, Codex, opencode).
+
+1. **Commit the work first.** Feature code + tests in one commit; its doc
+   updates in the same commit (or the release commit, matching the repo's
+   "one commit per milestone" linear history). Docs to keep current for any
+   user-facing feature: `README.md`, `CHECKPOINT.md`, `docs/USER_GUIDE.md`,
+   `BROWSER_SPEC.md` §4.9, `SMOKE.md` (manual checklist), and the
+   `chord-browser-architecture` skill.
+2. **Run `./scripts/prepush.sh`** — the release gate (packages, tests, app;
+   warnings are errors). Must be green.
+3. **Bump, tag, push with `./scripts/release.sh <version> [build]`** — it
+   refuses to run off `main` or with a dirty tree, bumps
+   `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` (project.pbxproj +
+   `ChordApp/Info.plist`), re-runs prepush, commits `release: X (build Y)`,
+   tags `v<version>`, and pushes `main` + the tag. Pick the new version
+   deliberately: minor bump for a user-facing feature, patch for a fix.
+   The tag **must** equal the app version or the GitHub Release workflow
+   fails the build on purpose.
+4. **Reindex the code graph** — `codebase-memory-mcp` `index_repository` on
+   the repo root, so the new symbols are discoverable by future sessions.
+5. **Sync beads** — `bd dolt push` (and close issues the release completes, if
+   the active profile allows).
+
+The GitHub workflow (`v*` tag push) builds `Chord.zip` and publishes the
+GitHub Release — the self-updater's source (ADR 021). Verify the workflow run
+after pushing if you can.

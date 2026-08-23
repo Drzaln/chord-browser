@@ -150,6 +150,18 @@ private struct PaneCard: View {
         // the first click into an unfocused pane would only focus it and the
         // link under the cursor would be swallowed.
         .simultaneousGesture(TapGesture().onEnded { store.focusPane(pane.id) })
+        // Switching to this pane (a tab switch, a Space switch, a Ctrl+Tab)
+        // must also hand the page the keyboard — the spacebar, arrow keys —
+        // or those keys go nowhere. A click into the page already does this via
+        // AppKit's own mouse-down focusing; this is the keyboard-switch path.
+        .onAppear {
+            if isFocused {
+                store.focusWebView(for: pane.id)
+                // Refresh the switcher's page thumbnail while the page is on
+                // screen, so the next Ctrl+Tab shows this tab's real content.
+                store.refreshThumbnail(for: pane.id)
+            }
+        }
     }
 }
 

@@ -29,6 +29,41 @@ public final class TabStore {
     public internal(set) var tabs: [Tab] = []
     public internal(set) var spaces: [Space] = []
 
+    /// Page thumbnails for the Ctrl+Tab switcher (non-spec: user-requested),
+    /// keyed by pane. PNGs downsampled by the engine to display size (6.5).
+    /// In-memory only — thumbnails are a session nicety, not durable state —
+    /// and rebuilt as panes are shown. Observable, so a card swaps its
+    /// placeholder for the real page the moment one arrives. LRU-capped so a
+    /// long session's worth of visited tabs cannot grow it without bound.
+    public internal(set) var thumbnails: [UUID: Data] = [:]
+    /// Insertion order of `thumbnails`, oldest first — the LRU eviction list.
+    @ObservationIgnored private var thumbnailOrder: [UUID] = []
+    /// The most recently used thumbnails worth keeping. Each is ~20–60 KB.
+    private static let thumbnailCacheLimit = 40
+
+    /// The page thumbnail for a pane, if a capture has happened for it.
+    public func thumbnail(for paneID: UUID) -> Data? {
+        thumbnails[paneID]
+    }
+
+    /// Asks the engine for a fresh page thumbnail for a live pane, replacing
+    /// whatever was cached. A no-op for a pane with no live view; the result
+    /// lands in `thumbnails` via the delegate when it is ready.
+    ///
+    /// The capture is deliberately delayed: a snapshot taken on the frame a pane
+    /// appears catches a blank backing store — the page has not painted yet —
+    /// and the engine rejects blank captures anyway. Waiting a beat lets the
+    /// first paint land first. The returned task lets a caller (or a test) wait
+    /// for the capture to have been *requested*; the snapshot itself arrives
+    /// later, on the delegate.
+    @discardableResult
+    public func refreshThumbnail(for paneID: UUID) -> Task<Void, Never> {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            engine.captureThumbnail(for: paneID)
+        }
+    }
+
     /// The window every store has: the app's first, and the only one that exists
     /// until a second is opened. Owned here rather than by the scene so that the
     /// store always has somewhere to put a selection, and so a headless test does
@@ -1335,6 +1370,20 @@ public final class TabStore {
 // MARK: - WebEngineDelegate
 
 extension TabStore: WebEngineDelegate {
+
+    /// The engine reports a captured page thumbnail. Nil means the capture
+    /// failed; a stale cached thumbnail is better than none, so a failed
+    /// capture keeps whatever was there.
+    public func paneDidCaptureThumbnail(_ paneID: UUID, data: Data?) {
+        guard let data else { return }
+        thumbnails[paneID] = data
+        thumbnailOrder.removeAll { $0 == paneID }
+        thumbnailOrder.append(paneID)
+        if thumbnailOrder.count > Self.thumbnailCacheLimit {
+            let evicted = thumbnailOrder.removeFirst()
+            thumbnails[evicted] = nil
+        }
+    }
 
     public func paneDidUpdate(_ paneID: UUID, snapshot: PaneSnapshot) {
         // Volatile state goes to the runtime object only, so a progress tick

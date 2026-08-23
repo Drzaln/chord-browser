@@ -2,7 +2,7 @@ import ChordCore
 import Foundation
 
 /// Keyboard-driven tab commands (non-spec: user-requested) — reopen the last
-/// closed tab or pane, and cycle the selection through the active Space's tabs.
+/// closed tab or pane, and the Arc-style most-recently-used Ctrl+Tab switcher.
 @MainActor
 extension TabStore {
 
@@ -55,38 +55,88 @@ extension TabStore {
         scheduleSave()
     }
 
-    /// The active Space's tabs in the order the sidebar shows them: favourites
-    /// first, then the Pinned list, then the ephemeral list. This is the cycle
-    /// order for the next/previous-tab shortcuts.
-    private func cycleOrder(in window: WindowState) -> [Tab] {
-        pinnedTabs(in: window) + bookmarkedTabs(in: window) + unpinnedTabs(in: window)
+    // MARK: - Most-recently-used tab switching (Ctrl+Tab)
+
+    /// The active Space's tabs in most-recently-used order, most recent first,
+    /// excluding the one currently selected — you cannot switch to the tab you
+    /// are on. The order is `lastAccessedAt`, which `select` bumps on every
+    /// activation, so it reads as "the tab I was just on, then the one before
+    /// that, …".
+    private func mruOrder(in window: WindowState) -> [Tab] {
+        visibleTabs(in: window)
+            .filter { $0.id != window.selectedTabID }
+            .sorted { $0.lastAccessedAt > $1.lastAccessedAt }
     }
 
-    /// Selects the next tab in the window's Space, wrapping past the end
-    /// (Ctrl+Tab / Cmd+Shift+]).
+    /// Begins an Arc-style MRU tab-switch session: the Ctrl key went down, and
+    /// the overlay appears listing the active Space's tabs in most-recently-used
+    /// order. Nothing is selected yet — the first Tab press arms the commit on
+    /// the most recent tab, and releasing Ctrl commits whatever the cursor
+    /// points at. A bare Ctrl tap (no Tab) commits nothing.
+    public func beginMRUSwitch(in window: WindowState) {
+        window.mruTabIDs = mruOrder(in: window).map(\.id)
+        window.mruCursor = nil
+        window.isMRUSessionPresented = true
+    }
+
+    /// Ctrl+Tab. With a session on screen (Ctrl held), the first press arms the
+    /// commit on the most recent tab and later presses walk down the list. With
+    /// none — the command fired while no Ctrl key is actually down — it is a
+    /// plain Firefox-style switch to the most recent tab.
     public func selectNextTab(in window: WindowState) {
-        cycleSelection(by: 1, in: window)
-    }
-
-    /// Selects the previous tab, wrapping past the start (Ctrl+Shift+Tab /
-    /// Cmd+Shift+[).
-    public func selectPreviousTab(in window: WindowState) {
-        cycleSelection(by: -1, in: window)
-    }
-
-    private func cycleSelection(by delta: Int, in window: WindowState) {
-        let list = cycleOrder(in: window)
-        guard !list.isEmpty else { return }
-
-        guard let current = window.selectedTabID,
-              let index = list.firstIndex(where: { $0.id == current })
-        else {
-            select(list[0].id, in: window)
+        guard window.isMRUSessionPresented else {
+            beginMRUSwitch(in: window)
+            window.mruCursor = 0
+            commitMRUSwitch(in: window)
             return
         }
+        advanceMRUCursor(by: 1, in: window)
+    }
 
-        let next = (index + delta + list.count) % list.count
-        guard next != index else { return }
-        select(list[next].id, in: window)
+    /// Ctrl+Shift+Tab. Mirrors `selectNextTab`, walking up the MRU list instead
+    /// of down, so the first press lands on the least-recent tab.
+    public func selectPreviousTab(in window: WindowState) {
+        guard window.isMRUSessionPresented else {
+            beginMRUSwitch(in: window)
+            window.mruCursor = max(window.mruTabIDs.count - 1, 0)
+            commitMRUSwitch(in: window)
+            return
+        }
+        advanceMRUCursor(by: -1, in: window)
+    }
+
+    /// Steps the overlay cursor one row, wrapping at both ends. The first press
+    /// (cursor `nil`) arms the most recent row for Ctrl+Tab and the least recent
+    /// for Ctrl+Shift+Tab.
+    private func advanceMRUCursor(by delta: Int, in window: WindowState) {
+        let count = window.mruTabIDs.count
+        guard count > 0 else { return }
+        guard let current = window.mruCursor else {
+            window.mruCursor = delta > 0 ? 0 : count - 1
+            return
+        }
+        window.mruCursor = (current + delta + count) % count
+    }
+
+    /// The Ctrl key came up: commit the tab the cursor points at — if the user
+    /// pressed Tab at all — and take the overlay away.
+    public func commitMRUSwitch(in window: WindowState) {
+        defer { endMRUSwitch(in: window) }
+        guard let cursor = window.mruCursor,
+              window.mruTabIDs.indices.contains(cursor)
+        else { return }
+        select(window.mruTabIDs[cursor], in: window)
+    }
+
+    /// Abandons the session without selecting anything — another key was pressed
+    /// while Ctrl was held, or the window stopped being key.
+    public func cancelMRUSwitch(in window: WindowState) {
+        endMRUSwitch(in: window)
+    }
+
+    private func endMRUSwitch(in window: WindowState) {
+        window.mruTabIDs = []
+        window.mruCursor = nil
+        window.isMRUSessionPresented = false
     }
 }
