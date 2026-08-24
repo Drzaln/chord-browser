@@ -46,6 +46,12 @@ struct KeyboardTabTests {
         let a = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "a.example" })
         let b = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "b.example" })
         let c = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "c.example" })
+        // The switcher lists opened tabs only, so open all three: resolve their
+        // (empty) stored state first so `surface(for:)` is not withheld.
+        for tab in store.visibleTabs {
+            store.markInteractionStateResolved(tab.focusedPaneID)
+            _ = store.surface(for: tab)
+        }
         return (store, a, b, c)
     }
 
@@ -110,7 +116,7 @@ struct KeyboardTabTests {
 
     // MARK: - Most-recently-used switching (Ctrl+Tab)
 
-    @Test("Begin lists the Space's tabs most-recently-used first, excluding the current")
+    @Test("Begin lists the Space's tabs most-recently-used first, current included")
     func beginListsMRUOrder() async {
         let (store, a, b, c) = await makeMRUStore()
         let window = store.primaryWindow
@@ -119,7 +125,21 @@ struct KeyboardTabTests {
         store.beginMRUSwitch()
 
         #expect(window.isMRUSessionPresented)
-        #expect(window.mruTabIDs == [b.id, a.id])
+        #expect(window.mruTabIDs == [c.id, b.id, a.id], "current tab is shown, at the front")
+    }
+
+    @Test("The first Tab press skips the current tab and aims at the one before it")
+    func firstPressSkipsCurrent() async {
+        let (store, _, b, c) = await makeMRUStore()
+        let window = store.primaryWindow
+        window.selectedTabID = c.id
+
+        store.beginMRUSwitch()
+        store.selectNextTab()
+
+        #expect(window.mruCursor == 1, "index 0 is the current tab, not a destination")
+        store.commitMRUSwitch()
+        #expect(store.selectedTabID == b.id)
     }
 
     @Test("A quick Ctrl+Tab commits the most recent tab")
@@ -144,9 +164,9 @@ struct KeyboardTabTests {
 
         store.beginMRUSwitch()
         store.selectNextTab()
-        #expect(window.mruCursor == 0)
+        #expect(window.mruCursor == 1, "first press skips the current tab at index 0")
         store.selectNextTab()
-        #expect(window.mruCursor == 1)
+        #expect(window.mruCursor == 2)
         store.commitMRUSwitch()
 
         #expect(store.selectedTabID == a.id, "walks past the most recent to the next one")
@@ -162,10 +182,10 @@ struct KeyboardTabTests {
         store.selectNextTab()
         store.selectNextTab()
         store.selectNextTab()
-        #expect(window.mruCursor == 0, "wraps past the end back to the most recent")
+        #expect(window.mruCursor == 0, "wraps past the end back to the current tab")
 
         store.selectPreviousTab()
-        #expect(window.mruCursor == 1, "wraps past the start to the last row")
+        #expect(window.mruCursor == 2, "wraps past the start to the last row")
     }
 
     @Test("Ctrl+Shift+Tab commits the least recent tab")
@@ -209,6 +229,18 @@ struct KeyboardTabTests {
         #expect(window.mruTabIDs.isEmpty)
     }
 
+    @Test("A quick Ctrl+Tab switches without presenting the switcher")
+    func quickSwitchDoesNotPresent() async {
+        let (store, _, b, c) = await makeMRUStore()
+        store.primaryWindow.selectedTabID = c.id
+
+        store.selectNextTab()
+
+        #expect(store.selectedTabID == b.id)
+        #expect(store.primaryWindow.isMRUSessionPresented == false, "a quick tap must not flash the overlay")
+        #expect(store.primaryWindow.mruTabIDs.isEmpty)
+    }
+
     @Test("Without a session, Ctrl+Tab selects the most recent tab and toggles back")
     func steppingWithoutSessionSelectsMostRecent() async {
         let ticking = TickingClock()
@@ -221,14 +253,21 @@ struct KeyboardTabTests {
             clock: ticking
         )
         // Activate in order so `lastAccessedAt` is deterministic: c → b → a.
-        let a = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "a.example" })
+let a = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "a.example" })
         let b = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "b.example" })
         let c = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "c.example" })
+        for tab in [a, b, c] {
+            store.markInteractionStateResolved(tab.focusedPaneID)
+            _ = store.surface(for: tab)
+        }
         store.select(c.id)
         ticking.advance(1)
         store.select(b.id)
         ticking.advance(1)
         store.select(a.id)
+        // The first Ctrl+Tab's commit touches `b`; advance so it strictly
+        // outranks `a` (which was touched at the same tick as `select(a)`).
+        ticking.advance(1)
 
         store.selectNextTab()
         #expect(store.selectedTabID == b.id, "jumps to the tab used just before")
@@ -249,9 +288,13 @@ struct KeyboardTabTests {
             ],
             clock: ticking
         )
-        let a = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "a.example" })
+let a = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "a.example" })
         let b = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "b.example" })
         let c = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "c.example" })
+        for tab in [a, b, c] {
+            store.markInteractionStateResolved(tab.focusedPaneID)
+            _ = store.surface(for: tab)
+        }
         store.select(c.id)
         ticking.advance(1)
         store.select(b.id)
@@ -260,6 +303,66 @@ struct KeyboardTabTests {
 
         store.selectPreviousTab()
         #expect(store.selectedTabID == c.id, "jumps to the least recently used tab")
+    }
+
+    @Test("Unopened tabs are not listed in the switcher")
+    func unopenedTabsAreNotListed() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://a.example").lastAccessed(Date(timeIntervalSince1970: 0)).build(),
+            TabBuilder().url("https://b.example").lastAccessed(Date(timeIntervalSince1970: 1)).build(),
+            TabBuilder().url("https://c.example").lastAccessed(Date(timeIntervalSince1970: 2)).build(),
+        ])
+        let c = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "c.example" })
+        // Only `c` is opened (its surface was requested); `a` and `b` are
+        // restored-but-never-shown sidebar tabs.
+        store.markInteractionStateResolved(c.focusedPaneID)
+        _ = store.surface(for: c)
+        store.primaryWindow.selectedTabID = c.id
+
+        store.beginMRUSwitch()
+
+        #expect(store.primaryWindow.mruTabIDs == [c.id], "unopened tabs stay out of the switcher")
+    }
+
+    @Test("Closing a tab drops it from the switcher until it is shown again")
+    func closedTabDropsOutUntilReopened() async {
+        let (store, a, b, c) = await makeMRUStore()
+        store.primaryWindow.selectedTabID = c.id
+
+        store.closeTab(a.id)
+        store.reopenLastClosedTab()  // a returns with the same pane id, but unshown
+
+        store.beginMRUSwitch()
+
+        #expect(!store.primaryWindow.mruTabIDs.contains(a.id), "closed-and-reopened but never shown stays out")
+        #expect(store.primaryWindow.mruTabIDs == [c.id, b.id])
+    }
+
+    @Test("Closing a pinned tab unloads it and drops it from the switcher")
+    func closedPinnedTabDropsFromSwitcher() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://a.example").bookmarked(order: 0, homeURL: "https://a.example")
+                .lastAccessed(Date(timeIntervalSince1970: 0)).build(),
+            TabBuilder().url("https://b.example").lastAccessed(Date(timeIntervalSince1970: 1)).build(),
+        ])
+        let a = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "a.example" })
+        let b = try! #require(store.visibleTabs.first { $0.focusedPane.url.host() == "b.example" })
+        store.markInteractionStateResolved(a.focusedPaneID)
+        store.markInteractionStateResolved(b.focusedPaneID)
+        _ = store.surface(for: a)
+        _ = store.surface(for: b)
+        store.primaryWindow.selectedTabID = b.id
+
+        // A bookmarked tab's close *unloads* it (the sidebar entry stays), so
+        // it must stop being a Ctrl+Tab target even though it is still listed.
+        store.closeTab(a.id)
+
+        store.beginMRUSwitch()
+        #expect(store.primaryWindow.mruTabIDs == [b.id], "a closed-but-still-listed pinned tab is not a target")
+
+        store.selectNextTab()
+        store.commitMRUSwitch()
+        #expect(store.selectedTabID == b.id, "quick switch stays on b; the closed tab is not revived")
     }
 
     // MARK: - Page thumbnails

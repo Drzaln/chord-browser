@@ -14,11 +14,13 @@ import SwiftUI
 /// full-keyboard-access navigation — the "sometimes Ctrl+Tab just does
 /// nothing" failure. Consuming Tab here makes the interaction deterministic.
 ///
-/// The monitor owns the two edges too: the overlay appears the moment Ctrl goes
-/// down and the selection commits the moment it comes back up. A quick Ctrl+Tab
-/// tap therefore lands on the most recent tab (the Tab press arms the commit,
-/// release performs it), holding Ctrl and pressing Tab repeatedly walks the
-/// list, and a bare Ctrl tap selects nothing.
+/// The switcher overlay appears only when Ctrl is *held*, not on a quick tap:
+/// Ctrl going down arms a short hold timer, and the session (and overlay) begin
+/// only if Ctrl is still down when it fires (~250 ms). A Tab press before that
+/// is a plain quick switch to the neighbouring tab — no overlay flash — which
+/// is the standard browser UX. Holding Ctrl and pressing Tab repeatedly walks
+/// the list once the session is up; releasing Ctrl commits; a bare Ctrl hold
+/// (no Tab) selects nothing.
 ///
 /// Any other key while the overlay is up abandons the session so the key keeps
 /// its normal meaning; the window resigning key does the same.
@@ -33,6 +35,11 @@ final class MRUTabKeyMonitor: NSObject {
 
     private var monitor: Any?
     private var controlDown = false
+    /// Fires when Ctrl has been held past the quick-tap threshold; it is what
+    /// turns a held Ctrl into the switcher session instead of a one-shot switch.
+    private var holdTask: Task<Void, Never>?
+
+    private static let holdThreshold = Duration.milliseconds(250)
 
     init(store: TabStore, windowState: WindowState) {
         self.store = store
@@ -54,6 +61,8 @@ final class MRUTabKeyMonitor: NSObject {
     func stop() {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
+        holdTask?.cancel()
+        holdTask = nil
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -64,7 +73,20 @@ final class MRUTabKeyMonitor: NSObject {
     @objc private func windowDidResignKey(_ note: Notification) {
         guard let window = note.object as? NSWindow, window === self.window else { return }
         controlDown = false
+        holdTask?.cancel()
+        holdTask = nil
         store.cancelMRUSwitch(in: windowState)
+    }
+
+    /// Arms the hold timer that opens the switcher if Ctrl stays down. A quick
+    /// tap releases Ctrl first and the timer dies before it fires.
+    private func armHoldTimer() {
+        holdTask?.cancel()
+        holdTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.holdThreshold)
+            guard !Task.isCancelled, controlDown, !windowState.isMRUSessionPresented else { return }
+            store.beginMRUSwitch(in: windowState)
+        }
     }
 
     /// Returns true when the event was consumed (the overlay owns it) and must
@@ -83,15 +105,23 @@ final class MRUTabKeyMonitor: NSObject {
         case .flagsChanged:
             let ctrl = event.modifierFlags.contains(.control)
             if ctrl && !controlDown {
-                store.beginMRUSwitch(in: windowState)
+                controlDown = true
+                armHoldTimer()
             } else if !ctrl && controlDown {
-                store.commitMRUSwitch(in: windowState)
+                holdTask?.cancel()
+                holdTask = nil
+                // A session only exists when Ctrl was held past the threshold;
+                // a quick tap already switched on the Tab press and has nothing
+                // to commit here.
+                if windowState.isMRUSessionPresented {
+                    store.commitMRUSwitch(in: windowState)
+                }
+                controlDown = false
             }
-            controlDown = ctrl
         case .keyDown:
             // Ctrl+Tab / Ctrl+Shift+Tab. Consumed so neither the web view nor
             // the menu's key equivalent can eat it; `selectNextTab`/`selectPreviousTab`
-            // step the session or, with no session, switch immediately.
+            // step an open session or, with none, switch immediately.
             // 48 is kVK_Tab (the physical Tab key).
             if controlDown, event.keyCode == 48 {
                 if event.modifierFlags.contains(.shift) {

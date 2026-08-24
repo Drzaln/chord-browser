@@ -168,8 +168,14 @@ extension TabStore {
     }
 
     /// Forgets resolution bookkeeping for panes that no longer exist, so the
-    /// dictionary cannot grow for the life of the process.
+    /// dictionary cannot grow for the life of the process. Also drops them from
+    /// `openedPaneIDs` — a closed pane is no longer an open tab, so it must not
+    /// linger in the Ctrl+Tab switcher's candidate set (same unbounded-growth
+    /// concern).
     func forgetStateResolution(forPanes paneIDs: [UUID]) {
-        for paneID in paneIDs { stateResolution[paneID] = nil }
+        for paneID in paneIDs {
+            stateResolution[paneID] = nil
+            openedPaneIDs.remove(paneID)
+        }
     }
 }

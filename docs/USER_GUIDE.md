@@ -57,12 +57,14 @@ its own tab** once you finish signing in instead of lingering.
 Tab cycling follows **most-recently-used order**, not sidebar order: a quick
 `Ctrl+Tab` toggles to the tab you were just on. Hold `Ctrl` to see the switcher —
 a horizontal row of cards, most recent first, each with the page's thumbnail and
-its favicon + web name — and step through with `Tab`/`Shift+Tab`; releasing
-`Ctrl` commits the highlighted tab, and a bare `Ctrl` tap switches nothing.
+its favicon + web name; step with `Tab`/`Shift+Tab`, release `Ctrl` to commit,
+and a bare `Ctrl` hold switches nothing. The switcher lists only tabs you've
+**opened** this session (their page was actually shown) — restored-but-unopened
+sidebar tabs stay out, so 30 tabs with 3 opened shows 3 cards, like Arc.
 Switching tabs also gives the page keyboard focus, so the spacebar and arrow
 keys work without a prior click into the page. Thumbnails are captured while a
-tab is on screen, so tabs you've visited this session show their real content;
-tabs never shown yet show a favicon tile instead.
+tab is on screen, so opened tabs show their real content; a tab whose capture
+isn't ready yet shows a favicon tile instead.
 
 `Cmd+Shift+T` restores what was most recently closed,
 in its original Space when it still exists: a closed tab comes back with its URL,

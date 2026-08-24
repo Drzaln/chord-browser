@@ -28,13 +28,14 @@ struct MRUSwitcherOverlay: View {
     private static let cardWidth: CGFloat = 176
     private static let thumbnailHeight: CGFloat = 110
 
-    /// The active Space's tabs keyed by id. Built once per render so the card
-    /// rows resolve their tab in O(1) instead of scanning the tab list each —
-    /// the switcher re-renders on every cursor step, and a scan-per-row would
-    /// be O(cards × tabs).
+    /// The Space's tabs keyed by id. Built once per render so the card rows
+    /// resolve their tab in O(1) instead of scanning the tab list each — the
+    /// switcher re-renders on every cursor step, and a scan-per-row would be
+    /// O(cards × tabs). `store.tabs` directly (no ordering sort — the MRU ids
+    /// are already ordered); lookups only ever hit the active Space's ids.
     private var tabsByID: [UUID: ChordCore.Tab] {
         Dictionary(
-            store.visibleTabs(in: windowState).map { ($0.id, $0) },
+            store.tabs.map { ($0.id, $0) },
             uniquingKeysWith: { _, new in new }
         )
     }

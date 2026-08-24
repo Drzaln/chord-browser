@@ -84,11 +84,12 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **Per-tab mute** — a speaker toggle on any tab making noise; sticks across
   reloads and silences every pane of a split.
 - **Ctrl+Tab MRU tab switcher** — Arc's most-recently-used switcher. Press
-  `Ctrl+Tab` to jump to the tab you were just on; hold `Ctrl` to show a
-  horizontal row of tabs (most recent first, with page thumbnails) and step
-  with `Tab`/`Shift+Tab`, releasing to commit. A bare `Ctrl` tap switches
-  nothing. Switching tabs hands the page keyboard focus, so the spacebar and
-  arrow keys work without a prior click into the page.
+  `Ctrl+Tab` to jump to the tab you were just on (no overlay on a quick tap);
+  hold `Ctrl` to show a horizontal row of the tabs you've opened this session
+  (most recent first, with page thumbnails) and step with `Tab`/`Shift+Tab`,
+  releasing to commit. Unopened sidebar tabs stay out of the row, like Arc.
+  Switching tabs hands the page keyboard focus, so the spacebar and arrow keys
+  work without a prior click into the page.
 - **Configurable search, new tab & archive time** — pick the search engine
   (Google, DuckDuckGo, Bing, Brave, or a custom `%s` template), what a new tab
   opens to (blank, the search engine's home, or a specific page), and how long

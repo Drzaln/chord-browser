@@ -157,12 +157,14 @@ public final class WindowState {
     /// The active Space's tabs in most-recently-used order, cached while an
     /// Arc-style Ctrl+Tab session is on screen so stepping is stable — the
     /// store rebuilds it when Ctrl goes down and nothing moves until release.
-    /// Ephemeral and never persisted.
+    /// The currently displayed tab is included, at the front. Ephemeral and
+    /// never persisted.
     public internal(set) var mruTabIDs: [UUID] = []
 
     /// The row the overlay is aiming at. `nil` until the first Tab press, so a
-    /// quick Ctrl+Tab tap commits the most-recent tab and a bare Ctrl tap —
-    /// pressed and released with no Tab — commits nothing.
+    /// quick Ctrl+Tab tap commits the tab used just before the current one (the
+    /// current tab sits at index 0 and is skipped by the first press) and a
+    /// bare Ctrl tap — pressed and released with no Tab — commits nothing.
     public internal(set) var mruCursor: Int?
 
     /// Whether the MRU switcher overlay is on screen. Set by the store as the

@@ -3593,12 +3593,18 @@ closes.
 Non-spec, user-requested, Arc-style most-recently-used tab switching, replacing
 the old sidebar-order `Ctrl+Tab` cycling.
 
-**Behavior.** A quick `Ctrl+Tab` tap jumps to the most recently used tab (the
-toggle Arc/Chrome users expect). Hold `Ctrl` and a horizontal row of cards
-appears, centered on the window — tabs in MRU order (most recent first, current
-excluded) with page thumbnails and the favicon + web name below. `Tab`/`Shift+Tab`
-step the row, releasing `Ctrl` commits; a bare `Ctrl` tap switches nothing.
-`Ctrl+Shift+Tab` jumps to the least-recent tab. The menu items stay as the
+**Behavior.** A quick `Ctrl+Tab` tap — pressed and released before the ~250 ms
+hold threshold — switches straight to the most recently used tab with **no
+switcher overlay** (the toggle Arc/Chrome users expect). Hold `Ctrl` past the
+threshold and a horizontal row of cards appears, centered on the window —
+the tabs the user has actually **opened this session** (their web view was
+created, tracked in `TabStore.openedPaneIDs`) in MRU order (most recent first,
+**the current tab included at the front and highlighted**), with page thumbnails
+and the favicon + web name below. Restored-but-never-shown sidebar tabs stay out
+— 30 tabs with 3 opened shows 3 cards, like Arc. The first `Tab` press skips the
+current tab; `Tab`/`Shift+Tab` step the row, releasing `Ctrl` commits; a bare
+`Ctrl` hold (no Tab) selects nothing. `Ctrl+Shift+Tab` jumps to the
+least-recent tab. The menu items stay as the
 visible binding and a fallback — the stepping is handled by a key monitor, not
 the menu's key equivalent, because a local monitor sees every keyDown before
 AppKit's key-equivalent matching (the web view / a focused field / full-keyboard

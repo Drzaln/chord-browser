@@ -29,6 +29,13 @@ public final class TabStore {
     public internal(set) var tabs: [Tab] = []
     public internal(set) var spaces: [Space] = []
 
+    /// Panes whose web view has been created this session — i.e. tabs the user
+    /// has actually opened/displayed. The Ctrl+Tab switcher lists only these,
+    /// matching Arc: 30 restored sidebar tabs with 3 opened show 3 cards, not
+    /// 30. A pane stays here after its view is evicted from the pool (the user
+    /// still opened it this session); it is never cleared except by a restart.
+    @ObservationIgnored var openedPaneIDs: Set<UUID> = []
+
     /// Page thumbnails for the Ctrl+Tab switcher (non-spec: user-requested),
     /// keyed by pane. PNGs downsampled by the engine to display size (6.5).
     /// In-memory only — thumbnails are a session nicety, not durable state —
@@ -864,6 +871,9 @@ public final class TabStore {
             engine.forget(paneID: pane.id)
             runtimes[pane.id] = nil
         }
+        // If a Ctrl+Tab session is on screen, a closed tab must not linger in
+        // its cached list (e.g. it was closed from the sidebar mid-hold).
+        window.mruTabIDs.removeAll { $0 == tabID }
         // The tab and its panes are gone for good, so its sleep timer must not
         // fire later into nothing.
         cancelSleepTimer(tabID)
@@ -939,6 +949,9 @@ public final class TabStore {
             engine.evict(paneID: pane.id)
             runtimes[pane.id] = nil
         }
+        // Same as closeTabRemovingEveryPane: a closed (unloaded) tab must not
+        // linger in an on-screen Ctrl+Tab session's cached list.
+        window.mruTabIDs.removeAll { $0 == tabID }
         forgetStateResolution(forPanes: tabs[index].panes.map(\.id))
 
         if isReturningHome, let home = tabs[index].placement.homeURL {
@@ -1261,6 +1274,9 @@ public final class TabStore {
         // user for the scroll position.
         guard !isAwaitingInteractionState(pane.id) else { return nil }
 
+        // This is the "opened" moment — the first time the user actually sees
+        // this pane. Recorded so the Ctrl+Tab switcher only lists opened tabs.
+        openedPaneIDs.insert(pane.id)
         return engine.surface(for: pane, in: space)
     }
 

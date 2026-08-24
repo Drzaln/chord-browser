@@ -53,13 +53,17 @@ distribution.
 
 ### Ctrl+Tab MRU switcher (2026-08-23)
 
-- [ ] A quick `Ctrl+Tab` toggles to the tab you were just on; `Ctrl+Shift+Tab`
-      jumps to the least recently used
-- [ ] Holding `Ctrl` shows a **horizontal row of cards centered on the window**
-      (most recent first, current excluded); `Tab`/`Shift+Tab` step it, the
-      highlighted card scales up and the row scrolls to keep it centered
-- [ ] Releasing `Ctrl` commits the highlighted tab; a bare `Ctrl` tap (no Tab)
-      switches nothing
+- [ ] A quick `Ctrl+Tab` (press and release fast) toggles to the tab you were
+      just on **with no switcher overlay**; `Ctrl+Shift+Tab` jumps to the least
+      recently used
+- [ ] Holding `Ctrl` past ~250 ms shows a **horizontal row of cards centered on
+      the window** (opened tabs, most recent first, current included and
+      highlighted); `Tab`/`Shift+Tab` step it, the highlighted card scales up
+      and the row scrolls to keep it centered
+- [ ] The switcher lists only tabs **opened this session** — with 30 restored
+      tabs and 3 opened, the row shows 3 cards, not 30
+- [ ] Releasing `Ctrl` commits the highlighted tab; a bare `Ctrl` hold (no Tab)
+      selects nothing
 - [ ] A card shows the page's **real thumbnail** when it was visited this
       session (captured on show) and a favicon-on-tint tile otherwise — never a
       blank white/black card

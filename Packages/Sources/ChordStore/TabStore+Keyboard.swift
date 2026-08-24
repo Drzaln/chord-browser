@@ -57,37 +57,50 @@ extension TabStore {
 
     // MARK: - Most-recently-used tab switching (Ctrl+Tab)
 
-    /// The active Space's tabs in most-recently-used order, most recent first,
-    /// excluding the one currently selected — you cannot switch to the tab you
-    /// are on. The order is `lastAccessedAt`, which `select` bumps on every
-    /// activation, so it reads as "the tab I was just on, then the one before
-    /// that, …".
+    /// The active Space's tabs the user has actually **opened** this session
+    /// (their web view has been created), in most-recently-used order, most
+    /// recent first — including the one currently on screen, which sorts first
+    /// because `select` touched it. Restored-but-never-shown sidebar tabs do
+    /// not appear, matching Arc's switcher. Ordering is `lastAccessedAt`, which
+    /// `select` bumps on every activation, so it reads as "the tab I'm on, the
+    /// one before it, the one before that, …".
     private func mruOrder(in window: WindowState) -> [Tab] {
         visibleTabs(in: window)
-            .filter { $0.id != window.selectedTabID }
-            .sorted { $0.lastAccessedAt > $1.lastAccessedAt }
+            .filter { openedPaneIDs.contains($0.focusedPaneID) }
+            .sorted { lhs, rhs in
+            // `sorted(by:)` is not stable, so equal timestamps (a FixedClock in
+            // tests, two selections in the same real tick) need a deterministic
+            // tiebreak or the order varies between runs.
+            if lhs.lastAccessedAt != rhs.lastAccessedAt {
+                return lhs.lastAccessedAt > rhs.lastAccessedAt
+            }
+            if lhs.placement.order != rhs.placement.order {
+                return lhs.placement.order < rhs.placement.order
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
     }
 
     /// Begins an Arc-style MRU tab-switch session: the Ctrl key went down, and
     /// the overlay appears listing the active Space's tabs in most-recently-used
-    /// order. Nothing is selected yet — the first Tab press arms the commit on
-    /// the most recent tab, and releasing Ctrl commits whatever the cursor
-    /// points at. A bare Ctrl tap (no Tab) commits nothing.
+    /// order with the current tab first (and highlighted). Nothing is selected
+    /// yet — the first Tab press aims past the current tab at the one used just
+    /// before, and releasing Ctrl commits whatever the cursor points at. A bare
+    /// Ctrl tap (no Tab) commits nothing.
     public func beginMRUSwitch(in window: WindowState) {
         window.mruTabIDs = mruOrder(in: window).map(\.id)
         window.mruCursor = nil
         window.isMRUSessionPresented = true
     }
 
-    /// Ctrl+Tab. With a session on screen (Ctrl held), the first press arms the
-    /// commit on the most recent tab and later presses walk down the list. With
-    /// none — the command fired while no Ctrl key is actually down — it is a
-    /// plain Firefox-style switch to the most recent tab.
+    /// Ctrl+Tab. With a session on screen (Ctrl held past the hold threshold), the
+    /// first press aims at the most recent tab *other than* the one you're on
+    /// and later presses walk down the list. With none — a quick tap, or the
+    /// menu item — it is a plain Firefox-style switch to the most recent other
+    /// tab, with no switcher overlay.
     public func selectNextTab(in window: WindowState) {
         guard window.isMRUSessionPresented else {
-            beginMRUSwitch(in: window)
-            window.mruCursor = 0
-            commitMRUSwitch(in: window)
+            quickSwitch(by: 1, in: window)
             return
         }
         advanceMRUCursor(by: 1, in: window)
@@ -97,22 +110,32 @@ extension TabStore {
     /// of down, so the first press lands on the least-recent tab.
     public func selectPreviousTab(in window: WindowState) {
         guard window.isMRUSessionPresented else {
-            beginMRUSwitch(in: window)
-            window.mruCursor = max(window.mruTabIDs.count - 1, 0)
-            commitMRUSwitch(in: window)
+            quickSwitch(by: -1, in: window)
             return
         }
         advanceMRUCursor(by: -1, in: window)
     }
 
-    /// Steps the overlay cursor one row, wrapping at both ends. The first press
-    /// (cursor `nil`) arms the most recent row for Ctrl+Tab and the least recent
-    /// for Ctrl+Shift+Tab.
+    /// A plain Ctrl+Tab tap: switch immediately to the neighbouring tab in MRU
+    /// order — the most recent other tab for Ctrl+Tab, the least recent for
+    /// Ctrl+Shift+Tab — without ever presenting the switcher. The current tab
+    /// sits at index 0, so "next" is index 1.
+    private func quickSwitch(by delta: Int, in window: WindowState) {
+        let list = mruOrder(in: window)
+        guard list.count > 1 else { return }
+        let target = delta > 0 ? list[1].id : list[list.count - 1].id
+        select(target, in: window)
+    }
+
+    /// Steps the overlay cursor one row, wrapping at both ends. The current tab
+    /// sits at index 0 (it is the most recent), so the first press — cursor is
+    /// `nil` — skips it: Ctrl+Tab aims at index 1, Ctrl+Shift+Tab at the least
+    /// recent.
     private func advanceMRUCursor(by delta: Int, in window: WindowState) {
         let count = window.mruTabIDs.count
         guard count > 0 else { return }
         guard let current = window.mruCursor else {
-            window.mruCursor = delta > 0 ? 0 : count - 1
+            window.mruCursor = delta > 0 ? min(1, count - 1) : count - 1
             return
         }
         window.mruCursor = (current + delta + count) % count
