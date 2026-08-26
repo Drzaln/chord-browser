@@ -116,6 +116,7 @@ extension TabStore {
         // closeTab may have moved the selection; the split must still land on
         // the tab that was dropped onto.
         window.selectedTabID = tabID
+        recordSelection(tabID, replacing: nil, in: window)
         split(tabID, url: url)
     }
 
@@ -253,6 +254,7 @@ extension TabStore {
         tabs[index].focusedPaneID = pane.id
         markInteractionStateResolved(pane.id)
         window.selectedTabID = tabID
+        recordSelection(tabID, replacing: nil, in: window)
         if tabs[index].spaceID != window.activeSpaceID {
             selectSpace(tabs[index].spaceID, in: window)
         }

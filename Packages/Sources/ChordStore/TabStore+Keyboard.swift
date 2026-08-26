@@ -51,6 +51,7 @@ extension TabStore {
         tabs.append(tab)
         if spaceID != window.activeSpaceID { selectSpace(spaceID, in: window) }
         window.selectedTabID = tab.id
+        recordSelection(tab.id, replacing: nil, in: window)
         extensionHost?.extensionTabDidOpen(tab.id, inSpace: spaceID)
         scheduleSave()
     }

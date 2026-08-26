@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **672 passing** (`swift test`, 100 suites), measured 2026-08-23                                                                                                                                |
+| **Tests**                        | **681 passing** (`swift test`, 100 suites), measured 2026-08-26                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
@@ -3659,3 +3659,49 @@ it): commit feature + docs → `./scripts/prepush.sh` → `./scripts/release.sh
 <version>` bumps `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` (project.pbxproj
 + `ChordApp/Info.plist`), re-runs prepush, commits `release: X (build Y)`, tags
 `v<version>`, pushes `main` + the tag → reindex the code graph → `bd dolt push`.
+
+---
+
+## Closing a tab returns to the previously active tab (2026-08-26, 1.6.0)
+
+Non-spec, user-requested. Closing the current tab hands focus to the **tab that
+was active just before it** — Chrome/Firefox/Arc behaviour — instead of a
+positional neighbour.
+
+**Why.** Opening a new tab from a page and closing it used to land you on a
+*positional* neighbour — the tab now sitting in the closed tab's slot (its own
+section, same Space). That is Safari's rule, not the one the rest of the
+browsers follow: Chrome returns to the most recently used tab, Firefox to the
+*owner* tab (`browser.tabs.selectOwnerOnClose`), Arc to the last tab you were
+on. The user expected the opener back, and the positional rule disagreed with
+every reference browser but Safari.
+
+**Behaviour.** `WindowState.selectionHistory` is an ephemeral, capped (20)
+per-window recency stack, most recent first. It is written by `select`,
+new-tab (`insertTab`), space switch, Cmd+Shift+T reopen, sweep restore, split
+drop, and the close fallbacks (`recordSelection`), and pruned lazily on read.
+On close, `previousActiveTab` returns the first entry that still exists, is
+visible in the window's active Space, and is **not on screen in another window**
+— the one-window-per-tab invariant, since a `WKWebView` is one `NSView` with
+exactly one superview and two windows pointing at it leaves one blank. The old
+positional rule survives as the fallback when the history has nothing usable
+(right after launch, or when every candidate is another window's). It applies to
+the whole-tab close (`closeTabRemovingEveryPane`) and the favourite/Pinned
+unload (`unloadTab`) alike — the latter widens 1.1.3's "stay in the tab's own
+section" rule, which now only guards the no-history case.
+
+**Files.** `WindowState` (`selectionHistory`); `TabStore`
+(`recordSelection`, `previousActiveTab`, `positionalNeighbourAfterClose`, and
+the call sites in `select`/`insertTab`/`closeTabRemovingEveryPane`/`unloadTab`/
+`moveTab`); `TabStore+Keyboard` (reopen), `TabStore+Spaces` (switch),
+`TabStore+Sweep` (restore), `TabStore+Split` (drop, pane reopen).
+
+**Tests (681 passing, 100 suites, prepush green).** Store:
+`closingSelectedReturnsToPreviousActive`, `closingNewTabReturnsToOpener`,
+`closingAChainOfNewTabsWalksBack`, `closingSelectedWithoutHistoryFallsBackToSlot`
+(TabStoreTests); `closingLooseTabReturnsToPreviouslyActive` +
+the no-history fallbacks kept as `closingLooseTabWithoutHistoryPicksItsRightNeighbour`
+and `closingLastPinnedTabWithoutHistoryStaysInThePinnedSection` (PinnedTests —
+1.1.3's section-safety is now the fallback, not the rule);
+`closingSkipsATabAnotherWindowShows` (MultiWindowTests, the cross-window guard).
+SMOKE has the manual checklist; verified live by the user.

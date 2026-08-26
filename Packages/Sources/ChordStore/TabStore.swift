@@ -348,6 +348,10 @@ public final class TabStore {
     /// Bound so a long session cannot grow this without limit.
     @ObservationIgnored static let recentlyClosedLimit = 25
 
+    /// Upper bound on each window's `selectionHistory` — a recency stack, so a
+    /// long session cannot grow it without limit either.
+    static let selectionHistoryLimit = 20
+
     /// Per-pane URL awaiting a history record — set when a navigation starts (or
     /// its URL changes) and cleared once the settled title is written. Lets
     /// history recording survive the title and `isLoading` arriving in separate
@@ -782,6 +786,10 @@ public final class TabStore {
         extensionHost?.extensionTabDidOpen(tab.id, inSpace: spaceID)
         if selecting {
             window.selectedTabID = tab.id
+            // The tab this new one replaced becomes its "previously active", so
+            // closing the new tab returns to it rather than a positional
+            // neighbour.
+            recordSelection(tab.id, replacing: previous, in: window)
             extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
         }
         scheduleSave()
@@ -811,7 +819,13 @@ public final class TabStore {
         extensionHost?.extensionTabDidOpen(tabID, inSpace: spaceID)
 
         if window.selectedTabID == tabID {
-            window.selectedTabID = visibleTabs(in: window).first?.id
+            // The moved tab leaves this Space; hand focus back to the
+            // previously active tab there, else the first one left.
+            window.selectionHistory.removeAll { $0 == tabID }
+            let next = previousActiveTab(after: tabID, in: window)
+                ?? visibleTabs(in: window).first?.id
+            window.selectedTabID = next
+            recordSelection(next, replacing: nil, in: window)
             if window.selectedTabID == nil { newTab(in: window) }
         }
         // The tab left its old Space, so a window still showing that Space has
@@ -874,6 +888,9 @@ public final class TabStore {
         // If a Ctrl+Tab session is on screen, a closed tab must not linger in
         // its cached list (e.g. it was closed from the sidebar mid-hold).
         window.mruTabIDs.removeAll { $0 == tabID }
+        // Nor in the selection history: it is gone, so a later close must not
+        // try to return to it.
+        window.selectionHistory.removeAll { $0 == tabID }
         // The tab and its panes are gone for good, so its sleep timer must not
         // fire later into nothing.
         cancelSleepTimer(tabID)
@@ -891,20 +908,21 @@ public final class TabStore {
         extensionHost?.extensionTabDidClose(tabID, inSpace: closedSpaceID)
 
         if window.selectedTabID == tabID {
-            // Select the neighbour that is now in the closed tab's slot, within
-            // its own section and this Space only.
+            // Return to the *previously active* tab (Chrome/Firefox/Arc), not a
+            // positional neighbour. Fall back to the tab now in the closed
+            // tab's slot, within its own section and this Space only, when the
+            // history has nothing usable.
             let remaining = visibleTabs(in: window)
-            let remainingInSection = remaining.filter { section(of: $0.placement) == closedSection }
-            if let closedPositionInSection, remainingInSection.indices.contains(closedPositionInSection) {
-                window.selectedTabID = remainingInSection[closedPositionInSection].id
-            } else if let fallback = remainingInSection.last {
-                // The closed tab was last in its section; take the tab now in
-                // its place — the one that sat just before it.
-                window.selectedTabID = fallback.id
-            } else {
-                // Its whole section is gone; fall back to the flat order.
-                window.selectedTabID = remaining.last?.id
-            }
+            let next = previousActiveTab(after: tabID, in: window)
+                ?? positionalNeighbourAfterClose(
+                    of: tabID,
+                    in: window,
+                    remaining: remaining,
+                    closedSection: closedSection,
+                    closedPositionInSection: closedPositionInSection
+                )
+            window.selectedTabID = next
+            recordSelection(next, replacing: nil, in: window)
         }
         if visibleTabs(in: window).isEmpty { newTab(in: window) }
         // The acting window just chose its neighbour deliberately; the others
@@ -928,13 +946,14 @@ public final class TabStore {
         // tearing the view down here would blank that window's content.
         guard !isShown(tabID, byAnyWindowOtherThan: window) else {
             if window.selectedTabID == tabID {
-                // Prefer a neighbour from the tab's own section so the selection
-                // cannot hop into another tier (favourites / Pinned / loose).
-                let closedSection = section(of: tabs[index].placement)
-                window.selectedTabID = visibleTabs(in: window)
-                    .first { $0.id != tabID && section(of: $0.placement) == closedSection }?
-                    .id
+                window.selectionHistory.removeAll { $0 == tabID }
+                let next = previousActiveTab(after: tabID, in: window)
+                    ?? visibleTabs(in: window)
+                        .first { $0.id != tabID && section(of: $0.placement) == section(of: tabs[index].placement) }?
+                        .id
                     ?? visibleTabs(in: window).first { $0.id != tabID }?.id
+                window.selectedTabID = next
+                recordSelection(next, replacing: nil, in: window)
                 if window.selectedTabID == nil { newTab(in: window) }
             }
             return
@@ -975,17 +994,20 @@ public final class TabStore {
 
         // Move the selection off the unloaded tab, but leave it in the sidebar.
         if window.selectedTabID == tabID {
-            // Prefer a neighbour from the tab's own section (favourites grid,
-            // Pinned list, or loose tabs) so the selection does not hop into
-            // another tier; fall back to the flat order only when the section
-            // has nothing left.
+            // Return to the previously active tab first (Chrome/Firefox/Arc);
+            // fall back to a neighbour from the tab's own section (favourites
+            // grid, Pinned list, or loose tabs) so the selection does not hop
+            // into another tier, then to the flat order.
             let closedSection = section(of: tabs[index].placement)
             let remaining = visibleTabs(in: window)
             let sectionNeighbour = remaining.first {
                 $0.id != tabID && section(of: $0.placement) == closedSection
             }
-            if let next = sectionNeighbour ?? remaining.first(where: { $0.id != tabID }) {
-                select(next.id, in: window)
+            let next = previousActiveTab(after: tabID, in: window)
+                ?? sectionNeighbour?.id
+                ?? remaining.first(where: { $0.id != tabID })?.id
+            if let next {
+                select(next, in: window)
             } else {
                 window.selectedTabID = nil
                 newTab(in: window)
@@ -1124,6 +1146,7 @@ public final class TabStore {
         }
 
         window.selectedTabID = tabID
+        recordSelection(tabID, replacing: outgoing, in: window)
         resolveInteractionState(forTab: tabID)
         touch(tabID)
 
@@ -1140,6 +1163,73 @@ public final class TabStore {
         // After the handover, so `reconcile` sees the tab as taken and picks the
         // donor a different one rather than immediately claiming it back.
         if let donor { reconcile(donor) }
+    }
+
+    // MARK: - Selection history
+
+    /// Records a selection change in the window's recency stack, so a later
+    /// close can return to the *previously active* tab (Chrome/Firefox/Arc
+    /// behaviour) instead of a positional neighbour.
+    ///
+    /// - Parameter newID: the tab now selected.
+    /// - Parameter oldID: the tab it replaced, if any. Recorded just behind the
+    ///   new one so "the tab I was on before this one" survives being buried by
+    ///   a long chain of selections.
+    func recordSelection(_ newID: UUID?, replacing oldID: UUID?, in window: WindowState) {
+        guard let newID else { return }
+        var history = window.selectionHistory
+        if let oldID, oldID != newID {
+            history.removeAll { $0 == oldID }
+            history.insert(oldID, at: 0)
+        }
+        history.removeAll { $0 == newID }
+        history.insert(newID, at: 0)
+        if history.count > Self.selectionHistoryLimit {
+            history.removeLast(history.count - Self.selectionHistoryLimit)
+        }
+        window.selectionHistory = history
+    }
+
+    /// The tab a close should hand focus to: the most recent other tab in the
+    /// window's selection history that is still visible in its active Space and
+    /// is not already on screen in another window. `nil` when there is none, and
+    /// the caller falls back to a positional neighbour.
+    ///
+    /// Skipping tabs another window shows is the one-window-per-tab invariant
+    /// (a `WKWebView` is an `NSView` with exactly one superview): pointing two
+    /// windows at the same tab would blank one of them. The positional fallback
+    /// does not re-check this either, but it predates the history and the
+    /// history makes a cross-window collision slightly easier to reach.
+    func previousActiveTab(after tabID: UUID, in window: WindowState) -> UUID? {
+        let visible = Set(visibleTabs(in: window).map(\.id))
+        return window.selectionHistory.first {
+            $0 != tabID
+                && visible.contains($0)
+                && windowShowing($0, excluding: window) == nil
+        }
+    }
+
+    /// The old positional rule, kept as the fallback when the selection history
+    /// has nothing usable: the tab now sitting in the closed tab's slot, within
+    /// its own section and this Space only.
+    func positionalNeighbourAfterClose(
+        of tabID: UUID,
+        in window: WindowState,
+        remaining: [Tab],
+        closedSection: PlacementSection,
+        closedPositionInSection: Int?
+    ) -> UUID? {
+        let remainingInSection = remaining.filter { section(of: $0.placement) == closedSection }
+        if let closedPositionInSection, remainingInSection.indices.contains(closedPositionInSection) {
+            // The tab that slid into the closed tab's slot.
+            return remainingInSection[closedPositionInSection].id
+        } else if let fallback = remainingInSection.last {
+            // The closed tab was last in its section; take the tab now in its
+            // place — the one that sat just before it.
+            return fallback.id
+        }
+        // Its whole section is gone; fall back to the flat order.
+        return remaining.last?.id
     }
 
     public func navigate(to url: URL, in window: WindowState) {

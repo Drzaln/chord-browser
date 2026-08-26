@@ -16,9 +16,10 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 > (multiple windows, folders, per-site permissions, notifications, YouTube ad
 > skipping, a built-in password vault, user-renamed tabs, swipe-to-close,
 > Arc-style split closing with pane-level reopen, web geolocation,
-> self-updates from GitHub releases, and an Arc-style Ctrl+Tab
-> most-recently-used tab switcher).
-> 672 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
+> self-updates from GitHub releases, an Arc-style Ctrl+Tab
+> most-recently-used tab switcher, and closing a tab returns to the
+> previously active tab rather than a positional neighbour).
+> 681 tests pass; schema is at v14; `./scripts/prepush.sh` is green.
 > See [CHECKPOINT.md](CHECKPOINT.md) for the detailed state and
 > [BROWSER_SPEC.md](BROWSER_SPEC.md) for the full specification.
 
@@ -46,7 +47,10 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   two Spaces. Gradient theming per Space, `Cmd+1…9` to switch.
 - **Command bar** — `Cmd+T` panel with fuzzy ranking over tabs and history, and a
   URL/search fallback pinned to the top so Return always acts on what you typed.
-- **Ephemeral tabs** — auto-sweep timer with archive.
+- **Ephemeral tabs** — auto-sweep timer with archive. **Closing a tab returns
+  to the previously active tab** (the one you were on before it), like Chrome,
+  Firefox, and Arc — not a positional neighbour; open a tab from a page, close
+  it, and you land back where you were.
 - **Favourites & Pinned tabs** — three tab tiers: a Favourites icon grid, a
   collapsible Pinned-tabs list (both sweep-exempt and homed at the URL they were
   pinned at — double-click/click to return, "Set Current Page as Pinned URL" to

@@ -35,7 +35,9 @@ distribution.
 ### Tabs
 
 - [ ] `Cmd+T` opens a new tab and selects it
-- [ ] `Cmd+W` closes the current tab and selects a neighbour
+- [ ] `Cmd+W` closes the current tab and returns to the previously active tab
+      (open a tab from a page, close it, and you land back on the page you were
+      on — Chrome/Firefox/Arc behaviour, 2026-08-26)
 - [ ] Closing the last tab opens a fresh one rather than an empty window
 - [ ] Clicking a sidebar row switches tabs; the web view does not reload
 - [ ] Title updates in the sidebar as pages load

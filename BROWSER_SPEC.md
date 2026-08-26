@@ -490,6 +490,15 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   the page the window's first responder (`focusWebView`), so page shortcuts
   (spacebar, arrows) work without a click. Non-spec, user-requested; details in
   the CHECKPOINT 2026-08-23 section.
+- **Closing a tab returns to the previously active tab** — closing the current
+  tab hands focus to the tab that was active just before it (Chrome/Firefox/Arc
+  behaviour), tracked per window in `WindowState.selectionHistory` (an
+  ephemeral, capped recency stack written by `select`, new-tab, space switch,
+  reopen, and the close fallbacks). A tab another window is currently showing is
+  never picked — one web view cannot live in two windows. When the history has
+  nothing usable (e.g. right after launch) the old rule remains: the tab now
+  sitting in the closed tab's slot, within its own section and Space. Non-spec,
+  user-requested; details in the CHECKPOINT 2026-08-26 section.
 
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
 software-only in a general `WKWebView`: macOS reserves the hardware decode path

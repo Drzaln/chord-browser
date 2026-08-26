@@ -121,6 +121,7 @@ extension TabStore {
 
         tabs.append(tab)
         window.selectedTabID = tab.id
+        recordSelection(tab.id, replacing: nil, in: window)
         scheduleSave()
     }
 }

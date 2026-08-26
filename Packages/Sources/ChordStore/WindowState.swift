@@ -171,6 +171,15 @@ public final class WindowState {
     /// Ctrl key goes down and up; the overlay is purely presentational.
     public internal(set) var isMRUSessionPresented = false
 
+    // MARK: - Selection history
+
+    /// The tabs this window has been on, most recent first. Ephemeral, capped,
+    /// and pruned lazily (stale ids are skipped when it is read). It is what a
+    /// close returns to: Chrome, Firefox, and Arc put focus back on the
+    /// *previously active* tab rather than a positional neighbour, and this is
+    /// the state that makes that possible. Only the store writes it.
+    public internal(set) var selectionHistory: [UUID] = []
+
     // MARK: - Find in page
 
     /// Find-in-page state (M6), per-window because the bar belongs to a window

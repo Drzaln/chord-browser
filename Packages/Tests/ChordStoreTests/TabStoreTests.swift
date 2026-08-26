@@ -110,8 +110,8 @@ struct TabStoreTests {
         #expect(store.selectedTabID == store.tabs[0].id)
     }
 
-    @Test("Closing the selected tab selects a neighbour")
-    func closingSelectedSelectsNeighbour() async {
+    @Test("Closing the selected tab returns to the previously active tab")
+    func closingSelectedReturnsToPreviousActive() async {
         let (store, _, _) = makeStore(stored: [
             TabBuilder().url("https://a.example").build(),
             TabBuilder().url("https://b.example").build(),
@@ -123,8 +123,64 @@ struct TabStoreTests {
 
         store.closeTab(middle.id)
 
-        #expect(store.selectedTabID == store.tabs[1].id)
+        #expect(
+            store.selectedTabID == store.tabs[0].id,
+            "focus returns to the tab that was active before the closed one"
+        )
         #expect(store.tabs.map { $0.panes[0].url.host() } == ["a.example", "c.example"])
+    }
+
+    @Test("Closing a new tab opened from a tab returns to that tab")
+    func closingNewTabReturnsToOpener() async {
+        let (store, _, _) = makeStore(stored: [
+            TabBuilder().url("https://a.example").build(),
+            TabBuilder().url("https://b.example").build(),
+            TabBuilder().url("https://c.example").build(),
+        ])
+        await store.restore()
+        let b = store.tabs[1]
+        store.select(b.id)
+
+        store.newTab(url: URL(string: "https://d.example")!)
+        let d = try! #require(store.tabs.last?.id)
+        store.closeTab(d)
+
+        #expect(store.selectedTabID == b.id, "the new tab's close returns to the tab it was opened from")
+    }
+
+    @Test("Returns through a chain of new tabs in reverse order")
+    func closingAChainOfNewTabsWalksBack() async {
+        let (store, _, _) = makeStore(stored: [TabBuilder().url("https://a.example").build()])
+        await store.restore()
+        let a = store.tabs[0].id
+
+        store.newTab(url: URL(string: "https://d.example")!)
+        let d = try! #require(store.tabs.last?.id)
+        store.newTab(url: URL(string: "https://e.example")!)
+        let e = try! #require(store.tabs.last?.id)
+
+        store.closeTab(e)
+        #expect(store.selectedTabID == d, "closing E returns to D, which opened it")
+        store.closeTab(d)
+        #expect(store.selectedTabID == a, "closing D in turn returns to A")
+    }
+
+    @Test("Closing the selected tab with no history falls back to the slot neighbour")
+    func closingSelectedWithoutHistoryFallsBackToSlot() async {
+        let (store, _, _) = makeStore(stored: [
+            TabBuilder().url("https://a.example").build(),
+            TabBuilder().url("https://b.example").build(),
+            TabBuilder().url("https://c.example").build(),
+        ])
+        await store.restore()
+        let middle = store.tabs[1]
+        // A selection made the way a restored layout would (directly, not via
+        // `select`) leaves no history behind.
+        store.primaryWindow.selectedTabID = middle.id
+
+        store.closeTab(middle.id)
+
+        #expect(store.selectedTabID == store.tabs[1].id, "the tab that slid into the slot")
     }
 
     @Test("A window.open request becomes a new tab hosting the popup's web view")

@@ -136,6 +136,39 @@ struct MultiWindowTests {
         #expect(store.tabs.contains { $0.id == survivor }, "and what it shows must exist")
     }
 
+    /// The one-window-per-tab invariant: a tab on screen in window A must not be
+    /// named as the "previously active" pick when window B closes a tab — both
+    /// windows pointing at one web view leaves one of them blank. The pick skips
+    /// it and takes the slot neighbour instead.
+    @Test("Closing does not return to a tab another window is showing")
+    func closingSkipsATabAnotherWindowShows() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://x.example").build(),
+            TabBuilder().url("https://z.example").build(),
+            TabBuilder().url("https://y.example").build(),
+        ])
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+        let x = try! #require(store.tabs.first { $0.focusedPane.url.host() == "x.example" })
+        let z = try! #require(store.tabs.first { $0.focusedPane.url.host() == "z.example" })
+        let y = try! #require(store.tabs.first { $0.focusedPane.url.host() == "y.example" })
+
+        // B was on X once (so X is its most recent history entry), then A took
+        // X over and B was re-pointed at Z.
+        store.select(x.id, in: windowB)
+        store.select(x.id, in: windowA)
+        #expect(windowB.selectedTabID == z.id, "B reconciles off the tab A took")
+
+        store.closeTab(z.id, in: windowB)
+
+        #expect(windowA.selectedTabID == x.id, "A keeps showing X")
+        #expect(
+            windowB.selectedTabID == y.id,
+            "B must not return to X (on screen in A), so it takes the slot neighbour"
+        )
+        #expect(windowB.selectedTabID != x.id)
+    }
+
     /// The failure this guards against is the ugly one: a tab visible in window
     /// B being archived out from under the user because window A last touched it
     /// an hour ago.

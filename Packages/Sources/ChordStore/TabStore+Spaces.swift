@@ -33,6 +33,7 @@ extension TabStore {
         if let current = window.activeSpaceID, let selected = window.selectedTabID {
             lastSelectedTabBySpace[current] = selected
         }
+        let previousSelection = window.selectedTabID
         window.activeSpaceID = spaceID
 
         // Web views for the other Space stay live and stay in the pool — the
@@ -45,6 +46,7 @@ extension TabStore {
         } else {
             window.selectedTabID = candidates.max { $0.lastAccessedAt < $1.lastAccessedAt }?.id
         }
+        recordSelection(window.selectedTabID, replacing: previousSelection, in: window)
 
         if window.selectedTabID == nil { newTab(in: window) }
 
