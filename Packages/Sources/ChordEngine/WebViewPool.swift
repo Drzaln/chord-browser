@@ -185,6 +185,8 @@ final class LiveWebView {
             .removeScriptMessageHandler(forName: ScreenShareMonitor.messageName)
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: PasswordFormMonitor.messageName)
+        webView.configuration.userContentController
+            .removeScriptMessageHandler(forName: DRMDiagnosticsMonitor.messageName)
 
         webView.stopLoading()
         container.removeContent()

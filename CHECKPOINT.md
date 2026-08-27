@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **681 passing** (`swift test`, 100 suites), measured 2026-08-26                                                                                                                                |
+| **Tests**                        | **692 passing** (`swift test`, 103 suites), measured 2026-08-27                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
@@ -3705,3 +3705,55 @@ and `closingLastPinnedTabWithoutHistoryStaysInThePinnedSection` (PinnedTests —
 1.1.3's section-safety is now the fallback, not the rule);
 `closingSkipsATabAnotherWindowShows` (MultiWindowTests, the cross-window guard).
 SMOKE has the manual checklist; verified live by the user.
+
+## Developer mode, zoom, DRM diagnostics, and action toasts (2026-08-27, 1.7.0)
+
+Non-spec, user-requested. Four features shipped together (they share the
+developer-mode toggle):
+
+**Developer Mode** (global, off by default, including release). A toggle in
+Settings → General and the Develop menu. When on, the engine sets
+`developerExtrasEnabled` on every web view — the private KVC key (no typed
+accessor, same pattern as `managedMediaSourceEnabled`) that makes WebKit's
+"Inspect Element" context menu appear and lets the inspector open. **Show Web
+Inspector** (Cmd+Opt+I) reaches the detached inspector window through the
+private `_inspector` object (KVC + `show`); there is no public API, and the
+inspector is always a detached window in a WKWebView app. Off is the release
+gate: no extras, no inspector, and the DRM error-capture script isn't even
+installed.
+
+**Page zoom** (View menu). Cmd+= / Cmd+- / Cmd+0, applied via `WKWebView.pageZoom`
+(the layout/viewport level, not text size), on a discrete `PageZoom` ladder in
+`ChordCore`. Global, persisted in Preferences, applied at view creation and
+pushed to live views.
+
+**DRM Diagnostics** (Develop → DRM Diagnostics, Cmd+Opt+D). A panel that answers
+"does Chord's engine + this display chain support what Netflix serves" without
+Netflix's removed secret menus. Probes the Netflix profile matrix (HEVC/HDR10
+4K, Dolby Vision dvhe/dvh1, AC-3, E-AC-3, AAC) plus AV1/VP9/HEVC/H.264, an HDCP
+display-chain probe (1.4/2.2/2.3 — a dock or non-HDCP adapter silently caps DRM
+streams to 720p), and live media/EME errors via a new `DRMDiagnosticsMonitor`
+user script. The codec/HDCP results are device + WebKit-build + display-chain
+properties, so they're probed **once and cached**; the panel reads them from
+memory on every subsequent open/tab-switch, only the per-pane error fields are
+live. The monitor script + handler are only installed when developer mode is on.
+
+**Action toasts** (top-right). `WindowState.showToast(_:icon:action:)` shows a
+transient confirmation in a window's top right ("Zoom 125%", "Copied URL",
+"Opened in new tab"). `Toast` is a small value type with an optional click
+action; when actionable (e.g. "Opened in new tab") the banner is tappable and
+runs the action — `newTab` now returns the new tab's id so the handler can
+`select` it on tap. The capsule is the same `.ultraThinMaterial` + Space-tint as
+the window border, with icon/text color chosen from the tint's luminance so it
+stays readable. Auto-dismiss is a single cancellable `Task` per toast (no
+accumulation).
+
+**UA freshness** (from the audit). Bumped `UserAgentPreference.safariVersionToken`
+to `Version/26.6 Safari/605.1.15` (shipping Safari is 26.6.2); the single source
+of truth stays in `ChordCore/UserAgent.swift`, and the bump procedure is
+documented in the maintenance skill.
+
+**Tests (692 passing, 103 suites, prepush green).** `PageZoomTests` (ladder);
+`DevModeZoomStoreTests` (dev-mode + zoom reach the engine, inspector gated by
+dev mode); `ToastTests` (present/replace + the background-tab toast navigates to
+the new tab).

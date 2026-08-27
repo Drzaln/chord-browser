@@ -21,6 +21,8 @@ enum Preferences {
     private static let littleChordPanelWidthKey = "prefs.littleArcPanelWidth"
     private static let littleChordPanelHeightKey = "prefs.littleArcPanelHeight"
     private static let swipeToCloseEnabledKey = "prefs.swipeToCloseEnabled"
+    private static let developerModeKey = "prefs.developerMode"
+    private static let pageZoomKey = "prefs.pageZoom"
 
     static func loadSearchEngine(
         _ defaults: any PreferenceStore = UserDefaults.standard
@@ -186,6 +188,42 @@ enum Preferences {
         swipeToCloseEnabled enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         defaults.set(enabled, forKey: swipeToCloseEnabledKey)
+    }
+
+    // MARK: - Developer mode
+
+    /// Whether the developer-mode features are on (non-spec: user-requested).
+    /// A plain `Bool`, like the sidebar flags. When off, the engine does not set
+    /// `developerExtrasEnabled`, so the Web Inspector and the DRM diagnostics
+    /// are both inert — the gate that lets a release build ship without them.
+    static func loadDeveloperMode(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Bool {
+        defaults.object(forKey: developerModeKey) as? Bool ?? false
+    }
+
+    static func save(
+        developerMode enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(enabled, forKey: developerModeKey)
+    }
+
+    // MARK: - Page zoom
+
+    /// The global full-page zoom factor (non-spec: user-requested). A `Double`
+    /// persisted directly (not JSON) for the same reason as the sidebar width.
+    /// Trusted to be valid, not sane — the load clamps it onto the ladder so an
+    /// out-of-range write cannot misapply.
+    static func loadPageZoom(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Double {
+        PageZoom.clamped(defaults.object(forKey: pageZoomKey) as? Double ?? PageZoom.defaultFactor)
+    }
+
+    static func save(
+        pageZoom factor: Double, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(PageZoom.clamped(factor), forKey: pageZoomKey)
     }
 
     // MARK: - JSON helpers

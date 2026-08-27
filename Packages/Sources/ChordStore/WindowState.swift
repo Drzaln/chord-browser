@@ -142,6 +142,47 @@ public final class WindowState {
     /// Whether the History window is showing. Kept here for the same reason.
     public var isHistoryPresented = false
 
+    /// Whether the DRM Diagnostics panel is showing (non-spec: user-requested).
+    /// Kept here for the same reason as the other sheet flags: it is presented
+    /// from `RootView` so it can outlive the sidebar collapsing beneath it.
+    public var isDRMDiagnosticsPresented = false
+
+    /// Dismisses the toast immediately, cancelling its auto-dismiss timer. Used
+    /// by a toast's own tap action so a clickable notification goes away the
+    /// moment it is acted on.
+    public func dismissToast() {
+        toastTask?.cancel()
+        toast = nil
+    }
+
+    // MARK: - Toasts
+
+    /// The transient confirmation banner currently showing in this window's top
+    /// right (non-spec: user-requested). `nil` when nothing is up. A new
+    /// `showToast` replaces whatever was showing, and it auto-dismisses.
+    public private(set) var toast: Toast?
+    @ObservationIgnored private var toastTask: Task<Void, Never>?
+
+    /// Shows a short confirmation banner in the window's top right — "Zoomed to
+    /// 125%", "Copied URL", and the like. Replacing any toast currently up, so a
+    /// rapid sequence of actions reads as the last one, not a pile.
+    ///
+    /// An optional `action` makes the banner clickable (e.g. "Opened in new tab"
+    /// → clicking switches to that tab). When given, tapping the banner runs the
+    /// action; when omitted, the banner is inert feedback.
+    public func showToast(
+        _ message: String, icon: String = "checkmark.circle.fill", action: (() -> Void)? = nil
+    ) {
+        toastTask?.cancel()
+        let toast = Toast(message: message, icon: icon, id: UUID(), action: action)
+        self.toast = toast
+        toastTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.6))
+            guard !Task.isCancelled else { return }
+            if self.toast?.id == toast.id { self.toast = nil }
+        }
+    }
+
     /// Signed progress of an in-flight swipe between Spaces, in `[-1, 1]` (4.2).
     /// Positive is toward the next Space (higher `sortIndex`). Observed: the
     /// sidebar blends its gradient toward the neighbour's as this moves. Volatile
@@ -228,4 +269,40 @@ public final class WindowState {
             collapsedPinnedSpaces.insert(spaceID)
         }
     }
+}
+
+/// A transient confirmation shown in a window's top right (non-spec:
+/// user-requested). WebKit-free so it can live on the store side and be rendered
+/// by the UI layer. `id` distinguishes one toast from the next, which is what
+/// lets the overlay re-animate when the message changes.
+///
+/// `action` is optional and makes the banner clickable — for notifications that
+/// should do something when tapped (e.g. "Opened in new tab" → switch to it).
+/// Main-actor state only, so the closure is not required to be `Sendable`.
+public struct Toast {
+    public let message: String
+    /// An SF Symbol name, rendered before the message.
+    public let icon: String
+    public let id: UUID
+    /// When non-nil, the banner is tappable and this runs on tap.
+    public let action: (() -> Void)?
+
+    public init(
+        message: String,
+        icon: String = "checkmark.circle.fill",
+        id: UUID = UUID(),
+        action: (() -> Void)? = nil
+    ) {
+        self.message = message
+        self.icon = icon
+        self.id = id
+        self.action = action
+    }
+}
+
+extension Toast: Equatable {
+    /// Identified by `id` only, so two toasts with the same text are still
+    /// distinct (they animate separately); the closure is deliberately not part
+    /// of equality.
+    public static func == (lhs: Toast, rhs: Toast) -> Bool { lhs.id == rhs.id }
 }

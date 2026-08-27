@@ -31,17 +31,43 @@ If `prepush.sh` fails, fix before doing anything else. The project must compile 
 
 ## Routine Maintenance Tasks
 
-### 1. Safari User-Agent String (quarterly)
+### 1. Safari User-Agent String (quarterly, or on every macOS/Safari bump)
 
-The hard-coded Safari version in `WebKitEngine.safariUserAgentSuffix` goes stale. Check the current Safari version and update:
+The hard-coded Safari version goes stale and DRM providers (Netflix etc.)
+negotiate stream quality off it — a stale token can silently downgrade or refuse
+4K/HDR. **The single source of truth** is
+`UserAgentPreference.safariVersionToken` in `Packages/Sources/ChordCore/UserAgent.swift`
+(e.g. `Version/26.6 Safari/605.1.15`). It is shared by:
+- the engine's `applicationNameForUserAgent` completion (`WebKitEngine.safariUserAgentSuffix`),
+- the Settings prefill (`defaultTemplate`),
+- the per-domain override templates.
+
+So there is exactly **one** string to bump — never edit the engine directly.
+
+**Gap-detection (manual, ~30s):**
 
 ```bash
-# Find the current value
-grep -n "safariUserAgentSuffix\|applicationNameForUserAgent" \
-  Packages/Sources/ChordEngine/*.swift
+# 1. Current shipping Safari for this macOS
+/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" \
+  /Applications/Safari.app/Contents/Info.plist
+# 2. The token Chord advertises
+grep -n "safariVersionToken" Packages/Sources/ChordCore/UserAgent.swift
 ```
 
-Compare against the Safari version shipping with the current macOS. The UA should look like `Version/XX.Y Safari/605.1.15`. A stale-but-plausible version degrades far better than no token.
+If the Safari version (e.g. `26.6.2`) is ahead of the token's minor (`26.6`),
+bump the token to the new minor (`Version/26.6 Safari/605.1.15`). `605.1.15` is
+the WebKit engine constant and does **not** change with Safari minor releases.
+
+**Bump procedure:**
+1. Update `safariVersionToken` in `ChordCore/UserAgent.swift` (the one place).
+2. Verify tests: `swift test --package-path Packages --filter UserAgent` — the
+   version-token tests pin the engine suffix to the token, so a drift between
+   them fails loudly.
+3. `./scripts/prepush.sh`.
+
+A stale-but-plausible token degrades far better than no token, so this is a
+"when you notice a bump" check, not a hard gate. There is no API to read a live
+Safari version from a WKWebView (sandbox blocks it), so this stays manual.
 
 ### 2. Content Blocker Lists (automatic, verify weekly)
 

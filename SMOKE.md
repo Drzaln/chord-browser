@@ -74,6 +74,29 @@ distribution.
 - [ ] Ctrl+Tab still works while a web page has focus and after a quick
       Ctrl+Tab+Ctrl+Tab toggle sequence (key monitor, not menu, owns stepping)
 
+### Developer mode, zoom, DRM diagnostics, toasts (2026-08-27)
+
+- [ ] **Developer Mode** is off by default: no "Inspect Element" in a page's
+      right-click menu, and `Cmd+Opt+I`/`Cmd+Opt+D` do nothing
+- [ ] Turning **Developer Mode** on (Settings → General, or the Develop menu
+      toggle) adds "Inspect Element" to right-click menus on the next load
+- [ ] **Show Web Inspector** (`Cmd+Opt+I`, Develop menu) opens the detached
+      inspector to the active page; **Inspect Element** on a node opens it to
+      that node (private window works too)
+- [ ] **Page zoom**: `Cmd+=` / `Cmd+-` / `Cmd+0` zoom in/out/reset full-page at
+      the layout level (not font size), and the View menu shows the percentage
+      toast top-right; zoom persists across relaunch and applies to new tabs
+- [ ] **DRM Diagnostics** (`Cmd+Opt+D`) lists the Netflix profiles (HEVC 4K HDR,
+      Dolby Vision, AC-3, E-AC-3, AAC) as supported/`hw`/`sw`, the HDCP chain,
+      and any media error raised on the current page
+- [ ] Opening the DRM panel twice (or switching tabs) doesn't stall — codec/HDCP
+      results come from cache after the first probe
+- [ ] **Action toasts** appear top-right for zoom, copy URL (`Cmd+Shift+C`),
+      close/reload, and new tab/window; "Opened in new tab" is tappable and
+      switches to that tab
+- [ ] Toast capsule matches the window's Space-tinted border, and the icon/text
+      stays readable on both a light and a dark Space
+
 ### Persistence
 
 - [ ] Quit and relaunch: tabs come back with titles and favicons

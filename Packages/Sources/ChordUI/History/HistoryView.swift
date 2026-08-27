@@ -151,6 +151,7 @@ public struct HistoryView: View {
         Button("Copy Link") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(entry.url.absoluteString, forType: .string)
+            windowState.showToast("Copied URL", icon: "link")
         }
         Divider()
         Button("Delete", role: .destructive) {

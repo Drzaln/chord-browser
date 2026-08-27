@@ -222,6 +222,14 @@ extension NavigationCoordinator: WKScriptMessageHandler {
             }
             guard let fields = PasswordFormMonitor.fields(from: message.body) else { return }
             engine?.setLoginForm(LoginFormClassifier.analyse(fields), for: paneID)
+        case DRMDiagnosticsMonitor.messageName:
+            // Two shapes, same as PasswordFormMonitor: a media error carries the
+            // display string, an EME marker carries none.
+            if let error = DRMDiagnosticsMonitor.mediaError(from: message.body) {
+                engine?.setMediaError(error, for: paneID)
+            } else if DRMDiagnosticsMonitor.isEME(message.body) {
+                engine?.setEMEStarted(for: paneID)
+            }
         case NotificationBridge.showMessageName:
             guard let request = NotificationBridge.request(from: message.body) else { return }
             engine?.delegate?.paneRequestedNotification(request, fromPane: paneID)

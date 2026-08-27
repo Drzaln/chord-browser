@@ -499,6 +499,30 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   nothing usable (e.g. right after launch) the old rule remains: the tab now
   sitting in the closed tab's slot, within its own section and Space. Non-spec,
   user-requested; details in the CHECKPOINT 2026-08-26 section.
+- **Developer mode, page zoom, DRM diagnostics, action toasts** (2026-08-27,
+  1.7.0; details in the CHECKPOINT 2026-08-27 section):
+  - **Developer mode** — a global toggle (Settings → General + **Develop** menu),
+    off by default even in release. When on, the engine sets the private
+    `developerExtrasEnabled` KVC key per view, which makes WebKit's **Inspect
+    Element** context menu appear; **Show Web Inspector** (`Cmd+Opt+I`) opens the
+    detached inspector through the private `_inspector` object (there is no
+    public API; a detached window is the only form a WKWebView inspector takes).
+    Off is the release gate — no extras, no inspector.
+  - **Page zoom** — View menu `Cmd+=`/`Cmd+-`/`Cmd+0`, full-page at the
+    layout/viewport level via `WKWebView.pageZoom`, on a discrete `PageZoom`
+    ladder (`ChordCore`), global and persisted.
+  - **DRM diagnostics** — Develop → DRM Diagnostics (`Cmd+Opt+D`). Probes the
+    Netflix profile matrix (HEVC/HDR10 4K, Dolby Vision, AC-3/E-AC-3/AAC) plus
+    AV1/VP9/HEVC/H.264 and the HDCP display chain (1.4/2.2/2.3) via
+    `mediaCapabilities.decodingInfo`, and surfaces live media/EME errors from a
+    `DRMDiagnosticsMonitor` user script. The codec/HDCP results are
+    device+build+display-chain properties, so they're probed once and cached;
+    the monitor is installed only in developer mode.
+  - **Action toasts** — top-right confirmation (`WindowState.showToast`), same
+    `.ultraThinMaterial` + Space-tint as the window border with
+    luminance-adaptive icon/text. Actionable toasts (e.g. "Opened in new tab")
+    are tappable and run an action — `newTab` returns the new tab's id so the
+    toast can select it.
 
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
 software-only in a general `WKWebView`: macOS reserves the hardware decode path

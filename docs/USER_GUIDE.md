@@ -107,8 +107,17 @@ Space_.
 | `Cmd+P`       | Print the focused pane                                       |
 | `Cmd+S`       | Toggle the sidebar                                           |
 | `Cmd+Ctrl+S`  | Toggle **Presentation mode** (hide all chrome — for sharing) |
+| `Cmd+=` / `Cmd+-` / `Cmd+0` | Zoom in / out / **Actual Size** (full-page)   |
+| `Cmd+Opt+I`   | Show **Web Inspector** for the active page (Developer mode)  |
+| `Cmd+Opt+D`   | Open **DRM Diagnostics** (Developer mode)                    |
+| `Cmd+Shift+C` | Copy the current page's URL                                  |
 | `Cmd+Y`       | Open the **History** window                                  |
 | `Cmd+,`       | Open **Settings** (General, Passwords, Privacy & Data, extensions) |
+
+Most actions (zoom, copy URL, closing/reloading a tab, opening a new tab or
+window) show a brief confirmation in the window's top-right corner. When a link
+is opened in a **new tab from its context menu**, that toast is tappable — click
+it to jump straight to the new tab.
 
 Find works whether or not the find field has focus, so you can find, click into
 the page, and keep stepping through matches with `Cmd+G`.
@@ -143,6 +152,13 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
   Chord panel, if that's what you're swiping on. Off by default this is WebKit's
 native behaviour (the swipe just does nothing); toggle it off here any time.
    When a page *does* have history, WebKit's own back-swipe is unchanged.
+- **Developer** — **Developer Mode** turns on the browser's development tools,
+  off by default even in release builds. Enabling it shows an **Inspect Element**
+  item in a page's right-click menu and a **Develop** menu with **Show Web
+  Inspector** (`Cmd+Opt+I`) — the full Safari Web Inspector, always in its own
+  detached window — and **DRM Diagnostics** (`Cmd+Opt+D`), a panel that reports
+  which codecs and HDCP levels this machine's engine and display chain support
+  (handy for diagnosing why a 4K/HDR stream downgrades).
 
 ## Updates
 

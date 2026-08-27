@@ -41,7 +41,7 @@ public enum UserAgentPreference: Codable, Hashable, Sendable {
     /// token degrades far more gracefully than no token at all, and matching the
     /// token to the shipped WebKit version avoids a UA-vs-engine feature
     /// mismatch that sites could fingerprint.
-    public static let safariVersionToken = "Version/26.5 Safari/605.1.15"
+    public static let safariVersionToken = "Version/26.6 Safari/605.1.15"
 
     /// A representative full macOS Safari UA, used only to pre-fill the editable
     /// custom field when starting from `.default` — whose real UA the engine

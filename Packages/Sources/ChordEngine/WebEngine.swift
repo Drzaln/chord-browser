@@ -355,16 +355,34 @@ public protocol WebEngine: AnyObject {
 
     func liveViewCount() -> Int
 
-#if DEBUG
-    /// Developer diagnostic (non-spec): whether this engine's WebKit advertises
-    /// decode support for a set of media codec strings, via
-    /// `MediaSource.isTypeSupported` run in the pane's live view. `nil` when the
-    /// pane has no live view. The result is a property of the WebKit build and
-    /// the host's hardware, not of the document, so it answers "does Chord get
-    /// offered AV1/VP9/HEVC directly?" — the question behind streaming quality on
-    /// Reels/Shorts. Surfaced by the Cmd+Ctrl+P overlay. Compiled out of release.
-    func codecSupport(for paneID: UUID) async -> [CodecProbe]?
+    /// Turns developer-mode on or off (non-spec: user-requested). When on, the
+    /// engine sets `developerExtrasEnabled` on every web view, which is what
+    /// makes WebKit show the "Inspect Element" context menu and lets
+    /// `showInspector` open the detached inspector window. When off (the
+    /// default, including release builds) neither happens. Applied to views
+    /// built afterwards and to any already live.
+    func setDeveloperMode(_ enabled: Bool)
 
+    /// Sets the full-page zoom factor applied to every web view (non-spec:
+    /// user-requested), via `WKWebView.pageZoom`. Applied to views built
+    /// afterwards and to any already live. Clamped onto the `PageZoom` ladder.
+    func setPageZoom(_ factor: Double)
+
+    /// Opens the Web Inspector for a pane's live view (non-spec:
+    /// user-requested). The inspector is always a detached window in a
+    /// `WKWebView` app. A no-op unless developer mode is on and the pane has a
+    /// live view — the two things that gate whether an inspector exists.
+    func showInspector(for paneID: UUID)
+
+    /// DRM / streaming-capability diagnostic (non-spec: user-requested), for
+    /// the pane's live view. Answers "does Chord's engine + this display chain
+    /// actually support the profiles Netflix serves" — HEVC/HDR10, Dolby Vision,
+    /// the surround audio codecs — plus the live media/EME errors the page has
+    /// raised. `nil` when the pane has no live view. Surfaced by the DRM
+    /// Diagnostics panel (Develop menu).
+    func mediaDiagnostics(for paneID: UUID) async -> MediaDiagnostics?
+
+#if DEBUG
     /// Developer diagnostic (non-spec): how many captured interaction-state
     /// blobs are held in memory vs. the LRU cap, plus how many panes the engine
     /// has been asked to forget. The first number being flat while tabs open and
@@ -374,18 +392,27 @@ public protocol WebEngine: AnyObject {
     #endif
 }
 
+extension WebEngine {
+    /// Defaults so test doubles and any non-WebKit engine need not implement
+    /// the dev-mode and zoom plumbing; only `WebKitEngine` gives real behaviour.
+    public func setDeveloperMode(_ enabled: Bool) {}
+    public func setPageZoom(_ factor: Double) {}
+    public func showInspector(for paneID: UUID) {}
+    public func mediaDiagnostics(for paneID: UUID) async -> MediaDiagnostics? { nil }
+}
+
 #if DEBUG
 extension WebEngine {
     /// Default so test doubles and any non-WebKit engine need not implement the
     /// diagnostic; only `WebKitEngine` gives a real answer.
-    public func codecSupport(for paneID: UUID) async -> [CodecProbe]? { nil }
     public func interactionStateDiagnostics() -> (cached: Int, cap: Int, forgotten: Int) {
         (0, 0, 0)
     }
 }
+#endif
 
-/// One codec-support probe result (DEBUG diagnostic). WebKit-free, like every
-/// other type crossing this seam.
+/// One codec-support probe result. WebKit-free, like every other type crossing
+/// this seam.
 ///
 /// `isSupported` is `MediaSource.isTypeSupported` — "can decode at all", software
 /// or hardware. `isPowerEfficient` is `mediaCapabilities.decodingInfo`'s flag —
@@ -415,17 +442,69 @@ public struct CodecProbe: Sendable, Equatable {
     }
 }
 
-/// The codec strings Chord probes, chosen to answer the streaming-quality
-/// question: AV1 (Instagram/Facebook Reels' high-efficiency ladder), VP9
-/// (YouTube), then HEVC and H.264 (the WebKit-native baseline that Meta falls
-/// back to). The `codecs=` parameters are representative profiles, enough for
+/// One HDCP display-chain probe result (DRM diagnostic). WebKit-free.
+///
+/// `available` is `mediaCapabilities.decodingInfo(..., hdcp: "hdcp-<level>")`'s
+/// `supported` flag. When the highest level is unavailable, the display chain —
+/// a dock, an HDMI adapter, a non-HDCP monitor — silently caps DRM streams at
+/// that resolution/quality, which is precisely how a DisplayLink dock or a
+/// non-HDCP adapter shows Netflix at 720p with no error.
+public struct HDCPProbe: Sendable, Equatable {
+    public let level: String
+    public let available: Bool
+
+    public init(level: String, available: Bool) {
+        self.level = level
+        self.available = available
+    }
+}
+
+/// The full DRM / streaming-capability report for one pane (non-spec:
+/// user-requested). WebKit-free, so it crosses the seam into the UI and the
+/// store without leaking WebKit. `nil` codec/hdcp arrays mean the probe was not
+/// run (no live view); the error fields are what the page's own media elements
+/// have raised, not something WebKit reports directly.
+public struct MediaDiagnostics: Sendable, Equatable {
+    public var codecs: [CodecProbe]
+    public var hdcp: [HDCPProbe]
+    /// The last media-element error text/code the pane's page raised, if any.
+    public var lastMediaError: String?
+    /// Whether the page has started an EME session (i.e. is actually using DRM).
+    public var hasEMESession: Bool
+
+    public init(
+        codecs: [CodecProbe],
+        hdcp: [HDCPProbe],
+        lastMediaError: String?,
+        hasEMESession: Bool
+    ) {
+        self.codecs = codecs
+        self.hdcp = hdcp
+        self.lastMediaError = lastMediaError
+        self.hasEMESession = hasEMESession
+    }
+}
+
+/// The codec strings Chord probes, chosen to answer the DRM/streaming question:
+/// the profiles Netflix actually serves (HEVC/HDR10 4K, Dolby Vision, AC-3,
+/// E-AC-3, AAC) plus the streaming baselines (AV1, VP9, HEVC, H.264). The
+/// `codecs=` parameters are representative profiles, enough for
 /// `MediaSource.isTypeSupported` to answer for the family.
 public enum CodecCatalog {
     public static let probes: [(label: String, mimeType: String)] = [
+        ("HEVC 4K HDR (hvc1)", #"video/mp4; codecs="hvc1.1.6.L153.B0""#),
+        ("Dolby Vision (dvhe)", #"video/mp4; codecs="dvhe.05.06""#),
+        ("Dolby Vision (dvh1)", #"video/mp4; codecs="dvh1.05.06""#),
+        ("AC-3 5.1", #"audio/mp4; codecs="ac-3""#),
+        ("E-AC-3 5.1/7.1", #"audio/mp4; codecs="ec-3""#),
+        ("AAC", #"audio/mp4; codecs="mp4a.40.2""#),
         ("AV1", #"video/mp4; codecs="av01.0.05M.08""#),
         ("VP9", #"video/webm; codecs="vp09.00.10.08""#),
-        ("HEVC", #"video/mp4; codecs="hvc1.1.6.L93.B0""#),
+        ("HEVC (hvc1)", #"video/mp4; codecs="hvc1.1.6.L93.B0""#),
         ("H.264", #"video/mp4; codecs="avc1.42E01E""#),
     ]
+
+    /// The HDCP display-chain levels probed, low to high. The highest that
+    /// reports available is the ceiling the current display chain can do.
+    public static let hdcpLevels: [String] = ["1.4", "2.2", "2.3"]
 }
-#endif

@@ -85,6 +85,9 @@ struct RootSheets: ViewModifier {
             .sheet(isPresented: $windowState.isHistoryPresented) {
                 HistoryView(store: store, windowState: windowState)
             }
+            .sheet(isPresented: $windowState.isDRMDiagnosticsPresented) {
+                DRMDiagnosticsView(store: store, windowState: windowState)
+            }
             // Dropping a tab into a window showing a different Space moves it
             // between Spaces, and each Space has its own cookie store — so the
             // page comes back signed out. Worth a prompt; Arc asks too.

@@ -53,6 +53,8 @@ struct GeneralSettings: View {
             hibernationSection
             Divider()
             gestureSection
+            Divider()
+            developerSection
             // No trailing `Spacer` here. Inside the sheet's `ScrollView` a
             // greedy spacer absorbs the overflow instead of letting it scroll,
             // so the section below the fold — the per-site UA rules — was
@@ -380,6 +382,32 @@ struct GeneralSettings: View {
         let candidate = trimmed.contains("://") ? trimmed : "https://\(trimmed)"
         if let url = URL(string: candidate) {
             store.newTabBehavior = .custom(url)
+        }
+    }
+
+    // MARK: - Developer mode
+
+    @ViewBuilder
+    private var developerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Developer").font(.system(size: 13, weight: .semibold))
+            Text(
+                "Enables the Web Inspector (right-click “Inspect Element” and the "
+                    + "detached inspector window) and the DRM Diagnostics panel in "
+                    + "the Develop menu. Uses a private WebKit flag; off by default, "
+                    + "including in release builds."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Toggle(
+                "Developer Mode",
+                isOn: Binding(
+                    get: { store.developerMode },
+                    set: { store.developerMode = $0 }
+                )
+            )
+            .toggleStyle(.checkbox)
         }
     }
 

@@ -92,6 +92,24 @@ public final class FakeWebEngine: WebEngine {
         swipeToCloseEnabled = enabled
     }
 
+    /// The developer-mode flag the store last pushed (non-spec: user-requested).
+    public private(set) var developerMode = false
+    public func setDeveloperMode(_ enabled: Bool) {
+        developerMode = enabled
+    }
+
+    /// The full-page zoom factor the store last pushed (non-spec: user-requested).
+    public private(set) var pageZoom: Double = PageZoom.defaultFactor
+    public func setPageZoom(_ factor: Double) {
+        pageZoom = factor
+    }
+
+    /// Which panes the store asked to open the Web Inspector for.
+    public private(set) var inspectorPanes: [UUID] = []
+    public func showInspector(for paneID: UUID) {
+        inspectorPanes.append(paneID)
+    }
+
     /// What a URL would actually be sent with, so a test can assert the policy
     /// without a web view.
     public func resolvedUserAgent(for url: URL?) -> String? {

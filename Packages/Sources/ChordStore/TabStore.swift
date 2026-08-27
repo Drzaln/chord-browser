@@ -292,6 +292,62 @@ public final class TabStore {
         engine.setSwipeToCloseEnabled(swipeToCloseEnabled)
     }
 
+    /// Whether developer mode is on (non-spec: user-requested). When on, the
+    /// engine sets `developerExtrasEnabled`, which is what makes the Web
+    /// Inspector ("Inspect Element" + the detached inspector window) and the DRM
+    /// Diagnostics panel exist. Global — a developer feature, not a per-Space
+    /// one — and off by default, including in release builds. The setter pushes
+    /// it to the engine so live and future views both honour it.
+    public var developerMode: Bool = Preferences.loadDeveloperMode() {
+        didSet {
+            Preferences.save(developerMode: developerMode, to: preferenceStore)
+            pushDeveloperMode()
+        }
+    }
+
+    func pushDeveloperMode() {
+        engine.setDeveloperMode(developerMode)
+    }
+
+    /// The global full-page zoom factor (non-spec: user-requested), 1.0 = 100%.
+    /// Global, not per-Space: zoom is a reading preference, the same choice a
+    /// whole browser session shares. The setter pushes it to the engine so live
+    /// and future views both honour it.
+    public var pageZoom: Double = Preferences.loadPageZoom() {
+        didSet {
+            Preferences.save(pageZoom: pageZoom, to: preferenceStore)
+            pushPageZoom()
+        }
+    }
+
+    func pushPageZoom() {
+        engine.setPageZoom(pageZoom)
+    }
+
+    public func zoomIn() { pageZoom = PageZoom.zoomIn(pageZoom) }
+    public func zoomOut() { pageZoom = PageZoom.zoomOut(pageZoom) }
+    public func zoomReset() { pageZoom = PageZoom.defaultFactor }
+
+    /// Opens the Web Inspector on the focused window's active pane. A no-op
+    /// unless developer mode is on (the gate that decides an inspector exists).
+    public func showWebInspector(in window: WindowState) {
+        guard developerMode, let paneID = selectedTab(in: window)?.focusedPaneID else { return }
+        engine.showInspector(for: paneID)
+    }
+
+    /// Presents the DRM Diagnostics panel for the focused window.
+    public func showDRMDiagnostics(in window: WindowState) {
+        window.isDRMDiagnosticsPresented = true
+    }
+
+    /// The DRM / streaming-capability report for the window's active pane
+    /// (non-spec: user-requested). `nil` when the window has no selected tab or
+    /// its pane has no live view.
+    public func mediaDiagnostics(in window: WindowState) async -> MediaDiagnostics? {
+        guard let paneID = selectedTab(in: window)?.focusedPaneID else { return nil }
+        return await engine.mediaDiagnostics(for: paneID)
+    }
+
     /// The URL a `newTab()` with no explicit destination lands on, derived from
     /// `newTabBehavior` and (for the search-engine case) `searchEngine`.
     public var resolvedNewTabURL: URL {
@@ -630,6 +686,10 @@ public final class TabStore {
         // Same for the swipe-to-close flag: the engine starts with the monitor
         // running and must be told if the user turned the feature off.
         self.pushSwipeToCloseEnabled()
+        // Same for developer mode and page zoom: the engine starts with both
+        // off/default and must be told what the user chose.
+        self.pushDeveloperMode()
+        self.pushPageZoom()
     }
 
     // MARK: - Lifecycle
@@ -746,9 +806,11 @@ public final class TabStore {
     ///   selection. False for "Open Link in New Tab", where every browser leaves
     ///   you on the page you were reading — the point of that item is to queue
     ///   something up without losing your place.
-    public func newTab(url: URL? = nil, in window: WindowState, selecting: Bool = true) {
+    
+    @discardableResult
+    public func newTab(url: URL? = nil, in window: WindowState, selecting: Bool = true) -> UUID {
         let target = url ?? resolvedNewTabURL
-        insertTab(panes: [Pane(url: target)], in: window, selecting: selecting)
+        return insertTab(panes: [Pane(url: target)], in: window, selecting: selecting)
     }
 
     /// Opens a tab whose pane carries a *specific* id — the engine's
@@ -756,15 +818,20 @@ public final class TabStore {
     /// the popup's existing web view (keeping its live `window.open()` reference
     /// and `window.close()` semantics) instead of building a fresh one. See
     /// `paneRequestedPopup`.
-    public func newTab(paneID: UUID, url: URL?, in window: WindowState, selecting: Bool = true) {
+    
+    @discardableResult
+    public func newTab(paneID: UUID, url: URL?, in window: WindowState, selecting: Bool = true) -> UUID {
         let target = url ?? resolvedNewTabURL
-        insertTab(panes: [Pane(id: paneID, url: target)], in: window, selecting: selecting)
+        return insertTab(panes: [Pane(id: paneID, url: target)], in: window, selecting: selecting)
     }
 
     /// The shared tail of both `newTab` forms: create an ephemeral single-pane
     /// tab in the window's active Space and make it that window's selection.
-    private func insertTab(panes: [Pane], in window: WindowState, selecting: Bool) {
-        guard let spaceID = activeSpace(in: window)?.id else { return }
+    /// Returns the new tab's id so a caller (like the "opened in new tab" toast)
+    /// can point at the tab it created.
+    
+    private func insertTab(panes: [Pane], in window: WindowState, selecting: Bool) -> UUID {
+        guard let spaceID = activeSpace(in: window)?.id else { return UUID() }
 
         // Order is per-Space, so a new tab in one Space does not push another
         // Space's tabs down the list.
@@ -793,6 +860,7 @@ public final class TabStore {
             extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
         }
         scheduleSave()
+        return tab.id
     }
 
     /// Moves a tab to another Space. The pane's web view is torn down first: it
@@ -1628,10 +1696,17 @@ extension TabStore: WebEngineDelegate {
         // private window that is the private window, so the link stays in the
         // private session — which is what the user asked for by right-clicking
         // there.
-        newTab(
-            url: url,
-            in: paneID.map { window(showingPane: $0) } ?? primaryWindow,
-            selecting: false
+        let targetWindow = paneID.map { window(showingPane: $0) } ?? primaryWindow
+        let tabID = newTab(url: url, in: targetWindow, selecting: false)
+        // A clickable confirmation: tapping it switches to the tab it just opened
+        // (non-spec: user-requested). The toast lives on that window, so the
+        // action captures it to select the new tab there.
+        targetWindow.showToast(
+            "Opened in new tab", icon: "plus.square.on.square",
+            action: { [weak self] in
+                targetWindow.dismissToast()
+                self?.select(tabID, in: targetWindow)
+            }
         )
     }
 

@@ -47,6 +47,27 @@ public final class WebKitEngine: WebEngine {
     /// initial push corrects it to whatever the user chose.
     private var swipeToCloseEnabled = true
 
+    /// Whether developer mode is on (non-spec: user-requested). Drives
+    /// `developerExtrasEnabled` per view — the gate that makes WebKit's
+    /// "Inspect Element" menu and the detached inspector exist at all. Defaults
+    /// off; the store pushes the persisted value on launch.
+    private var developerMode = false
+
+    /// The global full-page zoom factor (non-spec: user-requested), applied to
+    /// every web view via `pageZoom`. Mirrors the persisted preference.
+    private var pageZoomFactor: Double = PageZoom.defaultFactor
+
+    /// The last media-element error the pane's page raised, if any (non-spec:
+    /// user-requested, DRM diagnostics). Fed by `DRMDiagnosticsMonitor`.
+    private var lastMediaError: [UUID: String] = [:]
+    /// Panes whose page has started an EME session — i.e. is actually using DRM.
+    private var emeSessions: Set<UUID> = []
+    /// Cached codec/HDCP support, probed once per engine (device + WebKit build
+    /// + display chain, not per page). `nil` until the first Diagnostics panel
+    /// run; see `mediaDiagnostics`.
+    private var cachedCodecs: [CodecProbe]?
+    private var cachedHDCP: [HDCPProbe]?
+
     // BROWSER_SPEC 6.2 asks for a shared WKProcessPool. Apple deprecated the
     // whole type in macOS 12 — "Creating and using multiple instances of
     // WKProcessPool no longer has any effect" — so process sharing is now
@@ -255,12 +276,22 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
         controller.addUserScript(PasswordFormMonitor.makeUserScript())
         controller.addUserScript(GeolocationBridge.makeUserScript())
+        // The DRM error-capture script is only useful to the Diagnostics panel,
+        // which requires developer mode — so it is only installed (and its
+        // handler registered) when developer mode is on. Skipping it by default
+        // saves a script + handler on every web view for a feature that is off.
+        if developerMode {
+            controller.addUserScript(DRMDiagnosticsMonitor.makeUserScript())
+        }
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
             controller.add(coordinator, name: NotificationBridge.showMessageName)
             controller.add(coordinator, name: ScreenShareMonitor.messageName)
             controller.add(coordinator, name: PasswordFormMonitor.messageName)
+            if developerMode {
+                controller.add(coordinator, name: DRMDiagnosticsMonitor.messageName)
+            }
             // requestPermission() needs the native decision back, so it is a
             // with-reply handler installed in the page world. The coordinator
             // conforms to both handler protocols, so the cast selects the
@@ -295,6 +326,14 @@ public final class WebKitEngine: WebEngine {
         webView.allowsBackForwardNavigationGestures = true
         webView.configuration.preferences.setValue(true, forKey: "fullScreenEnabled")
         webView.allowsMagnification = true
+        // Developer mode: `developerExtrasEnabled` is a private KVC key (no
+        // typed accessor), the same pattern as `managedMediaSourceEnabled`
+        // below. When off, WebKit ships no "Inspect Element" menu and the
+        // inspector cannot open — the release-build gate.
+        webView.configuration.preferences.setValue(developerMode, forKey: "developerExtrasEnabled")
+        // Full-page zoom, applied at creation so a fresh view never needs a
+        // retroactive push.
+        webView.pageZoom = pageZoomFactor
         webView.navigationDelegate = coordinator
         webView.uiDelegate = coordinator
 
@@ -415,6 +454,184 @@ public final class WebKitEngine: WebEngine {
             backSwipe.start()
         } else {
             backSwipe.stop()
+        }
+    }
+
+    /// Turns developer mode on or off (non-spec: user-requested). Flipping it
+    /// retroactively re-stamps every live view; views built later inherit it in
+    /// `configure`. Note WebKit reads the flag when a view's inspector surface
+    /// is created, so a just-flipped live view may need a reload to show the
+    /// context-menu item — which is why the setting is usually set before
+    /// browsing, not mid-session.
+    public func setDeveloperMode(_ enabled: Bool) {
+        developerMode = enabled
+        for live in pool.liveViews {
+            live.webView.configuration.preferences.setValue(
+                enabled, forKey: "developerExtrasEnabled"
+            )
+        }
+    }
+
+    /// Sets the global full-page zoom factor (non-spec: user-requested). Clamped
+    /// onto the ladder and applied to views built afterwards (in `configure`) and
+    /// to any already live.
+    public func setPageZoom(_ factor: Double) {
+        pageZoomFactor = PageZoom.clamped(factor)
+        for live in pool.liveViews {
+            live.webView.pageZoom = pageZoomFactor
+        }
+    }
+
+    /// Opens the Web Inspector for a pane's live view (non-spec: user-requested).
+    ///
+    /// `developerExtrasEnabled` is what makes the inspector *exist*, but there is
+    /// no public API to open it programmatically — the context menu's "Inspect
+    /// Element" is WebKit's only wired-up entry point. So the programmatic
+    /// Cmd+Opt+I path reaches the inspector through the private `_inspector`
+    /// object (KVC, no typed accessor) and calls its `show`. Private API, the
+    /// accepted cost for a hobby browser; the inspector itself is still a
+    /// detached `NSWindow` as in every WKWebView app. A no-op unless developer
+    /// mode is on and the pane has a live view.
+    public func showInspector(for paneID: UUID) {
+        guard developerMode, let webView = pool.view(for: paneID)?.webView else { return }
+        guard let inspector = webView.value(forKey: "_inspector") as? NSObject else { return }
+        inspector.perform(NSSelectorFromString("show"))
+    }
+
+    /// Records the pane's last media-element error, reported by the page's
+    /// `DRMDiagnosticsMonitor` script.
+    func setMediaError(_ text: String, for paneID: UUID) {
+        lastMediaError[paneID] = text
+    }
+
+    /// Records that the pane's page started an EME session (i.e. uses DRM).
+    func setEMEStarted(for paneID: UUID) {
+        emeSessions.insert(paneID)
+    }
+
+    /// Runs the DRM / streaming-capability probes (non-spec: user-requested)
+    /// against a pane's live view, and reports the errors that page has raised.
+    /// Returns `nil` when the pane has no live view — nothing to probe.
+    ///
+    /// Codec and HDCP support are a property of the WebKit build + the host's
+    /// hardware + the display chain, not of the page — so they are probed once
+    /// and cached, and every panel open or tab switch after the first is a pure
+    /// in-memory read. Only the per-pane error fields are read live.
+    public func mediaDiagnostics(for paneID: UUID) async -> MediaDiagnostics? {
+        guard let webView = pool.view(for: paneID)?.webView else { return nil }
+
+        if cachedCodecs == nil {
+            cachedCodecs = await probeAllCodecs(in: webView)
+        }
+        if cachedHDCP == nil {
+            cachedHDCP = await probeAllHDCP(in: webView)
+        }
+
+        return MediaDiagnostics(
+            codecs: cachedCodecs ?? [],
+            hdcp: cachedHDCP ?? [],
+            lastMediaError: lastMediaError[paneID],
+            hasEMESession: emeSessions.contains(paneID)
+        )
+    }
+
+    /// Probes every codec in the catalog. `@MainActor` (like the caller) so the
+    /// cache is written back safely.
+    private func probeAllCodecs(in webView: WKWebView) async -> [CodecProbe] {
+        var codecs: [CodecProbe] = []
+        codecs.reserveCapacity(CodecCatalog.probes.count)
+        for probe in CodecCatalog.probes {
+            let (supported, powerEfficient, smooth) = await probeCodec(type: probe.mimeType, in: webView)
+            codecs.append(
+                CodecProbe(
+                    label: probe.label, mimeType: probe.mimeType,
+                    isSupported: supported, isPowerEfficient: powerEfficient, isSmooth: smooth
+                )
+            )
+        }
+        return codecs
+    }
+
+    private func probeAllHDCP(in webView: WKWebView) async -> [HDCPProbe] {
+        var hdcp: [HDCPProbe] = []
+        hdcp.reserveCapacity(CodecCatalog.hdcpLevels.count)
+        for level in CodecCatalog.hdcpLevels {
+            hdcp.append(HDCPProbe(level: level, available: await probeHDCP(level: level, in: webView)))
+        }
+        return hdcp
+    }
+
+    /// One codec probe. Two checks, because they answer different questions and
+    /// streaming sites care about the second. `MediaSource.isTypeSupported` is
+    /// "can decode at all" (software or hardware). `mediaCapabilities` reports
+    /// `powerEfficient` — "decodes in hardware" — which is what YouTube gates
+    /// AV1 on. A throw (page gone mid-probe) reads as all-false, the honest
+    /// default. Audio and video profiles probe differently (`decodingInfo` wants
+    /// an `audio` vs `video` field), so the profile's own container picks.
+    private func probeCodec(type: String, in webView: WKWebView) async -> (Bool, Bool, Bool) {
+        let isAudio = type.hasPrefix("audio/")
+        let configuration = isAudio
+            ? "{ contentType: type, channels: 2, samplerate: 48000, bitrate: 640000 }"
+            : "{ contentType: type, width: 3840, height: 2160, bitrate: 15000000, framerate: 60 }"
+        let field = isAudio ? "audio" : "video"
+        do {
+            let value = try await webView.callAsyncJavaScript(
+                """
+                const supported = !!(window.MediaSource && MediaSource.isTypeSupported(type));
+                let powerEfficient = false, smooth = false;
+                if (navigator.mediaCapabilities) {
+                    const cfg = { type: "media-source", \(field): \(configuration) };
+                    const info = await navigator.mediaCapabilities.decodingInfo(cfg);
+                    powerEfficient = !!info.powerEfficient;
+                    smooth = !!info.smooth;
+                }
+                return { supported, powerEfficient, smooth };
+                """,
+                arguments: ["type": type],
+                contentWorld: .defaultClient
+            )
+            let dict = value as? [String: Any]
+            return (
+                (dict?["supported"] as? Bool) ?? false,
+                (dict?["powerEfficient"] as? Bool) ?? false,
+                (dict?["smooth"] as? Bool) ?? false
+            )
+        } catch {
+            Log.engine.debug("codec probe failed: \(error.localizedDescription)")
+            return (false, false, false)
+        }
+    }
+
+    /// One HDCP display-chain probe. `decodingInfo` with an `hdcp` requirement
+    /// answers "can this display chain hand out a key at this HDCP level". A
+    /// missing high level — no hardware path, or a dock/adapter that caps the
+    /// chain — is exactly how DRM providers silently drop to 720p.
+    private func probeHDCP(level: String, in webView: WKWebView) async -> Bool {
+        let type = CodecCatalog.probes[0].mimeType  // the HEVC 4K HDR profile
+        do {
+            let value = try await webView.callAsyncJavaScript(
+                """
+                let available = false;
+                if (navigator.mediaCapabilities) {
+                    try {
+                        const info = await navigator.mediaCapabilities.decodingInfo({
+                            type: "media-source",
+                            video: { contentType: type, width: 3840, height: 2160,
+                                     bitrate: 15000000, framerate: 60 },
+                            hdcp: "hdcp-" + level
+                        });
+                        available = !!info.supported;
+                    } catch (e) { available = false; }
+                }
+                return available;
+                """,
+                arguments: ["type": type, "level": level],
+                contentWorld: .defaultClient
+            )
+            return (value as? Bool) ?? false
+        } catch {
+            Log.engine.debug("hdcp probe failed: \(error.localizedDescription)")
+            return false
         }
     }
 
@@ -878,6 +1095,8 @@ public final class WebKitEngine: WebEngine {
         lastKnownURL.removeValue(forKey: paneID)
         contextLinkURL.removeValue(forKey: paneID)
         mutedPanes.remove(paneID)
+        lastMediaError.removeValue(forKey: paneID)
+        emeSessions.remove(paneID)
         cancelSleepTimerWorkItem(paneID)
         sleepTimers.removeValue(forKey: paneID)
     }
@@ -896,60 +1115,6 @@ public final class WebKitEngine: WebEngine {
     /// Count of `forget` calls, reset nowhere — monotone, so a delta across two
     /// overlay samples is "panes forgotten in between".
     private var forgottenPaneCount = 0
-    #endif
-
-    #if DEBUG
-    public func codecSupport(for paneID: UUID) async -> [CodecProbe]? {
-        guard let webView = pool.view(for: paneID)?.webView else { return nil }
-
-        var results: [CodecProbe] = []
-        results.reserveCapacity(CodecCatalog.probes.count)
-        for probe in CodecCatalog.probes {
-            // Two checks, because they answer different questions and streaming
-            // sites care about the second. `MediaSource.isTypeSupported` is
-            // "can decode at all" (software or hardware). `mediaCapabilities`
-            // additionally reports `powerEfficient` — "decodes in hardware" —
-            // which is what YouTube gates AV1 on. A throw (page gone mid-probe)
-            // reads as all-false, the honest default. The 2160p60 profile mirrors
-            // what a 4K request would ask for, so `powerEfficient` reflects the
-            // real hardware path, not a trivially-cheap tiny clip.
-            let (supported, powerEfficient, smooth): (Bool, Bool, Bool)
-            do {
-                let value = try await webView.callAsyncJavaScript(
-                    """
-                    const supported = !!(window.MediaSource && MediaSource.isTypeSupported(type));
-                    let powerEfficient = false, smooth = false;
-                    if (navigator.mediaCapabilities) {
-                        const info = await navigator.mediaCapabilities.decodingInfo({
-                            type: "media-source",
-                            video: { contentType: type, width: 3840, height: 2160,
-                                     bitrate: 15000000, framerate: 60 }
-                        });
-                        powerEfficient = !!info.powerEfficient;
-                        smooth = !!info.smooth;
-                    }
-                    return { supported, powerEfficient, smooth };
-                    """,
-                    arguments: ["type": probe.mimeType],
-                    contentWorld: .defaultClient
-                )
-                let dict = value as? [String: Any]
-                supported = (dict?["supported"] as? Bool) ?? false
-                powerEfficient = (dict?["powerEfficient"] as? Bool) ?? false
-                smooth = (dict?["smooth"] as? Bool) ?? false
-            } catch {
-                Log.engine.debug("codec probe failed: \(error.localizedDescription)")
-                (supported, powerEfficient, smooth) = (false, false, false)
-            }
-            results.append(
-                CodecProbe(
-                    label: probe.label, mimeType: probe.mimeType,
-                    isSupported: supported, isPowerEfficient: powerEfficient, isSmooth: smooth
-                )
-            )
-        }
-        return results
-    }
     #endif
 
     // MARK: - Coordinator callbacks

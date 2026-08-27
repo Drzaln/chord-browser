@@ -278,5 +278,25 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
   page (`WebEngine.focus` → `makeFirstResponder`), so spacebar works on the
   switched-to page. Session state in `WindowState`, docs in CHECKPOINT
   2026-08-23.
+- ~~Closing a tab returns to the previously active tab~~ **Done 2026-08-26 (1.6.0)** —
+  `WindowState.selectionHistory` recency stack; close returns to most recent
+  other tab visible in the Space and not on screen in another window.
+- ~~Developer mode / Web Inspector~~ **Done 2026-08-27 (1.7.0)** — global
+  `developerMode` toggle (Settings → General + Develop menu, off by default even
+  in release). Engine sets `developerExtrasEnabled` (private KVC key) per view;
+  **Show Web Inspector** Cmd+Opt+I opens the detached inspector via the private
+  `_inspector` KVC object; WebKit's "Inspect Element" context menu appears once
+  the flag is set.
+- ~~Page zoom~~ **Done 2026-08-27 (1.7.0)** — View menu Cmd+=/Cmd+-/Cmd+0 via
+  `WKWebView.pageZoom`, global + persisted, `PageZoom` ladder in `ChordCore`.
+- ~~DRM Diagnostics panel~~ **Done 2026-08-27 (1.7.0)** — Develop → DRM
+  Diagnostics (Cmd+Opt+D). Netflix profile matrix + HDCP display-chain probe +
+  live media/EME errors (`DRMDiagnosticsMonitor` user script, installed only in
+  developer mode). Codec/HDCP results are device/build-fixed, probed once and
+  cached.
+- ~~Action toasts~~ **Done 2026-08-27 (1.7.0)** — top-right confirmation banner
+  (`WindowState.showToast(_:icon:action:)`), same `.ultraThinMaterial` + Space
+  tint as the window border with luminance-adaptive icon/text; optional click
+  action (e.g. "Opened in new tab" → selects the tab; `newTab` returns its id).
 - Full Instruments GUI trace (SwiftUI body counts, Energy Log)
 - Sidebar scroll fps measurement

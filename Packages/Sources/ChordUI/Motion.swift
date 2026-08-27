@@ -14,6 +14,9 @@ public enum Motion {
     /// rail leaving and the overlay arriving read as the same movement.
     public static let sidebarCollapse = Animation.spring(response: 0.30, dampingFraction: 0.86)
 
+    /// The top-right action-confirmation toast (non-spec: user-requested).
+    public static let toast = Animation.spring(response: 0.25, dampingFraction: 0.9)
+
     /// How long the pointer must be off the expanded overlay before it
     /// re-collapses. Zero makes the sidebar flicker shut while you travel from
     /// a row to the page; too long and it feels stuck open.

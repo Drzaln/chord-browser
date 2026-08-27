@@ -98,6 +98,15 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   (Google, DuckDuckGo, Bing, Brave, or a custom `%s` template), what a new tab
   opens to (blank, the search engine's home, or a specific page), and how long
   before idle tabs are archived — all from **Settings → General**.
+- **Full-page zoom** — `Cmd+=` / `Cmd+-` / `Cmd+0` from the **View** menu, applied
+  at the layout/viewport level via `WKWebView.pageZoom` and persisted globally.
+- **Developer mode** — a toggle in **Settings → General** (and the **Develop**
+  menu, off by default even in release) that enables WebKit's **Web Inspector**
+  (right-click "Inspect Element", and **Show Web Inspector** via `Cmd+Opt+I`) and
+  the **DRM Diagnostics** panel (`Cmd+Opt+D`), which reports the codecs and HDCP
+  chain behind streaming quality.
+- **Action toasts** — a confirmation appears top-right for actions like zoom,
+  copy URL, and "open link in new tab" (tapping the latter jumps to the new tab).
 - **Password vault** — saves logins, offers them back, and fills on a click.
   Metadata lives in SQLite; the password itself lives in the **macOS Keychain**,
   never in the database. Filling requires an exact origin match and a deliberate

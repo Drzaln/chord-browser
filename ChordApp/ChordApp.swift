@@ -178,6 +178,41 @@ struct ChordCommands: Commands {
     /// `AppEnvironment` — Store must not depend on UI.
     let commandBar: CommandBarController?
 
+    /// Two-way binding for the Developer Mode toggle in the Develop menu. The
+    /// store is the source of truth; the menu is a convenience that writes
+    /// through to it (and thus to the engine) immediately.
+    private var developerModeBinding: Binding<Bool> {
+        Binding(
+            get: { store?.developerMode ?? false },
+            set: { store?.developerMode = $0 }
+        )
+    }
+
+    /// Shows a confirmation toast in the focused window's top right (non-spec:
+    /// user-requested). A no-op when no browser window is focused.
+    private func toast(_ message: String, icon: String = "checkmark.circle.fill") {
+        windowState?.showToast(message, icon: icon)
+    }
+
+    /// The focused window's current page URL, already computed for Cmd+L; used
+    /// by the "Copy URL" command.
+    private func copyCurrentURL() {
+        let url = currentURLString
+        guard !url.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url, forType: .string)
+        toast("Copied URL", icon: "link")
+    }
+
+    /// Zoom plus a percentage toast, so a menu action that has no other visible
+    /// feedback still says what it did.
+    private func zoom(_ message: String, icon: String, _ mutate: (TabStore) -> Void) {
+        guard let store else { return }
+        mutate(store)
+        let percent = Int((store.pageZoom * 100).rounded())
+        toast("\(message) \(percent)%", icon: icon)
+    }
+
     var body: some Commands {
         // The standard app "Settings…" item — Cmd+, — opens the settings sheet
         // (clear browsing data + extensions) rather than a separate window, so
@@ -211,7 +246,10 @@ struct ChordCommands: Commands {
             // Cmd+N is New Window — Arc's binding, and the platform's. It was
             // bound to a blank tab only because there was no second window to
             // open; `newWindow` is SwiftUI's action for a `WindowGroup`.
-            Button("New Window") { openWindow(id: "main") }
+            Button("New Window") {
+                openWindow(id: "main")
+                toast("New window opened", icon: "macwindow")
+            }
                 .keyboardShortcut("n", modifiers: .command)
 
             // Cmd+Shift+N is the private-window binding everywhere else, so it
@@ -222,24 +260,42 @@ struct ChordCommands: Commands {
             Button("New Private Window") {
                 store?.markNextWindowPrivate()
                 openWindow(id: "main")
+                toast("New private window opened", icon: "hand.raised")
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
 
-            Button("New Blank Tab") { withFocusedWindow { $0.newTab(in: $1) } }
-                .keyboardShortcut("n", modifiers: [.command, .option])
+            Button("New Blank Tab") {
+                withFocusedWindow { store, window in
+                    store.newTab(in: window)
+                    toast("New tab opened", icon: "plus.square.on.square")
+                }
+            }
+            .keyboardShortcut("n", modifiers: [.command, .option])
+
+            Divider()
+
+            Button("Copy URL") { copyCurrentURL() }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+                .disabled(currentURLString.isEmpty)
         }
         CommandGroup(after: .newItem) {
             Button("Close Tab") {
                 withFocusedWindow { store, window in
                     guard let id = window.selectedTabID else { return }
                     store.closeTab(id, in: window)
+                    toast("Tab closed", icon: "xmark.square")
                 }
             }
             .keyboardShortcut("w", modifiers: .command)
 
             // Cmd+Shift+T — the platform-wide "reopen the tab I just closed".
-            Button("Reopen Closed Tab") { withFocusedWindow { $0.reopenLastClosedTab(in: $1) } }
-                .keyboardShortcut("t", modifiers: [.command, .shift])
+            Button("Reopen Closed Tab") {
+                withFocusedWindow { store, window in
+                    store.reopenLastClosedTab(in: window)
+                    toast("Reopened tab", icon: "arrow.uturn.backward")
+                }
+            }
+            .keyboardShortcut("t", modifiers: [.command, .shift])
 
             Divider()
 
@@ -288,8 +344,13 @@ struct ChordCommands: Commands {
 
             Divider()
 
-            Button("Reload") { withFocusedWindow { $0.reload(in: $1) } }
-                .keyboardShortcut("r", modifiers: .command)
+            Button("Reload") {
+                withFocusedWindow { store, window in
+                    store.reload(in: window)
+                    toast("Reloaded", icon: "arrow.clockwise")
+                }
+            }
+            .keyboardShortcut("r", modifiers: .command)
 
             // Cmd+. — the platform's "stop". The reload button also becomes a
             // stop button while a page loads; this is the keyboard equivalent.
@@ -339,6 +400,41 @@ struct ChordCommands: Commands {
             }
             .keyboardShortcut("s", modifiers: [.command, .control])
             .disabled(windowState == nil)
+        }
+
+        // Full-page zoom (non-spec: user-requested). Cmd+= / Cmd+- / Cmd+0, the
+        // same bindings as every browser. Applied via WKWebView.pageZoom (the
+        // layout/viewport level, not text size) and persisted globally.
+        CommandMenu("View") {
+            Button("Zoom In") { zoom("Zoom", icon: "plus.magnifyingglass", { $0.zoomIn() }) }
+                .keyboardShortcut("=", modifiers: .command)
+            Button("Zoom Out") { zoom("Zoom", icon: "minus.magnifyingglass", { $0.zoomOut() }) }
+                .keyboardShortcut("-", modifiers: .command)
+            Button("Actual Size") { zoom("Zoom", icon: "1.magnifyingglass", { $0.zoomReset() }) }
+                .keyboardShortcut("0", modifiers: .command)
+        }
+
+        // Developer features (non-spec: user-requested). The Web Inspector and
+        // the DRM Diagnostics panel both only exist when Developer Mode is on —
+        // that is the release-build gate. When it is off the items are disabled,
+        // and the store no-ops anyway.
+        CommandMenu("Develop") {
+            Toggle("Developer Mode", isOn: developerModeBinding)
+            Divider()
+            Button("Show Web Inspector") {
+                withFocusedWindow { store, window in
+                    store.showWebInspector(in: window)
+                }
+            }
+            .keyboardShortcut("i", modifiers: [.command, .option])
+            .disabled(store?.developerMode != true || windowState == nil)
+            Button("DRM Diagnostics…") {
+                withFocusedWindow { store, window in
+                    store.showDRMDiagnostics(in: window)
+                }
+            }
+            .keyboardShortcut("d", modifiers: [.command, .option])
+            .disabled(store?.developerMode != true || windowState == nil)
         }
 
         // Cmd+Y — the platform's "Show All History" (Safari/Chrome both use it),

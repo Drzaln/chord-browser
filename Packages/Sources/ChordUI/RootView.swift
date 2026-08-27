@@ -97,6 +97,25 @@ public struct RootView: View {
         isHidden && !isFullscreen && !windowState.isPresentationMode
     }
 
+    /// The toast capsule's tint: the active Space's accent, so the notification
+    /// matches the browser's border tint. `nil` (no Space) leaves a plain
+    /// material.
+    private var toastTint: Color? {
+        store.activeSpace(in: windowState).map(SpaceTheme.accent(for:))
+    }
+
+    /// The toast's icon/text colour, adapted to the tint so it stays readable.
+    /// Relative-luminance pick: dark text on a light Space, white on a dark one.
+    /// Falls back to the platform-primary (material-adaptive) colour with no
+    /// Space to key off.
+    private var toastForeground: Color {
+        guard let space = store.activeSpace(in: windowState),
+            let components = space.gradient.first?.components
+        else { return .primary }
+        let luminance = 0.2126 * components.red + 0.7152 * components.green + 0.0722 * components.blue
+        return luminance > 0.5 ? Color.black.opacity(0.75) : Color.white
+    }
+
     /// What the sidebar reserves in the layout, which is not what it draws.
     /// A revealed sidebar overhangs the page rather than pushing it — 4.1 is
     /// explicit that revealing must not shift web content, and shifting it
@@ -149,6 +168,17 @@ public struct RootView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(3)
                 .id(sharingPaneID)
+            }
+
+            // Transient action feedback (zoom, copy URL, …) — top right, above
+            // the page and any centred banner, but below the MRU switcher.
+            if let toast = windowState.toast {
+                ToastBanner(
+                    toast: toast, tint: toastTint, foreground: toastForeground
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .zIndex(6)
+                .id(toast.id)
             }
 
             // Arc's Ctrl+Tab switcher, centred over the content while Ctrl is
@@ -218,6 +248,10 @@ public struct RootView: View {
         .animation(
             Motion.respectingReduceMotion(Motion.sidebarCollapse, reduceMotion: reduceMotion),
             value: isHidden
+        )
+        .animation(
+            Motion.respectingReduceMotion(Motion.toast, reduceMotion: reduceMotion),
+            value: windowState.toast
         )
         // The traffic lights sit at a fixed offset from the window's top-left
         // whatever is under them, so with no sidebar there they land on the
