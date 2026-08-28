@@ -216,13 +216,61 @@ struct CommandBarRankingTests {
         #expect(url.absoluteString == "https://example.com")
     }
 
-    @Test("An empty query does not dump history into the bar")
+    @Test("An empty query with no history stays quiet")
     func emptyQueryIsQuiet() {
+        let results = CommandBarRanking.suggestions(for: input(query: "", history: []))
+        #expect(results.isEmpty)
+    }
+
+    @Test("An empty query shows top sites below open tabs, bounded at 6")
+    func emptyQueryShowsTopSites() throws {
+        let history = [
+            HistoryEntry(
+                url: URL(string: "https://one.example")!, title: "One",
+                lastVisitedAt: now, visitCount: 5
+            ),
+            HistoryEntry(
+                url: URL(string: "https://two.example")!, title: "Two",
+                lastVisitedAt: now, visitCount: 4
+            ),
+            HistoryEntry(
+                url: URL(string: "https://three.example")!, title: "Three",
+                lastVisitedAt: now, visitCount: 2
+            ),
+        ]
+
+        let results = CommandBarRanking.suggestions(for: input(query: "", history: history))
+        let topSites = results.filter { if case .history = $0.kind { true } else { false } }
+        #expect(topSites.count == 3)
+        #expect(topSites.map(\.title) == ["One", "Two", "Three"], "ordered by visit count")
+        #expect(topSites.allSatisfy { if case .history = $0.kind { true } else { false } })
+    }
+
+    @Test("An empty query caps top sites at 6")
+    func emptyQueryCapsTopSites() {
+        let history = (0..<12).map {
+            HistoryEntry(
+                url: URL(string: "https://example.com/\($0)")!,
+                title: "Site \($0)", lastVisitedAt: now, visitCount: 100 - $0
+            )
+        }
+        let results = CommandBarRanking.suggestions(for: input(query: "", history: history))
+        let topSites = results.filter { if case .history = $0.kind { true } else { false } }
+        #expect(topSites.count <= 6)
+    }
+
+    @Test("Typing hides top sites")
+    func typingHidesTopSites() {
         let entry = HistoryEntry(
             url: URL(string: "https://example.com")!, title: "Example", lastVisitedAt: now
         )
-        let results = CommandBarRanking.suggestions(for: input(query: "", history: [entry]))
-        #expect(results.isEmpty)
+        // A query that matches no history row: any .history row present now
+        // would have to come from the empty-query-only topSites source.
+        let results = CommandBarRanking.suggestions(
+            for: input(query: "zzz", history: [entry])
+        )
+        let topSites = results.filter { if case .history = $0.kind { true } else { false } }
+        #expect(topSites.isEmpty)
     }
 
     @Test("Results are capped so the panel cannot grow without bound")

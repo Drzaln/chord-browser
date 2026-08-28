@@ -118,6 +118,7 @@ public enum CommandBarRanking {
 
         var results: [Suggestion] = []
         results += openTabs(query: query, input: input)
+        results += topSites(input: input)
         results += history(query: query, input: input)
         results += archived(query: query, input: input)
         results += commands(query: query)
@@ -171,16 +172,40 @@ public enum CommandBarRanking {
                 query: query, candidates: [entry.displayTitle, entry.url.absoluteString]
             ) else { return nil }
 
-            let frequency = min(entry.visitCount * 3, Weight.visitCountMax)
-            return Suggestion(
-                id: "history-\(entry.id.uuidString)",
-                kind: .history(url: entry.url),
-                title: entry.displayTitle,
-                subtitle: entry.url.absoluteString,
-                score: base + Weight.historyBias + frequency
-                    + recencyBonus(from: entry.lastVisitedAt, now: input.now)
-            )
+            return historySuggestion(for: entry, base: base, input: input)
         }
+    }
+
+    /// Most-visited history, shown only when nothing is typed (QoL #2). The
+    /// store already cached the active Space's history, so this is pure ranking.
+    private static func topSites(input: CommandBarInput, limit: Int = 6) -> [Suggestion] {
+        guard input.query.isEmpty else { return [] }
+        return input.history
+            .sorted { lhs, rhs in
+                // Exact same comparison the sort in `suggestions` would do, so a
+                // full sort here + prefix is equivalent to ranking all rows.
+                let l = historySuggestion(for: lhs, base: 0, input: input)
+                let r = historySuggestion(for: rhs, base: 0, input: input)
+                return l.score == r.score ? l.title < r.title : l.score > r.score
+            }
+            .prefix(limit)
+            .map { historySuggestion(for: $0, base: 0, input: input) }
+    }
+
+    /// One history row. Shared by the fuzzy `history` source and `topSites` so
+    /// the two cannot drift in how a visit is scored.
+    private static func historySuggestion(
+        for entry: HistoryEntry, base: Int, input: CommandBarInput
+    ) -> Suggestion {
+        let frequency = min(entry.visitCount * 3, Weight.visitCountMax)
+        return Suggestion(
+            id: "history-\(entry.id.uuidString)",
+            kind: .history(url: entry.url),
+            title: entry.displayTitle,
+            subtitle: entry.url.absoluteString,
+            score: base + Weight.historyBias + frequency
+                + recencyBonus(from: entry.lastVisitedAt, now: input.now)
+        )
     }
 
     private static func archived(query: String, input: CommandBarInput) -> [Suggestion] {
