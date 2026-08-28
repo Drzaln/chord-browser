@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A10007010000000000000001"
+               BlueprintIdentifier = "A1000701000000000000001"
                BuildableName = "Chord.app"
                BlueprintName = "Chord"
                ReferencedContainer = "container:Chord.xcodeproj">
@@ -43,7 +43,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A10007010000000000000001"
+            BlueprintIdentifier = "A1000701000000000000001"
             BuildableName = "Chord.app"
             BlueprintName = "Chord"
             ReferencedContainer = "container:Chord.xcodeproj">
@@ -60,7 +60,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A10007010000000000000001"
+            BlueprintIdentifier = "A1000701000000000000001"
             BuildableName = "Chord.app"
             BlueprintName = "Chord"
             ReferencedContainer = "container:Chord.xcodeproj">
