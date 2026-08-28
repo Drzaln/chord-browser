@@ -346,6 +346,73 @@ struct CommandBarRankingTests {
         }
     }
 
+    @Test("A typed domain prefix completes from history with the suffix highlighted")
+    func domainPrefixCompletesFromHistory() throws {
+        let entry = HistoryEntry(
+            url: URL(string: "https://youtube.com")!, title: "YouTube", lastVisitedAt: now
+        )
+
+        let results = CommandBarRanking.suggestions(for: input(query: "you", history: [entry]))
+        let autocomplete = try #require(
+            results.first { $0.completion != nil }
+        )
+        #expect(autocomplete.title == "youtube.com")
+        #expect(autocomplete.completion == "tube.com")
+        guard case .navigate(let url) = autocomplete.kind else {
+            Issue.record("expected the completion to navigate, got \(autocomplete.kind)")
+            return
+        }
+        #expect(url.absoluteString == "https://youtube.com")
+    }
+
+    @Test("A typed domain prefix completes from open-tab domains")
+    func domainPrefixCompletesFromOpenTabs() throws {
+        let tab = TabBuilder().url("https://stackoverflow.com").title("SO").build()
+
+        let results = CommandBarRanking.suggestions(for: input(query: "stack", tabs: [tab]))
+        let autocomplete = try #require(results.first { $0.completion != nil })
+        #expect(autocomplete.title == "stackoverflow.com")
+        #expect(autocomplete.completion == "overflow.com")
+    }
+
+    @Test("A fully-typed domain does not autocomplete (navigate owns it)")
+    func fullyTypedDomainDoesNotComplete() {
+        let entry = HistoryEntry(
+            url: URL(string: "https://youtube.com")!, title: "YouTube", lastVisitedAt: now
+        )
+        let results = CommandBarRanking.suggestions(
+            for: input(query: "youtube.com", history: [entry])
+        )
+        #expect(results.allSatisfy { $0.completion == nil })
+        #expect(results.contains { if case .navigate = $0.kind { true } else { false } })
+    }
+
+    @Test("Typing diverges from the suggestion clears it")
+    func divergenceClearsCompletion() {
+        let entry = HistoryEntry(
+            url: URL(string: "https://youtube.com")!, title: "YouTube", lastVisitedAt: now
+        )
+        let results = CommandBarRanking.suggestions(
+            for: input(query: "youx", history: [entry])
+        )
+        #expect(results.allSatisfy { $0.completion == nil })
+    }
+
+    @Test("A query with a space or slash never completes")
+    func spaceOrSlashNeverCompletes() {
+        let entry = HistoryEntry(
+            url: URL(string: "https://youtube.com")!, title: "YouTube", lastVisitedAt: now
+        )
+        #expect(
+            CommandBarRanking.suggestions(for: input(query: "you tube", history: [entry]))
+                .allSatisfy { $0.completion == nil }
+        )
+        #expect(
+            CommandBarRanking.suggestions(for: input(query: "you/", history: [entry]))
+                .allSatisfy { $0.completion == nil }
+        )
+    }
+
     @Test("A search query keeps the top slot")
     func searchQueryKeepsTopSlot() throws {
         // Like a typed address, the search fallback jumps the queue so Return

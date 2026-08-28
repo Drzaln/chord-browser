@@ -17,6 +17,10 @@ public struct Suggestion: Identifiable, Hashable, Sendable {
     public var title: String
     public var subtitle: String
     public var score: Int
+    /// The untyped suffix of an inline domain completion (QoL #1). Non-nil only
+    /// for the autocomplete row: the bar renders `title` with this trailing
+    /// fragment highlighted, and Enter confirms the completed URL.
+    public var completion: String?
 
     /// What Return will actually do to this row, shown on the row itself.
     ///
@@ -37,12 +41,16 @@ public struct Suggestion: Identifiable, Hashable, Sendable {
         }
     }
 
-    public init(id: String, kind: Kind, title: String, subtitle: String, score: Int) {
+    public init(
+        id: String, kind: Kind, title: String, subtitle: String, score: Int,
+        completion: String? = nil
+    ) {
         self.id = id
         self.kind = kind
         self.title = title
         self.subtitle = subtitle
         self.score = score
+        self.completion = completion
     }
 }
 
@@ -109,6 +117,9 @@ public enum CommandBarRanking {
         static let recencyHalfLife: TimeInterval = 3 * 24 * 60 * 60
         /// Frequently visited pages edge ahead, but cannot swamp a better match.
         static let visitCountMax = 15
+        /// An inline domain completion outranks every ranked row so it lands
+        /// right below the fallback, one arrow away from Return.
+        static let completionBias = 500
     }
 
     public static let resultLimit = 12
@@ -122,6 +133,7 @@ public enum CommandBarRanking {
         results += history(query: query, input: input)
         results += archived(query: query, input: input)
         results += commands(query: query)
+        results += autocomplete(query: query, input: input)
 
         results.sort { lhs, rhs in
             lhs.score == rhs.score ? lhs.title < rhs.title : lhs.score > rhs.score
@@ -241,6 +253,50 @@ public enum CommandBarRanking {
                 score: base + Weight.commandBias
             )
         }
+    }
+
+    /// Chrome-omnibox-style inline domain completion (QoL #1): typing a prefix
+    /// of a known domain (from history or open tabs — no network) produces a
+    /// `.navigate` row whose `completion` is the untyped suffix. It ranks just
+    /// below the fallback, so it is one arrow away from Return. Fully-typed
+    /// domains (`suffix.isEmpty`) never match, so the navigate fallback — not
+    /// this source — owns navigation.
+    private static func autocomplete(query: String, input: CommandBarInput) -> [Suggestion] {
+        guard !query.isEmpty else { return [] }
+        let q = query.lowercased()
+        // A host has neither a space nor a slash, so neither can be a prefix of
+        // one; guard cheaply to avoid scanning history for nothing.
+        guard !q.contains(" ") && !q.contains("/") else { return [] }
+
+        var domains = Set<String>()
+        for entry in input.history {
+            if let host = entry.url.host()?.lowercased(), host.contains(".") {
+                domains.insert(host)
+            }
+        }
+        for tab in input.tabs {
+            if let host = tab.focusedPane.url.host()?.lowercased(), host.contains(".") {
+                domains.insert(host)
+            }
+        }
+
+        guard let domain = domains
+            .filter({ $0.hasPrefix(q) && $0 != q })
+            .sorted()
+            .first
+        else { return [] }
+
+        let suffix = String(domain.dropFirst(q.count))
+        guard !suffix.isEmpty, let url = URL(string: "https://\(domain)") else { return [] }
+
+        return [Suggestion(
+            id: "autocomplete-\(domain)",
+            kind: .navigate(url: url),
+            title: domain,
+            subtitle: "Press Return to go",
+            score: Weight.completionBias,
+            completion: suffix
+        )]
     }
 
     private static func fallback(query: String, input: CommandBarInput) -> Suggestion? {

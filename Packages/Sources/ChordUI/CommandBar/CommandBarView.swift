@@ -190,7 +190,7 @@ struct CommandBarRow: View {
                 .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(suggestion.title)
+                titleText
                     .font(.system(size: 13))
                     .lineLimit(1)
                 Text(suggestion.subtitle)
@@ -216,6 +216,24 @@ struct CommandBarRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 7)
         .background(isHighlighted ? AnyShapeStyle(.selection) : AnyShapeStyle(.clear))
+    }
+
+    /// The row's title, with an inline completion suffix rendered dimmed. For a
+    /// normal row this is just `title`; for the autocomplete row the typed
+    /// prefix stays full-strength and the untyped `.completion` fragment is
+    /// dimmed, so the user sees exactly what Return will complete.
+    @ViewBuilder
+    private var titleText: some View {
+        if let completion = suggestion.completion, !completion.isEmpty {
+            let prefix = String(suggestion.title.dropLast(completion.count))
+            HStack(spacing: 0) {
+                Text(prefix)
+                Text(completion)
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            Text(suggestion.title)
+        }
     }
 
     private var symbol: String {
