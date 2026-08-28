@@ -61,4 +61,18 @@ struct URLInputTests {
     func trimsWhitespace() {
         #expect(URLInput.resolve("  example.com  ")?.absoluteString == "https://example.com")
     }
+
+    @Test("A leading '?' forces a search query", arguments: [
+        ("?golang.org", "golang.org"),
+        ("? golang.org", "golang.org"),
+        (" ?x ", "x"),
+        ("??", "?"),
+        ("?  ", nil),
+        ("?", nil),
+        ("example.com", nil),
+        ("https://x", nil),
+    ])
+    func forcedSearchQuery(input: String, expected: String?) {
+        #expect(URLInput.forcedSearchQuery(input) == expected)
+    }
 }

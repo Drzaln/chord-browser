@@ -49,6 +49,15 @@ public enum URLInput {
         return URL(string: template.replacingOccurrences(of: "%s", with: encoded))
     }
 
+    /// "?golang.org" or "? golang.org" -> "golang.org"; nil when the text does
+    /// not begin with "?" (after trimming) or is nothing but the "?".
+    public static func forcedSearchQuery(_ raw: String) -> String? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.hasPrefix("?") else { return nil }
+        let rest = String(text.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+        return rest.isEmpty ? nil : rest
+    }
+
     /// A single token with a dot and no spaces is a host; anything else is a
     /// search. Deliberately conservative — guessing wrong sends the user to a
     /// DNS error instead of results.

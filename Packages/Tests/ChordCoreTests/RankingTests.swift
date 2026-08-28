@@ -180,6 +180,42 @@ struct CommandBarRankingTests {
         #expect(results.contains { if case .search = $0.kind { true } else { false } })
     }
 
+    @Test("\"?\" forces search, never navigate")
+    func forcedSearchPrefix() throws {
+        let results = CommandBarRanking.suggestions(for: input(query: "?golang.org"))
+        let first = try #require(results.first)
+        guard case .search(let query, let url) = first.kind else {
+            Issue.record("expected a search row, got \(first.kind)")
+            return
+        }
+        #expect(query == "golang.org")
+        #expect(first.title == "Search for “golang.org”", "the '?' must not leak into the title")
+        #expect(url == URLInput.search(for: "golang.org"))
+        #expect(!results.contains { if case .navigate = $0.kind { true } else { false } })
+    }
+
+    @Test("\"?\" beats the localhost navigate rule")
+    func forcedSearchBeatsLocalhost() throws {
+        let results = CommandBarRanking.suggestions(for: input(query: "?localhost"))
+        let first = try #require(results.first)
+        guard case .search = first.kind else {
+            Issue.record("expected a search row, got \(first.kind)")
+            return
+        }
+        #expect(!results.contains { if case .navigate = $0.kind { true } else { false } })
+    }
+
+    @Test("A plain host still navigates")
+    func plainHostStillNavigates() throws {
+        let results = CommandBarRanking.suggestions(for: input(query: "example.com"))
+        let first = try #require(results.first)
+        guard case .navigate(let url) = first.kind else {
+            Issue.record("expected a navigate row, got \(first.kind)")
+            return
+        }
+        #expect(url.absoluteString == "https://example.com")
+    }
+
     @Test("An empty query does not dump history into the bar")
     func emptyQueryIsQuiet() {
         let entry = HistoryEntry(

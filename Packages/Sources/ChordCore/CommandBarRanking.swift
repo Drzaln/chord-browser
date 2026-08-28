@@ -219,8 +219,22 @@ public enum CommandBarRanking {
     }
 
     private static func fallback(query: String, input: CommandBarInput) -> Suggestion? {
-        guard !query.isEmpty,
-              let url = URLInput.resolve(query, searchTemplate: input.searchTemplate)
+        guard !query.isEmpty else { return nil }
+
+        // "?golang.org" -> always a search, never a navigation. Checked before
+        // `resolve` so the navigate branch is never entered for a `?` input.
+        if let forced = URLInput.forcedSearchQuery(query),
+           let url = URLInput.search(for: forced, template: input.searchTemplate) {
+            return Suggestion(
+                id: "search",
+                kind: .search(query: forced, url: url),
+                title: "Search for “\(forced)”",
+                subtitle: "Search",
+                score: Int.min
+            )
+        }
+
+        guard let url = URLInput.resolve(query, searchTemplate: input.searchTemplate)
         else { return nil }
 
         let isSearch = URLInput.isSearch(query)
