@@ -270,14 +270,10 @@ public enum CommandBarRanking {
 
         var domains = Set<String>()
         for entry in input.history {
-            if let host = entry.url.host()?.lowercased(), host.contains(".") {
-                domains.insert(host)
-            }
+            if let domain = autocompleteDomain(of: entry.url) { domains.insert(domain) }
         }
         for tab in input.tabs {
-            if let host = tab.focusedPane.url.host()?.lowercased(), host.contains(".") {
-                domains.insert(host)
-            }
+            if let domain = autocompleteDomain(of: tab.focusedPane.url) { domains.insert(domain) }
         }
 
         guard let domain = domains
@@ -297,6 +293,15 @@ public enum CommandBarRanking {
             score: Weight.completionBias,
             completion: suffix
         )]
+    }
+
+    /// The bare domain of a URL for autocomplete matching: host minus a leading
+    /// "www.". Google and YouTube force a "www." redirect, so history would
+    /// otherwise hold "www.google.com" and "you" would never prefix-match
+    /// "www.youtube.com" — yet another site than the user typed.
+    private static func autocompleteDomain(of url: URL) -> String? {
+        guard let host = url.host()?.lowercased(), host.contains(".") else { return nil }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     private static func fallback(query: String, input: CommandBarInput) -> Suggestion? {

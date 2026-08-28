@@ -450,6 +450,24 @@ struct CommandBarRankingTests {
         #expect(autocomplete.completion == "overflow.com")
     }
 
+    @Test("A 'www.' host completes by its bare domain")
+    func wwwHostCompletesByBareDomain() throws {
+        // Google and YouTube redirect to a "www." host, so history holds
+        // "www.google.com"; the typed prefix matches the bare domain instead.
+        let entry = HistoryEntry(
+            url: URL(string: "https://www.google.com")!, title: "Google", lastVisitedAt: now
+        )
+        let results = CommandBarRanking.suggestions(for: input(query: "goog", history: [entry]))
+        let autocomplete = try #require(results.first { $0.completion != nil })
+        #expect(autocomplete.title == "google.com")
+        #expect(autocomplete.completion == "le.com")
+        guard case .navigate(let url) = autocomplete.kind else {
+            Issue.record("expected the completion to navigate, got \(autocomplete.kind)")
+            return
+        }
+        #expect(url.absoluteString == "https://google.com")
+    }
+
     @Test("A fully-typed domain does not autocomplete (navigate owns it)")
     func fullyTypedDomainDoesNotComplete() {
         let entry = HistoryEntry(
