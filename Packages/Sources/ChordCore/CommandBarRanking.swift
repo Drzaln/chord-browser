@@ -315,6 +315,20 @@ public enum CommandBarRanking {
             )
         }
 
+        // "@gh swift" -> the registered site's search engine; an unknown alias
+        // falls through to a normal search below.
+        if let site = URLInput.siteSearchQuery(query),
+           let entry = SiteRegistry.entry(forAlias: site.alias),
+           let url = URLInput.search(for: site.query, template: entry.urlTemplate) {
+            return Suggestion(
+                id: "site-\(entry.name)",
+                kind: .search(query: site.query, url: url),
+                title: "Search \(entry.name) for “\(site.query)”",
+                subtitle: "Search",
+                score: Int.min
+            )
+        }
+
         guard let url = URLInput.resolve(query, searchTemplate: input.searchTemplate)
         else { return nil }
 

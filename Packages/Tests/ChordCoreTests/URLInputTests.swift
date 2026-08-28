@@ -76,6 +76,25 @@ struct URLInputTests {
         #expect(URLInput.forcedSearchQuery(input) == expected)
     }
 
+    @Test("A leading '@' splits into alias and query", arguments: [
+        ("@gh swift", "gh", "swift"),
+        ("@so stack overflow", "so", "stack overflow"),
+        (" @gh  swift ", "gh", "swift"),
+        ("@gh swift x", "gh", "swift x"),
+    ])
+    func siteSearchQuery(input: String, alias: String, query: String) {
+        let parsed = URLInput.siteSearchQuery(input)
+        #expect(parsed?.alias == alias)
+        #expect(parsed?.query == query)
+    }
+
+    @Test("An '@' with no alias or no query does not parse", arguments: [
+        "@", "@gh", "@gh  ",
+    ])
+    func siteSearchQueryFallsThrough(input: String) {
+        #expect(URLInput.siteSearchQuery(input) == nil)
+    }
+
     /// The URL-vs-search corpus (QoL #4): each input -> whether it is treated
     /// as a *search* (true) or a *navigation* (false). Captured from the rules
     /// in `looksLikeHost`, covering TLD gibberish, a "www." prefix, intranet

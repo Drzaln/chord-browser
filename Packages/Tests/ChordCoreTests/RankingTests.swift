@@ -180,6 +180,40 @@ struct CommandBarRankingTests {
         #expect(results.contains { if case .search = $0.kind { true } else { false } })
     }
 
+    @Test("The site registry resolves aliases case-insensitively")
+    func siteRegistryAliases() {
+        #expect(SiteRegistry.entry(forAlias: "gh")?.name == "GitHub")
+        #expect(SiteRegistry.entry(forAlias: "GH")?.name == "GitHub")
+        #expect(SiteRegistry.entry(forAlias: "w")?.name == "Wikipedia")
+        #expect(SiteRegistry.entry(forAlias: "nope") == nil)
+    }
+
+    @Test("\"@alias query\" opens the registered site's search URL", arguments: [
+        ("@gh swift", "swift", "https://github.com/search?q=swift"),
+        ("@so stack overflow", "stack overflow", "https://stackoverflow.com/search?q=stack%20overflow"),
+    ])
+    func siteSearchDispatch(typed: String, expectedQuery: String, expectedURL: String) throws {
+        let results = CommandBarRanking.suggestions(for: input(query: typed))
+        let first = try #require(results.first)
+        guard case .search(let query, let url) = first.kind else {
+            Issue.record("expected a search row, got \(first.kind)")
+            return
+        }
+        #expect(query == expectedQuery)
+        #expect(url.absoluteString == expectedURL)
+    }
+
+    @Test("An unknown '@alias' falls back to a normal search")
+    func unknownAliasFallsBack() throws {
+        let results = CommandBarRanking.suggestions(for: input(query: "@zzz hello"))
+        let first = try #require(results.first)
+        guard case .search(_, let url) = first.kind else {
+            Issue.record("expected a search row, got \(first.kind)")
+            return
+        }
+        #expect(url.absoluteString.hasPrefix("https://www.google.com/search?q="))
+    }
+
     @Test("\"?\" forces search, never navigate")
     func forcedSearchPrefix() throws {
         let results = CommandBarRanking.suggestions(for: input(query: "?golang.org"))

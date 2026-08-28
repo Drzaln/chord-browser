@@ -58,6 +58,22 @@ public enum URLInput {
         return rest.isEmpty ? nil : rest
     }
 
+    /// "@gh swift" -> ("gh", "swift"); "@so stack overflow" -> ("so", "stack
+    /// overflow"). nil when the text does not start with "@" (after trimming),
+    /// or there is no alias, or there is no query — in which cases the caller
+    /// falls through to a normal search, like a lone "?".
+    public static func siteSearchQuery(_ raw: String) -> (alias: String, query: String)? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.hasPrefix("@") else { return nil }
+        let rest = String(text.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rest.isEmpty else { return nil }
+        let parts = rest.split(separator: " ", maxSplits: 1)
+        guard let alias = parts.first, !alias.isEmpty else { return nil }
+        let query = (parts.count > 1 ? parts[1] : "").trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return nil }
+        return (String(alias), query)
+    }
+
     /// TLDs we are willing to guess a host from (QoL #4). Anything else — a
     /// final label that is not one of these — is a search, so 'foo.grok' style
     /// gibberish cannot send the user to a DNS error. Conservative by design.
