@@ -28,6 +28,16 @@ that site, on your ask; manage and delete them in Settings.
 - **No sync.** §1 rules out cross-device sync; this is the last subsystem that
   should break that.
 - **No passkeys.** Not possible (above). Do not let the vault imply otherwise.
+  **The entitlement escape hatch is closed too, measured 2026-08-28:** the
+  `com.apple.developer.web-browser` entitlement — the mechanism that lets a
+  WKWebView expose the platform authenticator (WebAuthn + iCloud Keychain) for
+  *any* relying party, no per-site `webcredentials` needed — cannot be
+  provisioned on this signing setup. Automatic signing refuses it: *"Entitlement
+  com.apple.developer.web-browser not found and could not be included in
+  profile"* (free personal team, `74XUPW85K2`). So system passkeys need a paid
+  membership; the only subscription-free path left is a main-world
+  `navigator.credentials` shim running the WebAuthn ceremony in-app, which this
+  design rejects on trust-surface grounds and is not scheduled.
 - **No credit cards, addresses, notes, TOTP.** A password vault that grows into a
   wallet is a second product. TOTP is the only one worth revisiting later.
 - **No import from other managers in v1.** A CSV importer is a small, additive
