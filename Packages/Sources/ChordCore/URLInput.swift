@@ -58,13 +58,16 @@ public enum URLInput {
         return rest.isEmpty ? nil : rest
     }
 
-    /// "@gh swift" -> ("gh", "swift"); "@so stack overflow" -> ("so", "stack
-    /// overflow"). nil when the text does not start with "@" (after trimming),
-    /// or there is no alias, or there is no query — in which cases the caller
-    /// falls through to a normal search, like a lone "?".
-    public static func siteSearchQuery(_ raw: String) -> (alias: String, query: String)? {
+    /// "@gh swift" -> ("gh", "swift"); "!ddg swift" -> ("ddg", "swift");
+    /// "@so stack overflow" -> ("so", "stack overflow"). Both leading '@' and
+    /// '!' are dispatch prefixes — '@' asks for a site search, '!' forces an
+    /// engine — and they resolve through the *same* alias registry, so there is
+    /// no divergence between them. nil when the text does not start with either
+    /// prefix (after trimming), or there is no alias, or there is no query — in
+    /// which cases the caller falls through to a normal search, like a lone "?".
+    public static func dispatchQuery(_ raw: String) -> (alias: String, query: String)? {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.hasPrefix("@") else { return nil }
+        guard let first = text.first, first == "@" || first == "!" else { return nil }
         let rest = String(text.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !rest.isEmpty else { return nil }
         let parts = rest.split(separator: " ", maxSplits: 1)

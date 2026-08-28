@@ -83,16 +83,27 @@ struct URLInputTests {
         ("@gh swift x", "gh", "swift x"),
     ])
     func siteSearchQuery(input: String, alias: String, query: String) {
-        let parsed = URLInput.siteSearchQuery(input)
+        let parsed = URLInput.dispatchQuery(input)
         #expect(parsed?.alias == alias)
         #expect(parsed?.query == query)
     }
 
-    @Test("An '@' with no alias or no query does not parse", arguments: [
-        "@", "@gh", "@gh  ",
+    @Test("A leading '!' splits into alias and query", arguments: [
+        ("!ddg swift", "ddg", "swift"),
+        ("!w machine learning", "w", "machine learning"),
+        (" !g  swift ", "g", "swift"),
+    ])
+    func bangQuery(input: String, alias: String, query: String) {
+        let parsed = URLInput.dispatchQuery(input)
+        #expect(parsed?.alias == alias)
+        #expect(parsed?.query == query)
+    }
+
+    @Test("An '@' or '!' with no alias or no query does not parse", arguments: [
+        "@", "@gh", "@gh  ", "!", "!ddg", "!ddg  ",
     ])
     func siteSearchQueryFallsThrough(input: String) {
-        #expect(URLInput.siteSearchQuery(input) == nil)
+        #expect(URLInput.dispatchQuery(input) == nil)
     }
 
     /// The URL-vs-search corpus (QoL #4): each input -> whether it is treated

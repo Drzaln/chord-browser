@@ -21,6 +21,7 @@ public struct SiteSearchEntry: Sendable, Hashable {
 /// alias returns nil so the caller falls back to a normal search.
 public enum SiteRegistry {
     public static let entries: [SiteSearchEntry] = [
+        // Sites (@alias search).
         SiteSearchEntry(
             name: "GitHub", aliases: ["gh", "github"],
             urlTemplate: "https://github.com/search?q=%s"
@@ -40,6 +41,24 @@ public enum SiteRegistry {
         SiteSearchEntry(
             name: "YouTube", aliases: ["yt", "youtube"],
             urlTemplate: "https://www.youtube.com/results?search_query=%s"
+        ),
+        // Search engines (!bang forced engine). Resolved through the *same*
+        // alias lookup as '@', so '@w' and '!w' land on the same row.
+        SiteSearchEntry(
+            name: "Google", aliases: ["g", "google"],
+            urlTemplate: "https://www.google.com/search?q=%s"
+        ),
+        SiteSearchEntry(
+            name: "DuckDuckGo", aliases: ["ddg", "duckduckgo"],
+            urlTemplate: "https://duckduckgo.com/?q=%s"
+        ),
+        SiteSearchEntry(
+            name: "Bing", aliases: ["bing"],
+            urlTemplate: "https://www.bing.com/search?q=%s"
+        ),
+        SiteSearchEntry(
+            name: "Brave", aliases: ["brave"],
+            urlTemplate: "https://search.brave.com/search?q=%s"
         ),
     ]
 

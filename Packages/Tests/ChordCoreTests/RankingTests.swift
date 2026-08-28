@@ -214,6 +214,47 @@ struct CommandBarRankingTests {
         #expect(url.absoluteString.hasPrefix("https://www.google.com/search?q="))
     }
 
+    @Test("\"!alias query\" forces the alias's search engine", arguments: [
+        ("!ddg swift", "https://duckduckgo.com/?q=swift"),
+        ("!g swift", "https://www.google.com/search?q=swift"),
+        ("!w swift", "https://en.wikipedia.org/w/index.php?search=swift"),
+    ])
+    func bangDispatch(typed: String, expectedURL: String) throws {
+        let results = CommandBarRanking.suggestions(for: input(query: typed))
+        let first = try #require(results.first)
+        guard case .search(_, let url) = first.kind else {
+            Issue.record("expected a search row, got \(first.kind)")
+            return
+        }
+        #expect(url.absoluteString == expectedURL)
+    }
+
+    @Test("'@' and '!' resolve the same alias consistently")
+    func bangAndSiteShareTheRegistry() throws {
+        let atResults = CommandBarRanking.suggestions(for: input(query: "@gh swift"))
+        let bangResults = CommandBarRanking.suggestions(for: input(query: "!gh swift"))
+        guard case .search(_, let atURL) = try #require(atResults.first).kind else {
+            Issue.record("expected a search row from '@gh'")
+            return
+        }
+        guard case .search(_, let bangURL) = try #require(bangResults.first).kind else {
+            Issue.record("expected a search row from '!gh'")
+            return
+        }
+        #expect(atURL == bangURL)
+    }
+
+    @Test("An unknown '!alias' falls back to a normal search")
+    func unknownBangFallsBack() throws {
+        let results = CommandBarRanking.suggestions(for: input(query: "!zzz hello"))
+        let first = try #require(results.first)
+        guard case .search(_, let url) = first.kind else {
+            Issue.record("expected a search row, got \(first.kind)")
+            return
+        }
+        #expect(url.absoluteString.hasPrefix("https://www.google.com/search?q="))
+    }
+
     @Test("\"?\" forces search, never navigate")
     func forcedSearchPrefix() throws {
         let results = CommandBarRanking.suggestions(for: input(query: "?golang.org"))

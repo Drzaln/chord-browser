@@ -315,9 +315,10 @@ public enum CommandBarRanking {
             )
         }
 
-        // "@gh swift" -> the registered site's search engine; an unknown alias
-        // falls through to a normal search below.
-        if let site = URLInput.siteSearchQuery(query),
+        // "@gh swift" / "!ddg swift" -> the registered site's or engine's search
+        // URL; an unknown alias falls through to a normal search below. Both
+        // prefixes resolve through the same registry, so they cannot conflict.
+        if let site = URLInput.dispatchQuery(query),
            let entry = SiteRegistry.entry(forAlias: site.alias),
            let url = URLInput.search(for: site.query, template: entry.urlTemplate) {
             return Suggestion(
