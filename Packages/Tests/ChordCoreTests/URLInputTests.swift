@@ -75,4 +75,25 @@ struct URLInputTests {
     func forcedSearchQuery(input: String, expected: String?) {
         #expect(URLInput.forcedSearchQuery(input) == expected)
     }
+
+    /// The URL-vs-search corpus (QoL #4): each input -> whether it is treated
+    /// as a *search* (true) or a *navigation* (false). Captured from the rules
+    /// in `looksLikeHost`, covering TLD gibberish, a "www." prefix, intranet
+    /// words, and the common cases that must not regress.
+    @Test("URL-vs-search corpus", arguments: [
+        ("example.com", false),                    // common host still navigates
+        ("www.example.com", false),                // www prefix keeps its TLD
+        ("news.ycombinator.com/newest", false),    // path after the host
+        ("mysite.io", false),                      // generic TLD navigates
+        ("localhost", false),                      // sole single-word navigator
+        ("foo.grok", true),                        // TLD gibberish -> search
+        ("www.grok", true),                        // www + gibberish -> search
+        ("nas", true),                             // intranet word -> search
+        ("myserver", true),                        // intranet word -> search
+        ("version.2", true),                       // numeric TLD -> search
+        ("swift concurrency", true),               // multi-word -> search
+    ])
+    func urlVsSearchCorpus(input: String, expectedIsSearch: Bool) {
+        #expect(URLInput.isSearch(input) == expectedIsSearch)
+    }
 }

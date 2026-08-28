@@ -58,14 +58,29 @@ public enum URLInput {
         return rest.isEmpty ? nil : rest
     }
 
+    /// TLDs we are willing to guess a host from (QoL #4). Anything else — a
+    /// final label that is not one of these — is a search, so 'foo.grok' style
+    /// gibberish cannot send the user to a DNS error. Conservative by design.
+    private static let knownTLDs: Set<String> = [
+        "com", "org", "net", "edu", "gov", "mil", "int",
+        "io", "co", "ai", "dev", "app", "me", "tv", "info", "biz",
+        "xyz", "site", "tech", "online", "store", "cloud", "blog", "pro",
+        // Common country codes.
+        "uk", "us", "de", "fr", "jp", "ca", "au", "nl", "se", "ch",
+        "ru", "br", "in", "it", "es", "cn", "kr", "mx",
+    ]
+
     /// A single token with a dot and no spaces is a host; anything else is a
     /// search. Deliberately conservative — guessing wrong sends the user to a
     /// DNS error instead of results.
     private static func looksLikeHost(_ text: String) -> Bool {
         guard !text.contains(" ") else { return false }
         let head = text.split(separator: "/", maxSplits: 1).first.map(String.init) ?? text
-        guard head.contains(".") else { return text == "localhost" }
-        guard let last = head.split(separator: ".").last, last.count >= 2 else { return false }
-        return last.allSatisfy(\.isLetter)
+        // Judge the domain on its own TLD, not the "www." prefix: this keeps
+        // "www.example.com" a host while "www.grok" falls through to a search.
+        let domain = head.hasPrefix("www.") ? String(head.dropFirst(4)) : head
+        guard domain.contains(".") else { return text == "localhost" }
+        guard let last = domain.split(separator: ".").last, !last.isEmpty else { return false }
+        return knownTLDs.contains(String(last).lowercased())
     }
 }
