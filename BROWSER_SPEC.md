@@ -496,9 +496,14 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   ephemeral, capped recency stack written by `select`, new-tab, space switch,
   reopen, and the close fallbacks). A tab another window is currently showing is
   never picked — one web view cannot live in two windows. When the history has
-  nothing usable (e.g. right after launch) the old rule remains: the tab now
-  sitting in the closed tab's slot, within its own section and Space. Non-spec,
-  user-requested; details in the CHECKPOINT 2026-08-26 section.
+  nothing usable (e.g. right after launch) the old rule remains for a *removed*
+  loose tab: the tab now sitting in the closed tab's slot, within its own
+  section and Space. Closing a favourite or Pinned tab only *unloads* it, so the
+  slot never moves and a section neighbour would be a tile whose live view is
+  gone — there, an empty recency stack leaves the window **blank** (nothing
+  rendered, like Arc) and offers the command bar for an immediate destination.
+  Non-spec, user-requested; details in the CHECKPOINT 2026-08-26 and 2026-09-08
+  sections.
 - **Developer mode, page zoom, DRM diagnostics, action toasts** (2026-08-27,
   1.7.0; details in the CHECKPOINT 2026-08-27 section):
   - **Developer mode** — a global toggle (Settings → General + **Develop** menu),

@@ -36,7 +36,9 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: macos-15
+    # macOS 26: the app uses Liquid Glass (`.glassEffect`), which only exists
+    # in the macOS 26 SDK — a `macos-15` runner's Xcode 16 cannot compile it.
+    runs-on: macos-26
     env:
       # Empty until the certificate secrets are set; the steps test this to
       # decide between real and ad-hoc signing.

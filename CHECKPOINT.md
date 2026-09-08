@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **692 passing** (`swift test`, 103 suites), measured 2026-08-27                                                                                                                                |
+| **Tests**                        | **716 passing** (`swift test`, 103 suites), measured 2026-09-08                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
@@ -68,8 +68,8 @@ verified live against the real `Chord.zip` into a temp directory (not
 `/Applications`) during development. **657 tests, 98 suites.**
 
 **Releases are automated from here (2026-08-22).** `.github/workflows/release.yml`
-runs on every `v*` tag push: builds the Release configuration on a `macos-15`
-runner, fails if the tag doesn't match the app's `CFBundleShortVersionString`,
+runs on every `v*` tag push: builds the Release configuration on a `macos-26`
+runner (macOS 26 SDK — required since the app uses Liquid Glass), fails if the tag doesn't match the app's `CFBundleShortVersionString`,
 packages `Chord.zip` (`Chord/Chord.app`, ditto), and publishes the GitHub
 Release — so the updater sees the new version the moment the tag lands. Signing
 uses the developer certificate when the `MACOS_CERTIFICATE_BASE64`/
@@ -3757,3 +3757,55 @@ documented in the maintenance skill.
 `DevModeZoomStoreTests` (dev-mode + zoom reach the engine, inspector gated by
 dev mode); `ToastTests` (present/replace + the background-tab toast navigates to
 the new tab).
+
+## Close-MRU blank end + Liquid Glass (2026-09-08, 1.9.0)
+
+Two non-spec, user-requested changes, both verified against Arc.
+
+**Closing a favourite/Pinned tab with nothing left to focus leaves the window
+blank.** 1.6.0's close-MRU already handed focus to the previously active tab;
+the problem was the *fallback* when the recency stack ran dry. The old
+section-neighbour rule picked the first remaining tile in the section — but for
+a favourite/Pinned the tab is only *unloaded*, not removed, so a section
+neighbour is a tile whose live view was just torn down. Worse, `select` on the
+fallback instantly revived the just-closed tile, so closing favourites cycled
+them forever (mail ↔ music) and never reached blank. The fix removes the section
+fallback from the unload path entirely: `unloadTab` purges the closed tab from
+`selectionHistory`, clears the selection before `select(_:)` (so the unloaded
+tab cannot be re-recorded as "previously active"), and with an empty history
+leaves `selectedTabID = nil` — the content area renders nothing, exactly like
+Arc. `closeLeftBlankPresenter` (a store-level callback wired by the app to the
+command bar) offers a destination, Cmd+T-style, on that blank window. Closing a
+*loose* tab keeps the old slot-neighbour fallback (it is removed, so the slot
+really moves).
+
+**Liquid Glass on macOS 26.** The sidebar and the blank content card render with
+SwiftUI's `.glassEffect(.regular, in: …)` — the system's current material —
+under the Space gradient tint; macOS 15.4–25 keep the previous
+`.ultraThinMaterial` over the same gradient (`#available(macOS 26, *)` gates).
+The sidebar applies the glass to the *whole* surface (content included, so
+nothing is hidden behind the material) and reserves a `.contentShape` *before*
+the glass modifier so the card still captures pointer events. The blank content
+card was a hard `textBackgroundColor` rectangle before; it now matches the
+chrome. A floating sidebar overhangs the page again (reverted from a lane-reserve
+experiment) — with the accepted tradeoff that WKWebView's geometry-based hover
+tracking still reacts through the glass.
+
+**CI runner bumped to `macos-26`.** `.github/workflows/release.yml` runs on
+`macos-26`, because `glassEffect`/`Glass` only exist in the macOS 26 SDK — the
+old `macos-15` runner (Xcode 16) cannot compile the Liquid Glass code, and the
+release build would fail. The deployment target stays 15.4; the new APIs are
+gated by `#available`.
+
+**Files.** `TabStore.swift` (`unloadTab` selection, `closeLeftBlankPresenter`),
+`ChordApp.swift` (wires the presenter to the command bar), `SidebarView.swift`
+(`LiquidGlassSidebar` modifier + `sidebarTint`), `WebContentCard.swift` (blank
+card glass), `release.yml`.
+
+**Tests (716 passing, 103 suites, prepush green).** PinnedTests:
+`closingFocusedFavouriteGoesToPreviousActive` (close c → b, b → a, a → blank +
+presenter fires once), `closingLastPinnedTabWithoutHistoryLeavesBlank` (replaces
+1.6.0's `…StaysInThePinnedSection`), both asserting no new tab is created.
+Debugging aid: transient `closeTrace` logging was added to the close path and
+removed once the loop was found — the log line shape is documented here so the
+next investigation starts faster.

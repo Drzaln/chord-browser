@@ -38,6 +38,10 @@ distribution.
 - [ ] `Cmd+W` closes the current tab and returns to the previously active tab
       (open a tab from a page, close it, and you land back on the page you were
       on — Chrome/Firefox/Arc behaviour, 2026-08-26)
+- [ ] Closing favourite/Pinned tabs walks back through the previously active
+      ones, and closing the last live one leaves the window **blank with the
+      command bar focused** — no new tab, no dead tile (Arc behaviour,
+      2026-09-08; the tiles stay in the sidebar)
 - [ ] Closing the last tab opens a fresh one rather than an empty window
 - [ ] Clicking a sidebar row switches tabs; the web view does not reload
 - [ ] Title updates in the sidebar as pages load

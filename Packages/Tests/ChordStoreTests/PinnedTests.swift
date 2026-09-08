@@ -267,22 +267,33 @@ struct PinnedTests {
         #expect(store.selectedTabID == last.id, "the tab that slides into the slot is the loose one to its right")
     }
 
-    @Test("Closing the last Pinned tab with no history stays in the Pinned section")
-    func closingLastPinnedTabWithoutHistoryStaysInThePinnedSection() async {
+    @Test("Closing a Pinned tab with no history leaves the window blank, not a section neighbour")
+    func closingLastPinnedTabWithoutHistoryLeavesBlank() async {
         let store = await makeStore(stored: [
             TabBuilder().url("https://github.example").pinned(order: 0).build(),
             TabBuilder().url("https://pin.example").bookmarked(order: 0).build(),
             TabBuilder().url("https://other-pin.example").bookmarked(order: 1).build(),
             TabBuilder().url("https://loose.example").build(),
         ])
+        var blankCloses = 0
+        store.closeLeftBlankPresenter = { _ in blankCloses += 1 }
         let otherPin = try! #require(store.bookmarkedTabs.first { $0.focusedPane.url.host() == "other-pin.example" })
-        let lastPin = try! #require(store.bookmarkedTabs.first { $0.focusedPane.url.host() == "pin.example" })
         // A direct selection (as a restored layout would) leaves no history.
         store.primaryWindow.selectedTabID = otherPin.id
 
         store.closeTab(otherPin.id)
 
-        #expect(store.selectedTabID == lastPin.id, "the Pinned neighbour must win over the favourite")
+        // Arc focuses the previously active tab; with no recency stack there is
+        // nothing worth focusing (a section neighbour is an unloaded tile), so
+        // the window goes blank — nothing rendered, no new tab — and the
+        // command bar is offered.
+        #expect(store.selectedTabID == nil, "the window goes blank with no selection")
+        #expect(
+            store.bookmarkedTabs.count == 2,
+            "the Pinned tabs stay listed — closing only unloads them"
+        )
+        #expect(store.visibleTabs.count == 4, "no new tab was created")
+        #expect(blankCloses == 1, "the blank close offers the command bar")
     }
 
     @Test("Closing a favourite keeps it, and keeps its favicon")
@@ -303,6 +314,46 @@ struct PinnedTests {
             store.pinnedTabs.first?.focusedPane.faviconData == icon,
             "the favicon survives the close"
         )
+    }
+
+    @Test("Closing focused favourites follows Arc MRU and ends blank")
+    func closingFocusedFavouriteGoesToPreviousActive() async {
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://a.example").pinned(order: 0).build(),
+            TabBuilder().url("https://b.example").pinned(order: 1).build(),
+            TabBuilder().url("https://c.example").pinned(order: 2).build(),
+        ])
+        var blankCloses = 0
+        store.closeLeftBlankPresenter = { _ in blankCloses += 1 }
+
+        let a = try! #require(store.pinnedTabs.first { $0.focusedPane.url.host() == "a.example" })
+        let b = try! #require(store.pinnedTabs.first { $0.focusedPane.url.host() == "b.example" })
+        let c = try! #require(store.pinnedTabs.first { $0.focusedPane.url.host() == "c.example" })
+
+        store.select(a.id)
+        store.select(b.id)
+        store.select(c.id)
+
+        // Favourites are unloaded, not removed — all three stay in the grid.
+        store.closeTab(c.id)
+        #expect(store.selectedTabID == b.id, "closing c returns to the previous active b")
+        #expect(store.pinnedTabs.count == 3, "favourites stay in the grid")
+
+        // The unloaded c must not linger in the recency stack: closing b now
+        // goes to a, not back to the just-unloaded c (Arc MRU).
+        store.closeTab(b.id)
+        #expect(store.selectedTabID == a.id, "closing b returns to a, not the unloaded c")
+        #expect(store.pinnedTabs.count == 3, "b and c are still listed, just unloaded")
+        #expect(blankCloses == 0, "no blank yet — there is still a live favourite to focus")
+
+        // With every favourite already unloaded and the recency stack empty,
+        // Arc shows nothing — no new tab, no dead tile. The window is blank
+        // and the command bar is offered.
+        store.closeTab(a.id)
+        #expect(store.selectedTabID == nil, "closing the last live favourite leaves the window blank")
+        #expect(store.pinnedTabs.count == 3, "all three tiles still listed after the closes")
+        #expect(store.visibleTabs.count == 3, "no new tab was created")
+        #expect(blankCloses == 1, "the blank close offers the command bar exactly once")
     }
 
     @Test("Closing a Pinned tab keeps it and returns it to its home URL")

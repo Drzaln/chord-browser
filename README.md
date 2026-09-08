@@ -55,7 +55,11 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   collapsible Pinned-tabs list (both sweep-exempt and homed at the URL they were
   pinned at — double-click/click to return, "Set Current Page as Pinned URL" to
   re-home), and ephemeral tabs. Closing a favourite or Pinned tab unloads it but
-  keeps the sidebar entry and its favicon.
+  keeps the sidebar entry and its favicon; with nothing left to focus the window
+  goes blank (like Arc) and the command bar opens for an instant destination.
+- **Liquid Glass** — on macOS 26 the sidebar and the blank window render with
+  Apple's Liquid Glass material (`.glassEffect`); earlier macOS keeps the
+  frosted `.ultraThinMaterial` look.
 - **Session restore** — `interactionState` persistence; a force-quit relaunch
   restores everything, including scroll and form state.
 - **Downloads** — `WKDownload` handling with progress UI.

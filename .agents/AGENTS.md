@@ -78,6 +78,6 @@ Current version: **v14**. Migrations: `v1_initial`, `v2_add_spaces`, `v3_history
 
 ## Toolchain
 
-- Swift 6, strict concurrency. Xcode 16+. macOS 15.4 deployment target (hard floor).
+- Swift 6, strict concurrency. Xcode 26+ / macOS 26 SDK (Liquid Glass — `glassEffect`/`Glass` — needs it to compile). macOS 15.4 deployment target (hard floor, kept via `#available` gates).
 - GRDB for persistence. No Core Data.
 - No third-party runtime dependencies beyond GRDB.

@@ -31,10 +31,29 @@ struct WebContentCard: View {
                             FindBar(store: store, windowState: windowState)
                         }
                     }
-            } else {
-                RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
-                    .fill(Color(nsColor: .textBackgroundColor))
-                    .padding(Metrics.contentInset)
+} else {
+                // Arc: an empty content area blends with the chrome rather than
+                // showing a bare page card — the active Space's gradient under
+                // glass. On macOS 26 that glass is Liquid Glass (the system's
+                // current material); earlier systems get the same gradient
+                // under thin glass as the sidebar border.
+                let space = store.activeSpace(in: windowState) ?? Space.makeDefault()
+                let shape = RoundedRectangle(
+                    cornerRadius: Metrics.contentCornerRadius, style: .continuous
+                )
+                Group {
+                    if #available(macOS 26, *) {
+                        shape
+                            .fill(SpaceTheme.gradient(for: space).opacity(0))
+                            .glassEffect(.regular, in: shape)
+                    } else {
+                        shape
+                            .fill(SpaceTheme.gradient(for: space).opacity(0))
+                            .overlay(.ultraThinMaterial)
+                            .clipShape(shape)
+                    }
+                }
+                .padding(Metrics.contentInset)
             }
         }
         // The collapsed-mode loading bar, clipped to the card so its ends don't

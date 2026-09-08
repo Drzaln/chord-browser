@@ -94,19 +94,36 @@ struct SidebarView: View {
             // While a swipe is in flight it blends toward the neighbour's stops
             // (4.2); at rest it uses the cached per-Space gradient so an idle
             // sidebar does not rebuild one every frame (6.4).
-            // Frosted glass in both modes: `.ultraThinMaterial` over the Space
-            // gradient. Floating uses a lower tint so the page reads through it;
-            // docked keeps more tint so the Space colour still carries, but the
-            // material is the same thin glass either way (the window is
-            // non-opaque, so the material samples the desktop behind it).
-            if let space = store.activeSpace(in: windowState) {
-                gradient(for: space)
-                    .opacity(isFloating ? 0.1 : 0.28)
-                    .overlay(.ultraThinMaterial)
-            } else {
-                Color.clear.overlay(.ultraThinMaterial)
+            // On macOS 26 the sidebar's glass is Liquid Glass — applied to the
+            // whole sidebar below, so the content sits *in* the glass — and the
+            // gradient is the tint under it. Earlier systems get the gradient
+            // under `.ultraThinMaterial` (the window is non-opaque, so the
+            // material samples the desktop behind it).
+            Group {
+                if #available(macOS 26, *) {
+                    sidebarTint
+                } else {
+                    sidebarTint.overlay(.ultraThinMaterial)
+                }
             }
         }
+        // The whole card must capture pointer events, not just its content — a
+        // Liquid Glass surface's background region is otherwise hit-transparent.
+        // Placed *before* the glass modifier so the full-frame hit region is
+        // part of the content the glass layer wraps, not applied on top of it.
+        .contentShape(
+            RoundedRectangle(
+                cornerRadius: isFloating ? Metrics.contentCornerRadius : 0, style: .continuous
+            )
+        )
+        // macOS 26: the sidebar is one Liquid Glass surface (content included,
+        // so nothing is hidden behind the material). Earlier systems pass
+        // through unchanged — they got their material in the background above.
+        .modifier(
+            LiquidGlassSidebar(
+                cornerRadius: isFloating ? Metrics.contentCornerRadius : 0
+            )
+        )
         .clipShape(
             RoundedRectangle(
                 cornerRadius: isFloating ? Metrics.contentCornerRadius : 0, style: .continuous
@@ -336,6 +353,18 @@ struct SidebarView: View {
         windowState.spaceSwipeProgress == 0
             ? SpaceTheme.gradient(for: space)
             : SpaceTheme.gradient(stops: store.swipeBlendedGradient(in: windowState))
+    }
+
+    /// The Space colour that tints the sidebar: the (blend-aware) gradient at a
+    /// low opacity. Floating uses a lower tint so the page reads through it;
+    /// docked keeps more so the Space colour still carries.
+    @ViewBuilder
+    private var sidebarTint: some View {
+        if let space = store.activeSpace(in: windowState) {
+            gradient(for: space).opacity(isFloating ? 0.1 : 0.28)
+        } else {
+            Color.clear
+        }
     }
 
     /// Clears the traffic lights, and carries the collapse control beside them
@@ -582,5 +611,24 @@ struct SidebarView: View {
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
         // No keyboard shortcut here on purpose — see `collapseButton`.
+    }
+}
+
+/// macOS 26 renders the whole sidebar as one Liquid Glass surface — content
+/// included, so nothing sits hidden behind the material. Earlier systems pass
+/// through unchanged (their `.ultraThinMaterial` lives in the background above).
+private struct LiquidGlassSidebar: ViewModifier {
+    let cornerRadius: CGFloat
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26, *) {
+            content.glassEffect(
+                .regular,
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+        } else {
+            content
+        }
     }
 }

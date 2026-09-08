@@ -650,6 +650,14 @@ public final class TabStore {
     @ObservationIgnored public var notificationPermissionRequester:
         (@MainActor () async -> Bool)?
 
+    /// Offers the command bar when a close leaves the window blank — the last
+    /// live favourite/Pinned tile closed and the recency stack empty, so nothing
+    /// is rendered (Arc behaviour). Injected by the app layer, which owns the
+    /// bar; inert until then. The window is carried so the bar acts on the
+    /// window that just went blank.
+    @ObservationIgnored public var closeLeftBlankPresenter:
+        (@MainActor (WindowState) -> Void)?
+
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
 
@@ -1016,10 +1024,6 @@ public final class TabStore {
             if window.selectedTabID == tabID {
                 window.selectionHistory.removeAll { $0 == tabID }
                 let next = previousActiveTab(after: tabID, in: window)
-                    ?? visibleTabs(in: window)
-                        .first { $0.id != tabID && section(of: $0.placement) == section(of: tabs[index].placement) }?
-                        .id
-                    ?? visibleTabs(in: window).first { $0.id != tabID }?.id
                 window.selectedTabID = next
                 recordSelection(next, replacing: nil, in: window)
                 if window.selectedTabID == nil { newTab(in: window) }
@@ -1062,23 +1066,27 @@ public final class TabStore {
 
         // Move the selection off the unloaded tab, but leave it in the sidebar.
         if window.selectedTabID == tabID {
-            // Return to the previously active tab first (Chrome/Firefox/Arc);
-            // fall back to a neighbour from the tab's own section (favourites
-            // grid, Pinned list, or loose tabs) so the selection does not hop
-            // into another tier, then to the flat order.
-            let closedSection = section(of: tabs[index].placement)
-            let remaining = visibleTabs(in: window)
-            let sectionNeighbour = remaining.first {
-                $0.id != tabID && section(of: $0.placement) == closedSection
-            }
-            let next = previousActiveTab(after: tabID, in: window)
-                ?? sectionNeighbour?.id
-                ?? remaining.first(where: { $0.id != tabID })?.id
-            if let next {
+            // The tab is unloaded but still listed, so it must not linger in the
+            // recency stack: otherwise a later close would hand focus back to a
+            // dead tile instead of the truly previous active tab (Arc MRU — the
+            // same purge the cross-window branch above and the removal path do).
+            window.selectionHistory.removeAll { $0 == tabID }
+            // Clear the selection before `select(_:)` so the unloaded tab is not
+            // re-recorded as the outgoing "previously active" tab and survives
+            // the purge it was just removed by.
+            window.selectedTabID = nil
+            // Arc hands focus to the previously active tab (Chrome/Firefox/Arc);
+            // with the recency stack empty there is nothing worth focusing — a
+            // section neighbour is a tile whose live view was just torn down —
+            // so the window goes blank (nothing rendered), exactly as Arc does
+            // when the last usable pinned tab closes.
+            if let next = previousActiveTab(after: tabID, in: window) {
                 select(next, in: window)
             } else {
-                window.selectedTabID = nil
-                newTab(in: window)
+                // selectedTabID stays nil — the content area renders empty, as
+                // Arc does — and the command bar is offered so the user can
+                // immediately pick a destination.
+                closeLeftBlankPresenter?(window)
             }
         }
         scheduleSave()

@@ -68,6 +68,16 @@ struct AppRootView: View {
                     // the store marks the intent and this performs it. Set from
                     // every window, harmlessly: they all do the same thing.
                     environment.store.privateWindowPresenter = { openWindow(id: "main") }
+                    // Closing the last live favourite/Pinned tile leaves the
+                    // window blank (Arc); offer the command bar right away so a
+                    // destination is one keystroke away, like Cmd+T.
+                    environment.store.closeLeftBlankPresenter = { window in
+                        commandBar?.present(
+                            over: NSApp.keyWindow,
+                            windowState: window,
+                            mode: .newTab
+                        )
+                    }
                 }
                 // Restore is a *session* concern, not a window one, so only the
                 // window that got the primary state kicks it off. `restore()` is
