@@ -274,7 +274,9 @@ Same mainstream-SPA fixture as the M7 soak (3 Spaces / 21 tabs / 32 panes over
 Google/YouTube/X/Instagram/Reddit/Wikipedia/GitHub/Amazon), with
 `FeatureFlags.contentBlockingEnabled` on via a temporary `AppDelegate` scaffold
 (reverted). On launch the seed compiles instantly and the weekly refresh fetches
-the full EasyList + EasyPrivacy and compiles ~50k rules off-main. 30 minutes of
+the full EasyList + EasyPrivacy and compiles each list whole off-main (EasyList
+~78k rules, EasyPrivacy ~56k; a single `WKContentRuleList` per source — see
+CHECKPOINT 2026-09-10 for why chunking was removed). 30 minutes of
 Cmd+1…3 Space switches.
 
 |                              | Start (min 0) | Settled (min ~10) | End (min 30) |                 |
@@ -292,9 +294,12 @@ Cmd+1…3 Space switches.
 numbers are within noise of the M7 soak (64 MB app / 485 MB total) — the compiled
 rule list is a shared, immutable object, so attaching it to every view costs
 almost nothing, and the compile is a one-time transient. **The compile spike is
-transient and off-main:** the app process read ~103 MB _during_ the full 50k-rule
+transient and off-main:** the app process read ~103 MB _during_ the full-rule
 compile at launch, then released to **32 MB** once done (well under budget), and
 the window was interactive at t+3 s — the compile never blocked launch (§6.6).
+(The ~103 MB spike was measured under the 2026-07-25 50k-chunk scheme; the
+single-list-per-source scheme since 2026-09-10 compiles the same rules in one
+pass per list.)
 
 **Content blocking verified live (A/B, 2026-07-25):** with blocking **on**,
 navigating to a blocked tracker (`googletagmanager.com/gtm.js`) was stopped

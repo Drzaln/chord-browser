@@ -85,7 +85,8 @@ If the upstream URLs change or the ABP format evolves, update `ContentBlocker`'s
 
 **Key numbers to remember:**
 - ~137k rules from EasyList + EasyPrivacy combined
-- Chunked at 50k per `WKContentRuleList` (3 chunks)
+- **One compiled `WKContentRuleList` per source list** (EasyList ~78k, EasyPrivacy ~56k). Chunking is disabled below the 100k cap — WebKit's `ignore-previous-rules` (`@@` exceptions) only works *within one list*, so splitting a list made exceptions silently dead (the Mixpanel CDN bug, 2026-09). If a list ever grows past the cap, `compileChunks` pulls a trailing exception back across the boundary so it is never orphaned
+- Identifiers are `blocklist-v2-<contenthash>`; a legacy `blocklist-` identifier is recompiled automatically on the next launch refresh
 - 99.3% coverage (only ~945 lines skipped)
 - Compile takes ~3.7s off-main, ~103 MB transient spike
 - State keys: `contentBlocking.currentIdentifiers` (array), `contentBlocking.lastRefresh.<url>` (per list); legacy single `contentBlocking.currentIdentifier` is read once on upgrade
@@ -263,6 +264,48 @@ sqlite3 ~/Library/Application\ Support/Chord/chord.sqlite ".recover" | sqlite3 /
 This is **normal** — `WKWebView` content processes die routinely. The app handles this via `webViewWebContentProcessDidTerminate`. If it's happening excessively, check:
 - Memory pressure (too many live web views — cap is 12)
 - A specific site triggering the crash (check Console for WebContent crash logs)
+
+### A site is broken by the content blocker (page loads but JS doesn't run)
+
+Symptom: a page renders HTML but interactive features never appear — a missing
+"Login with Google" button, a login that does nothing, empty sections. The
+site's own scripts were blocked.
+
+1. **Confirm it is the blocker.** Open the site in Safari: works there but not
+   in Chord → the difference is the content blocker (or a UA override).
+2. **Find the blocked URL.** DevTools console (right-click → Inspect Element,
+   dev mode) reports `Content blocker prevented frame … from loading a
+   resource from <URL>`. That line names the exact request.
+3. **Is it the site's own domain/CDN?** (e.g. `cdn.mxpnl.com` on `mixpanel.com`).
+   A tracker rule is over-reaching. Blocking a *third-party* tracker almost
+   never breaks a login — the site's own CDN does.
+4. **Read the lists** (current EasyList + EasyPrivacy):
+   ```bash
+   curl -sL https://easylist.to/easylist/easylist.txt > /tmp/el.txt
+   curl -sL https://easylist.to/easylist/easyprivacy.txt > /tmp/ep.txt
+   grep -n "mxpnl" /tmp/el.txt /tmp/ep.txt
+   ```
+   - Block (`||domain^$third-party`) **and** exception
+     (`@@||domain^$domain=site.com`) → the exception must apply. Each list
+     compiles as ONE `WKContentRuleList` since 2026-09, so it does; if it
+     still doesn't, check the exception's `domain=` against the site's actual
+     host (scheme/host spelling).
+   - Block with **no** exception → the list is simply over-blocking; the fix
+     is an allowlist/exception, not a code change.
+5. **Check the compiled-list state** (did launch recompile?):
+   ```bash
+   defaults read com.rizal.chord | grep -i block
+   ```
+   Identifiers must carry the `blocklist-v2-` prefix. A legacy `blocklist-…`
+   identifier is recompiled on the next successful launch refresh.
+
+History: 2026-09-10 — Mixpanel's login "Login with Google" button was missing.
+EasyPrivacy's `||mxpnl.com^$third-party` blocked Mixpanel's own CDN
+(`cdn.mxpnl.com`), and its `@@||mxpnl.com^$domain=mixpanel.com` exception was
+silently dead because the list was chunked at 50k rules into separate
+`WKContentRuleList`s, and WebKit's `ignore-previous-rules` only undoes rules in
+the **same** list. Fixed by compiling each list whole (100k cap) plus the
+`blocklist-v2-` scheme in `Packages/Sources/ChordEngine/ContentBlocker.swift`.
 
 ### "Chord cannot be opened because of a problem"
 

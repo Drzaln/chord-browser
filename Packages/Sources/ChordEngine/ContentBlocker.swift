@@ -22,10 +22,13 @@ import WebKit
 /// still updates, and the failed list keeps its last good set and retries next
 /// launch rather than losing a week of updates.
 ///
-/// **Multiple lists.** The full EasyList + EasyPrivacy is ~137k rules, well past
-/// one list's practical compile size, so each list is split into chunks of
-/// `maxRulesPerList` and each chunk compiled separately; WebKit attaches several
-/// lists to a view and matches across all of them.
+/// **One compiled list per source list.** Each list is compiled whole into a
+/// single `WKContentRuleList`, so an EasyList/EasyPrivacy `@@` exception always
+/// sits in the same list as the rules it overrides. WebKit only honours
+/// `ignore-previous-rules` within one compiled list — splitting a list into
+/// chunks means a later chunk's exception silently cannot unblock anything (a
+/// real breakage: Mixpanel's login page lost its CDN and never rendered).
+/// The 100k cap is a last-resort safety valve; see `compileChunks`.
 @MainActor
 public final class ContentBlocker {
     private let store: WKContentRuleListStore
@@ -78,6 +81,16 @@ public final class ContentBlocker {
         }
     }
 
+    /// The identifier prefix for lists compiled under the *current* compile
+    /// scheme. Bumped whenever chunking semantics change, so a launch never
+    /// reuses chunk files compiled under an old scheme — see
+    /// `compileChunks` for why reusing them would silently keep a bug.
+    private static let listIdentifierPrefix = "blocklist-v2-"
+
+    private static func listIdentifier(for hash: String) -> String {
+        listIdentifierPrefix + hash
+    }
+
     /// The public EasyList + EasyPrivacy sources (§4.8).
     public static let defaultListURLs = [
         URL(string: "https://easylist.to/easylist/easylist.txt")!,
@@ -93,10 +106,14 @@ public final class ContentBlocker {
         defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init,
         refreshInterval: TimeInterval = ContentBlockRefresh.interval,
-        // Compiling the full ~137k-rule set at once is far more transient memory
-        // than §6.2 allows and can hit an uncatchable abort; ~50k compiles
-        // reliably in ~1.4 s, so the lists are chunked to this size.
-        maxRulesPerList: Int = 50_000
+        // One list compiles whole, exceptions intact. ~137k rules in a single
+        // list is far more transient memory than §6.2 allows and can hit an
+        // uncatchable abort; ~100k compiles in well under a second with no
+        // such risk, and every current list fits — EasyList ~78k, EasyPrivacy
+        // ~56k — so chunking (which breaks cross-chunk `@@` exceptions, see
+        // `compileChunks`) never engages for them. The cap is only the
+        // safety valve for a genuinely oversized list.
+        maxRulesPerList: Int = 100_000
     ) {
         self.seedIdentifier = seedIdentifier
         self.store = store
@@ -116,7 +133,7 @@ public final class ContentBlocker {
     /// silently shrink to the seed between weekly refreshes.
     @discardableResult
     public func activeLists() async -> [WKContentRuleList] {
-        let identifiers = currentIdentifiers
+        var identifiers = currentIdentifiers
 
         // Legacy single combined list (pre-per-list): serve it verbatim. The
         // array form below cannot express it without misreading the combined
@@ -126,6 +143,18 @@ public final class ContentBlocker {
         {
             compiledLists = legacy
             return legacy
+        }
+
+        // Lists recorded under an older compile scheme would otherwise load
+        // their old chunk files, silently keeping the exception-breaking split
+        // this scheme exists to fix (see `compileChunks`). Force a refresh so
+        // every stored list is recompiled under the current scheme; on a fetch
+        // failure the old chunks serve for this launch and it retries next time.
+        if identifiers.contains(where: {
+            !$0.isEmpty && !$0.hasPrefix(Self.listIdentifierPrefix)
+        }) {
+            _ = await refreshIfDue()
+            identifiers = currentIdentifiers
         }
 
         guard identifiers.contains(where: { !$0.isEmpty }) else {
@@ -154,7 +183,12 @@ public final class ContentBlocker {
 
         for (index, url) in listURLs.enumerated() {
             let last = defaults.object(forKey: Self.lastRefreshKey(for: url)) as? Date
-            guard ContentBlockRefresh.isDue(
+            // A slot recorded under an older compile scheme is due even before
+            // its week is up, so its list gets recompiled under the current one.
+            let schemeStale = index < identifiers.count
+                && !identifiers[index].isEmpty
+                && !identifiers[index].hasPrefix(Self.listIdentifierPrefix)
+            guard schemeStale || ContentBlockRefresh.isDue(
                 lastRefresh: last, now: now(), interval: refreshInterval
             ) else { continue }
 
@@ -164,7 +198,7 @@ public final class ContentBlocker {
                 continue
             }
 
-            let identifier = "blocklist-" + Self.shortHash(text)
+            let identifier = Self.listIdentifier(for: Self.shortHash(text))
             let lists: [WKContentRuleList]
             if let cached = await loadChunks(baseIdentifier: identifier) {
                 lists = cached  // content unchanged since a previous refresh
@@ -207,6 +241,23 @@ public final class ContentBlocker {
     /// Splits converted rules into `maxRulesPerList` chunks and compiles each
     /// under `<baseIdentifier>-<index>`, using the cache per chunk. A chunk that
     /// fails to compile is skipped — partial blocking beats none.
+    ///
+    /// **Chunking is the last resort, and it must never split an exception from
+    /// the rules it overrides.** WebKit's `ignore-previous-rules` action (an
+    /// `@@` exception line) only undoes rules compiled into the *same*
+    /// `WKContentRuleList`; a later chunk is a separate list, so an exception
+    /// there silently cannot unblock anything. That is exactly what happened to
+    /// Mixpanel's login: EasyPrivacy's `||mxpnl.com^$third-party` landed in
+    /// chunk 0 and its `@@||mxpnl.com^$domain=mixpanel.com` exception in chunk
+    /// 1, so the exception never applied, Mixpanel's own CDN stayed blocked, and
+    /// the page's JS (the "Login with Google" button included) never ran.
+    ///
+    /// The cap is therefore set high enough that each current list compiles as
+    /// a single chunk (EasyList ~78k, EasyPrivacy ~56k — one ~100k-rule list
+    /// compiles in well under a second with no abort). Should a list ever grow
+    /// past the cap, the boundary is exception-aware: a chunk never begins with
+    /// an `ignore-previous-rules` rule — leading exceptions are pulled back into
+    /// the chunk holding the rules they are meant to undo.
     private func compileChunks(from text: String?, baseIdentifier: String) async
         -> [WKContentRuleList]
     {
@@ -216,7 +267,13 @@ public final class ContentBlocker {
         var index = 0
         var start = 0
         while start < rules.count {
-            let end = min(start + maxRulesPerList, rules.count)
+            var end = min(start + maxRulesPerList, rules.count)
+            // A boundary landing right before an exception would orphan it: as
+            // the first rule of a fresh list it has nothing to override. Pull
+            // leading exceptions into the previous chunk instead.
+            while end < rules.count, rules[end].action.type == .ignorePreviousRules {
+                end += 1
+            }
             let id = "\(baseIdentifier)-\(index)"
             if let cached = try? await store.contentRuleList(forIdentifier: id) {
                 lists.append(cached)

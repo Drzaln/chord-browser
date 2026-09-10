@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0) · **content blocker compiles one list per source so `@@` exceptions work** (2026-09-10, 1.10.1). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **716 passing** (`swift test`, 103 suites), measured 2026-09-08                                                                                                                                |
+| **Tests**                        | **728 passing** (`swift test`, 106 suites), measured 2026-09-10                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
@@ -3888,3 +3888,44 @@ honest, no selection is a no-op), and `PictureInPictureE2ETests` against a real
 `callAsyncJavaScript` return-value fix) and a real AVFoundation-generated H.264
 clip hosted in a window reports `.entered` *only after the mode actually
 flipped* (pins the KVC flag + verification).
+
+## Content blocker: one list per source, exceptions work (2026-09-10, 1.10.1)
+
+**The bug.** Mixpanel's login page never showed its "Login with Google" button.
+The page rendered but its JS never ran: the content blocker was blocking
+`cdn.mxpnl.com` — Mixpanel's own CDN, which serves the Next.js `webpack-….js`
+chunk every other script depends on. EasyPrivacy's `||mxpnl.com^$third-party`
+tracker rule has an exception `@@||mxpnl.com^$domain=mixpanel.com` that should
+re-allow it on mixpanel.com — but the exception silently did nothing.
+
+**Why.** `ContentBlocker` split each list at 50k converted rules and compiled
+each chunk as a *separate* `WKContentRuleList`. WebKit's
+`ignore-previous-rules` (an `@@` exception) only undoes rules compiled into the
+**same** list. EasyPrivacy is 55,965 converted rules → the `||mxpnl.com^`
+block landed in chunk 0, its exception in chunk 1, so the exception could never
+override anything. Verified with a live-WKWebView probe: block+exception in
+separate lists = button gone; same list = button renders.
+
+**The fix** (`ContentBlocker.swift`):
+- `maxRulesPerList` 50k → **100k**, so each current list compiles whole into one
+  `WKContentRuleList` (EasyList ~78k, EasyPrivacy ~56k; a 100k-rule single list
+  compiles in well under a second with no abort — measured). Exceptions always
+  share a list with the rules they override.
+- The chunk boundary is now exception-aware as a last resort: a chunk never
+  begins with an `ignore-previous-rules` rule — a leading exception is pulled
+  back into the chunk holding the rules it protects.
+- New **`blocklist-v2-`** identifier scheme. `activeLists()` detects a stored id
+  under the old scheme and forces a one-time recompile on launch, so existing
+  installs don't keep the broken 50k-split chunk files.
+
+**Tests.** Two new `ContentBlockerTests` (a trailing exception is kept with the
+rules it overrides, not orphaned into its own chunk; a legacy-scheme identifier
+is recompiled under the current one) — 13 in the suite, **728 total, prepush
+green**. Also documented the "site broken by content blocker" diagnosis in the
+`chord-browser-maintenance` skill.
+
+**Diagnosis playbook** for the future: works in Safari but not Chord → check the
+DevTools console for `Content blocker prevented frame … from loading a resource
+from <URL>` → if the blocked URL is the site's own CDN and the lists carry an
+`@@` exception for it, the exception should now apply (single-list compile); if
+there is no exception, the list is over-blocking and needs an allowlist entry.

@@ -259,4 +259,48 @@ struct ContentBlockerTests {
         let lists = await b.refreshIfDue()
         #expect(lists.count == 3)
     }
+
+    @Test("A trailing exception is kept with the rules it overrides, not orphaned into its own chunk")
+    func exceptionStaysWithPrecedingRules() async throws {
+        let (store, c1) = tempStore()
+        let (defaults, c2) = tempDefaults()
+        defer { c1(); c2() }
+        // Four blocks then an exception, cap 2. Splitting at the cap naively
+        // would put the exception alone in a third chunk — where WebKit's
+        // ignore-previous-rules cannot undo anything. The boundary must pull
+        // the exception back into the chunk holding the rules it protects.
+        let src = """
+        ||ads0.example.com^
+        ||ads1.example.com^
+        ||ads2.example.com^
+        ||ads3.example.com^
+        @@||ads.example.com^
+        """
+        let b = blocker(
+            store: store, defaults: defaults, fetch: { _ in src }, maxRulesPerList: 2)
+
+        let lists = await b.refreshIfDue()
+        // [b0, b1] and [b2, b3, exc] — never a chunk that begins with the exception.
+        #expect(lists.count == 2)
+    }
+
+    @Test("A list recorded under an older compile scheme is recompiled under the current one")
+    func staleSchemeIsRecompiled() async throws {
+        let (store, c1) = tempStore()
+        let (defaults, c2) = tempDefaults()
+        defer { c1(); c2() }
+        // Simulate a pre-v2 install: the identifier has no scheme marker, so its
+        // old chunk files (compiled with the exception-breaking split) must not
+        // be reused — activeLists forces a recompile under the current scheme.
+        defaults.set(["blocklist-9f86d081884c7d65"], forKey: "contentBlocking.currentIdentifiers")
+        let b = blocker(
+            store: store, defaults: defaults,
+            fetch: { _ in "||ads.example.com^\n@@||ads.example.com^" })
+
+        let lists = await b.activeLists()
+        #expect(!lists.isEmpty)
+        let ids = defaults.stringArray(forKey: "contentBlocking.currentIdentifiers") ?? []
+        #expect(ids.count == 1)
+        #expect(ids[0].hasPrefix("blocklist-v2-"))
+    }
 }
