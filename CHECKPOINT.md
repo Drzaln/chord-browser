@@ -3783,13 +3783,14 @@ really moves).
 SwiftUI's `.glassEffect(.regular, in: …)` — the system's current material —
 under the Space gradient tint; macOS 15.4–25 keep the previous
 `.ultraThinMaterial` over the same gradient (`#available(macOS 26, *)` gates).
-The sidebar applies the glass to the *whole* surface (content included, so
-nothing is hidden behind the material) and reserves a `.contentShape` *before*
-the glass modifier so the card still captures pointer events. The blank content
-card was a hard `textBackgroundColor` rectangle before; it now matches the
-chrome. A floating sidebar overhangs the page again (reverted from a lane-reserve
-experiment) — with the accepted tradeoff that WKWebView's geometry-based hover
-tracking still reacts through the glass.
+The sidebar applies the glass as a **background only** — never as a modifier on
+the whole card, which wraps the AppKit drag source and drop targets inside the
+glass layer and stops AppKit delivering drag events (a drag-to-Pinned regression
+found in 1.10.2 and fixed there). The blank content card was a hard
+`textBackgroundColor` rectangle before; it now matches the chrome. A floating
+sidebar overhangs the page again (reverted from a lane-reserve experiment) —
+with the accepted tradeoff that WKWebView's geometry-based hover tracking still
+reacts through the glass.
 
 **CI runner bumped to `macos-26`.** `.github/workflows/release.yml` runs on
 `macos-26`, because `glassEffect`/`Glass` only exist in the macOS 26 SDK — the

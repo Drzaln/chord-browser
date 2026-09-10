@@ -302,12 +302,14 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
   top-level `return`. The `CommandMenu("View")` was replaced with
   `CommandGroup(after: .toolbar)` because `CommandMenu` creates a *second* View
   menu.
-- ~~Liquid Glass~~ **Done 2026-09-08 (1.9.0)** — macOS 26 only (`#available` gate):
-  sidebar (`LiquidGlassSidebar` modifier — glass on the *whole* surface, content
-  included, with a `.contentShape` *before* the glass so it stays hit-testable)
-  and the blank content card (`WebContentCard`) use SwiftUI `.glassEffect(.regular)`
-  under the Space gradient; 15.4–25 keep `.ultraThinMaterial`. Release CI is on a
-  `macos-26` runner — `glassEffect`/`Glass` need the macOS 26 SDK.
+- ~~Liquid Glass~~ **Done 2026-09-08 (1.9.0; sidebar glass fixed 1.10.2)** — macOS 26
+  only (`#available` gate): the sidebar and blank content card use SwiftUI
+  `.glassEffect(.regular)` under the Space gradient; 15.4–25 keep
+  `.ultraThinMaterial`. The sidebar glass is a **background only** — a
+  `.glassEffect` modifier on the whole card wraps the AppKit `TabDragSource`/
+  `SidebarDropTarget` in the glass layer and AppKit stops delivering drag events
+  (drag-to-Pinned regression, fixed 1.10.2). Release CI is on a `macos-26`
+  runner — `glassEffect`/`Glass` need the macOS 26 SDK.
 - ~~Developer mode / Web Inspector~~ **Done 2026-08-27 (1.7.0)** — global
   `developerMode` toggle (Settings → General + Develop menu, off by default even
   in release). Engine sets `developerExtrasEnabled` (private KVC key) per view;

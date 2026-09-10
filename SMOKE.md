@@ -669,6 +669,9 @@ screenshot — a 6-point strip does not survive a guess.
 - [ ] Collapse state is per-Space and survives relaunch
 - [ ] A Pinned tab is exempt from the idle sweep
 - [ ] Drag a tab onto the Pinned section to pin it; drag out to unpin
+- [ ] Drag a loose tab onto the Favourites grid to pin it (regression guard for
+      the 1.10.2 Liquid Glass background fix — the drag source and drop targets
+      must stay above the glass layer)
 
 ### 30-minute soak
 
