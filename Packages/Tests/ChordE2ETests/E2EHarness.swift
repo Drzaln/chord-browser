@@ -13,6 +13,9 @@ import Foundation
 @MainActor
 final class E2EHarness {
     let store: TabStore
+    /// The real `WebKitEngine`, exposed so a test can drive engine-level seams
+    /// (like the PiP command's result) that the store only surfaces as a toast.
+    let engine: WebKitEngine
     /// The one open connection to this harness's database. Exposed because a
     /// second `ChordDatabase` over the same file contends for the WAL and
     /// fails with "database is locked" — a test needing its own repository must
@@ -28,6 +31,7 @@ final class E2EHarness {
 
     private init(
         store: TabStore,
+        engine: WebKitEngine,
         database: ChordDatabase,
         server: TestHTTPServer,
         directory: URL,
@@ -35,6 +39,7 @@ final class E2EHarness {
         downloads: DownloadsStore
     ) {
         self.store = store
+        self.engine = engine
         self.database = database
         self.server = server
         self.directory = directory
@@ -56,6 +61,7 @@ final class E2EHarness {
         let built = try makeStore(directory: directory, clock: clock)
         return E2EHarness(
             store: built.store,
+            engine: built.engine,
             database: built.database,
             server: server,
             directory: directory,
@@ -72,7 +78,7 @@ final class E2EHarness {
 
     private static func makeStore(
         directory: URL, clock: MutableClock
-    ) throws -> (store: TabStore, downloads: DownloadsStore, database: ChordDatabase) {
+    ) throws -> (store: TabStore, engine: WebKitEngine, downloads: DownloadsStore, database: ChordDatabase) {
         let database = try ChordDatabase.open(
             at: directory.appending(path: "chord.sqlite")
         )
@@ -111,7 +117,12 @@ final class E2EHarness {
         // read `UserDefaults.standard` before the line above can redirect them,
         // so a rule written by an earlier run would otherwise arrive here.
         store.userAgentOverrides = []
-        return (store, DownloadsStore(coordinator: engine.downloads), database)
+        return (
+            store,
+            engine,
+            DownloadsStore(coordinator: engine.downloads),
+            database
+        )
     }
 
     func tearDown() async {

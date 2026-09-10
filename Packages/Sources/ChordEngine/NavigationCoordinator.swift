@@ -201,6 +201,9 @@ extension NavigationCoordinator: WKScriptMessageHandler {
         case ScreenShareMonitor.messageName:
             guard let sharing = ScreenShareMonitor.isScreenSharing(from: message.body) else { return }
             engine?.setScreenSharing(sharing, for: paneID)
+        case PictureInPictureMonitor.messageName:
+            guard let active = PictureInPictureMonitor.isActive(from: message.body) else { return }
+            engine?.setPictureInPicture(active, for: paneID)
         case ContextLinkMonitor.messageName:
             engine?.setContextLinkURL(ContextLinkMonitor.linkURL(from: message.body), for: paneID)
         case PasswordFormMonitor.messageName:

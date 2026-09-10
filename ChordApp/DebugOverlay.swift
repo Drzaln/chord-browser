@@ -55,8 +55,9 @@ struct DebugOverlay: View {
         }
         .background {
             // Hidden hotkey host, so the overlay costs nothing when hidden.
+            // Cmd+Ctrl+O: Cmd+Ctrl+P is Picture-in-Picture in the View menu.
             Button("") { isVisible.toggle() }
-                .keyboardShortcut("p", modifiers: [.command, .control])
+                .keyboardShortcut("o", modifiers: [.command, .control])
                 .opacity(0)
         }
     }

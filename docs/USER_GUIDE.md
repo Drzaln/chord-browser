@@ -107,6 +107,7 @@ Space_.
 | `Cmd+P`       | Print the focused pane                                       |
 | `Cmd+S`       | Toggle the sidebar                                           |
 | `Cmd+Ctrl+S`  | Toggle **Presentation mode** (hide all chrome — for sharing) |
+| `Cmd+Ctrl+P`  | **Enter / Exit Picture-in-Picture** (float the page's video)  |
 | `Cmd+=` / `Cmd+-` / `Cmd+0` | Zoom in / out / **Actual Size** (full-page)   |
 | `Cmd+Opt+I`   | Show **Web Inspector** for the active page (Developer mode)  |
 | `Cmd+Opt+D`   | Open **DRM Diagnostics** (Developer mode)                    |
@@ -121,6 +122,22 @@ it to jump straight to the new tab.
 
 Find works whether or not the find field has focus, so you can find, click into
 the page, and keep stepping through matches with `Cmd+G`.
+
+## Picture-in-Picture
+
+While a page is playing a video (YouTube, any `<video>` player), choose
+**View ▸ Enter Picture in Picture** or press `Cmd+Ctrl+P` to float the video
+into a native macOS PiP window — the video keeps playing above everything else,
+and you can drag it anywhere (hold `Cmd` to drag freely). The command picks the
+most likely video on the page: the playing one, largest first. Press it again
+(or `Cmd+Ctrl+P`) to exit. The View menu item flips between **Enter** and
+**Exit** as you go in and out of PiP, so it stays honest even when you exit via
+the PiP window's own close button.
+
+This is app-driven: it uses the same WebKit presentation path Safari's own PiP
+uses, which is why it works on pages where the site's own PiP option is greyed
+out (a macOS `WKWebView` does not expose the standard `requestPictureInPicture()`
+API).
 
 ## General settings
 

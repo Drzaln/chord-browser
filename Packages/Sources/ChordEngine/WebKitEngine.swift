@@ -68,6 +68,12 @@ public final class WebKitEngine: WebEngine {
     private var cachedCodecs: [CodecProbe]?
     private var cachedHDCP: [HDCPProbe]?
 
+    /// Panes whose page currently has a video in Picture-in-Picture (non-spec:
+    /// user-requested). Cached from in-page presentation-mode events and from
+    /// the last toggle result — never polled. Cleared when the view goes away,
+    /// because a torn-down view has no PiP window. See `PictureInPictureMonitor`.
+    private var pictureInPicturePanes: Set<UUID> = []
+
     // BROWSER_SPEC 6.2 asks for a shared WKProcessPool. Apple deprecated the
     // whole type in macOS 12 — "Creating and using multiple instances of
     // WKProcessPool no longer has any effect" — so process sharing is now
@@ -276,6 +282,7 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
         controller.addUserScript(PasswordFormMonitor.makeUserScript())
         controller.addUserScript(GeolocationBridge.makeUserScript())
+        controller.addUserScript(PictureInPictureMonitor.makeUserScript())
         // The DRM error-capture script is only useful to the Diagnostics panel,
         // which requires developer mode — so it is only installed (and its
         // handler registered) when developer mode is on. Skipping it by default
@@ -289,6 +296,7 @@ public final class WebKitEngine: WebEngine {
             controller.add(coordinator, name: NotificationBridge.showMessageName)
             controller.add(coordinator, name: ScreenShareMonitor.messageName)
             controller.add(coordinator, name: PasswordFormMonitor.messageName)
+            controller.add(coordinator, name: PictureInPictureMonitor.messageName)
             if developerMode {
                 controller.add(coordinator, name: DRMDiagnosticsMonitor.messageName)
             }
@@ -680,6 +688,16 @@ public final class WebKitEngine: WebEngine {
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         config.applicationNameForUserAgent = safariUserAgentSuffix
         config.preferences.setValue(true, forKey: "managedMediaSourceEnabled")
+        // Enables Picture-in-Picture for the in-page presentation-mode API.
+        // The typed property (`WKWebViewConfiguration.allowsPictureInPictureMediaPlayback`)
+        // is iOS/Catalyst-only and inert on native macOS — the flag WebKit's
+        // web process actually reads lives on `WKPreferences`, reachable only
+        // through this private KVC key (the same pattern as
+        // `managedMediaSourceEnabled` above, and the same fix shipping WebView
+        // apps like Tauri's wry use). Without it, `webkitSetPresentationMode
+        // ("picture-in-picture")` returns without error but never floats the
+        // video. See the PiP discussion in the architecture skill.
+        config.preferences.setValue(true, forKey: "allowsPictureInPictureMediaPlayback")
         // The user script and message handler are installed per view, not here:
         // copy() shares this controller between every copy.
         return config
@@ -862,6 +880,53 @@ public final class WebKitEngine: WebEngine {
         }
     }
 
+    // MARK: - Picture in Picture
+
+    /// Enters or exits Picture-in-Picture for the pane's best video (non-spec:
+    /// user-requested). One JS round-trip, on demand. The script itself picks
+    /// the video and flips `webkitSetPresentationMode`; the outcome updates the
+    /// engine's cached flag and is reported for the UI's toast.
+    public func togglePictureInPicture(paneID: UUID) async -> PictureInPictureResult {
+        guard let webView = pool.view(for: paneID)?.webView else { return .noPane }
+        do {
+            let value = try await webView.callAsyncJavaScript(
+                PictureInPictureMonitor.toggleScript,
+                arguments: [:],
+                contentWorld: .page
+            )
+            let result = PictureInPictureMonitor.result(from: value as? [String: Any])
+            if result == .entered || result == .exited {
+                setPictureInPicture(result == .entered, for: paneID)
+            }
+            return result
+        } catch {
+            Log.engine.debug("picture-in-picture toggle failed: \(error.localizedDescription)")
+            return .unsupported
+        }
+    }
+
+    /// Whether the pane's page currently has a video in Picture-in-Picture.
+    /// A pure cache read — safe on every menu rebuild, unlike a JS round-trip.
+    public func isPictureInPictureActive(paneID: UUID) -> Bool {
+        pictureInPicturePanes.contains(paneID)
+    }
+
+    /// Records the pane's PiP state and reports the change upward. Called from
+    /// the toggle result and from the in-page presentation-mode watcher, so the
+    /// label stays honest when the change did not start from the command.
+    func setPictureInPicture(_ active: Bool, for paneID: UUID) {
+        guard pictureInPicturePanes.contains(paneID) != active else { return }
+        if active { pictureInPicturePanes.insert(paneID) } else { pictureInPicturePanes.remove(paneID) }
+        delegate?.paneDidChangePictureInPicture(paneID, active: active)
+    }
+
+    /// Drops the pane's cached PiP state when its view is being torn down —
+    /// `closeAllMediaPresentations` has already dismissed any PiP window the
+    /// view owned, so keeping the flag would leave a stale "Exit" label.
+    private func clearPictureInPicture(_ paneID: UUID) {
+        pictureInPicturePanes.remove(paneID)
+    }
+
     // MARK: - Navigation
 
     public func load(_ url: URL, in paneID: UUID) {
@@ -1039,10 +1104,14 @@ public final class WebKitEngine: WebEngine {
     public func evict(paneID: UUID) -> Data? {
         let state = pool.evict(paneID)
         if let state { setInteractionState(state, for: paneID) }
+        clearPictureInPicture(paneID)
         return state
     }
 
-    public func evictAll() { pool.evictAll() }
+    public func evictAll() {
+        pool.evictAll()
+        pictureInPicturePanes.removeAll()
+    }
 
     /// Prefers the live view's current state over the last captured one, so a
     /// tab the user has scrolled since it was revived persists where they
@@ -1097,6 +1166,7 @@ public final class WebKitEngine: WebEngine {
         mutedPanes.remove(paneID)
         lastMediaError.removeValue(forKey: paneID)
         emeSessions.remove(paneID)
+        pictureInPicturePanes.remove(paneID)
         cancelSleepTimerWorkItem(paneID)
         sleepTimers.removeValue(forKey: paneID)
     }
@@ -1140,6 +1210,9 @@ public final class WebKitEngine: WebEngine {
     /// interactionState when WebKit left us one.
     func recoverFromTermination(paneID: UUID) {
         guard let live = pool.view(for: paneID) else { return }
+        // A dead content process owns no PiP window; clear the stale flag so the
+        // rebuilt page starts from "not floating".
+        clearPictureInPicture(paneID)
 
         if let state = live.interactionState ?? interactionStates[paneID] {
             live.restore(interactionState: state)

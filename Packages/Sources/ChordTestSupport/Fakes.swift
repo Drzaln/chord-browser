@@ -76,6 +76,35 @@ public final class FakeWebEngine: WebEngine {
         stoppedScreenShares.append(paneID)
     }
 
+    /// Which panes the store asked to toggle Picture-in-Picture (non-spec:
+    /// user-requested), and what the fake should report each time.
+    public private(set) var pictureInPictureToggles: [UUID] = []
+    public var pictureInPictureResult: PictureInPictureResult = .entered
+    /// The fake's view of which panes are currently in PiP, so
+    /// `isPictureInPictureActive` and the toggle stay consistent without a page.
+    public private(set) var pictureInPictureActivePanes: Set<UUID> = []
+
+    public func togglePictureInPicture(paneID: UUID) async -> PictureInPictureResult {
+        pictureInPictureToggles.append(paneID)
+        switch pictureInPictureResult {
+        case .entered: pictureInPictureActivePanes.insert(paneID)
+        case .exited: pictureInPictureActivePanes.remove(paneID)
+        default: break
+        }
+        return pictureInPictureResult
+    }
+
+    public func isPictureInPictureActive(paneID: UUID) -> Bool {
+        pictureInPictureActivePanes.contains(paneID)
+    }
+
+    /// Drives the delegate as the engine's PiP watcher would.
+    public func emitPictureInPictureChange(_ paneID: UUID, active: Bool) {
+        if active { pictureInPictureActivePanes.insert(paneID) }
+        else { pictureInPictureActivePanes.remove(paneID) }
+        delegate?.paneDidChangePictureInPicture(paneID, active: active)
+    }
+
     public private(set) var customUserAgent: String?
     public private(set) var customUserAgentSetCount = 0
     public private(set) var userAgentOverrides: [UserAgentOverride] = []

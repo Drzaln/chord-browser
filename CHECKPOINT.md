@@ -18,7 +18,7 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
 | **Tests**                        | **716 passing** (`swift test`, 103 suites), measured 2026-09-08                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
@@ -3809,3 +3809,82 @@ presenter fires once), `closingLastPinnedTabWithoutHistoryLeavesBlank` (replaces
 Debugging aid: transient `closeTrace` logging was added to the close path and
 removed once the loop was found — the log line shape is documented here so the
 next investigation starts faster.
+
+## Picture-in-Picture (2026-09-10, 1.10.0)
+
+Non-spec, user-requested (user asked "why is YouTube's Enter-PiP menu item
+disabled?" — the answer was a macOS `WKWebView` limit, and the fix is app-driven
+PiP the way Orion ships it).
+
+**Why the in-page API is unusable here.** On a native macOS `WKWebView`,
+`document.pictureInPictureEnabled` is `false` and `requestPictureInPicture()`
+does not exist: the knob that enables them,
+`WKWebViewConfiguration.allowsPictureInPictureMediaPlayback`, is
+iOS/Catalyst-only and *inert* on macOS (WebKit's `WKWebView.mm` only propagates
+it under `#if PLATFORM(IOS_FAMILY)`). YouTube's right-click **Enter picture in
+picture** item is the page's own and gates on that API, so it renders disabled.
+Safari works because Safari is not a `WKWebView` — it runs the full presentation
+layer and WebCore reports PiP support to the page.
+
+**The app-driven route.** The legacy `webkitSetPresentationMode("picture-in-picture")`
+path — the one Safari's own PiP machinery uses — *is* present in a macOS
+`WKWebView`, but it silently no-ops unless WebKit's web process has PiP enabled
+via the private `WKPreferences` KVC key `allowsPictureInPictureMediaPlayback`
+(the typed `WKWebViewConfiguration` property is the iOS-only one; the flag
+WebKit reads lives on preferences — the same fix Tauri's `wry` webview ships).
+Set in `WebKitEngine.configurationTemplate` alongside `managedMediaSourceEnabled`.
+Two landmines were found on the way:
+
+- `WKWebView.callAsyncJavaScript` evaluates the script as a *function body*: a
+  result wrapped in an IIFE whose `return` sits inside the IIFE is swallowed and
+  the call resolves `undefined`. The first version returned `undefined` → the
+  engine read `.unsupported` → a *silently* dead feature (no toast, no PiP).
+  The toggle script uses a top-level `return`, like the existing codec probes.
+- `webkitSetPresentationMode` can return without error and not engage (the
+  missing KVC flag above). The script therefore verifies the mode actually
+  flipped (a bounded ~1 s poll on `webkitPresentationMode`) before reporting
+  `entered`/`exited`; a failure reports `.unsupported` (now toasted, never
+  silent).
+
+**Mechanics.** `PictureInPictureMonitor` (Engine) carries two scripts. The
+*toggle* script runs once, on demand, in the page world: finds every
+`<video>` (light DOM first; only when empty does it walk open shadow roots, for
+players that hide their video behind a custom element), exits first if one is
+already floating, else picks the best candidate by linear scan (playing beats
+paused, largest surface wins, `readyState == 0` skipped) and flips the
+presentation mode. The *watcher* script listens for
+`webkitpresentationmodechanged` (capture phase, all frames) and posts
+`{ active }` on the event's *composed target* — O(1) per event, and correct
+through shadow roots where `event.target` would be retargeted. The engine caches
+the per-pane flag (`WebEngine.isPictureInPictureActive`), cleared on evict /
+forget / content-process death; the store mirrors it (`TabStore.pictureInPicturePanes`)
+so the View menu's Enter/Exit label reacts. Command: **View menu `Cmd+Ctrl+P`**
+(Orion's binding). The `CommandMenu("View")` that carried it was replaced with
+`CommandGroup(after: .toolbar)` — `CommandMenu("View")` creates a *second* View
+menu next to the system's, which is what the user reported as "two View menus".
+
+**A note for future me:** PiP works, and the "Adding 'WebVideoViewContainer' as a
+subview of NSHostingController.view is not supported" console warning that fires
+when it engages is WebKit's own (its PiP inserts an internal container into the
+SwiftUI hosting view — verified empirically by hosting a web view in a
+`NSHostingController` and walking the hierarchy after PiP; our
+`WebSurfaceContainerView` is never the target). Cosmetic, harmless, not fixable
+in-app without abandoning SwiftUI hosting.
+
+**Files.** `PictureInPictureMonitor.swift` (new), `WebKitEngine.swift` (KVC
+flag, `togglePictureInPicture`, `isPictureInPictureActive`, wiring), `WebEngine.swift`
+(result enum + protocol + defaults), `NavigationCoordinator.swift` /
+`WebViewPool.swift` (message routing / teardown), `TabStore.swift` (observable
+flag, toggle + toast), `ChordApp.swift` (menu item + icons, `.toolbar` group),
+`DebugOverlay.swift` (debug hotkey moved `Cmd+Ctrl+P → Cmd+Ctrl+O` so the PiP
+binding is free in DEBUG), `Fakes.swift` / `TestHTTPServer.swift` /
+`E2EHarness.swift` (test support).
+
+**Tests (726 passing, 106 suites, prepush green).** `PictureInPictureMonitorTests`
+(parse + result mapping), `PictureInPictureTests` (store: routes to the focused
+pane, toasts entered/exited/no-video/unavailable, watcher keeps the label
+honest, no selection is a no-op), and `PictureInPictureE2ETests` against a real
+`WKWebView`: a video-less page reports `.noVideo` (pins the
+`callAsyncJavaScript` return-value fix) and a real AVFoundation-generated H.264
+clip hosted in a window reports `.entered` *only after the mode actually
+flipped* (pins the KVC flag + verification).

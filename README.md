@@ -60,6 +60,10 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **Liquid Glass** — on macOS 26 the sidebar and the blank window render with
   Apple's Liquid Glass material (`.glassEffect`); earlier macOS keeps the
   frosted `.ultraThinMaterial` look.
+- **Picture-in-Picture** — `View ▸ Enter/Exit Picture in Picture`
+  (`Cmd+Ctrl+P`) floats the active page's video into a native macOS PiP window.
+  App-driven (the only PiP path a macOS `WKWebView` exposes), so it works even
+  where YouTube's own right-click PiP item is disabled.
 - **Session restore** — `interactionState` persistence; a force-quit relaunch
   restores everything, including scroll and form state.
 - **Downloads** — `WKDownload` handling with progress UI.

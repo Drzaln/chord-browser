@@ -528,6 +528,19 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
     luminance-adaptive icon/text. Actionable toasts (e.g. "Opened in new tab")
     are tappable and run an action — `newTab` returns the new tab's id so the
     toast can select it.
+- **Picture-in-Picture** (2026-09-10, 1.10.0; details in the CHECKPOINT
+  2026-09-10 section) — View menu `Cmd+Ctrl+P` floats the active page's best
+  `<video>` into a native macOS PiP window. **App-driven**, because a macOS
+  `WKWebView` does not expose the standard `requestPictureInPicture()` API
+  (`document.pictureInPictureEnabled` is false; the knob that enables it,
+  `WKWebViewConfiguration.allowsPictureInPictureMediaPlayback`, is
+  iOS/Catalyst-only). It drives the legacy `webkitSetPresentationMode("picture-in-picture")`
+  path instead — the one Safari's own PiP uses — and that path needs the private
+  `WKPreferences` KVC key `allowsPictureInPictureMediaPlayback` set, or the call
+  returns without error but never floats (the reason the first attempt silently
+  no-op'd). A `PictureInPictureMonitor` user script watches
+  `webkitpresentationmodechanged` so the menu's Enter/Exit label stays honest
+  when PiP is started/ended outside the command. Non-spec, user-requested.
 
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
 software-only in a general `WKWebView`: macOS reserves the hardware decode path

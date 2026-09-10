@@ -15,17 +15,23 @@ public actor TestHTTPServer {
         /// which is the only way to exercise `WKDownloadDelegate` end to end.
         public let contentType: String
         public let extraHeaders: [String: String]
+        /// Binary payloads (media files, etc.). When non-nil, this is served
+        /// verbatim instead of `html` — kept separate because `String` round-
+        /// trips through UTF-8 would corrupt arbitrary bytes.
+        public let body: Data?
 
         public init(
             path: String,
             html: String,
             contentType: String = "text/html; charset=utf-8",
-            extraHeaders: [String: String] = [:]
+            extraHeaders: [String: String] = [:],
+            body: Data? = nil
         ) {
             self.path = path
             self.html = html
             self.contentType = contentType
             self.extraHeaders = extraHeaders
+            self.body = body
         }
     }
 
@@ -128,26 +134,34 @@ public actor TestHTTPServer {
         let path = Self.path(fromRequestLine: request)
         receivedRequests.insert((path, Self.headers(from: request)), at: 0)
         let route = routes[path]
-        let body = route?.html ?? "<html><head><title>Not Found</title></head><body>404</body></html>"
         let status = route == nil ? "404 Not Found" : "200 OK"
         let contentType = route?.contentType ?? "text/html; charset=utf-8"
 
-        let bytes = Array(body.utf8)
+        // Binary bodies are served verbatim; anything else is the route's HTML
+        // (UTF-8). Building the head and body separately keeps arbitrary bytes
+        // from surviving a String round-trip.
+        let payload: Data
+        if let binary = route?.body {
+            payload = binary
+        } else {
+            let html = route?.html
+                ?? "<html><head><title>Not Found</title></head><body>404</body></html>"
+            payload = Data(html.utf8)
+        }
         let extra = (route?.extraHeaders ?? [:])
             .map { "\($0.key): \($0.value)\r\n" }
             .joined()
 
-        let response = """
-        HTTP/1.1 \(status)\r
-        Content-Type: \(contentType)\r
-        Content-Length: \(bytes.count)\r
-        \(extra)Connection: close\r
-        \r
-        \(body)
-        """
+        let head = "HTTP/1.1 \(status)\r\n"
+            + "Content-Type: \(contentType)\r\n"
+            + "Content-Length: \(payload.count)\r\n"
+            + extra
+            + "Connection: close\r\n\r\n"
+        var response = Data(head.utf8)
+        response.append(payload)
 
         connection.send(
-            content: Data(response.utf8),
+            content: response,
             completion: .contentProcessed { _ in connection.cancel() }
         )
     }
@@ -204,6 +218,14 @@ private final class ResumeOnce: @unchecked Sendable {
 }
 
 public extension TestHTTPServer.Route {
+    /// A route that serves raw bytes — e.g. a media file a page references.
+    /// Body is served verbatim; never passed through a String round-trip.
+    static func media(
+        path: String, data: Data, contentType: String = "video/mp4"
+    ) -> Self {
+        Self(path: path, html: "", contentType: contentType, body: data)
+    }
+
     /// A page with a title, so `WKWebView.title` has something to report.
     static func page(path: String, title: String, body: String = "") -> Self {
         Self(

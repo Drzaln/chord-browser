@@ -401,7 +401,7 @@ struct ChordCommands: Commands {
             // Presentation mode hides all browser chrome so a screen-shared
             // window shows only the page — WebKit's native stand-in for "Share
             // this tab", which it cannot do. Cmd+Ctrl+S, a sidebar-family
-            // mnemonic; Cmd+Ctrl+P is the debug overlay.
+            // mnemonic; Cmd+Ctrl+P is Picture-in-Picture (the View menu).
             Button(
                 (windowState?.isPresentationMode ?? false)
                     ? "Exit Presentation Mode" : "Enter Presentation Mode"
@@ -415,13 +415,54 @@ struct ChordCommands: Commands {
         // Full-page zoom (non-spec: user-requested). Cmd+= / Cmd+- / Cmd+0, the
         // same bindings as every browser. Applied via WKWebView.pageZoom (the
         // layout/viewport level, not text size) and persisted globally.
-        CommandMenu("View") {
-            Button("Zoom In") { zoom("Zoom", icon: "plus.magnifyingglass", { $0.zoomIn() }) }
-                .keyboardShortcut("=", modifiers: .command)
-            Button("Zoom Out") { zoom("Zoom", icon: "minus.magnifyingglass", { $0.zoomOut() }) }
-                .keyboardShortcut("-", modifiers: .command)
-            Button("Actual Size") { zoom("Zoom", icon: "1.magnifyingglass", { $0.zoomReset() }) }
-                .keyboardShortcut("0", modifiers: .command)
+        //
+        // A `CommandMenu("View")` would create a *second* "View" menu — the
+        // system already ships one (Enter Full Screen, …). Appending to the
+        // `toolbar` group lands these items in the existing View menu, the
+        // same slot the sidebar/presentation-mode items already use.
+        CommandGroup(after: .toolbar) {
+            Button {
+                zoom("Zoom", icon: "plus.magnifyingglass", { $0.zoomIn() })
+            } label: {
+                Label("Zoom In", systemImage: "plus.magnifyingglass")
+            }
+            .keyboardShortcut("=", modifiers: .command)
+            Button {
+                zoom("Zoom", icon: "minus.magnifyingglass", { $0.zoomOut() })
+            } label: {
+                Label("Zoom Out", systemImage: "minus.magnifyingglass")
+            }
+            .keyboardShortcut("-", modifiers: .command)
+            Button {
+                zoom("Zoom", icon: "1.magnifyingglass", { $0.zoomReset() })
+            } label: {
+                Label("Actual Size", systemImage: "1.magnifyingglass")
+            }
+            .keyboardShortcut("0", modifiers: .command)
+
+            Divider()
+
+            // App-driven Picture-in-Picture (non-spec: user-requested). Drives
+            // the focused pane's video into a floating window via WebKit's
+            // legacy presentation-mode API — the only PiP path a native-macOS
+            // WKWebView exposes (the standard `requestPictureInPicture()` API
+            // reports unsupported in embedded web views). The label flips
+            // between Enter/Exit from the engine's cache, so it stays honest
+            // when PiP is started or ended elsewhere. Cmd+Ctrl+P, the binding
+            // Orion — the browser this feature mirrors — uses.
+            Button {
+                withFocusedWindow { store, window in
+                    Task { await store.togglePictureInPicture(in: window) }
+                }
+            } label: {
+                let isActive = windowState.flatMap { store?.isPictureInPictureActive(in: $0) } ?? false
+                Label(
+                    isActive ? "Exit Picture in Picture" : "Enter Picture in Picture",
+                    systemImage: isActive ? "pip.exit" : "pip"
+                )
+            }
+            .keyboardShortcut("p", modifiers: [.command, .control])
+            .disabled(windowState == nil)
         }
 
         // Developer features (non-spec: user-requested). The Web Inspector and

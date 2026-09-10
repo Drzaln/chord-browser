@@ -101,6 +101,23 @@ distribution.
 - [ ] Toast capsule matches the window's Space-tinted border, and the icon/text
       stays readable on both a light and a dark Space
 
+### Picture-in-Picture (2026-09-10)
+
+- [ ] On a playing YouTube video, **View ▸ Enter Picture in Picture** (`Cmd+Ctrl+P`)
+      floats the video into a native macOS PiP window; the toast says
+      "Picture in Picture"
+- [ ] The View menu item flips to **Exit Picture in Picture** (icon `pip.exit`)
+      while floating; pressing `Cmd+Ctrl+P` again exits and the video returns to
+      the page
+- [ ] Closing the PiP window with its own close button also flips the menu item
+      back to "Enter" (watcher keeps the label honest)
+- [ ] **Enter** on a page with no video shows "No video on this page" and does
+      nothing else
+- [ ] PiP works in a private window and in split-view panes
+- [ ] Exiting the tab / switching Space while floating dismisses the PiP window
+- [ ] There is exactly **one "View" menu** (no duplicate), containing Zoom, Actual
+      Size, and the PiP toggle alongside Enter Full Screen
+
 ### Persistence
 
 - [ ] Quit and relaunch: tabs come back with titles and favicons

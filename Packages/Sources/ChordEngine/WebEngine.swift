@@ -135,6 +135,12 @@ public protocol WebEngineDelegate: AnyObject {
     /// first time for a site, prompts the user (normal browser behaviour), then
     /// the OS TCC gate decides whether Chord itself is location-aware.
     func paneRequestedGeolocation(_ prompt: SitePermissionPrompt) async -> Bool
+    /// A page's video entered or left Picture-in-Picture (non-spec:
+    /// user-requested), reported by the in-page presentation-mode watcher. The
+    /// UI's PiP command label needs this even when the change did not start
+    /// from the command — the PiP window's own close button, the video
+    /// controls' PiP button.
+    func paneDidChangePictureInPicture(_ paneID: UUID, active: Bool)
     /// A page read the remembered geolocation decision (`navigator.permissions.query`
     /// or the shimmed `navigator.geolocation` at load) — report it without
     /// prompting so the synchronous read reflects a real choice.
@@ -175,9 +181,10 @@ public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> B
         origin: String, username: String, password: String, fromPane paneID: UUID
     ) {}
     public func paneDidCaptureThumbnail(_ paneID: UUID, data: Data?) {}
+    public func paneDidChangePictureInPicture(_ paneID: UUID, active: Bool) {}
 }
 
-/// Why a fill did or did not happen. Distinguished because "we refused" and
+/// What a fill did or did not happen. Distinguished because "we refused" and
 /// "the page moved" call for different things being said to the user, and
 /// because silently doing nothing is the failure mode a password manager must
 /// never have.
@@ -191,6 +198,22 @@ public enum LoginFillOutcome: Equatable, Sendable {
     /// The fields are gone or no longer visible — a single-page app re-rendered,
     /// or the page hid them.
     case fieldsUnavailable
+    /// No live web view for that pane.
+    case noPane
+}
+
+/// What the PiP command did (non-spec: user-requested). The UI toasts the
+/// outcome, so the distinction matters: "entered/exited" say what happened,
+/// "noVideo" tells the user there was nothing to float, and the two failure
+/// cases stay silent.
+public enum PictureInPictureResult: Sendable, Equatable {
+    case entered
+    case exited
+    /// The page had no video ready to float (none, none supported, or nothing
+    /// loaded).
+    case noVideo
+    /// The page did not answer the command — the JS world is unavailable.
+    case unsupported
     /// No live web view for that pane.
     case noPane
 }
@@ -242,6 +265,20 @@ public protocol WebEngine: AnyObject {
 
     /// Cancels the pane's sleep timer, if one is armed.
     func cancelSleepTimer(paneID: UUID)
+
+    /// Enters or exits Picture-in-Picture for the pane's best video (non-spec:
+    /// user-requested). Drives WebKit's legacy `webkitSetPresentationMode` path
+    /// — the only PiP route a native-macOS `WKWebView` exposes, because the
+    /// standard `requestPictureInPicture()` API reports unsupported in embedded
+    /// web views (the property that enables it is iOS/Catalyst-only). Runs once,
+    /// on demand, and reports the outcome so the UI can toast it. Never polls.
+    func togglePictureInPicture(paneID: UUID) async -> PictureInPictureResult
+
+    /// Whether the pane's page currently has a video in Picture-in-Picture.
+    /// Cached engine-side from in-page presentation-mode events and from the
+    /// last toggle result — never polls the page, so it is safe to read on
+    /// every menu rebuild.
+    func isPictureInPictureActive(paneID: UUID) -> Bool
 
     /// Stops every display-capture stream the pane holds (non-spec:
     /// user-requested), ending screen sharing. A no-op for a pane with no live
@@ -399,6 +436,10 @@ extension WebEngine {
     public func setPageZoom(_ factor: Double) {}
     public func showInspector(for paneID: UUID) {}
     public func mediaDiagnostics(for paneID: UUID) async -> MediaDiagnostics? { nil }
+    public func togglePictureInPicture(paneID: UUID) async -> PictureInPictureResult {
+        .unsupported
+    }
+    public func isPictureInPictureActive(paneID: UUID) -> Bool { false }
 }
 
 #if DEBUG

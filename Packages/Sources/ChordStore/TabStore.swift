@@ -340,6 +340,41 @@ public final class TabStore {
         window.isDRMDiagnosticsPresented = true
     }
 
+    /// Panes whose page currently has a video in Picture-in-Picture (non-spec:
+    /// user-requested). Mirrors the engine's cache so the View menu's PiP item
+    /// can flip between "Enter" and "Exit" reactively. Updated by the toggle
+    /// command and by the engine's in-page presentation-mode watcher (so a PiP
+    /// started or ended outside the command — the PiP window's close button,
+    /// the video controls' button — still moves the label).
+    public private(set) var pictureInPicturePanes: Set<UUID> = []
+
+    /// Enters or exits Picture-in-Picture for the focused pane's video, then
+    /// toasts the outcome. A no-op when no browser window has a selected tab.
+    public func togglePictureInPicture(in window: WindowState) async {
+        guard let paneID = selectedTab(in: window)?.focusedPaneID else { return }
+        let result = await engine.togglePictureInPicture(paneID: paneID)
+        switch result {
+        case .entered:
+            pictureInPicturePanes.insert(paneID)
+            window.showToast("Picture in Picture", icon: "pip")
+        case .exited:
+            pictureInPicturePanes.remove(paneID)
+            window.showToast("Exited Picture in Picture", icon: "pip.exit")
+        case .noVideo:
+            window.showToast("No video on this page", icon: "video.slash")
+        case .unsupported:
+            window.showToast("Picture in Picture unavailable", icon: "pip.slash")
+        case .noPane:
+            break
+        }
+    }
+
+    /// Whether the focused pane's page currently has a video in Picture-in-Picture.
+    public func isPictureInPictureActive(in window: WindowState) -> Bool {
+        guard let paneID = selectedTab(in: window)?.focusedPaneID else { return false }
+        return pictureInPicturePanes.contains(paneID)
+    }
+
     /// The DRM / streaming-capability report for the window's active pane
     /// (non-spec: user-requested). `nil` when the window has no selected tab or
     /// its pane has no live view.
@@ -1565,6 +1600,13 @@ extension TabStore: WebEngineDelegate {
             let evicted = thumbnailOrder.removeFirst()
             thumbnails[evicted] = nil
         }
+    }
+
+    /// A video entered or left PiP outside the toggle command — the PiP
+    /// window's own close button, the video controls' PiP button. Keeps the
+    /// View menu's Enter/Exit label honest.
+    public func paneDidChangePictureInPicture(_ paneID: UUID, active: Bool) {
+        if active { pictureInPicturePanes.insert(paneID) } else { pictureInPicturePanes.remove(paneID) }
     }
 
     public func paneDidUpdate(_ paneID: UUID, snapshot: PaneSnapshot) {

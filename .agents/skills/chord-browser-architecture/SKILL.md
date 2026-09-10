@@ -288,6 +288,20 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
   from `unloadTab`: it revived just-closed tiles, looping the close forever.
   Kept only for removed loose tabs. Tests: `closingFocusedFavouriteGoesToPreviousActive`,
   `closingLastPinnedTabWithoutHistoryLeavesBlank`.
+- ~~Picture-in-Picture~~ **Done 2026-09-10 (1.10.0)** — app-driven PiP: View menu
+  `Cmd+Ctrl+P` floats the page's best `<video>` via the legacy
+  `webkitSetPresentationMode("picture-in-picture")` path (the only PiP route a
+  native-macOS `WKWebView` exposes; `document.pictureInPictureEnabled` is false
+  there and `allowsPictureInPictureMediaPlayback` is iOS/Catalyst-only). **Requires
+  the private `WKPreferences` KVC key `allowsPictureInPictureMediaPlayback`** set
+  in `configurationTemplate`, or the call no-ops without error (the wry fix).
+  `PictureInPictureMonitor` = toggle script (verifies the mode actually flipped;
+  never trusts the call) + event-only watcher over `webkitpresentationmodechanged`
+  (composed target) keeping the menu Enter/Exit label honest. Watch out:
+  `callAsyncJavaScript` returns `undefined` for an IIFE-wrapped `return` — use a
+  top-level `return`. The `CommandMenu("View")` was replaced with
+  `CommandGroup(after: .toolbar)` because `CommandMenu` creates a *second* View
+  menu.
 - ~~Liquid Glass~~ **Done 2026-09-08 (1.9.0)** — macOS 26 only (`#available` gate):
   sidebar (`LiquidGlassSidebar` modifier — glass on the *whole* surface, content
   included, with a `.contentShape` *before* the glass so it stays hit-testable)
