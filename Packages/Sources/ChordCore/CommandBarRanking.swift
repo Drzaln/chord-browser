@@ -22,6 +22,14 @@ public struct Suggestion: Identifiable, Hashable, Sendable {
     /// fragment highlighted, and Enter confirms the completed URL.
     public var completion: String?
 
+    /// Whether this row switches to an already-open tab. The bar leads with
+    /// these so Return goes to the tab you already have (Arc order) instead of
+    /// opening a second copy.
+    public var isOpenTab: Bool {
+        if case .openTab = kind { return true }
+        return false
+    }
+
     /// What Return will actually do to this row, shown on the row itself.
     ///
     /// Without it, a fuzzy match on an open tab in another Space looks identical
@@ -140,18 +148,19 @@ public enum CommandBarRanking {
         }
         results = Array(results.prefix(resultLimit))
 
-        // The raw URL or search fallback always stays reachable (4.4).
+        // Arc order: an already-open tab that matches leads — "Switch to Tab" —
+        // and the URL/search fallback sits directly below it as "Go to Page" /
+        // "Search", one arrow away. Everything else keeps its ranked order.
         //
-        // Both go first: having typed them, Return must act on them. A
-        // *complete* address previously sorted last on `Int.min`, so any open
-        // tab that fuzzy-matched the text won the highlight and Return jumped
-        // Spaces instead of navigating. A search query used to sort last too,
-        // burying it below every matching tab and history row; the bar is for
-        // getting somewhere, so the fallback keeps the top slot.
+        // With no open tab matching, the fallback holds the top slot, because
+        // the bar is for getting somewhere and Return must act on what was
+        // typed. Only a tab you can switch to outranks that.
+        let openTabRows = results.filter(\.isOpenTab)
+        var ordered = openTabRows + results.filter { !$0.isOpenTab }
         if let fallback = fallback(query: query, input: input) {
-            results.insert(fallback, at: 0)
+            ordered.insert(fallback, at: openTabRows.count)
         }
-        return results
+        return ordered
     }
 
     // MARK: - Sources

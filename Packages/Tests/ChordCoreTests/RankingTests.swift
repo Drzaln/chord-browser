@@ -101,8 +101,8 @@ struct CommandBarRankingTests {
         )
 
         // 4.4 states this explicitly: open tabs outrank history at equal score.
-        // The search fallback sits above both, so compare the two relative to
-        // each other rather than expecting the tab at the very top.
+        // The fallback now sits between them (open tab leads), so compare the
+        // two relative to each other rather than expecting the tab at the top.
         let kinds = results.map(\.kind)
         let tabIndex = try #require(kinds.firstIndex { if case .openTab = $0 { true } else { false } })
         let historyIndex = try #require(kinds.firstIndex { if case .history = $0 { true } else { false } })
@@ -131,8 +131,10 @@ struct CommandBarRankingTests {
         #expect(recentIndex < staleIndex)
     }
 
-    @Test("Tabs from every Space are searchable, not just the active one")
-    func searchesAllSpaces() {
+    @Test("The ranker scores every tab it is handed (Space scoping is the store's job)")
+    func ranksEveryTabItIsGiven() {
+        // `CommandBarRanking` is pure and Space-agnostic; `TabStore` narrows the
+        // tabs to the active Space before calling it, so given two it ranks both.
         let other = UUID()
         let tabs = [
             TabBuilder().url("https://a.example").title("Alpha").build(),
@@ -140,7 +142,7 @@ struct CommandBarRankingTests {
         ]
 
         let results = CommandBarRanking.suggestions(for: input(query: "alpha", tabs: tabs))
-        #expect(results.filter { if case .openTab = $0.kind { true } else { false } }.count == 2)
+        #expect(results.filter(\.isOpenTab).count == 2)
     }
 
     @Test("Archived tabs are searchable from the bar")
@@ -386,10 +388,10 @@ struct CommandBarRankingTests {
         )
     }
 
-    @Test("A typed address outranks an open tab that merely fuzzy-matches it")
-    func typedAddressWinsTopSlot() throws {
-        // The reported bug: typing a complete address highlighted an open tab in
-        // another Space, so Return switched Space instead of navigating.
+    @Test("An open tab matching the typed address leads, the address follows (Arc order)")
+    func openTabLeadsTypedAddress() throws {
+        // Arc parity: an already-open tab shows "Switch to Tab" first, and the
+        // typed address sits directly below as "Go to Page" — one arrow away.
         let tab = TabBuilder()
             .url("https://github.com/groue/GRDB.swift")
             .title("GRDB")
@@ -400,25 +402,31 @@ struct CommandBarRankingTests {
         )
 
         let first = try #require(results.first)
-        guard case .navigate(let url) = first.kind else {
-            Issue.record("expected the typed address first, got \(first.kind)")
+        #expect(first.isOpenTab, "expected the open tab first, got \(first.kind)")
+        #expect(first.actionLabel(for: .newTab) == "Switch to Tab")
+
+        let second = try #require(results.dropFirst().first)
+        guard case .navigate(let url) = second.kind else {
+            Issue.record("expected the typed address second, got \(second.kind)")
             return
         }
         #expect(url.absoluteString == "https://github.com")
     }
 
-    @Test("A bare host counts as a typed address")
-    func bareHostWinsTopSlot() throws {
+    @Test("A bare host's open tab leads, navigation follows")
+    func bareHostFollowsOpenTab() throws {
         let tab = TabBuilder().url("https://example.com/deep/page").title("Example").build()
 
         let results = CommandBarRanking.suggestions(
             for: input(query: "example.com", tabs: [tab])
         )
 
-        guard case .navigate = try #require(results.first).kind else {
-            Issue.record("expected a navigate suggestion first")
-            return
-        }
+        #expect(try #require(results.first).isOpenTab, "expected the open tab first")
+        let navigate = try #require(
+            results.first { if case .navigate = $0.kind { true } else { false } }
+        )
+        guard case .navigate(let url) = navigate.kind else { return }
+        #expect(url.absoluteString == "https://example.com")
     }
 
     @Test("A typed domain prefix completes from history with the suffix highlighted")
@@ -506,18 +514,28 @@ struct CommandBarRankingTests {
         )
     }
 
-    @Test("A search query keeps the top slot")
-    func searchQueryKeepsTopSlot() throws {
-        // Like a typed address, the search fallback jumps the queue so Return
-        // acts on it without scrolling the list.
+    @Test("A matching open tab leads, the search fallback follows (Arc order)")
+    func searchFallbackFollowsOpenTab() throws {
         let tab = TabBuilder().url("https://github.com").title("GitHub").build()
 
         let results = CommandBarRanking.suggestions(
             for: input(query: "github", tabs: [tab])
         )
 
+        #expect(try #require(results.first).isOpenTab, "expected the open tab first")
+        guard case .search = try #require(results.dropFirst().first).kind else {
+            Issue.record("expected the search fallback second")
+            return
+        }
+    }
+
+    @Test("With no matching open tab the fallback still leads")
+    func noOpenTabFallbackLeads() throws {
+        // The old guarantee survives where it matters: nothing to switch to, so
+        // Return acts on what was typed.
+        let results = CommandBarRanking.suggestions(for: input(query: "github"))
         guard case .search = try #require(results.first).kind else {
-            Issue.record("expected the search fallback first, got \(String(describing: results.first?.kind))")
+            Issue.record("expected the search fallback first")
             return
         }
     }
