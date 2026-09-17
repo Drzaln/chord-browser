@@ -391,12 +391,12 @@ where the result lands (a new tab vs. the current tab). As you type it ranks:
   yanks you into a different Space, and
 - the raw **URL** or **search** fallback.
 
-When something you type matches an **already-open tab**, that tab leads the list
-("Switch to Tab") with the URL/search fallback right below it ("Go to Page" /
-"Search") — Arc's order. Press Return to jump to the tab you already have instead
-of opening a second copy; arrow down once to open the page instead. With no
-matching open tab, the fallback takes the top slot, so Return still acts on
-exactly what you typed without scrolling for it.
+When something you type matches **already-open tabs**, the best **two** lead the
+list ("Switch to Tab") with the URL/search fallback right below them ("Go to
+Page" / "Search") — Arc's order. Press Return to jump to a tab you already have
+instead of opening a second copy; arrow down to open the page instead. Any other
+matches follow below. With no matching open tab, the fallback takes the top slot,
+so Return still acts on exactly what you typed without scrolling for it.
 
 `Cmd+L` opens the bar with the current tab's address already in the field and
 selected, so the first keystroke replaces it — the same as the address button in

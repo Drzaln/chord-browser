@@ -549,8 +549,10 @@ setting this sweep did not change), and whether typing "feels" lag-free.
 - [ ] Typing a complete address (`github.com`) with that page already open
       highlights the **open tab** ("Switch to Tab"), not a new navigation; arrow
       down to the address says "Go to Page" (Arc order, changed 2026-09-17)
-- [ ] Typing a word (`github`) with a matching tab open highlights the **open
-      tab**, with the search fallback ("Search") directly below it
+- [ ] Typing a word (`github`) with matching tabs open highlights up to **two**
+      open tabs, with the search fallback ("Search") directly below them
+- [ ] With three or more matching tabs, only the **two best** lead — the
+      fallback is still the third row, and the other matches sit below it
 - [ ] With **no** matching open tab, the URL/search fallback still holds the top
       slot — Return acts on what you typed without scrolling to the bottom
 - [ ] With nothing typed, the list is **this Space only** — its open tabs and top

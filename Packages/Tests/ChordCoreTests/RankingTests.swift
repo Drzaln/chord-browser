@@ -529,6 +529,24 @@ struct CommandBarRankingTests {
         }
     }
 
+    @Test("At most two matching open tabs lead, the fallback follows (Arc order, capped)")
+    func leadingOpenTabsAreCapped() throws {
+        let tabs = (0..<4).map {
+            TabBuilder().url("https://site\($0).example").title("Site \($0)").build()
+        }
+
+        let results = CommandBarRanking.suggestions(for: input(query: "site", tabs: tabs))
+
+        let leading = Array(results.prefix(2))
+        #expect(leading.allSatisfy { $0.isOpenTab }, "the two best tabs lead")
+        guard case .search = try #require(results.dropFirst(2).first).kind else {
+            Issue.record("expected the fallback third")
+            return
+        }
+        // The remaining matches are still offered, just below the fallback.
+        #expect(results.filter { $0.isOpenTab }.count == 4)
+    }
+
     @Test("With no matching open tab the fallback still leads")
     func noOpenTabFallbackLeads() throws {
         // The old guarantee survives where it matters: nothing to switch to, so

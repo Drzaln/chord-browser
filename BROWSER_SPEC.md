@@ -325,10 +325,11 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
   switches Space as a side effect (opening in another Space is a deliberate move,
   not a search result).
 - Fuzzy scoring with recency weighting. Open tabs outrank history at equal score.
-- **Arc order: a matching open tab takes the top slot** ("Switch to Tab"), with
-  the raw URL / search fallback directly below it ("Go to Page" / "Search") — one
-  arrow away. With no open tab matching, the fallback holds the top slot, because
-  the bar is for getting somewhere and Return must act on what was typed.
+- **Arc order: the best matching open tabs lead** ("Switch to Tab") — up to two —
+  with the raw URL / search fallback directly below them ("Go to Page" /
+  "Search") — one arrow away. With no open tab matching, the fallback holds the
+  top slot, because the bar is for getting somewhere and Return must act on what
+  was typed. Further matching tabs keep their ranked place below the fallback.
 - Every row states what Return will do to it ("Switch to Tab", "Go to Page",
   "Search"…), before it happens, not after.
 - Return acts per the mode above; `Cmd+Enter` forces a new tab from either mode;

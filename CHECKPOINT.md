@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0) · **content blocker compiles one list per source so `@@` exceptions work** (2026-09-10, 1.10.1) · **swipe-to-close yields to canvas apps (Sheets, Figma) and horizontally-scrollable content** (2026-09-17) · **command bar leads with the matching open tab ("Switch to Tab"), URL/search fallback below it — Arc order** (2026-09-17) · **command bar scoped to the active Space** (2026-09-17). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0) · **content blocker compiles one list per source so `@@` exceptions work** (2026-09-10, 1.10.1) · **swipe-to-close yields to canvas apps (Sheets, Figma) and horizontally-scrollable content** (2026-09-17) · **command bar leads with up to two matching open tabs ("Switch to Tab"), URL/search fallback below them — Arc order** (2026-09-17) · **command bar scoped to the active Space** (2026-09-17). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **734 passing** (`swift test`, 107 suites), measured 2026-09-17                                                                                                                                |
+| **Tests**                        | **735 passing** (`swift test`, 107 suites), measured 2026-09-17                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
@@ -3965,12 +3965,14 @@ fallback was hard-pinned to slot 0 (`results.insert(fallback, at: 0)`), so the
 highlighted row was always the fallback and an open tab could only be reached by
 arrowing down.
 
-**The fix** (`CommandBarRanking.swift`). Matching open tabs are hoisted to the
-front, the fallback is inserted directly below them, and everything else keeps its
-ranked order — Arc's "Switch to Tab" then "Go to Page". With **no** matching open
-tab the fallback still holds slot 0, so Return acts on what was typed (the
-guarantee the old rule protected). `Suggestion.isOpenTab` is the shared test for
-"this row switches to a tab"; `actionLabel` already rendered the wording.
+**The fix** (`CommandBarRanking.swift`). The best matching open tabs are hoisted
+to the front — **capped at two** (`maxLeadingOpenTabs`; Arc shows four, two keeps
+the typed row near the top on a broad query) — the fallback is inserted directly
+below them, and everything else keeps its ranked order. A third matching tab
+falls back into its ranked place below the fallback. With **no** matching open tab
+the fallback still holds slot 0, so Return acts on what was typed (the guarantee
+the old rule protected). `Suggestion.isOpenTab` is the shared test for "this row
+switches to a tab"; `actionLabel` already rendered the wording.
 
 **Spec reversal.** §4.4 previously read "a complete typed address takes the top
 slot, ahead of open tabs … the fallback always holds the top slot". That rule (and
@@ -3981,7 +3983,9 @@ page is open switches to the tab" behavior the earlier fix had removed — the
 product decision (2026-09-17) is Arc parity.
 
 **Tests.** `openTabLeadsTypedAddress`, `bareHostFollowsOpenTab`,
-`searchFallbackFollowsOpenTab`, `noOpenTabFallbackLeads` — **730 total, green**.
+`searchFallbackFollowsOpenTab`, `leadingOpenTabsAreCapped`,
+`noOpenTabFallbackLeads`. Shipped in 1.11.0 (uncapped lead); the two-tab cap is a
+post-1.11.0 refinement.
 
 ## Command bar scoped to the active Space (2026-09-17)
 
@@ -4007,5 +4011,5 @@ Space"; the old "a result that switches Space must announce that" bullet is moot
 the same commit.
 
 **Tests.** `CommandBarScopingTests` (new suite): open tabs, empty query, history,
-and archive each prove only the active Space shows. **734 total, green** (107
+and archive each prove only the active Space shows. **735 total, green** (107
 suites).

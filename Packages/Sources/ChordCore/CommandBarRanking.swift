@@ -132,6 +132,12 @@ public enum CommandBarRanking {
 
     public static let resultLimit = 12
 
+    /// How many matching open tabs lead the list ("Switch to Tab") before the
+    /// URL/search fallback. Arc surfaces up to four; two keeps the row you
+    /// actually typed close to the top even on a broad, single-keystroke query.
+    /// Further matches keep their ranked place below the fallback.
+    public static let maxLeadingOpenTabs = 2
+
     public static func suggestions(for input: CommandBarInput) -> [Suggestion] {
         let query = input.query.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -148,17 +154,20 @@ public enum CommandBarRanking {
         }
         results = Array(results.prefix(resultLimit))
 
-        // Arc order: an already-open tab that matches leads — "Switch to Tab" —
-        // and the URL/search fallback sits directly below it as "Go to Page" /
-        // "Search", one arrow away. Everything else keeps its ranked order.
+        // Arc order: the best matching open tabs lead — "Switch to Tab" — and
+        // the URL/search fallback sits directly below them as "Go to Page" /
+        // "Search", one arrow away. The lead is capped, so a broad query cannot
+        // stack a wall of tabs above the row you actually typed; further matches
+        // keep their ranked place below.
         //
         // With no open tab matching, the fallback holds the top slot, because
         // the bar is for getting somewhere and Return must act on what was
         // typed. Only a tab you can switch to outranks that.
-        let openTabRows = results.filter(\.isOpenTab)
-        var ordered = openTabRows + results.filter { !$0.isOpenTab }
+        let leading = Array(results.lazy.filter(\.isOpenTab).prefix(maxLeadingOpenTabs))
+        let leadingIDs = Set(leading.map(\.id))
+        var ordered = leading + results.filter { !leadingIDs.contains($0.id) }
         if let fallback = fallback(query: query, input: input) {
-            ordered.insert(fallback, at: openTabRows.count)
+            ordered.insert(fallback, at: leading.count)
         }
         return ordered
     }
