@@ -39,6 +39,7 @@ public struct RootView: View {
     @State private var mruMonitor: MRUTabKeyMonitor?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(
         store: TabStore,
@@ -104,16 +105,22 @@ public struct RootView: View {
         store.activeSpace(in: windowState).map(SpaceTheme.accent(for:))
     }
 
-    /// The toast's icon/text colour, adapted to the tint so it stays readable.
-    /// Relative-luminance pick: dark text on a light Space, white on a dark one.
-    /// Falls back to the platform-primary (material-adaptive) colour with no
-    /// Space to key off.
-    private var toastForeground: Color {
+    /// The toast's icon/text colour **and** a matching shadow, chosen together
+    /// from the capsule we actually paint: the Space accent at 0.4 over the
+    /// material, which in a vibrant material reads roughly as the appearance's
+    /// background. The higher-contrast of black/white wins (`SpaceTheme`), so the
+    /// text stays readable — and white text gets a dark shadow to separate it
+    /// from a busy page. Falls back to the platform-primary colour with no Space.
+    private var toastText: (foreground: Color, shadow: Color) {
         guard let space = store.activeSpace(in: windowState),
-            let components = space.gradient.first?.components
-        else { return .primary }
-        let luminance = 0.2126 * components.red + 0.7152 * components.green + 0.0722 * components.blue
-        return luminance > 0.5 ? Color.black.opacity(0.75) : Color.white
+              let accent = space.gradient.first
+        else { return (.primary, .clear) }
+
+        return SpaceTheme.prefersDarkText(
+            accent: accent, isDarkAppearance: colorScheme == .dark
+        )
+            ? (Color.black.opacity(0.85), .clear)
+            : (.white, .black.opacity(0.35))
     }
 
     /// What the sidebar reserves in the layout, which is not what it draws.
@@ -174,7 +181,8 @@ public struct RootView: View {
             // the page and any centred banner, but below the MRU switcher.
             if let toast = windowState.toast {
                 ToastBanner(
-                    toast: toast, tint: toastTint, foreground: toastForeground
+                    toast: toast, tint: toastTint,
+                    foreground: toastText.foreground, shadow: toastText.shadow
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
                 .zIndex(6)

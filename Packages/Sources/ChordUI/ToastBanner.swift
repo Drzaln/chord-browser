@@ -19,6 +19,9 @@ struct ToastBanner: View {
     var tint: Color?
     /// The icon/text colour, adapted to the background so it stays readable.
     var foreground: Color = .primary
+    /// A shadow under the label, chosen with `foreground` (a dark one under white
+    /// text) so it stays legible over a busy page. `.clear` for dark text.
+    var shadow: Color = .clear
     var onTap: (() -> Void)? = nil
 
     private var isActionable: Bool { toast.action != nil }
@@ -67,6 +70,7 @@ struct ToastBanner: View {
                     .foregroundStyle(foreground.opacity(0.6))
             }
         }
+        .shadow(color: shadow, radius: 1, y: 0.5)
     }
 
     private func performAction() {

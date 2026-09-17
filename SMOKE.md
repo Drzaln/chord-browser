@@ -104,7 +104,9 @@ distribution.
       close/reload, and new tab/window; "Opened in new tab" is tappable and
       switches to that tab
 - [ ] Toast capsule matches the window's Space-tinted border, and the icon/text
-      stays readable on both a light and a dark Space
+      stays readable on both a light and a dark Space — including a mid-tone
+      Space and a light/dark appearance flip (contrast is computed from the
+      painted capsule, 2026-09-17)
 
 ### Picture-in-Picture (2026-09-10)
 
