@@ -443,7 +443,11 @@ extension NavigationCoordinator: WKUIDelegate {
     /// that answers from the host's `CLLocationManager`. This method is kept as
     /// belt-and-suspenders: on a WebKit build that does route geolocation here,
     /// the same per-origin ask-once path answers it.
-    @objc func _webView(
+    ///
+    /// `private` so the compiler does not mistake it for a near-match of the
+    /// now-public `webView(_:…)` requirement on the Xcode 27 SDK (macOS 27): this
+    /// is deliberately the SPI selector, not the protocol's, called by name.
+    @objc private func _webView(
         _ webView: WKWebView,
         requestGeolocationPermissionFor origin: WKSecurityOrigin,
         initiatedByFrame frame: WKFrameInfo,
