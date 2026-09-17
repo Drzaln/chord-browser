@@ -23,4 +23,10 @@ struct BackSwipeMonitorTests {
         #expect(!BackSwipeDecision.commit(dx: 80, dy: 60, couldGoBack: false))
         #expect(!BackSwipeDecision.commit(dx: 0, dy: 0, couldGoBack: false))
     }
+
+    @Test("A swipe over horizontally-scrollable content is left to the page")
+    func pageScrollOwnsSwipe() {
+        #expect(BackSwipeDecision.isPageScroll(true))
+        #expect(!BackSwipeDecision.isPageScroll(false))
+    }
 }
