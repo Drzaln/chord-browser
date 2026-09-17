@@ -147,6 +147,10 @@ extension TabStore {
             // and when they are activated (6.5).
             if let selected = window.selectedTabID {
                 resolveInteractionState(forTab: selected)
+            } else {
+                // A window restored blank (Arc): offer the command bar, exactly
+                // as the close that blanked it did live.
+                closeLeftBlankPresenter?(window)
             }
         }
         pendingWindowLayouts = Array(layouts.dropFirst(current.count))
@@ -169,15 +173,24 @@ extension TabStore {
         // Take the saved tab only if it still exists, lives in this Space, and no
         // other window already shows it. Otherwise let reconcile pick a free tab
         // in the (valid) Space rather than blank the window.
-        if let tabID = layout.selectedTabID,
-           let tab = tabs.first(where: { $0.id == tabID }),
-           tab.spaceID == spaceID,
-           windowShowing(tabID, excluding: window) == nil {
-            window.selectedTabID = tabID
+        //
+        // A saved `nil` is different: the window was left **blank on purpose**
+        // (the last live favourite/Pinned closed with nothing left to focus).
+        // Arc keeps that blank across a relaunch — offering the command bar
+        // rather than reviving a tab — so the nil is honoured here.
+        if let tabID = layout.selectedTabID {
+            if let tab = tabs.first(where: { $0.id == tabID }),
+               tab.spaceID == spaceID,
+               windowShowing(tabID, excluding: window) == nil {
+                window.selectedTabID = tabID
+            } else {
+                window.selectedTabID = nil
+                reconcile(window)
+            }
         } else {
             window.selectedTabID = nil
-            reconcile(window)
         }
+
         return true
     }
 

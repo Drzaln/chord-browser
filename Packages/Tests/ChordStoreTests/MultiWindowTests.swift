@@ -695,6 +695,58 @@ struct MultiWindowTests {
         #expect(store.primaryWindow.selectedTabID == tab.id)
     }
 
+    /// Arc: a window left blank (no live favourite/Pinned left to show) stays
+    /// blank across a relaunch and offers the command bar, rather than reviving
+    /// a tab. The saved `nil` is honoured, not reconciled away.
+    @Test("A window saved blank restores blank and offers the command bar")
+    func blankWindowRestoresBlank() async {
+        let space = Space(name: "A", sortIndex: 0)
+        let tab = TabBuilder().url("https://a.example").space(space.id).build()
+
+        let store = makeLayoutStore(
+            spaces: [space],
+            tabs: [tab],
+            layouts: [
+                WindowLayout(ordinal: 0, activeSpaceID: space.id, selectedTabID: nil)
+            ]
+        )
+        var presented: WindowState?
+        store.closeLeftBlankPresenter = { presented = $0 }
+        await store.restore()
+
+        #expect(store.primaryWindow.activeSpaceID == space.id)
+        #expect(store.primaryWindow.selectedTabID == nil, "no tab is revived")
+        #expect(store.tabs.count == 1, "and no replacement tab is created")
+        #expect(presented === store.primaryWindow, "the command bar is offered")
+    }
+
+    /// The same for a scene macOS restores *after* `restore()`: it claims its
+    /// queued blank layout and is offered the bar too.
+    @Test("A second window restored blank after launch stays blank and is offered the bar")
+    func blankSecondWindowRestoresBlank() async {
+        let space = Space(name: "A", sortIndex: 0)
+        let tab = TabBuilder().url("https://a.example").space(space.id).build()
+
+        let store = makeLayoutStore(
+            spaces: [space],
+            tabs: [tab],
+            layouts: [
+                WindowLayout(ordinal: 0, activeSpaceID: space.id, selectedTabID: tab.id),
+                WindowLayout(ordinal: 1, activeSpaceID: space.id, selectedTabID: nil),
+            ]
+        )
+        _ = store.claimWindow()  // the primary scene claims first, as in the app
+        await store.restore()
+
+        var presented: WindowState?
+        store.closeLeftBlankPresenter = { presented = $0 }
+        let second = store.claimWindow()
+
+        #expect(second !== store.primaryWindow)
+        #expect(second.selectedTabID == nil, "the queued blank layout is honoured")
+        #expect(presented === second, "and its command bar is offered")
+    }
+
     @Test("Open windows' layouts are captured for saving in window order")
     func capturedLayoutsFollowWindowOrder() async {
         let store = await makeStore(stored: [

@@ -137,6 +137,10 @@ public final class TabStore {
         if let layout = takeNextPendingLayout(), applyLayout(layout, to: window) {
             if let selected = window.selectedTabID {
                 resolveInteractionState(forTab: selected)
+            } else {
+                // A scene macOS restored blank stays blank and is offered the
+                // command bar, matching the primary's restore path.
+                closeLeftBlankPresenter?(window)
             }
         } else {
             reconcile(window)
