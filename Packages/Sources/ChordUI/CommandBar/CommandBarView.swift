@@ -21,6 +21,24 @@ struct CommandBarView: View {
 
     private var results: [Suggestion] { store.suggestions(for: query, in: windowState) }
 
+    /// How strongly the Space gradient tints the bar. Near the sidebar's
+    /// *floating* tint (0.1) rather than its docked one (0.28): the bar floats
+    /// over arbitrary page content, so the Space colour is a wash, not a fill.
+    private static let spaceTintOpacity: Double = 0.12
+
+    /// The active Space's gradient, lifted onto the bar so it reads as part of
+    /// the Space — the same treatment the sidebar and the blank content card
+    /// get — rather than a neutral system panel. Low opacity: the rows must stay
+    /// legible over whatever page is behind the panel.
+    private var spaceTint: LinearGradient? {
+        store.activeSpace(in: windowState).map { SpaceTheme.gradient(for: $0) }
+    }
+
+    private var spaceBorder: AnyShapeStyle {
+        guard let space = store.activeSpace(in: windowState) else { return AnyShapeStyle(.separator) }
+        return AnyShapeStyle(SpaceTheme.accent(for: space).opacity(0.35))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             input
@@ -30,10 +48,18 @@ struct CommandBarView: View {
                 resultList
             }
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+            shape
+                .fill(.regularMaterial)
+                .overlay {
+                    if let spaceTint { spaceTint.opacity(Self.spaceTintOpacity) }
+                }
+                .clipShape(shape)
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.separator, lineWidth: 0.5)
+                .strokeBorder(spaceBorder, lineWidth: 0.5)
         }
         // The bar is built once and reused, so `onAppear` fires only on the
         // first presentation. Every show is driven by the session token instead.

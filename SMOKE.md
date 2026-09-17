@@ -436,6 +436,9 @@ Automated coverage: `ClearBrowsingDataTests` (Store fan-out), `BrowsingDataType`
 - [x] `Cmd+N` still opens a plain new tab
 - [x] An already-open tab outranks history for the same term (§4.4)
 - [x] The bar is visually centred and legible over the window
+- [ ] The bar is **tinted with the active Space's colour** (border and a wash of
+      the gradient, matching the sidebar), not a neutral grey panel; switching
+      Space changes the tint (2026-09-17)
 - [x] The result list is actually visible — the panel grows to fit its rows
       (it did not, for all of M3: the panel was a fixed 60 pt tall)
 - [x] The app behind it does not visibly activate or lose its selection
