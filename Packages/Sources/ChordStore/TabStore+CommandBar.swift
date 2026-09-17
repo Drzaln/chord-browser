@@ -8,17 +8,19 @@ extension TabStore {
     /// History and archive are cached in memory and refreshed when the bar
     /// opens, so typing never touches the disk — the bar has a 50 ms
     /// open-to-input-ready budget and keystrokes must stay free (6.1).
-    public func prepareCommandBar() async {
-        async let history = loadHistory()
+    ///
+    /// History is read for the window the bar was opened over, so the whole bar
+    /// is scoped to that window's active Space (4.4).
+    public func prepareCommandBar(in window: WindowState? = nil) async {
+        let spaceID = (window ?? primaryWindow).activeSpaceID
+        async let history = loadHistory(inSpace: spaceID)
         async let archived = loadArchive()
         cachedHistory = await history
         cachedArchive = await archived
     }
 
-    private func loadHistory() async -> [HistoryEntry] {
-        // Scoped to the active Space: history is per-Space, so the command bar
-        // never surfaces a page you visited in a different Space.
-        guard let spaceID = primaryWindow.activeSpaceID else { return [] }
+    private func loadHistory(inSpace spaceID: UUID?) async -> [HistoryEntry] {
+        guard let spaceID else { return [] }
         do {
             return try await historyRepository?.recentHistory(inSpace: spaceID, limit: 500) ?? []
         } catch {
@@ -38,19 +40,22 @@ extension TabStore {
 
     /// Ranked results for what the user has typed. Pure ranking, so the
     /// interesting logic is tested without a UI (`CommandBarRanking`).
-    /// - Parameter window: the window the bar was opened over. Its *kind* is
-    ///   what scopes the open-tab results: a normal window must never be able to
-    ///   jump to a private tab (which would put private content on screen in a
-    ///   window every write path treats as ordinary), and a private window has
-    ///   no business offering the tabs of the session it is hiding from.
+    /// - Parameter window: the window the bar was opened over. It scopes the
+    ///   whole bar: only the window's **active Space** contributes — its open
+    ///   tabs, history, and archive. Nothing from another Space leaks in, so
+    ///   typing never silently switches Space (4.4). The window's *kind* is
+    ///   enforced by construction: a private window's active Space is its own
+    ///   private Space, a normal window's is a normal one, so the filter cannot
+    ///   surface the other kind.
     public func suggestions(for query: String, in window: WindowState? = nil) -> [Suggestion] {
-        let isPrivateWindow = window?.isPrivate ?? false
-        let searchableTabs = tabs.filter { isPrivate(spaceID: $0.spaceID) == isPrivateWindow }
+        let target = window ?? primaryWindow
+        let isPrivateWindow = target.isPrivate
+        let spaceID = target.activeSpaceID
+        let searchableTabs = tabs.filter { $0.spaceID == spaceID }
         return CommandBarRanking.suggestions(
             for: CommandBarInput(
                 query: query,
-                // Open tabs from every Space are searchable, not just the
-                // active one (4.4) — bounded by the window's kind, above.
+                // Only the active Space's tabs, in that Space's own window.
                 tabs: searchableTabs,
                 spaceNames: Dictionary(
                     uniqueKeysWithValues: spaces.map { ($0.id, $0.name) }
@@ -58,7 +63,9 @@ extension TabStore {
                 // A private window shows no history or archive: both are read
                 // from disk, and neither has anything of this session in it.
                 history: isPrivateWindow ? [] : cachedHistory,
-                archived: isPrivateWindow ? [] : cachedArchive,
+                archived: isPrivateWindow
+                    ? []
+                    : cachedArchive.filter { $0.spaceID == spaceID },
                 now: clock.now,
                 searchTemplate: searchEngine.queryTemplate
             )

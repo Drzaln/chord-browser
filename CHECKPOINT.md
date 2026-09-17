@@ -18,9 +18,9 @@ only the current position within it.
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
-| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0) · **content blocker compiles one list per source so `@@` exceptions work** (2026-09-10, 1.10.1). See §4.9 of the spec and the dated sections below. |
+| **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0) · **content blocker compiles one list per source so `@@` exceptions work** (2026-09-10, 1.10.1) · **swipe-to-close yields to canvas apps (Sheets, Figma) and horizontally-scrollable content** (2026-09-17) · **command bar leads with the matching open tab ("Switch to Tab"), URL/search fallback below it — Arc order** (2026-09-17) · **command bar scoped to the active Space** (2026-09-17). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **728 passing** (`swift test`, 106 suites), measured 2026-09-10                                                                                                                                |
+| **Tests**                        | **734 passing** (`swift test`, 107 suites), measured 2026-09-17                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
@@ -3930,3 +3930,82 @@ DevTools console for `Content blocker prevented frame … from loading a resourc
 from <URL>` → if the blocked URL is the site's own CDN and the lists carry an
 `@@` exception for it, the exception should now apply (single-list compile); if
 there is no exception, the list is over-blocking and needs an allowlist entry.
+
+## Swipe-to-close: yields to canvas apps and horizontal scroll (2026-09-17)
+
+**The bug.** A two-finger rightward swipe closed the tab inside Google Sheets and
+Figma. Both render into a `<canvas>` and pan themselves, so the native back
+gesture does nothing there — but `BackSwipeMonitor` watches the raw
+`.scrollWheel` stream and fired on *any* committed rightward swipe with no back
+history. It never asked whether the page had consumed the gesture.
+
+**The fix** (`BackSwipeMonitor.swift`). At `.began`, probe the page (async, gated
+at `.ended`, deferred via `pendingClose` if the answer lands late). The swipe is
+left to the page when, at the cursor:
+
+1. any element in `document.elementsFromPoint` is a `<canvas>` (Sheets, Figma —
+   the stack sees past a transparent overlay above the canvas), or
+2. an ancestor has horizontal overflow (`scrollWidth > clientWidth`) **and**
+   either declares scrollable overflow (`overflow-x: auto/scroll/overlay`) or has
+   already been scrolled (`scrollLeft > 0`, reachable under `overflow: hidden`).
+
+Plain overflow-visible wide elements (a `<pre>`, an image, a long URL) have
+overflow but no scrollroom, so they do **not** suppress the close. Two earlier
+heuristics each broke one side — `scrollWidth > clientWidth` alone broke ordinary
+pages; `&& scrollLeft > 0` broke Sheets at A1 (`scrollLeft == 0`) — so the rule is
+the union above, mirroring Arc.
+
+**Tests.** `BackSwipeDecision.isPageScroll` pinned; `BackSwipeMonitorTests` green.
+
+## Command bar: a matching open tab leads ("Switch to Tab"), Arc order (2026-09-17)
+
+**The bug.** With a YouTube tab already open (pinned or favourite), `Cmd+T` →
+type "youtube" → Return opened a *new* tab instead of switching. The URL/search
+fallback was hard-pinned to slot 0 (`results.insert(fallback, at: 0)`), so the
+highlighted row was always the fallback and an open tab could only be reached by
+arrowing down.
+
+**The fix** (`CommandBarRanking.swift`). Matching open tabs are hoisted to the
+front, the fallback is inserted directly below them, and everything else keeps its
+ranked order — Arc's "Switch to Tab" then "Go to Page". With **no** matching open
+tab the fallback still holds slot 0, so Return acts on what was typed (the
+guarantee the old rule protected). `Suggestion.isOpenTab` is the shared test for
+"this row switches to a tab"; `actionLabel` already rendered the wording.
+
+**Spec reversal.** §4.4 previously read "a complete typed address takes the top
+slot, ahead of open tabs … the fallback always holds the top slot". That rule (and
+its three tests) is replaced: only a tab you can switch to outranks the fallback.
+`BROWSER_SPEC.md` §4.4, `docs/USER_GUIDE.md`, and `SMOKE.md` updated in the same
+commit. Note this intentionally restores the "typing a typed address while that
+page is open switches to the tab" behavior the earlier fix had removed — the
+product decision (2026-09-17) is Arc parity.
+
+**Tests.** `openTabLeadsTypedAddress`, `bareHostFollowsOpenTab`,
+`searchFallbackFollowsOpenTab`, `noOpenTabFallbackLeads` — **730 total, green**.
+
+## Command bar scoped to the active Space (2026-09-17)
+
+**The bug.** `Cmd+T`, type nothing (or a term), and the list mixed Spaces: open
+tabs came from *every* Space while top sites came from the active one, and
+choosing a tab in another Space silently switched Space. Product decision
+(2026-09-17): the whole bar is per-Space.
+
+**The fix** (`TabStore+CommandBar.swift`, `CommandBarController.swift`):
+- `suggestions(for:in:)` filters `tabs` to the window's `activeSpaceID` and
+  filters `cachedArchive` to the same Space (archive carries `spaceID`; history
+  is already loaded per Space).
+- `prepareCommandBar(in:)` now takes the window, so history is read for **that**
+  window's active Space — it previously always used `primaryWindow.activeSpaceID`,
+  which was wrong for a second window. `CommandBarController.present` passes the
+  target window it already set.
+- `CommandBarRanking` stays pure and Space-agnostic; the store narrows before
+  calling it (the ranker test now says so).
+
+**Spec change.** §4.4's "open tabs (all Spaces)" becomes "the window's active
+Space"; the old "a result that switches Space must announce that" bullet is moot
+(nothing switches Space anymore). `docs/USER_GUIDE.md` and `SMOKE.md` updated in
+the same commit.
+
+**Tests.** `CommandBarScopingTests` (new suite): open tabs, empty query, history,
+and archive each prove only the active Space shows. **734 total, green** (107
+suites).

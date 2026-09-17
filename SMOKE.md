@@ -546,13 +546,19 @@ setting this sweep did not change), and whether typing "feels" lag-free.
       sidebar **New Tab** button re-presents over an already-open bar; typing
       lands in the field (driven 2026-08-13)
 - [ ] `Cmd+Enter` forces a new tab from either mode
-- [x] Typing a complete address (`github.com`) highlights that address, **not**
-      an open tab that happens to fuzzy-match it
-- [x] Typing a word (`github`) highlights the **search fallback, pinned to the
-      top** — Return searches without scrolling to the bottom (changed 2026-08-20;
-      the fallback was last before, and an open tab held the top slot)
-- [x] Every row shows what Return will do — a cross-Space result reads
-      "Switch to Tab" _before_ you press it
+- [ ] Typing a complete address (`github.com`) with that page already open
+      highlights the **open tab** ("Switch to Tab"), not a new navigation; arrow
+      down to the address says "Go to Page" (Arc order, changed 2026-09-17)
+- [ ] Typing a word (`github`) with a matching tab open highlights the **open
+      tab**, with the search fallback ("Search") directly below it
+- [ ] With **no** matching open tab, the URL/search fallback still holds the top
+      slot — Return acts on what you typed without scrolling to the bottom
+- [ ] With nothing typed, the list is **this Space only** — its open tabs and top
+      sites, nothing from another Space (changed 2026-09-17)
+- [ ] Typing a term that matches a tab in **another** Space does **not** offer it
+      (the whole bar is per-Space); switch Space first, or the tab is not listed
+- [x] Every row shows what Return will do — a matching tab reads "Switch to Tab"
+      _before_ you press it
 
 ### Ephemeral sweep
 

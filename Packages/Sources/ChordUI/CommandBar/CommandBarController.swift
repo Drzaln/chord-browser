@@ -63,8 +63,10 @@ public final class CommandBarController {
         let panel = existingOrNewPanel()
 
         // History and archive are refreshed here, once, rather than on every
-        // keystroke — typing must never touch the disk (6.1).
-        Task { await store.prepareCommandBar() }
+        // keystroke — typing must never touch the disk (6.1). Scoped to the
+        // window the bar is acting for, so the results follow that window's
+        // active Space.
+        Task { await store.prepareCommandBar(in: target.windowState) }
 
         panel.present(over: parent)
 
