@@ -45,6 +45,8 @@ distribution.
 - [ ] Quit (`Cmd+Q`) with that blank window, relaunch: it comes back **still
       blank with the command bar offered**, not reviving a tab (Arc behaviour,
       2026-09-17)
+- [ ] From that blank window, switch Space (`Cmd+1…9` or the sidebar): it stays
+      **blank with the bar offered**, not loading the new Space's last tab
 - [ ] Closing the last tab opens a fresh one rather than an empty window
 - [ ] Clicking a sidebar row switches tabs; the web view does not reload
 - [ ] Title updates in the sidebar as pages load

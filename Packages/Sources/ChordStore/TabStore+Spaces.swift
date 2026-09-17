@@ -36,6 +36,15 @@ extension TabStore {
         let previousSelection = window.selectedTabID
         window.activeSpaceID = spaceID
 
+        // A window left blank stays blank when the Space changes. There is no
+        // selection to remember or restore, and Arc keeps the blank window (with
+        // its command bar) rather than reviving the new Space's last tab.
+        if window.selectedTabID == nil {
+            closeLeftBlankPresenter?(window)
+            scheduleSave()
+            return
+        }
+
         // Web views for the other Space stay live and stay in the pool — the
         // LRU cap is what bounds them. Evicting on switch would make going back
         // a reload, which is the opposite of the 100 ms budget.

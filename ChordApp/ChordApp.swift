@@ -72,6 +72,10 @@ struct AppRootView: View {
                     // window blank (Arc); offer the command bar right away so a
                     // destination is one keystroke away, like Cmd+T.
                     environment.store.closeLeftBlankPresenter = { window in
+                        // Already offered (e.g. a Space switch in a blank
+                        // window): leave the open bar alone rather than reset the
+                        // query the user is typing.
+                        guard commandBar?.isVisible != true else { return }
                         commandBar?.present(
                             over: NSApp.keyWindow,
                             windowState: window,

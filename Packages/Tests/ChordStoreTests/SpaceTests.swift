@@ -121,6 +121,36 @@ struct SpaceStoreTests {
         #expect(store.visibleTabs[0].spaceID == work.id)
     }
 
+    /// Arc: a blank window (nothing to show) stays blank when the Space changes
+    /// — it does not revive the new Space's last tab — and re-offers the bar.
+    @Test("Switching Space in a blank window stays blank")
+    func blankWindowStaysBlankOnSpaceSwitch() async {
+        let (personal, work) = twoSpaces()
+        let (store, _, _) = makeStore(
+            tabs: [
+                TabBuilder().url("https://p.example").space(personal.id)
+                    .pinned(order: 0, homeURL: "https://p.example").build(),
+                TabBuilder().url("https://w.example").space(work.id).build(),
+            ],
+            spaces: [personal, work]
+        )
+        await store.restore()
+
+        // Blank it the way Arc does: close the only live tile in the Space.
+        let favourite = try! #require(store.tabs.first { $0.spaceID == personal.id })
+        store.select(favourite.id)
+        store.closeTab(favourite.id)
+        #expect(store.selectedTabID == nil, "the close blanked the window")
+
+        var presented: WindowState?
+        store.closeLeftBlankPresenter = { presented = $0 }
+        store.selectSpace(work.id)
+
+        #expect(store.activeSpace?.id == work.id, "the Space did change")
+        #expect(store.selectedTabID == nil, "but the window stays blank")
+        #expect(presented === store.primaryWindow, "and the bar is re-offered")
+    }
+
     @Test("A new tab lands in the active Space")
     func newTabJoinsActiveSpace() async {
         let (personal, work) = twoSpaces()
