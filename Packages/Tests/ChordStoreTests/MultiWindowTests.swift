@@ -766,6 +766,35 @@ struct MultiWindowTests {
         #expect(layouts[1].selectedTabID == second.selectedTabID)
     }
 
+    /// A blank window is left blank on purpose. Another window acting must not
+    /// revive it — reconcile is the "others follow along" pass, and it used to
+    /// hand the blank window the Space's last tab.
+    @Test("A blank window is not revived when another window acts")
+    func blankWindowSurvivesOtherWindowActivity() async {
+        // Two favourites, so either window can be blanked by closing the one it
+        // shows (closing a favourite unloads it and leaves the window blank).
+        let store = await makeStore(stored: [
+            TabBuilder().url("https://one.example")
+                .pinned(order: 0, homeURL: "https://one.example").build(),
+            TabBuilder().url("https://two.example")
+                .pinned(order: 1, homeURL: "https://two.example").build(),
+        ])
+        let windowA = store.claimWindow()
+        let windowB = store.claimWindow()
+
+        let one = try! #require(store.tabs.first { $0.focusedPane.url.host() == "one.example" })
+        let two = try! #require(store.tabs.first { $0.focusedPane.url.host() == "two.example" })
+        store.select(one.id, in: windowA)
+        store.select(two.id, in: windowB)
+
+        // Blank B, then make A act — closing A's tab reconciles the other windows.
+        store.closeTab(two.id, in: windowB)
+        #expect(windowB.selectedTabID == nil, "B is blank")
+        store.closeTab(one.id, in: windowA)
+
+        #expect(windowB.selectedTabID == nil, "B stays blank, not the last tab")
+    }
+
     /// App-opened URLs and a promoted Little Chord tab used to always hit the
     /// primary; they now follow the window the user last focused.
     @Test("focusedWindow tracks the last-focused window, falling back to primary")

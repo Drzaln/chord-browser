@@ -99,6 +99,13 @@ extension TabStore {
             return
         }
 
+        // A window left blank on purpose stays blank. Reconcile is the "other
+        // windows follow along" pass, so without this a tab opened elsewhere
+        // revives the Space's last tab behind the user's back.
+        if window.selectedTabID == nil, window.blankSpaceIDs.contains(spaceID) {
+            return
+        }
+
         let visible = tabs
             .filter { $0.spaceID == spaceID }
             .sorted { $0.placement.order < $1.placement.order }
@@ -188,7 +195,10 @@ extension TabStore {
                 reconcile(window)
             }
         } else {
+            // The window was left blank on purpose (Arc): keep it blank, and
+            // remember the Space as blank so a later return keeps it that way.
             window.selectedTabID = nil
+            window.blankSpaceIDs.insert(spaceID)
         }
 
         return true
