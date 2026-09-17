@@ -39,6 +39,12 @@ struct CommandBarView: View {
         return AnyShapeStyle(SpaceTheme.accent(for: space).opacity(0.35))
     }
 
+    /// The active Space's colour — the same one a selected sidebar tab is
+    /// highlighted with, so the bar's highlighted row matches it.
+    private var spaceAccent: Color {
+        store.activeSpace(in: windowState).map { SpaceTheme.accent(for: $0) } ?? .accentColor
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             input
@@ -108,7 +114,8 @@ struct CommandBarView: View {
                         CommandBarRow(
                             suggestion: suggestion,
                             isHighlighted: index == highlighted,
-                            destination: session.mode.destination
+                            destination: session.mode.destination,
+                            tint: spaceAccent
                         )
                         .id(suggestion.id)
                         .contentShape(Rectangle())
@@ -207,6 +214,10 @@ struct CommandBarRow: View {
     /// Decides the row's action text: the same result reads "Switch to Tab" or
     /// "Move to Split" depending on how the bar was opened (4.4).
     let destination: ActivationDestination
+    /// The Space colour a highlighted row is picked with — the same fill a
+    /// selected sidebar tab uses, so Return's target reads as part of the Space
+    /// rather than the generic system selection.
+    var tint: Color = .accentColor
 
     var body: some View {
         HStack(spacing: 10) {
@@ -241,7 +252,7 @@ struct CommandBarRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 7)
-        .background(isHighlighted ? AnyShapeStyle(.selection) : AnyShapeStyle(.clear))
+        .background(isHighlighted ? AnyShapeStyle(tint.opacity(0.40)) : AnyShapeStyle(.clear))
     }
 
     /// The row's title, with an inline completion suffix rendered dimmed. For a

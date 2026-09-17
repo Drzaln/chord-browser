@@ -4047,5 +4047,8 @@ Space's colour. It now paints `SpaceTheme.gradient(for:)` at
 `spaceTintOpacity = 0.12` over the material, and strokes its border with
 `SpaceTheme.accent(...).opacity(0.35)`. Near the sidebar's *floating* tint (0.1)
 rather than its docked one (0.28): the bar floats over arbitrary page content, so
-the Space colour is a wash, not a fill. No test — views are verified live.
-`CommandBarView.swift`.
+the Space colour is a wash, not a fill. The **highlighted row's pick colour** is
+`SpaceTheme.accent(...).opacity(0.40)` — the exact fill the sidebar uses for a
+selected tab (`TabRowView`), replacing the system `.selection` — so Return's
+target matches the selected tab instead of a generic blue. No test — views are
+verified live. `CommandBarView.swift`.
