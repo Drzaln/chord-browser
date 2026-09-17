@@ -121,10 +121,12 @@ struct SpaceStoreTests {
         #expect(store.visibleTabs[0].spaceID == work.id)
     }
 
-    /// Arc: a blank window (nothing to show) stays blank when the Space changes
-    /// — it does not revive the new Space's last tab — and re-offers the bar.
-    @Test("Switching Space in a blank window stays blank")
-    func blankWindowStaysBlankOnSpaceSwitch() async {
+    /// Blank is per-Space: a Space left blank stays blank on return, but a Space
+    /// holding a tab comes back to it — never blanked by the Space you came from
+    /// (the bug: leave YouTube Music in Space 1, visit a blank Space 2, return to
+    /// Space 1 and it was blank again, forcing a reload).
+    @Test("Switching Space honours each Space's own blank state")
+    func blankIsPerSpaceOnSwitch() async {
         let (personal, work) = twoSpaces()
         let (store, _, _) = makeStore(
             tabs: [
@@ -136,7 +138,7 @@ struct SpaceStoreTests {
         )
         await store.restore()
 
-        // Blank it the way Arc does: close the only live tile in the Space.
+        // Blank personal by closing its only live tile.
         let favourite = try! #require(store.tabs.first { $0.spaceID == personal.id })
         store.select(favourite.id)
         store.closeTab(favourite.id)
@@ -144,11 +146,72 @@ struct SpaceStoreTests {
 
         var presented: WindowState?
         store.closeLeftBlankPresenter = { presented = $0 }
-        store.selectSpace(work.id)
 
-        #expect(store.activeSpace?.id == work.id, "the Space did change")
-        #expect(store.selectedTabID == nil, "but the window stays blank")
+        // Work was never blanked, so it comes back to its tab.
+        store.selectSpace(work.id)
+        #expect(store.activeSpace?.id == work.id)
+        #expect(store.selectedTabID != nil, "work returns to its tab")
+
+        // Personal is still remembered blank.
+        store.selectSpace(personal.id)
+        #expect(store.selectedTabID == nil, "personal is still blank")
         #expect(presented === store.primaryWindow, "and the bar is re-offered")
+    }
+
+    @Test("Returning to a Space restores the tab you were on")
+    func returningRestoresTab() async {
+        let (personal, work) = twoSpaces()
+        let (store, _, _) = makeStore(
+            tabs: [TabBuilder().url("https://music.example").space(personal.id).build()],
+            spaces: [personal, work]
+        )
+        await store.restore()
+
+        let music = try! #require(store.tabs.first { $0.spaceID == personal.id })
+        store.select(music.id)
+        store.selectSpace(work.id)
+        store.selectSpace(personal.id)
+
+        #expect(store.selectedTabID == music.id, "back on the tab, not blanked")
+    }
+
+    /// Blank is remembered per Space: opening a tab in one Space must not revive
+    /// another that was left blank (the report: blank both Spaces, open a tab in
+    /// Space 1, and Space 2 loaded its last tab).
+    @Test("A blank Space stays blank after a tab is opened in another Space")
+    func blankSpaceSurvivesActivityElsewhere() async {
+        let (personal, work) = twoSpaces()
+        let (store, _, _) = makeStore(
+            tabs: [
+                TabBuilder().url("https://p.example").space(personal.id)
+                    .pinned(order: 0, homeURL: "https://p.example").build(),
+                TabBuilder().url("https://w.example").space(work.id)
+                    .pinned(order: 0, homeURL: "https://w.example").build(),
+            ],
+            spaces: [personal, work]
+        )
+        await store.restore()
+
+        // Blank each Space by closing the tile it shows (personal is active).
+        let personalTab = try! #require(store.tabs.first { $0.spaceID == personal.id })
+        store.select(personalTab.id)
+        store.closeTab(personalTab.id)
+        #expect(store.selectedTabID == nil)
+        store.selectSpace(work.id)  // work comes back to its tab
+        let workTab = try! #require(store.tabs.first { $0.spaceID == work.id })
+        store.select(workTab.id)
+        store.closeTab(workTab.id)
+        #expect(store.selectedTabID == nil, "both Spaces are blank now")
+
+        // Back to still-blank personal; open a tab there.
+        store.selectSpace(personal.id)
+        #expect(store.selectedTabID == nil)
+        store.newTab(url: URL(string: "https://fresh.example")!)
+        #expect(store.selectedTabID != nil)
+
+        // Work was left blank, so it must stay blank — not load its last tab.
+        store.selectSpace(work.id)
+        #expect(store.selectedTabID == nil, "work stays blank, not its last tab")
     }
 
     @Test("A new tab lands in the active Space")

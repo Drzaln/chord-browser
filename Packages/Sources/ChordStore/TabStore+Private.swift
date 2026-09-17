@@ -138,6 +138,7 @@ extension TabStore {
         folders.removeAll { $0.spaceID == spaceID }
         spaces.remove(at: index)
         lastSelectedTabBySpace[spaceID] = nil
+        for window in windows { window.blankSpaceIDs.remove(spaceID) }
         pendingCredentialSpaces = pendingCredentialSpaces.filter { $0.value != spaceID }
 
         Task { [engine] in

@@ -45,8 +45,14 @@ distribution.
 - [ ] Quit (`Cmd+Q`) with that blank window, relaunch: it comes back **still
       blank with the command bar offered**, not reviving a tab (Arc behaviour,
       2026-09-17)
-- [ ] From that blank window, switch Space (`Cmd+1…9` or the sidebar): it stays
-      **blank with the bar offered**, not loading the new Space's last tab
+- [ ] Switch Space from that blank window: a Space that was **left blank** comes
+      back **blank with the bar offered**, while a Space holding a tab comes back
+      to **that tab** (not blanked, not reloaded)
+- [ ] Open YouTube Music in Space 1, visit a blank Space 2, return to Space 1:
+      the music tab is **still there** (not blank, no reload) — blank is per
+      Space, never leaked from the Space you came from (2026-09-17)
+- [ ] Blank **both** Spaces, open a tab in one, then switch to the other: it is
+      **still blank** — one Space's tab never revives another
 - [ ] Closing the last tab opens a fresh one rather than an empty window
 - [ ] Clicking a sidebar row switches tabs; the web view does not reload
 - [ ] Title updates in the sidebar as pages load

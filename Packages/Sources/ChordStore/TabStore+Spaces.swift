@@ -30,16 +30,28 @@ extension TabStore {
         let state = Log.signposts.beginInterval("spaceSwitch")
         defer { Log.signposts.endInterval("spaceSwitch", state) }
 
-        if let current = window.activeSpaceID, let selected = window.selectedTabID {
-            lastSelectedTabBySpace[current] = selected
-        }
         let previousSelection = window.selectedTabID
+        // Remember this Space's state on the way out: its last tab, or that it
+        // was left blank. Blank is per-Space (Arc's new-tab state), so opening a
+        // tab in one Space cannot revive another — and leaving a blank Space must
+        // not blank the one you are arriving at.
+        if let current = window.activeSpaceID {
+            if let selected = window.selectedTabID {
+                lastSelectedTabBySpace[current] = selected
+                window.blankSpaceIDs.remove(current)
+            } else {
+                lastSelectedTabBySpace[current] = nil
+                window.blankSpaceIDs.insert(current)
+            }
+        }
         window.activeSpaceID = spaceID
 
-        // A window left blank stays blank when the Space changes. There is no
-        // selection to remember or restore, and Arc keeps the blank window (with
-        // its command bar) rather than reviving the new Space's last tab.
-        if window.selectedTabID == nil {
+        // Entering a Space that was left blank keeps the window blank and
+        // re-offers the bar. Purely per-Space: a Space holding a tab comes back
+        // to it (the music you left playing), never blanked by the one you came
+        // from.
+        if window.blankSpaceIDs.contains(spaceID) {
+            window.selectedTabID = nil
             closeLeftBlankPresenter?(window)
             scheduleSave()
             return
@@ -135,6 +147,7 @@ extension TabStore {
         persistFolders()
         spaces.remove(at: index)
         lastSelectedTabBySpace[spaceID] = nil
+        for window in windows { window.blankSpaceIDs.remove(spaceID) }
 
         if window.activeSpaceID == spaceID, let first = visibleSpaces.first {
             window.activeSpaceID = nil

@@ -1123,8 +1123,10 @@ public final class TabStore {
                 select(next, in: window)
             } else {
                 // selectedTabID stays nil — the content area renders empty, as
-                // Arc does — and the command bar is offered so the user can
+                // Arc does — and the Space is remembered as blank so a return to
+                // it stays blank. The command bar is offered so the user can
                 // immediately pick a destination.
+                if let spaceID = window.activeSpaceID { window.blankSpaceIDs.insert(spaceID) }
                 closeLeftBlankPresenter?(window)
             }
         }
