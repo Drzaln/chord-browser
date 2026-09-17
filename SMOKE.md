@@ -47,9 +47,6 @@ distribution.
       2026-09-17)
 - [ ] From that blank window, switch Space (`Cmd+1…9` or the sidebar): it stays
       **blank with the bar offered**, not loading the new Space's last tab
-- [ ] Blank **both** Spaces, open a tab in one, then switch to the other: it is
-      **still blank** — blank is remembered per Space, so one Space's tab never
-      revives another (2026-09-17)
 - [ ] Closing the last tab opens a fresh one rather than an empty window
 - [ ] Clicking a sidebar row switches tabs; the web view does not reload
 - [ ] Title updates in the sidebar as pages load

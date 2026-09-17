@@ -20,7 +20,7 @@ only the current position within it.
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0) · **content blocker compiles one list per source so `@@` exceptions work** (2026-09-10, 1.10.1) · **swipe-to-close yields to canvas apps (Sheets, Figma) and horizontally-scrollable content** (2026-09-17) · **command bar leads with up to two matching open tabs ("Switch to Tab"), URL/search fallback below them — Arc order** (2026-09-17) · **command bar scoped to the active Space** (2026-09-17) · **command bar tinted with the active Space gradient** (2026-09-17). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **747 passing** (`swift test`, 108 suites), measured 2026-09-17                                                                                                                                |
+| **Tests**                        | **745 passing** (`swift test`, 108 suites), measured 2026-09-17                                                                                                                                |
 | **Schema**                       | **v14** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`                                                                                                      |
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
@@ -4072,25 +4072,3 @@ fallback icon (`PinnedGrid`), and the **picked command-bar row**
 (`CommandBarRow`). Weak-wash surfaces (the 0.1–0.28 sidebar/bar backgrounds) stay
 on `.primary`/`.secondary`, which already adapt to light/dark. Tests:
 `ToastTextContrastTests` — **745 total, green**.
-
-## Blank is remembered per Space (2026-09-17)
-
-**The bug.** Blank was only `selectedTabID == nil`, a **per-window** fact. Blank
-both Spaces, open a tab in one, and switching to the other loaded its last tab;
-with two windows, a tab opened in one revived the blank other through `reconcile`.
-
-**The fix.**
-- `WindowState.blankSpaceIDs`: the Spaces this window left blank (Arc's new-tab
-  state is per-Space).
-- `selectSpace` records the departing Space (its tab, or blank) and, on entry,
-  stays blank when the window is blank **or** the target was left blank — marking
-  the target blank. Opening a tab in one Space can no longer revive another.
-- `reconcile` returns early for a blank window whose active Space is marked blank,
-  so another window acting cannot revive it.
-- `unloadTab` and `applyLayout` mark the Space blank; Space deletion and private
-  teardown clear stale marks.
-- Not persisted per Space: only the active Space's blank survives a relaunch (via
-  the saved nil `selectedTabID`); other Spaces restore their last tab.
-
-**Tests.** `blankSpaceSurvivesActivityElsewhere` (SpaceTests),
-`blankWindowSurvivesOtherWindowActivity` (MultiWindowTests) — **747 total, green**.

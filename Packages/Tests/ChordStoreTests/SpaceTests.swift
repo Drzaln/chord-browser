@@ -151,43 +151,6 @@ struct SpaceStoreTests {
         #expect(presented === store.primaryWindow, "and the bar is re-offered")
     }
 
-    /// Blank is remembered per Space: opening a tab in one Space must not revive
-    /// another that was left blank (the report: blank both Spaces, open a tab in
-    /// Space 1, and Space 2 loaded its last tab).
-    @Test("A blank Space stays blank after a tab is opened in another Space")
-    func blankSpaceSurvivesActivityElsewhere() async {
-        let (personal, work) = twoSpaces()
-        let (store, _, _) = makeStore(
-            tabs: [
-                TabBuilder().url("https://p.example").space(personal.id)
-                    .pinned(order: 0, homeURL: "https://p.example").build(),
-                TabBuilder().url("https://w.example").space(work.id)
-                    .pinned(order: 0, homeURL: "https://w.example").build(),
-            ],
-            spaces: [personal, work]
-        )
-        await store.restore()
-
-        // Blank personal (it is the active Space), then work — the window is
-        // blank, so work comes up blank too and is marked blank.
-        let personalTab = try! #require(store.tabs.first { $0.spaceID == personal.id })
-        store.select(personalTab.id)
-        store.closeTab(personalTab.id)
-        #expect(store.selectedTabID == nil)
-        store.selectSpace(work.id)
-        #expect(store.selectedTabID == nil, "work comes up blank with the window")
-
-        // Back to still-blank personal; open a tab there.
-        store.selectSpace(personal.id)
-        #expect(store.selectedTabID == nil)
-        store.newTab(url: URL(string: "https://fresh.example")!)
-        #expect(store.selectedTabID != nil)
-
-        // Work was left blank, so it must stay blank — not load its last tab.
-        store.selectSpace(work.id)
-        #expect(store.selectedTabID == nil, "work stays blank, not its last tab")
-    }
-
     @Test("A new tab lands in the active Space")
     func newTabJoinsActiveSpace() async {
         let (personal, work) = twoSpaces()

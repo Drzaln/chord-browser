@@ -221,13 +221,6 @@ public final class WindowState {
     /// the state that makes that possible. Only the store writes it.
     public internal(set) var selectionHistory: [UUID] = []
 
-    /// Spaces this window left **blank on purpose** (Arc's new-tab state). A
-    /// Space that was blanked stays blank when the window returns to it — opening
-    /// a tab in one Space must not revive another. Ephemeral and not persisted:
-    /// only the window's *active* Space is restored from a saved layout, so a
-    /// relaunch keeps just that one.
-    public internal(set) var blankSpaceIDs: Set<UUID> = []
-
     // MARK: - Find in page
 
     /// Find-in-page state (M6), per-window because the bar belongs to a window

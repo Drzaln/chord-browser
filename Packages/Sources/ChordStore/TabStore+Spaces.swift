@@ -30,30 +30,16 @@ extension TabStore {
         let state = Log.signposts.beginInterval("spaceSwitch")
         defer { Log.signposts.endInterval("spaceSwitch", state) }
 
-        let previousSelection = window.selectedTabID
-        let wasBlank = window.selectedTabID == nil
-        // Remember this Space's state on the way out: its last tab, or that it
-        // was left blank. Blank is per-Space (Arc's new-tab state), so opening a
-        // tab in one Space cannot revive another.
-        if let current = window.activeSpaceID {
-            if let selected = window.selectedTabID {
-                lastSelectedTabBySpace[current] = selected
-                window.blankSpaceIDs.remove(current)
-            } else {
-                lastSelectedTabBySpace[current] = nil
-                window.blankSpaceIDs.insert(current)
-            }
+        if let current = window.activeSpaceID, let selected = window.selectedTabID {
+            lastSelectedTabBySpace[current] = selected
         }
+        let previousSelection = window.selectedTabID
         window.activeSpaceID = spaceID
 
-        // Entering a Space that was left blank — or leaving one that is blank
-        // now — keeps the window blank, re-offering the bar, rather than
-        // reviving the tab it holds. The Space is marked blank too: the window
-        // is blank *here* now, so a later return must stay blank even after a
-        // tab is opened in some other Space.
-        if wasBlank || window.blankSpaceIDs.contains(spaceID) {
-            window.selectedTabID = nil
-            window.blankSpaceIDs.insert(spaceID)
+        // A window left blank stays blank when the Space changes. There is no
+        // selection to remember or restore, and Arc keeps the blank window (with
+        // its command bar) rather than reviving the new Space's last tab.
+        if window.selectedTabID == nil {
             closeLeftBlankPresenter?(window)
             scheduleSave()
             return
@@ -149,7 +135,6 @@ extension TabStore {
         persistFolders()
         spaces.remove(at: index)
         lastSelectedTabBySpace[spaceID] = nil
-        for window in windows { window.blankSpaceIDs.remove(spaceID) }
 
         if window.activeSpaceID == spaceID, let first = visibleSpaces.first {
             window.activeSpaceID = nil
