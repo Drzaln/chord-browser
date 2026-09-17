@@ -12,6 +12,8 @@ struct WindowLayoutRow: Codable, FetchableRecord, PersistableRecord, Sendable {
     var ordinal: Int
     var activeSpaceId: String?
     var selectedTabId: String?
+    /// Comma-joined UUID strings (v15). NULL for a pre-v15 row.
+    var blankSpaceIds: String?
 }
 
 /// Per-window layout persistence (v9, non-spec: user-requested). The whole set is
@@ -34,7 +36,8 @@ public struct SQLiteWindowLayoutRepository: WindowLayoutRepository {
                     WindowLayout(
                         ordinal: row.ordinal,
                         activeSpaceID: row.activeSpaceId.flatMap(UUID.init(uuidString:)),
-                        selectedTabID: row.selectedTabId.flatMap(UUID.init(uuidString:))
+                        selectedTabID: row.selectedTabId.flatMap(UUID.init(uuidString:)),
+                        blankSpaceIDs: Self.decodeBlankSpaces(row.blankSpaceIds)
                     )
                 }
         }
@@ -47,9 +50,21 @@ public struct SQLiteWindowLayoutRepository: WindowLayoutRepository {
                 try WindowLayoutRow(
                     ordinal: layout.ordinal,
                     activeSpaceId: layout.activeSpaceID?.uuidString,
-                    selectedTabId: layout.selectedTabID?.uuidString
+                    selectedTabId: layout.selectedTabID?.uuidString,
+                    blankSpaceIds: Self.encodeBlankSpaces(layout.blankSpaceIDs)
                 ).insert(db)
             }
         }
+    }
+
+    /// A stable, human-readable encoding: sorted UUID strings, comma-joined.
+    /// `nil` when empty, so a window with no blank Spaces keeps the pre-v15 shape.
+    static func encodeBlankSpaces(_ ids: Set<UUID>) -> String? {
+        ids.isEmpty ? nil : ids.map(\.uuidString).sorted().joined(separator: ",")
+    }
+
+    static func decodeBlankSpaces(_ raw: String?) -> Set<UUID> {
+        guard let raw, !raw.isEmpty else { return [] }
+        return Set(raw.split(separator: ",").compactMap { UUID(uuidString: String($0)) })
     }
 }

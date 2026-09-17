@@ -29,11 +29,12 @@ enum Migrations {
         migrator.registerMigration("v12_credentials", migrate: v12Credentials)
         migrator.registerMigration("v13_credential_never_save", migrate: v13CredentialNeverSave)
         migrator.registerMigration("v14_tab_custom_title", migrate: v14TabCustomTitle)
+        migrator.registerMigration("v15_window_blank_spaces", migrate: v15WindowBlankSpaces)
         return migrator
     }
 
     /// Current schema version, bumped alongside each registered migration.
-    static let currentVersion = 14
+    static let currentVersion = 15
 
     /// Exposed so migration tests can build a fixture database at exactly v1,
     /// which is what every later migration must be tested against (7.2).
@@ -361,6 +362,15 @@ enum Migrations {
             t.primaryKey("ordinal", .integer).notNull()
             t.column("activeSpaceId", .text)
             t.column("selectedTabId", .text)
+        }
+    }
+
+    /// v15 adds the per-window set of Spaces left blank (Arc's new-tab state),
+    /// so blank survives a relaunch for *every* Space, not just the active one.
+    /// Additive: existing rows get NULL, which decodes to no blank Spaces.
+    private static func v15WindowBlankSpaces(_ db: Database) throws {
+        try db.alter(table: "windowLayout") { t in
+            t.add(column: "blankSpaceIds", .text)
         }
     }
 }

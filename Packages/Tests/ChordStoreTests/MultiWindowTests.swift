@@ -766,6 +766,38 @@ struct MultiWindowTests {
         #expect(layouts[1].selectedTabID == second.selectedTabID)
     }
 
+    /// The per-Space blank marks survive a relaunch: restored from the saved
+    /// layout, so a Space left blank comes back blank on every later switch.
+    @Test("Blank Spaces survive a layout capture and restore")
+    func blankSpacesRoundTripThroughLayout() async {
+        let spaceA = Space(name: "A", sortIndex: 0)
+        let spaceB = Space(name: "B", sortIndex: 1)
+        let tabA = TabBuilder().url("https://a.example").space(spaceA.id).build()
+        let tabB = TabBuilder().url("https://b.example").space(spaceB.id).build()
+
+        let store = makeLayoutStore(
+            spaces: [spaceA, spaceB],
+            tabs: [tabA, tabB],
+            layouts: [
+                WindowLayout(
+                    ordinal: 0, activeSpaceID: spaceA.id, selectedTabID: tabA.id,
+                    blankSpaceIDs: [spaceB.id]
+                )
+            ]
+        )
+        await store.restore()
+
+        #expect(store.primaryWindow.blankSpaceIDs == [spaceB.id], "restored from disk")
+        #expect(
+            store.captureWindowLayouts()[0].blankSpaceIDs == [spaceB.id],
+            "and captured again"
+        )
+
+        // The mark is live, not just stored: switching to B keeps it blank.
+        store.selectSpace(spaceB.id)
+        #expect(store.selectedTabID == nil, "B comes back blank")
+    }
+
     /// A blank window is left blank on purpose. Another window acting must not
     /// revive it — reconcile is the "others follow along" pass, and it used to
     /// hand the blank window the Space's last tab.

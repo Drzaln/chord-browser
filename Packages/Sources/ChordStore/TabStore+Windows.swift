@@ -177,6 +177,11 @@ extension TabStore {
 
         window.activeSpaceID = spaceID
 
+        // Restore the per-Space blank marks the window carried last session, so a
+        // Space left blank comes back blank on every later switch (not just the
+        // active one).
+        window.blankSpaceIDs = layout.blankSpaceIDs
+
         // Take the saved tab only if it still exists, lives in this Space, and no
         // other window already shows it. Otherwise let reconcile pick a free tab
         // in the (valid) Space rather than blank the window.
@@ -215,10 +220,17 @@ extension TabStore {
         // renumbered so the ordinals stay 0..n — the ordinal *is* the identity a
         // restored scene is matched by (v9).
         windows.filter { !$0.isPrivate }.enumerated().map { index, window in
-            WindowLayout(
+            // A Space showing a tab is not blank, even if a stale mark lingers
+            // from before a tab was opened there.
+            var blanks = window.blankSpaceIDs
+            if let active = window.activeSpaceID, window.selectedTabID != nil {
+                blanks.remove(active)
+            }
+            return WindowLayout(
                 ordinal: index,
                 activeSpaceID: window.activeSpaceID,
-                selectedTabID: window.selectedTabID
+                selectedTabID: window.selectedTabID,
+                blankSpaceIDs: blanks
             )
         }
     }

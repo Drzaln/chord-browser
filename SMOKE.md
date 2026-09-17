@@ -53,6 +53,8 @@ distribution.
       Space, never leaked from the Space you came from (2026-09-17)
 - [ ] Blank **both** Spaces, open a tab in one, then switch to the other: it is
       **still blank** — one Space's tab never revives another
+- [ ] Blank a Space, switch to another, **quit and relaunch**: switching back to
+      the blanked Space is still blank (blank Spaces persist per window, 2026-09-17)
 - [ ] A blank Space's command bar is **dismissed** when you switch to a Space
       that shows a tab — it does not linger over the page
 - [ ] Closing the last tab opens a fresh one rather than an empty window

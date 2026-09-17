@@ -19,12 +19,18 @@ public struct WindowLayout: Sendable, Equatable, Identifiable {
     public let activeSpaceID: UUID?
     /// The tab the window was showing, if it still resolves and is free.
     public let selectedTabID: UUID?
+    /// Spaces this window had left blank (Arc's new-tab state). Empty for a
+    /// profile saved before v15, or a window with none.
+    public let blankSpaceIDs: Set<UUID>
 
     public var id: Int { ordinal }
 
-    public init(ordinal: Int, activeSpaceID: UUID?, selectedTabID: UUID?) {
+    public init(
+        ordinal: Int, activeSpaceID: UUID?, selectedTabID: UUID?, blankSpaceIDs: Set<UUID> = []
+    ) {
         self.ordinal = ordinal
         self.activeSpaceID = activeSpaceID
         self.selectedTabID = selectedTabID
+        self.blankSpaceIDs = blankSpaceIDs
     }
 }

@@ -538,6 +538,40 @@ struct MigrationTests {
         #expect(custom == nil, "existing panes default to no custom name")
     }
 
+    @Test("v15 adds a nullable blankSpaceIds to windowLayout, keeping rows")
+    func v15AddsBlankSpaceIds() throws {
+        let queue = try DatabaseQueue()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(queue, upTo: "v14_tab_custom_title")
+
+        // A pre-v15 window layout, to prove the additive column leaves it alone.
+        let spaceID = UUID().uuidString
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO windowLayout (ordinal, activeSpaceId, selectedTabId)
+                    VALUES (0, ?, NULL)
+                    """,
+                arguments: [spaceID]
+            )
+        }
+
+        try migrator.migrate(queue)
+
+        let (hasColumn, count, blank) = try queue.read { db in
+            (
+                try db.columns(in: "windowLayout").contains { $0.name == "blankSpaceIds" },
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM windowLayout") ?? 0,
+                try String.fetchOne(
+                    db, sql: "SELECT blankSpaceIds FROM windowLayout WHERE ordinal = 0"
+                )
+            )
+        }
+        #expect(hasColumn)
+        #expect(count == 1, "the existing layout row is not deleted")
+        #expect(blank == nil, "an existing window defaults to no blank Spaces")
+    }
+
     @Test("A fresh database reports the current schema version")
     func versionRecorded() throws {
         let queue = try DatabaseQueue()

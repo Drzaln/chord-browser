@@ -911,7 +911,8 @@ public final class TabStore {
             // neighbour.
             recordSelection(tab.id, replacing: previous, in: window)
             extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
-            // Opening a tab resolves a blank state; drop the bar it put up.
+            // Opening a tab resolves a blank state; drop the bar and the mark.
+            window.blankSpaceIDs.remove(spaceID)
             if previous == nil { closeLeftBlankDismisser?(window) }
         }
         scheduleSave()
@@ -1276,7 +1277,8 @@ public final class TabStore {
         touch(tabID)
 
         // Picking a tab while the window was blank resolves the blank state, so
-        // clear the bar it put up.
+        // clear the bar it put up — and the Space is no longer blank.
+        window.blankSpaceIDs.remove(tab.spaceID)
         if outgoing == nil { closeLeftBlankDismisser?(window) }
 
         // `previous` is the prior active tab only when it was in the same Space;

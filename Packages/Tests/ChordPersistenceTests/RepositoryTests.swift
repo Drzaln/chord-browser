@@ -108,4 +108,25 @@ struct RepositoryTests {
         let repository = try makeRepository()
         #expect(try await repository.loadAll().isEmpty)
     }
+
+    @Test("A window layout's blank Spaces round-trip through the database")
+    func windowLayoutBlankSpacesRoundTrip() async throws {
+        let repository = SQLiteWindowLayoutRepository(database: try ChordDatabase.inMemory())
+
+        let spaceA = UUID()
+        let spaceB = UUID()
+        try await repository.saveWindowLayouts([
+            WindowLayout(
+                ordinal: 0, activeSpaceID: spaceA, selectedTabID: nil,
+                blankSpaceIDs: [spaceA, spaceB]
+            ),
+            WindowLayout(ordinal: 1, activeSpaceID: spaceB, selectedTabID: UUID()),
+        ])
+
+        let loaded = try await repository.loadWindowLayouts()
+        #expect(loaded.count == 2)
+        #expect(loaded[0].blankSpaceIDs == [spaceA, spaceB])
+        #expect(loaded[0].selectedTabID == nil, "the active Space was blank")
+        #expect(loaded[1].blankSpaceIDs.isEmpty, "no marks encodes as NULL")
+    }
 }
