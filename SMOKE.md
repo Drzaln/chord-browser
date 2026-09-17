@@ -53,6 +53,8 @@ distribution.
       Space, never leaked from the Space you came from (2026-09-17)
 - [ ] Blank **both** Spaces, open a tab in one, then switch to the other: it is
       **still blank** — one Space's tab never revives another
+- [ ] A blank Space's command bar is **dismissed** when you switch to a Space
+      that shows a tab — it does not linger over the page
 - [ ] Closing the last tab opens a fresh one rather than an empty window
 - [ ] Clicking a sidebar row switches tabs; the web view does not reload
 - [ ] Title updates in the sidebar as pages load

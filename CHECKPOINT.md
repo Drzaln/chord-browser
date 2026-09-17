@@ -4090,6 +4090,10 @@ with two windows, a tab opened in one revived the blank other through `reconcile
   returning to Space 1 blanked it and forced a reload. Dropped.)
 - `reconcile` returns early for a blank window whose active Space is marked blank,
   so another window acting cannot revive it.
+- `closeLeftBlankDismisser` (app-wired): a Space that comes back to a tab dismisses
+  the bar the blank state put up, so **Space 2's bar cannot linger over Space 1**.
+  Fired from `selectSpace` (arriving at content), `select` and `insertTab` (picking
+  or opening a tab while blank).
 - `unloadTab` and `applyLayout` mark the Space blank; Space deletion and private
   teardown clear stale marks.
 - Not persisted per Space: only the active Space's blank survives a relaunch (via

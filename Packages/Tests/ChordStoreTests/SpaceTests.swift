@@ -146,16 +146,23 @@ struct SpaceStoreTests {
 
         var presented: WindowState?
         store.closeLeftBlankPresenter = { presented = $0 }
+        var dismissed = false
+        store.closeLeftBlankDismisser = { _ in dismissed = true }
 
-        // Work was never blanked, so it comes back to its tab.
+        // Work was never blanked, so it comes back to its tab, and the bar the
+        // blank state put up is dismissed — Space 2's bar must not linger here.
         store.selectSpace(work.id)
         #expect(store.activeSpace?.id == work.id)
         #expect(store.selectedTabID != nil, "work returns to its tab")
+        #expect(dismissed, "the blank bar is dismissed once a tab shows")
 
-        // Personal is still remembered blank.
+        // Personal is still remembered blank; entering it re-offers the bar and
+        // must not dismiss it.
+        dismissed = false
         store.selectSpace(personal.id)
         #expect(store.selectedTabID == nil, "personal is still blank")
         #expect(presented === store.primaryWindow, "and the bar is re-offered")
+        #expect(!dismissed, "the bar is not dismissed for a blank Space")
     }
 
     @Test("Returning to a Space restores the tab you were on")

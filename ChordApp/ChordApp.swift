@@ -82,6 +82,11 @@ struct AppRootView: View {
                             mode: .newTab
                         )
                     }
+                    // The window shows a tab again (left a blank Space for one
+                    // with content, or picked a tab): drop the blank bar.
+                    environment.store.closeLeftBlankDismisser = { _ in
+                        commandBar?.dismiss()
+                    }
                 }
                 // Restore is a *session* concern, not a window one, so only the
                 // window that got the primary state kicks it off. `restore()` is

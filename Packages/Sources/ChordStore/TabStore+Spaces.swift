@@ -31,6 +31,7 @@ extension TabStore {
         defer { Log.signposts.endInterval("spaceSwitch", state) }
 
         let previousSelection = window.selectedTabID
+        let wasBlank = previousSelection == nil
         // Remember this Space's state on the way out: its last tab, or that it
         // was left blank. Blank is per-Space (Arc's new-tab state), so opening a
         // tab in one Space cannot revive another — and leaving a blank Space must
@@ -56,6 +57,10 @@ extension TabStore {
             scheduleSave()
             return
         }
+
+        // Arriving at a Space that shows a tab resolves the blank state, so the
+        // bar it put up must go — otherwise Space 2's bar lingers over Space 1.
+        if wasBlank { closeLeftBlankDismisser?(window) }
 
         // Web views for the other Space stay live and stay in the pool — the
         // LRU cap is what bounds them. Evicting on switch would make going back

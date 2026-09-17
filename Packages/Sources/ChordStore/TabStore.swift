@@ -697,6 +697,12 @@ public final class TabStore {
     @ObservationIgnored public var closeLeftBlankPresenter:
         (@MainActor (WindowState) -> Void)?
 
+    /// Clears the bar that `closeLeftBlankPresenter` put up once the window shows
+    /// a tab again — leaving a blank Space for one with content, or picking a tab
+    /// while blank. Injected by the app, which owns the bar; inert until then.
+    @ObservationIgnored public var closeLeftBlankDismisser:
+        (@MainActor (WindowState) -> Void)?
+
     /// Tab state is written debounced and coalesced, never per navigation (6.5).
     @ObservationIgnored private let saveDebounce: Duration = .seconds(2)
 
@@ -905,6 +911,8 @@ public final class TabStore {
             // neighbour.
             recordSelection(tab.id, replacing: previous, in: window)
             extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
+            // Opening a tab resolves a blank state; drop the bar it put up.
+            if previous == nil { closeLeftBlankDismisser?(window) }
         }
         scheduleSave()
         return tab.id
@@ -1266,6 +1274,10 @@ public final class TabStore {
         recordSelection(tabID, replacing: outgoing, in: window)
         resolveInteractionState(forTab: tabID)
         touch(tabID)
+
+        // Picking a tab while the window was blank resolves the blank state, so
+        // clear the bar it put up.
+        if outgoing == nil { closeLeftBlankDismisser?(window) }
 
         // `previous` is the prior active tab only when it was in the same Space;
         // the previousActiveTab argument to the WebExtensions event must belong
