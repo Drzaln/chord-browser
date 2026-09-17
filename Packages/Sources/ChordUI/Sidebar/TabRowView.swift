@@ -25,6 +25,26 @@ struct TabRowView: View {
 
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// Readable text when the row sits on its 0.40 Space-accent fill, computed
+    /// from that fill so it holds on any Space (a light Space in dark mode is
+    /// the case `.primary` gets wrong). `nil` otherwise: the faint sidebar wash
+    /// behind an unselected row is fine with the system styles.
+    private var selectedForeground: (primary: Color, secondary: Color)? {
+        guard isSelected else { return nil }
+        return SpaceTheme.foregroundPair(
+            on: tint, isDarkAppearance: colorScheme == .dark, overlayOpacity: 0.40
+        )
+    }
+
+    private var primaryText: AnyShapeStyle {
+        selectedForeground.map { AnyShapeStyle($0.primary) } ?? AnyShapeStyle(.primary)
+    }
+
+    private var secondaryText: AnyShapeStyle {
+        selectedForeground.map { AnyShapeStyle($0.secondary) } ?? AnyShapeStyle(.secondary)
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -44,7 +64,7 @@ struct TabRowView: View {
                 Button(action: toggleMute) {
                     Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(isMuted ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
+                        .foregroundStyle(isMuted ? secondaryText : AnyShapeStyle(.tint))
                 }
                 .buttonStyle(.plain)
                 .help(isMuted ? "Unmute tab" : "Mute tab")
@@ -57,7 +77,7 @@ struct TabRowView: View {
                 Button(action: cancelSleepTimer) {
                     Image(systemName: "moon.zzz.fill")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryText)
                 }
                 .buttonStyle(.plain)
                 .help("Sleep timer: \(Self.remainingText(until: sleepTimerDeadline)) — click to cancel")
@@ -73,6 +93,7 @@ struct TabRowView: View {
                 .accessibilityLabel("Close tab")
             }
         }
+        .foregroundStyle(primaryText)
         .padding(.horizontal, 8)
         .frame(height: Metrics.sidebarRowHeight)
         .background(background)

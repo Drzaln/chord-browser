@@ -1,12 +1,13 @@
 import ChordCore
+import SwiftUI
 import Testing
 
 @testable import ChordUI
 
-/// The toast's label colour is chosen from the capsule it is painted on — the
-/// Space accent at 0.4 over the material, approximated per appearance. These pin
-/// the two rules that matter: pick the higher-contrast of black/white, and keep
-/// at least AA contrast for the 12pt label.
+/// The text on any Space-tinted surface (a toast capsule, a selected sidebar
+/// row, a picked command-bar row) is chosen from the colour that surface paints,
+/// not from the raw accent. These pin the two rules that matter: pick the
+/// higher-contrast of black/white, and keep at least AA contrast for small text.
 @Suite("Toast text contrast")
 @MainActor
 struct ToastTextContrastTests {
@@ -56,5 +57,39 @@ struct ToastTextContrastTests {
                 #expect(contrast >= 4.5, "\(accent) \(dark ? "dark" : "light") only \(contrast):1")
             }
         }
+    }
+
+    @Test("The Color overload clears AA for the tinted surfaces it feeds")
+    func colorOverloadClearsAA() {
+        let tints: [Color] = [
+            Color(.sRGB, red: 0.95, green: 0.95, blue: 0.95, opacity: 1),
+            Color(.sRGB, red: 0.06, green: 0.06, blue: 0.06, opacity: 1),
+            Color(.sRGB, red: 0.66, green: 0.13, blue: 0.40, opacity: 1),
+        ]
+        for tint in tints {
+            for dark in [false, true] {
+                let contrast = SpaceTheme.toastLabelContrast(
+                    on: tint, isDarkAppearance: dark, overlayOpacity: 0.40
+                )
+                #expect((contrast ?? 0) >= 4.5, "\(dark ? "dark" : "light") only \(contrast ?? -1):1")
+                // And the pair the views actually use is available.
+                #expect(
+                    SpaceTheme.foregroundPair(
+                        on: tint, isDarkAppearance: dark, overlayOpacity: 0.40
+                    ) != nil
+                )
+            }
+        }
+    }
+
+    @Test("The pair's primary is the higher-contrast of black/white")
+    func pairPicksMaxContrast() {
+        // A pale tint over light chrome paints a light surface, where dark text
+        // wins — the exact case a fixed raw-accent threshold got wrong.
+        let pale = Color(.sRGB, red: 0.95, green: 0.95, blue: 0.95, opacity: 1)
+        let pair = SpaceTheme.foregroundPair(
+            on: pale, isDarkAppearance: false, overlayOpacity: 0.40
+        )
+        #expect(pair?.primary == Color.black.opacity(0.88))
     }
 }

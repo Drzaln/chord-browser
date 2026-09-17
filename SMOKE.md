@@ -107,6 +107,9 @@ distribution.
       stays readable on both a light and a dark Space — including a mid-tone
       Space and a light/dark appearance flip (contrast is computed from the
       painted capsule, 2026-09-17)
+- [ ] The same holds for the **selected sidebar row**, a **selected favourite
+      tile's** fallback icon, and the **picked command-bar row**: readable on
+      every Space, light or dark
 
 ### Picture-in-Picture (2026-09-10)
 

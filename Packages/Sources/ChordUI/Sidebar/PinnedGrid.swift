@@ -16,6 +16,8 @@ struct PinnedGrid: View {
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 6), count: 4
     )
@@ -103,7 +105,21 @@ struct PinnedGrid: View {
         } else {
             Image(systemName: "globe")
                 .font(.system(size: 14))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(placeholderForeground(for: tab))
         }
+    }
+
+    /// The tile's readable icon colour on its 0.40 Space-accent fill, or the
+    /// system secondary when the tile is not selected.
+    private func placeholderForeground(for tab: ChordCore.Tab) -> AnyShapeStyle {
+        guard tab.id == windowState.selectedTabID,
+              let space = store.activeSpace(in: windowState),
+              let pair = SpaceTheme.foregroundPair(
+                  on: SpaceTheme.accent(for: space),
+                  isDarkAppearance: colorScheme == .dark,
+                  overlayOpacity: 0.40
+              )
+        else { return AnyShapeStyle(.secondary) }
+        return AnyShapeStyle(pair.primary)
     }
 }

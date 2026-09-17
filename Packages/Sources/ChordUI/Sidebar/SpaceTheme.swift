@@ -1,3 +1,4 @@
+import AppKit
 import ChordCore
 import SwiftUI
 
@@ -39,7 +40,7 @@ enum SpaceTheme {
         space.gradient.first.map(color(from:)) ?? .accentColor
     }
 
-    /// Whether label text on a toast tinted with `accent` should be dark. The
+    /// Whether label text on a surface tinted with `accent` should be dark. The
     /// accent is painted at `overlayOpacity` over the material, which the
     /// appearance approximates as near-white (light) or near-black (dark); the
     /// **higher-contrast** of black/white wins. Black and white cross at
@@ -49,30 +50,92 @@ enum SpaceTheme {
     static func prefersDarkText(
         accent: ColorHex, isDarkAppearance: Bool, overlayOpacity: Double = 0.4
     ) -> Bool {
+        guard let c = accent.components else { return !isDarkAppearance }
+        return prefersDarkText(
+            red: c.red, green: c.green, blue: c.blue,
+            isDarkAppearance: isDarkAppearance, overlayOpacity: overlayOpacity
+        )
+    }
+
+    /// The contrast ratio the chosen label colour achieves against the painted
+    /// surface — the worst case is the ≈4.58:1 crossover, so this is always at
+    /// least AA for small UI text.
+    static func toastLabelContrast(
+        accent: ColorHex, isDarkAppearance: Bool, overlayOpacity: Double = 0.4
+    ) -> Double {
+        guard let c = accent.components else { return 1 }
+        return labelContrast(
+            red: c.red, green: c.green, blue: c.blue,
+            isDarkAppearance: isDarkAppearance, overlayOpacity: overlayOpacity
+        )
+    }
+
+    /// The contrast the chosen `foregroundPair(on:)` primary achieves against
+    /// the painted surface — for the surfaces whose tint is a `Color` rather
+    /// than a stored `ColorHex`. `nil` when the colour cannot be resolved.
+    static func toastLabelContrast(
+        on tint: Color, isDarkAppearance: Bool, overlayOpacity: Double = 0.4
+    ) -> Double? {
+        guard let rgb = rgb(of: tint) else { return nil }
+        return labelContrast(
+            red: rgb.red, green: rgb.green, blue: rgb.blue,
+            isDarkAppearance: isDarkAppearance, overlayOpacity: overlayOpacity
+        )
+    }
+
+    /// A `primary`/`secondary` foreground pair that reads on a surface painted
+    /// with `tint` at `overlayOpacity` — a selected sidebar row, a picked
+    /// command-bar row, a toast capsule. `primary` is the higher-contrast of
+    /// black/white; `secondary` is a dimmer form of it for the hierarchy
+    /// `.secondary` normally carries. `nil` when the tint has no resolvable
+    /// colour, so callers keep the system styles.
+    static func foregroundPair(
+        on tint: Color, isDarkAppearance: Bool, overlayOpacity: Double = 0.4
+    ) -> (primary: Color, secondary: Color)? {
+        guard let rgb = rgb(of: tint) else { return nil }
         let background = paintedLuminance(
-            accent: accent, isDarkAppearance: isDarkAppearance, overlayOpacity: overlayOpacity
+            red: rgb.red, green: rgb.green, blue: rgb.blue,
+            isDarkAppearance: isDarkAppearance, overlayOpacity: overlayOpacity
+        )
+        if blackContrast(background) >= whiteContrast(background) {
+            return (Color.black.opacity(0.88), Color.black.opacity(0.55))
+        }
+        return (.white, Color.white.opacity(0.72))
+    }
+
+    private static func rgb(of tint: Color) -> (red: Double, green: Double, blue: Double)? {
+        guard let srgb = NSColor(tint).usingColorSpace(.sRGB) else { return nil }
+        return (Double(srgb.redComponent), Double(srgb.greenComponent), Double(srgb.blueComponent))
+    }
+
+    private static func prefersDarkText(
+        red: Double, green: Double, blue: Double,
+        isDarkAppearance: Bool, overlayOpacity: Double
+    ) -> Bool {
+        let background = paintedLuminance(
+            red: red, green: green, blue: blue,
+            isDarkAppearance: isDarkAppearance, overlayOpacity: overlayOpacity
         )
         return blackContrast(background) >= whiteContrast(background)
     }
 
-    /// The contrast ratio the chosen label colour achieves against the painted
-    /// capsule — the worst case is the ≈4.58:1 crossover, so this is always at
-    /// least AA for the toast's 12pt text.
-    static func toastLabelContrast(
-        accent: ColorHex, isDarkAppearance: Bool, overlayOpacity: Double = 0.4
+    private static func labelContrast(
+        red: Double, green: Double, blue: Double,
+        isDarkAppearance: Bool, overlayOpacity: Double
     ) -> Double {
         let background = paintedLuminance(
-            accent: accent, isDarkAppearance: isDarkAppearance, overlayOpacity: overlayOpacity
+            red: red, green: green, blue: blue,
+            isDarkAppearance: isDarkAppearance, overlayOpacity: overlayOpacity
         )
         return max(blackContrast(background), whiteContrast(background))
     }
 
-    /// sRGB → relative luminance (WCAG): composite the accent over the base, then
+    /// sRGB → relative luminance (WCAG): composite the tint over the base, then
     /// linearise each gamma-encoded channel before weighting.
     private static func paintedLuminance(
-        accent: ColorHex, isDarkAppearance: Bool, overlayOpacity: Double
+        red: Double, green: Double, blue: Double,
+        isDarkAppearance: Bool, overlayOpacity: Double
     ) -> Double {
-        guard let c = accent.components else { return isDarkAppearance ? 0 : 1 }
         let base = isDarkAppearance ? 0.11 : 1.0
         func painted(_ channel: Double) -> Double {
             let composited = overlayOpacity * channel + (1 - overlayOpacity) * base
@@ -80,7 +143,7 @@ enum SpaceTheme {
                 ? composited / 12.92
                 : pow((composited + 0.055) / 1.055, 2.4)
         }
-        return 0.2126 * painted(c.red) + 0.7152 * painted(c.green) + 0.0722 * painted(c.blue)
+        return 0.2126 * painted(red) + 0.7152 * painted(green) + 0.0722 * painted(blue)
     }
 
     private static func blackContrast(_ background: Double) -> Double { (background + 0.05) / 0.05 }

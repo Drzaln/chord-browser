@@ -219,11 +219,31 @@ struct CommandBarRow: View {
     /// rather than the generic system selection.
     var tint: Color = .accentColor
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// Readable text when the row is picked with its 0.40 Space-accent fill,
+    /// computed from that fill. `nil` otherwise — the faint bar wash is fine
+    /// with the system styles.
+    private var pickedForeground: (primary: Color, secondary: Color)? {
+        guard isHighlighted else { return nil }
+        return SpaceTheme.foregroundPair(
+            on: tint, isDarkAppearance: colorScheme == .dark, overlayOpacity: 0.40
+        )
+    }
+
+    private var primaryText: AnyShapeStyle {
+        pickedForeground.map { AnyShapeStyle($0.primary) } ?? AnyShapeStyle(.primary)
+    }
+
+    private var secondaryText: AnyShapeStyle {
+        pickedForeground.map { AnyShapeStyle($0.secondary) } ?? AnyShapeStyle(.secondary)
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(secondaryText)
                 .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -232,7 +252,7 @@ struct CommandBarRow: View {
                     .lineLimit(1)
                 Text(suggestion.subtitle)
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryText)
                     .lineLimit(1)
             }
 
@@ -248,8 +268,9 @@ struct CommandBarRow: View {
                 Image(systemName: "arrow.right")
                     .font(.system(size: 10, weight: .semibold))
             }
-            .foregroundStyle(isHighlighted ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
+            .foregroundStyle(isHighlighted ? primaryText : AnyShapeStyle(.tertiary))
         }
+        .foregroundStyle(primaryText)
         .padding(.horizontal, 16)
         .padding(.vertical, 7)
         .background(isHighlighted ? AnyShapeStyle(tint.opacity(0.40)) : AnyShapeStyle(.clear))
@@ -266,7 +287,7 @@ struct CommandBarRow: View {
             HStack(spacing: 0) {
                 Text(prefix)
                 Text(completion)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryText)
             }
         } else {
             Text(suggestion.title)
