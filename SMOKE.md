@@ -1314,6 +1314,52 @@ unsandboxed); it now reads the real `~/Library/Application Support/Chord/`. Its
   was explicitly skipped).
 - Samples: `/tmp/soak-205211.tsv`.
 
+## 30-minute soak — 2026-09-18 (mainstream-SPA fixture, v1.13.0 build 30)
+
+The §8/§6.1 gate, re-run on the released **v1.13.0 (build 30)** (schema v15,
+blank-Space persistence). First soak driven with the **`SOAK_URLS` mainstream
+override** instead of the curated cheap-site list, so the numbers reflect what a
+daily-use browser actually carries rather than a benchmark set.
+
+`SOAK_URLS=… scripts/soak.sh seed` → launch the **release** build → `run` →
+`restore`. Fixture: **3 Spaces, 21 tabs**, both pinned tiers + a 4-pane split,
+driven with ⌘1–3 Space switches for 30 minutes. Sites (20, cycled across panes):
+Google, YouTube, Gmail, Facebook, Instagram, X, Reddit, Wikipedia, Amazon, GitHub,
+WhatsApp Web, ChatGPT, Netflix, LinkedIn, TikTok, Yahoo, Bing, Stack Overflow,
+NYT, Spotify.
+
+| Budget (§6.1) | Target | Ceiling | Measured |
+|---|---|---|---|
+| App process RSS | < 150 MB | 250 MB | **58 MB start, 61 MB flat through min 13, peak 122 MB, 99 MB idle** |
+| Total footprint | < 1.2 GB | 1.8 GB | **311 → 611 MB peak → 492 MB idle** |
+| Idle CPU, window visible | < 0.5% | 1% | **0.075%** (0.09 s cputime over a 120 s post-soak delta) |
+
+- **All budgets pass, wide margins. No leak.** The app process growth (61 → 122 MB)
+  begins only once the heavy SPAs are live, **releases on idle** (126 → 99 MB
+  within 2 min), and idle CPU falls to ~0.08% — a load-driven cache, not
+  monotonic drift.
+- **Headroom shrank vs the curated-list soaks.** App peak 122 MB versus the
+  2026-08-21 run's flat 59–65 MB: mainstream JS-heavy sites retain more state
+  (interaction-state blobs, thumbnails, favicons). Still under the 150 MB target,
+  and the isolated 30 s `footprint` samples before the run were 59 MB.
+- **Total peaked at 611 MB** (prior runs 410–720 MB) — under 1.2 GB. The six
+  WebKit helper processes seen at rest are WebKit's process-reuse cache, not an
+  app leak (no public API reclaims them).
+- Samples: `/tmp/soak-175842.tsv`.
+
+Caveats from the run:
+
+- `seed` reported **49 pane rows** versus ~30 expected: the `sqlite3` CLI does not
+  enable foreign-key cascade, so the real session's `pane` rows orphan on
+  `delete from tab`. Harmless — the app ignores orphan rows and `restore` is a
+  clean `.backup` — but the fixture is dirtier than intended.
+- An optimization review followed (occlusion-based view eviction, lower live-view
+  / interaction-state caps, shared data stores, script consolidation, rule-list
+  trim). **All were declined**, the first because it tears down background
+  audio/chat/upload/call state the user relies on, the rest because every budget
+  already clears with margin well below comparable Chromium browsers. Re-open
+  only if a future feature pushes a ceiling.
+
 ## Peek (link click in a favourite/pinned tab) — 2026-08-08
 
 Peek was reworked from the ⌘-hover preview into Arc-style: clicking a link

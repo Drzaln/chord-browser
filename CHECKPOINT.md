@@ -438,12 +438,13 @@ Now, and an unlock required before a fill).
 Open, non-spec, **ask-first** items (§11): a per-site content-blocking whitelist /
 runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.)
 
-The §6.1 gate is **current**: the soak was re-run **2026-08-07** — after the
-security pass (extension signature verification, per-list content-blocker
-refresh, shared Safari UA token) — with everything since 2026-07-25 in place
-(notifications, site permissions, the vault, private windows, per-domain UA) and
-passes with no leak (app 69 MB steady, total 576–577 MB flat; see the soak
-section below). Still never run: the full Instruments GUI trace and sidebar-scroll fps.
+The §6.1 gate is **current**: the soak was re-run **2026-09-18** on v1.13.0
+(build 30) with the **mainstream-SPA fixture** (`SOAK_URLS`) — real daily-use
+sites rather than the curated cheap-site list — and passes with no leak (app
+61 MB flat, peak 122 MB, 99 MB idle; total 311 → 611 MB peak → 492 MB idle;
+idle CPU 0.075%). See the soak log below and SMOKE.md. Prior run 2026-08-07
+(app 69 MB steady, total 576–577 MB flat). Still never run: the full Instruments
+GUI trace and sidebar-scroll fps.
 
 ## Vault rules you must not break
 
@@ -4106,3 +4107,41 @@ with two windows, a tab opened in one revived the blank other through `reconcile
 `blankWindowSurvivesOtherWindowActivity` (MultiWindowTests),
 `blankSpacesRoundTripThroughLayout` (MultiWindowTests), `v15AddsBlankSpaceIds`
 (MigrationTests), and the repository round-trip — **751 total, green**.
+
+## 30-minute soak with a mainstream-SPA fixture (2026-09-18)
+
+The §6.1 gate re-run on the released **v1.13.0 (build 30)** (schema v15), and the
+first soak driven with real daily-use sites via the `SOAK_URLS` override instead of
+the curated cheap-site list. `scripts/soak.sh seed` → launch the **release** build →
+`run` → `restore`. Fixture: 3 Spaces / 21 tabs / 20 mainstream SPAs (Google,
+YouTube, Gmail, Facebook, Instagram, X, Reddit, Wikipedia, Amazon, GitHub,
+WhatsApp Web, ChatGPT, Netflix, LinkedIn, TikTok, Yahoo, Bing, Stack Overflow,
+NYT, Spotify), ⌘1–3 switching for 30 minutes.
+
+**Result: every budget passes, wide margins, no leak.**
+
+| Budget (§6.1) | Target | Ceiling | Measured |
+|---|---|---|---|
+| App process RSS | < 150 MB | 250 MB | 58 → 61 MB flat (min 0–13) → peak 122 MB → 99 MB idle |
+| Total footprint | < 1.2 GB | 1.8 GB | 311 → 611 MB peak → 492 MB idle |
+| Idle CPU, window visible | < 0.5% | 1% | 0.075% (0.09 s / 120 s) |
+
+The app process growth (61 → 122 MB) begins only once the heavy SPAs are live,
+**releases on idle** (126 → 99 MB within 2 min), and idle CPU settles near zero —
+a load-driven cache, not monotonic drift. Headroom is smaller than the 2026-08-21
+curated-list run (flat 59–65 MB) because mainstream JS-heavy sites retain more
+state; still under the 150 MB target. The six resting WebKit helper processes are
+WebKit's process-reuse cache, not an app leak. Samples: `/tmp/soak-175842.tsv`.
+Full write-up in [SMOKE.md](SMOKE.md).
+
+**Optimization review — declined.** An eight-item efficiency review followed:
+occlusion-based view eviction, lower `liveViewCapacity`, lower/compressed
+`interactionState` cap, fewer per-Space data stores, user-script consolidation,
+content-blocker rule trimming, KVO-snapshot debouncing, smaller thumbnails.
+**All deferred.** Occlusion eviction was rejected outright — it tears down
+background audio / chat / uploads / calls the user depends on — and the rest are
+unjustified while every budget clears with margin and usage already sits well
+below comparable Chromium browsers. Re-open only if a new feature pushes a
+ceiling. Relevant knobs: `WebKitEngine.swift:108` (`interactionStateCap`),
+`WebKitEngine.swift:15` (`liveViewCapacity`), `WebKitEngine.swift:1251`
+(`setOccluded`), `DataStoreRegistry.swift`.
