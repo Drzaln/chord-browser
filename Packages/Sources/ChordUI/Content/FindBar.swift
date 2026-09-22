@@ -12,6 +12,9 @@ struct FindBar: View {
     @Bindable var store: TabStore
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
+    /// The content card's inset from the window edges, so the bar sits the same
+    /// distance in. Zero while the window is edge-to-edge.
+    var contentInset: CGFloat = Metrics.contentInset
 
     @FocusState private var isFieldFocused: Bool
 
@@ -62,7 +65,7 @@ struct FindBar: View {
                     lineWidth: 1
                 )
         }
-        .padding(Metrics.contentInset + 6)
+        .padding(contentInset + 6)
         // Esc dismisses, as it does in the command bar.
         .onExitCommand { store.hideFindBar(in: windowState) }
         .onAppear { isFieldFocused = true }

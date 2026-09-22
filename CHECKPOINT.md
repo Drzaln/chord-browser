@@ -722,6 +722,20 @@ the window's left edge brings it back over the page.
   fullscreen enter/exit notifications re-evaluate it. In fullscreen AppKit shows
   the lights in the auto-revealing top overlay, not over the page, so the
   land-on-content reason does not apply.
+- **Fullscreen with the sidebar collapsed goes edge-to-edge, border and all**
+  (non-spec: user-requested, matching Arc). `RootView.isEdgeToEdge` is
+  `isFullscreen && isSidebarCollapsed && !isRevealed`; while true, the content
+  card's inset and corner radius both drop to zero, so the Space-tinted frame
+  and the inset card are gone and the page reaches the screen edges. Revealing
+  the sidebar (or leaving fullscreen) restores both. The clip radius lives on
+  the AppKit container the engine owns, so `RootView` threads the value down to
+  `PaneCard`, which calls `TabStore.setContentCornerRadius(_:for:)` on appear
+  and whenever it changes; the engine applies it to a live view and remembers it
+  for a pane whose view is built later (`paneCornerRadii`, cleared in
+  `forget`). Kept per pane, not engine-wide, so squaring one window's corners
+  does not square another's. The fullscreen notifications are now filtered to
+  *this* window — they were app-wide, so a second window going fullscreen used
+  to flip this one's `isFullscreen` too.
 - **Hide-on-exit is delayed and cancellable** (`Motion.sidebarCollapseDelay`).
   Zero delay makes the sidebar snap shut while the pointer travels toward a row
   near its edge.

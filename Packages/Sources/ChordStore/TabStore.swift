@@ -1396,6 +1396,17 @@ public final class TabStore {
         }
     }
 
+    /// Retunes one pane's web-surface clip radius (non-spec: user-requested).
+    ///
+    /// The UI drives this when a window goes edge-to-edge (native fullscreen
+    /// with the sidebar collapsed) so the page reaches the screen edges, and
+    /// back when the border returns. The engine applies it to a live view and
+    /// remembers it for a pane whose view is built later, so this is safe to
+    /// call for a lazily-created pane.
+    public func setContentCornerRadius(_ radius: CGFloat, for paneID: UUID) {
+        engine.setContentCornerRadius(radius, for: paneID)
+    }
+
     /// Whether the tab's focused pane has a sleep timer armed (non-spec:
     /// user-requested).
     public func isSleepTimerArmed(_ tabID: UUID) -> Bool {

@@ -51,7 +51,7 @@ private struct WebSurfaceRepresentable: NSViewRepresentable {
 /// fast path. The clip belongs on this plain container; the card's shadow is
 /// drawn by a sibling layer in the UI package, never here.
 final class WebSurfaceContainerView: NSView {
-    private let cornerRadius: CGFloat
+    private var cornerRadius: CGFloat
 
     init(cornerRadius: CGFloat) {
         self.cornerRadius = cornerRadius
@@ -64,6 +64,16 @@ final class WebSurfaceContainerView: NSView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("unimplemented: init(coder:)") }
+
+    /// Retunes the clip radius when the card goes edge-to-edge (window
+    /// fullscreen with the sidebar collapsed) and back. One layer property, no
+    /// relayout and no reload — the web view inside is untouched. Safe to call
+    /// before the layer exists: the stored value is the source of truth.
+    func setCornerRadius(_ radius: CGFloat) {
+        guard radius != cornerRadius else { return }
+        cornerRadius = radius
+        layer?.cornerRadius = radius
+    }
 
     func install(_ content: NSView) {
         // The web view must NOT be AutoLayout-governed from here. When a page

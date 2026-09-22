@@ -15,20 +15,32 @@ struct WebContentCard: View {
     /// True while the sidebar (and its loading bar) is off screen, so the card
     /// shows its own top-edge bar instead. See `ContentProgressBar`.
     var showsLoadingProgress: Bool = false
+    /// The card's inset from the window edges, and its corner radius. Both
+    /// collapse to zero when the window is edge-to-edge (native fullscreen with
+    /// the sidebar collapsed), so the page reaches the screen edges and the
+    /// Space-tinted border disappears.
+    var contentInset: CGFloat = Metrics.contentInset
+    var contentCornerRadius: CGFloat = Metrics.contentCornerRadius
 
     var body: some View {
         Group {
             if let tab = store.selectedTab(in: windowState) {
                 // Split view is just a tab with more panes (3.2), so there is one
                 // path here rather than a normal case and a split case.
-                SplitContentView(store: store, windowState: windowState, tab: tab)
+                SplitContentView(
+                    store: store, windowState: windowState, tab: tab,
+                    contentInset: contentInset, contentCornerRadius: contentCornerRadius
+                )
                     .id(tab.id)
                     // Over the content rather than above it: pushing the page down
                     // to make room would relayout every pane for the length of a
                     // search.
                     .overlay(alignment: .topTrailing) {
                         if windowState.isFindBarVisible {
-                            FindBar(store: store, windowState: windowState)
+                            FindBar(
+                                store: store, windowState: windowState,
+                                contentInset: contentInset
+                            )
                         }
                     }
 } else {
@@ -39,7 +51,7 @@ struct WebContentCard: View {
                 // under thin glass as the sidebar border.
                 let space = store.activeSpace(in: windowState) ?? Space.makeDefault()
                 let shape = RoundedRectangle(
-                    cornerRadius: Metrics.contentCornerRadius, style: .continuous
+                    cornerRadius: contentCornerRadius, style: .continuous
                 )
                 Group {
                     if #available(macOS 26, *) {
@@ -53,7 +65,7 @@ struct WebContentCard: View {
                             .clipShape(shape)
                     }
                 }
-                .padding(Metrics.contentInset)
+                .padding(contentInset)
             }
         }
         // The collapsed-mode loading bar, clipped to the card so its ends don't
@@ -70,7 +82,7 @@ struct WebContentCard: View {
                 tint: SpaceTheme.accent(for: store.activeSpace(in: windowState) ?? Space.makeDefault())
             )
             .clipShape(
-                RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: contentCornerRadius, style: .continuous)
             )
         }
     }

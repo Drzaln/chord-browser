@@ -189,6 +189,7 @@ see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 
 ### WebKit
 - `layer.cornerRadius` + `masksToBounds` on `WKWebView` causes artifacts. Use a container `NSView`.
+- The container's clip radius is retunable at runtime (`WebSurfaceContainerView.setCornerRadius`) for the **edge-to-edge fullscreen** state (sidebar collapsed in native fullscreen): `RootView` threads `contentInset`/`contentCornerRadius` (both 0 then) to `PaneCard`, which calls `TabStore.setContentCornerRadius(_:for:)`; the engine applies it live and caches it per pane (`paneCornerRadii`, cleared in `forget`) for lazily-built views. Per pane, not engine-wide, so one window's state cannot square another's corners.
 - `WKWebView`'s default UA has no `Version/` or `Safari/` token — must set `applicationNameForUserAgent`.
 - `WKFindResult` reports only `matchFound` — no total/index. "3 of 12" not buildable.
 - `decidePlaceholderPolicy` is iOS-only, does not exist on macOS.

@@ -17,6 +17,9 @@ the tab list, navigation controls, and any extension action buttons. Web content
 sits in an inset card to the right. The sidebar and the frame around the card are
 **frosted glass** — translucent `.ultraThinMaterial` tinted by the active Space's
 color, blurring your desktop behind the window (the web page itself stays opaque).
+With the sidebar **collapsed**, going fullscreen (the green button, or
+`Ctrl+Cmd+F`) drops that frame entirely — the page runs edge to edge. Reveal the
+sidebar or leave fullscreen and the border comes back.
 
 - **Address / search:** press `Cmd+L` (or `Cmd+T`) to open the command bar, type
   a URL or a search query, and press Enter. Anything that isn't a recognisable

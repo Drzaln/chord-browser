@@ -71,6 +71,11 @@ distribution.
       slow page — a thin progress bar runs along the top edge of the web card
       (and only there, not also in the revealed sidebar); revealing the sidebar
       hands the indicator back to the sidebar's own bar
+- [ ] **Edge-to-edge fullscreen**: with the sidebar collapsed, press the green
+      button (or `Ctrl+Cmd+F`) — the Space-tinted border and the card's rounded
+      corners disappear and the page reaches the screen edges; move the pointer
+      to the left edge to reveal the sidebar and the border comes back; leaving
+      fullscreen restores it too
 
 ### Ctrl+Tab MRU switcher (2026-08-23)
 

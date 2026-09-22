@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import WebKit
 
+import ChordCore
 @testable import ChordEngine
 
 @Suite("Web view pool", .serialized)
@@ -111,6 +112,42 @@ struct WebViewPoolTests {
         #expect(after.forgotten == forgotten + 1)
         #expect(engine.interactionState(for: paneID) == nil)
     }
+
+    @Test("A pane's clip radius is applied live and remembered for a later view")
+    func contentCornerRadiusPerPane() {
+        let engine = WebKitEngine(
+            configuration: EngineConfiguration(
+                faviconCacheDirectory: URL(fileURLWithPath: "/tmp/engine-tests")
+            )
+        )
+        let space = Space(name: "Personal", sortIndex: 0)
+        let pane = Pane(url: URL(string: "about:blank")!)
+        _ = engine.surface(for: pane, in: space)
+        #expect(engine.pool.view(for: pane.id)?.container.layer?.cornerRadius == 10)
+
+        // The override follows a change while the view is already live.
+        engine.setContentCornerRadius(0, for: pane.id)
+        #expect(engine.pool.view(for: pane.id)?.container.layer?.cornerRadius == 0)
+
+        engine.setContentCornerRadius(10, for: pane.id)
+        #expect(engine.pool.view(for: pane.id)?.container.layer?.cornerRadius == 10)
+    }
+
+    @Test("A radius set before the view exists is remembered for when it is built")
+    func contentCornerRadiusRememberedForLazyPane() {
+        let engine = WebKitEngine(
+            configuration: EngineConfiguration(
+                faviconCacheDirectory: URL(fileURLWithPath: "/tmp/engine-tests")
+            )
+        )
+        let space = Space(name: "Personal", sortIndex: 0)
+        let pane = Pane(url: URL(string: "about:blank")!)
+
+        // No live view yet: the override is recorded, then applied at creation.
+        engine.setContentCornerRadius(0, for: pane.id)
+        _ = engine.surface(for: pane, in: space)
+        #expect(engine.pool.view(for: pane.id)?.container.layer?.cornerRadius == 0)
+    }
 }
 
 @Suite("Web surface container layout")
@@ -148,6 +185,18 @@ struct WebSurfaceContainerTests {
         live.restoreLayoutForFullscreenExit()
 
         #expect(live.webView.frame == CGRect(x: 0, y: 0, width: 500, height: 400))
+    }
+
+    @Test("Retuning the clip radius updates the container layer")
+    func retunesCornerRadius() {
+        let live = LiveWebView(paneID: UUID(), webView: WKWebView(frame: .zero), cornerRadius: 10)
+        #expect(live.container.layer?.cornerRadius == 10)
+
+        live.container.setCornerRadius(0)
+        #expect(live.container.layer?.cornerRadius == 0)
+
+        live.container.setCornerRadius(10)
+        #expect(live.container.layer?.cornerRadius == 10)
     }
 }
 

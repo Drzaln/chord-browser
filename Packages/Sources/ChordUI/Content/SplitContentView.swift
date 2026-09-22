@@ -13,6 +13,10 @@ struct SplitContentView: View {
     /// the split acts on this window, not whichever one came first.
     @Bindable var windowState: WindowState
     let tab: ChordCore.Tab
+    /// The card's inset from the window edges and its corner radius, threaded
+    /// from `RootView`. Both are zero when the window is edge-to-edge.
+    var contentInset: CGFloat = Metrics.contentInset
+    var contentCornerRadius: CGFloat = Metrics.contentCornerRadius
 
     /// Widths as they were when the current divider drag began. Applying a
     /// drag's translation to a live baseline compounds it.
@@ -68,7 +72,9 @@ struct SplitContentView: View {
             isFocused: pane.id == tab.focusedPaneID,
             showsFocusRing: tab.panes.count > 1,
             isFirst: position == 0,
-            isLast: position == tab.panes.count - 1
+            isLast: position == tab.panes.count - 1,
+            contentInset: contentInset,
+            contentCornerRadius: contentCornerRadius
         )
         .frame(width: width)
     }
@@ -84,12 +90,14 @@ private struct PaneCard: View {
     let showsFocusRing: Bool
     let isFirst: Bool
     let isLast: Bool
+    let contentInset: CGFloat
+    let contentCornerRadius: CGFloat
 
     @State private var isDropTarget = false
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: contentCornerRadius, style: .continuous)
                 .fill(Color(nsColor: .textBackgroundColor))
                 .shadow(
                     color: .black.opacity(Metrics.shadowOpacity),
@@ -108,16 +116,16 @@ private struct PaneCard: View {
             // target outranks it: during a drag, where the tab will land is the
             // more urgent question.
             if isDropTarget {
-                RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: contentCornerRadius, style: .continuous)
                     .strokeBorder(Color.accentColor, lineWidth: Metrics.splitDropRingWidth)
                     .background(
                         RoundedRectangle(
-                            cornerRadius: Metrics.contentCornerRadius, style: .continuous
+                            cornerRadius: contentCornerRadius, style: .continuous
                         )
                         .fill(Color.accentColor.opacity(0.12))
                     )
             } else if showsFocusRing {
-                RoundedRectangle(cornerRadius: Metrics.contentCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: contentCornerRadius, style: .continuous)
                     .strokeBorder(
                         isFocused ? Color.accentColor.opacity(0.9) : .clear,
                         lineWidth: Metrics.splitFocusRingWidth
@@ -142,9 +150,9 @@ private struct PaneCard: View {
         // Only the outer edges carry the inset. Insetting the inner edges too
         // put 8 + divider + 8 points of dead space between panes, which reads
         // as a very thick divider rather than as breathing room.
-        .padding(.vertical, Metrics.contentInset)
-        .padding(.leading, isFirst ? Metrics.contentInset : 0)
-        .padding(.trailing, isLast ? Metrics.contentInset : 0)
+        .padding(.vertical, contentInset)
+        .padding(.leading, isFirst ? contentInset : 0)
+        .padding(.trailing, isLast ? contentInset : 0)
         // Clicking a pane focuses it. `simultaneousGesture` rather than
         // `onTapGesture`, so the click still reaches the web view — otherwise
         // the first click into an unfocused pane would only focus it and the
@@ -155,12 +163,23 @@ private struct PaneCard: View {
         // or those keys go nowhere. A click into the page already does this via
         // AppKit's own mouse-down focusing; this is the keyboard-switch path.
         .onAppear {
+            // The clip lives on the AppKit container the engine owns, so the
+            // radius crosses the seam here. The engine remembers it for a view
+            // that is built later, which is what a lazy pane and a revived one
+            // rely on.
+            store.setContentCornerRadius(contentCornerRadius, for: pane.id)
             if isFocused {
                 store.focusWebView(for: pane.id)
                 // Refresh the switcher's page thumbnail while the page is on
                 // screen, so the next Ctrl+Tab shows this tab's real content.
                 store.refreshThumbnail(for: pane.id)
             }
+        }
+        // Edge-to-edge can flip while this pane is already on screen (entering
+        // fullscreen with the sidebar collapsed), so the radius has to follow
+        // the view state, not just the first appearance.
+        .onChange(of: contentCornerRadius) { _, radius in
+            store.setContentCornerRadius(radius, for: pane.id)
         }
     }
 }

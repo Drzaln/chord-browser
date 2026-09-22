@@ -405,6 +405,18 @@ public protocol WebEngine: AnyObject {
     /// afterwards and to any already live. Clamped onto the `PageZoom` ladder.
     func setPageZoom(_ factor: Double)
 
+    /// Retunes the clip radius of one pane's web surface (non-spec:
+    /// user-requested). The UI drives this when a window goes edge-to-edge —
+    /// native fullscreen with the sidebar collapsed — so the page reaches the
+    /// screen edges instead of showing the Space-tinted inset frame. Applied to
+    /// the pane's live view when there is one, and remembered for a view built
+    /// later, so a lazily-created pane or a revived one inherits it.
+    ///
+    /// Per *pane* rather than per window: a pane's surface is shared by every
+    /// window showing its tab, and there is only one clip to set, so the UI
+    /// stamps each pane it is actually displaying.
+    func setContentCornerRadius(_ radius: CGFloat, for paneID: UUID)
+
     /// Opens the Web Inspector for a pane's live view (non-spec:
     /// user-requested). The inspector is always a detached window in a
     /// `WKWebView` app. A no-op unless developer mode is on and the pane has a
@@ -434,6 +446,7 @@ extension WebEngine {
     /// the dev-mode and zoom plumbing; only `WebKitEngine` gives real behaviour.
     public func setDeveloperMode(_ enabled: Bool) {}
     public func setPageZoom(_ factor: Double) {}
+    public func setContentCornerRadius(_ radius: CGFloat, for paneID: UUID) {}
     public func showInspector(for paneID: UUID) {}
     public func mediaDiagnostics(for paneID: UUID) async -> MediaDiagnostics? { nil }
     public func togglePictureInPicture(paneID: UUID) async -> PictureInPictureResult {

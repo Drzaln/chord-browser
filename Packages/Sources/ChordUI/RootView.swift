@@ -98,6 +98,26 @@ public struct RootView: View {
         isHidden && !isFullscreen && !windowState.isPresentationMode
     }
 
+    /// Edge-to-edge: native fullscreen with the sidebar collapsed and not
+    /// revealed. This is Arc's no-border state — the page runs to every screen
+    /// edge instead of sitting inside the inset, Space-tinted card. Revealing
+    /// the sidebar (or leaving fullscreen) brings the border back, because the
+    /// card is inset again.
+    private var isEdgeToEdge: Bool {
+        isFullscreen && windowState.isSidebarCollapsed && !isRevealed
+    }
+
+    /// The card's inset from the window edges — zero while edge-to-edge, so the
+    /// Space tint has nothing to show through.
+    private var contentInset: CGFloat {
+        isEdgeToEdge ? 0 : Metrics.contentInset
+    }
+
+    /// The card's corner radius, squared off in the same state.
+    private var contentCornerRadius: CGFloat {
+        isEdgeToEdge ? 0 : Metrics.contentCornerRadius
+    }
+
     /// The toast capsule's tint: the active Space's accent, so the notification
     /// matches the browser's border tint. `nil` (no Space) leaves a plain
     /// material.
@@ -151,7 +171,9 @@ public struct RootView: View {
                 WebContentCard(
                     store: store,
                     windowState: windowState,
-                    showsLoadingProgress: windowState.isSidebarCollapsed && !isRevealed
+                    showsLoadingProgress: windowState.isSidebarCollapsed && !isRevealed,
+                    contentInset: contentInset,
+                    contentCornerRadius: contentCornerRadius
                 )
             }
 
@@ -289,13 +311,22 @@ public struct RootView: View {
         }
         // Fullscreen enter/exit must re-evaluate the traffic lights: entering
         // with the sidebar collapsed would otherwise leave them hidden and the
-        // window inescapable but by keyboard.
+        // window inescapable but by keyboard. The notification is app-wide, so
+        // it is filtered to *this* window — otherwise a second window going
+        // fullscreen would mark this one fullscreen too (and, now, square its
+        // corners).
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)
-        ) { _ in isFullscreen = true }
+        ) { note in
+            guard (note.object as? NSWindow) === window else { return }
+            isFullscreen = true
+        }
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)
-        ) { _ in isFullscreen = false }
+        ) { note in
+            guard (note.object as? NSWindow) === window else { return }
+            isFullscreen = false
+        }
         // Keep the (visually hidden) window title in step with the page — it is
         // what the screen-share picker and Mission Control label this window by.
         .onChange(of: windowTitle, initial: true) { _, title in

@@ -483,6 +483,12 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   alone touches AppKit (relaunch/terminate), so the one-OS-framework-per-target
   rule of ADR 011 holds. **ADR 021.**
 - **Frosted-glass chrome** — see §5.
+- **Edge-to-edge fullscreen** — with the sidebar collapsed, entering native
+  fullscreen (the green button / `Ctrl+Cmd+F`) drops the Space-tinted border:
+  the content card's inset and corner radius both go to zero, so the page reaches
+  the screen edges. Revealing the sidebar or leaving fullscreen restores the
+  border. Non-spec, user-requested (Arc behaviour); details in the CHECKPOINT
+  sidebar section.
 - **Ctrl+Tab MRU tab switcher** — the active Space's tabs in
   most-recently-used order (`Tab.lastAccessedAt`, bumped on every select), not
   sidebar order. A quick `Ctrl+Tab` tap jumps to the most recent tab; holding

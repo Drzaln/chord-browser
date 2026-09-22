@@ -117,6 +117,14 @@ public final class WebKitEngine: WebEngine {
     /// view, so a muted pane stays muted across eviction and reload.
     private var mutedPanes: Set<UUID> = []
 
+    /// Per-pane clip-radius overrides (non-spec: user-requested), pushed by the
+    /// UI when a window goes edge-to-edge (native fullscreen, sidebar
+    /// collapsed). A pane absent from the map uses `configuration.cornerRadius`.
+    /// Kept per pane rather than as one engine-wide value so squaring the
+    /// corners for one window does not square them for a pane another window is
+    /// still showing inset. Cleared in `forget`.
+    private var paneCornerRadii: [UUID: CGFloat] = [:]
+
     /// When each pane's sleep timer fires (non-spec: user-requested). Owned
     /// here, not in the page, so it survives reload and view eviction — a page's
     /// `setTimeout` would be throttled in a background tab and wiped on reload,
@@ -214,7 +222,8 @@ public final class WebKitEngine: WebEngine {
         // (§9.6): a per-domain rule has to be in place before the first request.
         applyUserAgent(to: webView, for: pane.url)
         let live = LiveWebView(
-            paneID: pane.id, webView: webView, cornerRadius: configuration.cornerRadius
+            paneID: pane.id, webView: webView,
+            cornerRadius: paneCornerRadii[pane.id] ?? configuration.cornerRadius
         )
         live.startObserving { [weak self] paneID, snapshot in
             self?.handleSnapshot(snapshot, for: paneID)
@@ -488,6 +497,20 @@ public final class WebKitEngine: WebEngine {
         for live in pool.liveViews {
             live.webView.pageZoom = pageZoomFactor
         }
+    }
+
+    /// Retunes one pane's clip radius (see `WebEngine.setContentCornerRadius`).
+    /// Applied to the live container immediately; a pane with no live view
+    /// records the value so its view is built at the right radius. An override
+    /// equal to the configured radius is dropped, so the map only ever holds
+    /// panes that differ from the default.
+    public func setContentCornerRadius(_ radius: CGFloat, for paneID: UUID) {
+        if radius == configuration.cornerRadius {
+            paneCornerRadii.removeValue(forKey: paneID)
+        } else {
+            paneCornerRadii[paneID] = radius
+        }
+        pool.view(for: paneID)?.container.setCornerRadius(radius)
     }
 
     /// Opens the Web Inspector for a pane's live view (non-spec: user-requested).
@@ -1164,6 +1187,7 @@ public final class WebKitEngine: WebEngine {
         lastKnownURL.removeValue(forKey: paneID)
         contextLinkURL.removeValue(forKey: paneID)
         mutedPanes.remove(paneID)
+        paneCornerRadii.removeValue(forKey: paneID)
         lastMediaError.removeValue(forKey: paneID)
         emeSessions.remove(paneID)
         pictureInPicturePanes.remove(paneID)
