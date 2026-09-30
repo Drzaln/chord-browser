@@ -149,6 +149,15 @@ extension NavigationCoordinator: WKNavigationDelegate {
         // override, and the main frame's covers its subresources. `overrideReferrer`
         // is read when the request is built, so unlike the UA it needs no
         // re-issue.
+        // A right-click "Download Image" / "Download Linked File", or an
+        // `<a download>`, is WebKit telling the app to download rather than
+        // navigate. Without this the action policy allows it and WebKit opens
+        // the image in the current tab instead of saving it (the response
+        // policy cannot recover it — an image is a showable main-frame type).
+        if navigationAction.shouldPerformDownload {
+            return (.download, preferences)
+        }
+
         if #available(macOS 27.0, *) {
             engine?.applyReferrer(to: preferences, for: navigationAction.request.url)
         }
@@ -271,6 +280,8 @@ extension NavigationCoordinator: WKScriptMessageHandler {
             engine?.setPictureInPicture(active, for: paneID)
         case ContextLinkMonitor.messageName:
             engine?.setContextLinkURL(ContextLinkMonitor.linkURL(from: message.body), for: paneID)
+        case ContextImageMonitor.messageName:
+            engine?.setContextImageURL(ContextImageMonitor.imageURL(from: message.body), for: paneID)
         case PasswordFormMonitor.messageName:
             // One handler, two shapes: a submission carries values, a report
             // carries descriptors.

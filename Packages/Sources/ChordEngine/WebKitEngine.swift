@@ -119,6 +119,10 @@ public final class WebKitEngine: WebEngine {
     /// `ContextLinkMonitor` and read when "Open in Little Chord" is chosen.
     private var contextLinkURL: [UUID: URL] = [:]
 
+    /// The URL of the most recently right-clicked image per pane, fed by
+    /// `ContextImageMonitor` and read when "Download Image" is chosen.
+    private var contextImageURL: [UUID: URL] = [:]
+
     /// Panes the user has muted (non-spec: user-requested). Kept here, not on the
     /// view, so a muted pane stays muted across eviction and reload.
     private var mutedPanes: Set<UUID> = []
@@ -309,6 +313,7 @@ public final class WebKitEngine: WebEngine {
         let controller = WKUserContentController()
         controller.addUserScript(MediaActivityMonitor.makeUserScript())
         controller.addUserScript(ContextLinkMonitor.makeUserScript())
+        controller.addUserScript(ContextImageMonitor.makeUserScript())
         controller.addUserScript(AudioMuteController.makeUserScript())
         controller.addUserScript(SleepTimerController.makeUserScript())
         controller.addUserScript(NotificationBridge.makeUserScript())
@@ -327,6 +332,7 @@ public final class WebKitEngine: WebEngine {
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
+            controller.add(coordinator, name: ContextImageMonitor.messageName)
             controller.add(coordinator, name: NotificationBridge.showMessageName)
             controller.add(coordinator, name: ScreenShareMonitor.messageName)
             controller.add(coordinator, name: PasswordFormMonitor.messageName)
@@ -395,6 +401,19 @@ public final class WebKitEngine: WebEngine {
         webView.contextLinkURL = { [weak self, weak webView] in
             guard let self, let webView, let paneID = self.paneID(for: webView) else { return nil }
             return self.contextLinkURL[paneID]
+        }
+        // "Download Image" on the context menu, over WebKit's own item: it does
+        // not save the image in this engine, so the app starts the download.
+        webView.contextImageURL = { [weak self, weak webView] in
+            guard let self, let webView, let paneID = self.paneID(for: webView) else { return nil }
+            return self.contextImageURL[paneID]
+        }
+        webView.onDownloadImage = { [weak self, weak webView] url in
+            guard let self, let webView else { return }
+            webView.startDownload(using: URLRequest(url: url)) { [weak self] download in
+                Log.engine.notice("download image: \(url.absoluteString)")
+                self?.adoptDownload(download, suggestedURL: url)
+            }
         }
         webView.onOpenInLittleChord = { [weak self] url in
             self?.delegate?.paneRequestedLittleChord(url: url)
@@ -865,6 +884,12 @@ public final class WebKitEngine: WebEngine {
         contextLinkURL[paneID] = url
     }
 
+    /// Records (or clears) the image the pane's page reported under the last
+    /// right-click. `nil` when the click was not over an image.
+    func setContextImageURL(_ url: URL?, for paneID: UUID) {
+        contextImageURL[paneID] = url
+    }
+
     // MARK: - Mute
 
     public func setMuted(_ muted: Bool, paneID: UUID) {
@@ -1242,6 +1267,7 @@ public final class WebKitEngine: WebEngine {
         interactionStateOrder.removeAll { $0 == paneID }
         lastKnownURL.removeValue(forKey: paneID)
         contextLinkURL.removeValue(forKey: paneID)
+        contextImageURL.removeValue(forKey: paneID)
         mutedPanes.remove(paneID)
         paneCornerRadii.removeValue(forKey: paneID)
         lastMediaError.removeValue(forKey: paneID)

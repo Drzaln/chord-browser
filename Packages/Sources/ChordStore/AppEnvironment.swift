@@ -192,9 +192,20 @@ public struct AppEnvironment {
             await extensionsService.restoreEnabled(spaces: store.spaces)
         }
 
+        let downloadsStore = DownloadsStore(coordinator: engine.downloads)
+        // A download started while the sidebar is collapsed has no visible
+        // affordance — the toolbar's Downloads button lives in the sidebar. Show
+        // a brief banner instead, so the click is acknowledged.
+        downloadsStore.onStarted = { [weak store] item in
+            guard let store else { return }
+            let window = store.focusedWindow
+            guard window.isSidebarCollapsed else { return }
+            window.showToast("Downloading \(item.filename)", icon: "arrow.down.circle")
+        }
+
         return AppEnvironment(
             store: store,
-            downloads: DownloadsStore(coordinator: engine.downloads),
+            downloads: downloadsStore,
             extensionHost: extensionHost,
             extensions: extensionsService,
             contentBlocker: contentBlocker

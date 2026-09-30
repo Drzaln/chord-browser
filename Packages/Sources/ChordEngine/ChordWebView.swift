@@ -19,15 +19,31 @@ import WebKit
 final class ChordWebView: WKWebView {
     /// The URL of the most recently right-clicked link, resolved at click time.
     var contextLinkURL: (() -> URL?)?
+    /// The URL of the most recently right-clicked image, resolved at click time.
+    var contextImageURL: (() -> URL?)?
     /// Invoked with that URL when the user chooses "Open in Little Chord".
     var onOpenInLittleChord: ((URL) -> Void)?
     /// "Open Link in New Tab" — a background tab in this pane's own window.
     var onOpenInNewTab: ((URL) -> Void)?
     /// "Open Link in New Private Window".
     var onOpenInPrivateWindow: ((URL) -> Void)?
+    /// "Download Image" — actually saves the right-clicked image.
+    var onDownloadImage: ((URL) -> Void)?
 
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
+
+        // WebKit's own "Download Image" does not download: in this engine the
+        // item arrives as an ordinary navigation to the image, which renders it
+        // in the tab instead of saving it. Take the item over and save the image
+        // ourselves.
+        if let item = menu.items.first(where: {
+            $0.identifier?.rawValue.contains("DownloadImage") == true
+        }) {
+            item.target = self
+            item.action = #selector(downloadImage(_:))
+        }
+
         guard menuTargetsLink(menu) else { return }
 
         // Inserted at the top, in the order other browsers use: the tab first,
@@ -75,5 +91,10 @@ final class ChordWebView: WKWebView {
     @objc private func openInPrivateWindow(_ sender: Any?) {
         guard let url = contextLinkURL?() else { return }
         onOpenInPrivateWindow?(url)
+    }
+
+    @objc private func downloadImage(_ sender: Any?) {
+        guard let url = contextImageURL?() else { return }
+        onDownloadImage?(url)
     }
 }

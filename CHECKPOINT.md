@@ -138,6 +138,20 @@ downloads, and subresources are unchanged); (2) a transient provisional failure
 (`WebKitInternal` / `WebKitErrorDomain` 102) is retried **once** per URL, which
 is exactly the manual reload that always worked, done automatically.
 
+**Right-click downloads (2026-09-30).** "Download Image" saved nothing — WebKit's
+own `WKMenuItemIdentifierDownloadImage` arrived as an ordinary main-frame
+navigation to the image (`shouldPerformDownload == false`), so the image
+rendered instead; the response policy cannot tell that apart from opening an
+image link. `ChordWebView.willOpenMenu` now takes the menu item over and starts
+a real download (`webView.startDownload(using:)`) of the image URL, captured by
+`ContextImageMonitor` (the same in-page `contextmenu` trick as
+`ContextLinkMonitor`). `decidePolicyFor navigationAction` also returns
+`.download` when `navigationAction.shouldPerformDownload` is true (helpers,
+`<a download>`). A download that starts while the sidebar is collapsed — where
+the toolbar's Downloads button is hidden — shows a "Downloading …" toast
+(`DownloadsStore.onStarted` → `WindowState.showToast`), so the click is
+acknowledged. Verified on picsum, Google Images, and Google Drive.
+
 **Engine state hygiene + Arc-style split close & pane undo (2026-08-21).** Three
 memory/behaviour changes, verified live:
 
