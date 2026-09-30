@@ -2,6 +2,8 @@
 .build/
 Packages/.build/
 DerivedData/
+# Local Release build output (scripts/release or the CI's -derivedDataPath)
+.build-release/
 *.xcuserstate
 xcuserdata/
 *.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist

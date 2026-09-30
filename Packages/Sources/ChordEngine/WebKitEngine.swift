@@ -202,21 +202,31 @@ public final class WebKitEngine: WebEngine {
     }
 
     /// Cookies the Space's store holds for one URL (non-spec: user-requested).
-    /// `cookies(for:)` is macOS 27, so older runtimes report none.
+    ///
+    /// `WKHTTPCookieStore.cookies(for:)` is macOS 27 only, so this reads the
+    /// whole store (`getAllCookies`, macOS 10.15+) and filters. That also keeps
+    /// the file compiling against the macOS 26 SDK the release CI ships.
     public func cookies(for url: URL, in space: Space) async -> [SiteCookie] {
-        guard #available(macOS 27.0, *) else { return [] }
         let store = dataStores.store(for: space)
-        return await store.httpCookieStore.cookies(for: url).map(SiteCookie.init)
+        return await allCookies(in: store.httpCookieStore)
+            .filter { $0.applies(to: url) }
+            .map(SiteCookie.init)
     }
 
     /// Deletes the Space's cookies for one URL (non-spec: user-requested). Scoped
     /// to the URL's cookies, so it signs the user out of one site without
     /// touching the rest of the Space.
     public func clearCookies(for url: URL, in space: Space) async {
-        guard #available(macOS 27.0, *) else { return }
         let cookieStore = dataStores.store(for: space).httpCookieStore
-        for cookie in await cookieStore.cookies(for: url) {
+        for cookie in await allCookies(in: cookieStore) where cookie.applies(to: url) {
             await cookieStore.deleteCookie(cookie)
+        }
+    }
+
+    /// Every cookie in a store, bridged from WebKit's completion handler.
+    private func allCookies(in cookieStore: WKHTTPCookieStore) async -> [HTTPCookie] {
+        await withCheckedContinuation { continuation in
+            cookieStore.getAllCookies { continuation.resume(returning: $0) }
         }
     }
 
@@ -533,7 +543,10 @@ public final class WebKitEngine: WebEngine {
                 url: url, overrides: referrerOverrides, global: globalReferrerPolicy
             )
         else { return }
-        preferences.overrideReferrer = referrer
+        // `overrideReferrer` is macOS 27 and absent from the macOS 26 SDK the
+        // release CI builds against, so it is set by KVC (the property is
+        // KVC-compliant). The `@available` scope means this only runs on 27.0+.
+        preferences.setValue(referrer, forKey: "overrideReferrer")
     }
 
     /// Starts or stops the swipe-to-close monitor. The monitor's start/stop is
@@ -1362,5 +1375,22 @@ public final class WebKitEngine: WebEngine {
 
     func adoptDownload(_ download: WKDownload, suggestedURL: URL?) {
         downloads.adopt(download, suggestedURL: suggestedURL)
+    }
+}
+
+extension HTTPCookie {
+    /// Whether this cookie would be sent to `url` — the same domain, path, and
+    /// secure rules the cookie jar applies. Used to scope the per-site cookie
+    /// list and clear to one site, since `WKHTTPCookieStore` has no per-URL read
+    /// before macOS 27.
+    func applies(to url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        let domain = self.domain.lowercased()
+        let bare = domain.hasPrefix(".") ? String(domain.dropFirst()) : domain
+        guard host == bare || host.hasSuffix("." + bare) else { return false }
+        if isSecure, url.scheme?.lowercased() != "https" { return false }
+        let cookiePath = path.isEmpty ? "/" : path
+        let urlPath = url.path.isEmpty ? "/" : url.path
+        return urlPath.hasPrefix(cookiePath)
     }
 }
