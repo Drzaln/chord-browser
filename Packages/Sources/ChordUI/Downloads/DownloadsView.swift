@@ -8,19 +8,23 @@ import SwiftUI
 /// button is noise in a browser this small.
 struct DownloadsButton: View {
     @Bindable var downloads: DownloadsStore
-    @State private var isShowingList = false
+    /// This window's state. The popover's presentation lives here rather than in
+    /// local `@State` so the sidebar can be held open while it shows — the
+    /// button is in the sidebar header, so an auto-hide would remove the anchor
+    /// and close the popover (see `WindowState.isSidebarHeldOpen`).
+    @Bindable var windowState: WindowState
 
     var body: some View {
         if downloads.hasDownloads {
             Button {
-                isShowingList.toggle()
+                windowState.isDownloadsPopoverOpen.toggle()
             } label: {
                 Image(systemName: downloads.activeCount > 0
                     ? "arrow.down.circle.fill"
                     : "arrow.down.circle")
             }
             .help("Downloads")
-            .popover(isPresented: $isShowingList, arrowEdge: .bottom) {
+            .popover(isPresented: $windowState.isDownloadsPopoverOpen, arrowEdge: .bottom) {
                 DownloadsList(downloads: downloads)
             }
         }

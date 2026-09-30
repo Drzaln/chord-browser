@@ -387,4 +387,39 @@ struct SplitTests {
             #expect(engine.interactionState(for: pane.id) != nil, "pane \(pane.id) lost its state")
         }
     }
+
+    @Test("Renaming a split tab keeps one name as focus moves between panes")
+    func renameIsTabLevelAcrossPanes() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+        store.splitSelectedTab()
+
+        let tab = try! #require(store.selectedTab)
+        store.renameTab(tab.id, to: "Work")
+
+        // The name is the tab's, not the focused pane's, so focusing either half
+        // must not change what the sidebar shows.
+        store.focusPane(tab.panes[0].id)
+        #expect(store.selectedTab?.displayTitle == "Work", "focusing the left pane keeps the name")
+        store.focusPane(tab.panes[1].id)
+        #expect(store.selectedTab?.displayTitle == "Work", "focusing the right pane keeps the name")
+    }
+
+    @Test("A new split pane inherits the tab's name")
+    func splitPaneInheritsTabName() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+        let tab = try! #require(store.selectedTab)
+        store.renameTab(tab.id, to: "Work")
+
+        store.splitSelectedTab()
+
+        let split = try! #require(store.selectedTab)
+        #expect(split.panes.count == 2)
+        #expect(split.customTitle == "Work", "the split tab still has its name")
+        #expect(
+            split.panes.allSatisfy { $0.customTitle == "Work" },
+            "both panes carry the tab-level name"
+        )
+    }
 }

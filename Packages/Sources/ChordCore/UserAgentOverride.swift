@@ -31,21 +31,7 @@ public enum UserAgentRules {
     /// returns `meet.google.com` / `google.com`. Nil when there is nothing
     /// usable left, so the UI can refuse to add an empty rule.
     public static func normalise(_ input: String) -> String? {
-        var text = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if let range = text.range(of: "://") { text = String(text[range.upperBound...]) }
-        // Drop a path, query, fragment, port, and any credentials.
-        if let slash = text.firstIndex(of: "/") { text = String(text[..<slash]) }
-        for separator in ["?", "#"] where text.contains(separator) {
-            text = String(text.split(separator: separator, maxSplits: 1)[0])
-        }
-        if let at = text.lastIndex(of: "@") { text = String(text[text.index(after: at)...]) }
-        if let colon = text.firstIndex(of: ":") { text = String(text[..<colon]) }
-        while text.hasPrefix(".") { text.removeFirst() }
-        while text.hasSuffix(".") { text.removeLast() }
-        // A rule has to look like a host: at least one dot, no spaces. Otherwise
-        // "chrome" would silently become a rule that matches nothing.
-        guard !text.isEmpty, text.contains("."), !text.contains(" ") else { return nil }
-        return text
+        DomainRules.normalise(input)
     }
 
     /// The override that applies to `host`, or nil.
@@ -59,11 +45,7 @@ public enum UserAgentRules {
     /// The **most specific** rule wins, so `meet.google.com → Default` can
     /// carve an exception out of `google.com → Chrome`.
     public static func match(host: String, in overrides: [UserAgentOverride]) -> UserAgentOverride? {
-        let host = host.lowercased()
-        return
-            overrides
-            .filter { host == $0.domain || host.hasSuffix("." + $0.domain) }
-            .max { $0.domain.count < $1.domain.count }
+        DomainRules.mostSpecific(host: host, in: overrides) { $0.domain }
     }
 
     /// The User-Agent string for a URL: the most specific matching override,

@@ -18,6 +18,10 @@ struct PinnedGrid: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    /// The tile under the pointer, so it gets the same "the pointer is here"
+    /// highlight every other sidebar entry has.
+    @State private var hoveredID: UUID?
+
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 6), count: 4
     )
@@ -34,6 +38,7 @@ struct PinnedGrid: View {
 
     private func tile(_ tab: ChordCore.Tab) -> some View {
         let isSelected = tab.id == windowState.selectedTabID
+        let isHovered = hoveredID == tab.id
         // Tinted with the Space colour, matching the tab rows and the address
         // button (items 1 and 4).
         let tint = SpaceTheme.accent(for: store.activeSpace(in: windowState) ?? Space.makeDefault())
@@ -43,7 +48,11 @@ struct PinnedGrid: View {
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isSelected ? tint.opacity(0.40) : tint.opacity(0.14))
+                    .fill(
+                        isSelected
+                            ? tint.opacity(0.40)
+                            : tint.opacity(isHovered ? 0.24 : 0.14)
+                    )
 
                 favicon(for: tab)
                     .frame(width: 20, height: 20)
@@ -79,6 +88,16 @@ struct PinnedGrid: View {
             }
         }
         .help(tab.displayTitle)
+        // Attached last so the hover region is the whole tile — the AppKit
+        // `TabDragSource` overlay sits above the button and would otherwise
+        // swallow the pointer tracking.
+        .onHover { hovering in
+            if hovering {
+                hoveredID = tab.id
+            } else if hoveredID == tab.id {
+                hoveredID = nil
+            }
+        }
         .accessibilityLabel(tab.displayTitle)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .contextMenu {

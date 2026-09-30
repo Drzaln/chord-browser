@@ -101,3 +101,38 @@ struct RenameAlertSidebarTests {
         #expect(second.isSidebarHeldOpen == false)
     }
 }
+
+/// The Downloads popover is anchored to a button in the sidebar header, so it
+/// holds a revealed sidebar open for the same reason the extension popup does.
+@Suite("Downloads popover holds the sidebar open")
+@MainActor
+struct DownloadsPopoverSidebarTests {
+
+    private func makeWindowState() -> WindowState {
+        WindowState(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+    }
+
+    @Test("An open Downloads popover holds the sidebar open")
+    func popoverHolds() {
+        let window = makeWindowState()
+        window.isDownloadsPopoverOpen = true
+        #expect(window.isSidebarHeldOpen)
+    }
+
+    @Test("Closing the Downloads popover releases the sidebar")
+    func closingReleases() {
+        let window = makeWindowState()
+        window.isDownloadsPopoverOpen = true
+        window.isDownloadsPopoverOpen = false
+        #expect(window.isSidebarHeldOpen == false)
+    }
+
+    @Test("The Downloads popover is window state, so a second window is unaffected")
+    func popoverIsPerWindow() {
+        let first = makeWindowState()
+        let second = makeWindowState()
+        first.isDownloadsPopoverOpen = true
+        #expect(first.isSidebarHeldOpen)
+        #expect(second.isSidebarHeldOpen == false)
+    }
+}

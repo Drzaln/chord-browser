@@ -19,6 +19,8 @@ struct NavigationBar: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var isHoveringAddress = false
+
     private var runtime: PaneRuntime? {
         store.selectedTab(in: windowState).map { store.runtime(for: $0.focusedPaneID) }
     }
@@ -51,7 +53,7 @@ struct NavigationBar: View {
                     button("arrow.clockwise", label: "Reload", enabled: true) { store.reload(in: windowState) }
                 }
 
-                DownloadsButton(downloads: downloads)
+                DownloadsButton(downloads: downloads, windowState: windowState)
 
                 // Only rendered when this page has a login and something is
                 // saved for it (V6 of the password vault).
@@ -82,12 +84,15 @@ struct NavigationBar: View {
                 .frame(height: 22)
                 .background(
                     // Tinted with the Space colour, matching the tabs (item 4).
+                    // Lifts a little under the pointer so the field reads as
+                    // clickable.
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(tint.opacity(0.18))
+                        .fill(tint.opacity(isHoveringAddress ? 0.28 : 0.18))
                 )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHoveringAddress = $0 }
         .help("Edit address")
         .accessibilityLabel("Address: \(displayAddress)")
     }
@@ -132,6 +137,7 @@ struct NavigationBar: View {
         .buttonStyle(.plain)
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.35)
+        .hoverHighlight(opacity: enabled ? 0.12 : 0)
         .accessibilityLabel(label)
     }
 }

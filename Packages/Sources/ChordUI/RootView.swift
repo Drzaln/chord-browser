@@ -343,6 +343,11 @@ public struct RootView: View {
         .onChange(of: isSidebarHeldOpen) { _, held in
             if !held && !isSidebarHovered { scheduleHide() }
         }
+        // Opening the Downloads popover while the auto-hide is already counting
+        // down would let it fire and close the popover with the sidebar.
+        .onChange(of: windowState.isDownloadsPopoverOpen) { _, open in
+            if open { cancelPendingHide() }
+        }
         // Only this window's popup pins this window's sidebar: the host is
         // app-wide, so the notification carries the window it is anchored in and
         // every other window ignores it.

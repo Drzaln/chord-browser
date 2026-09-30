@@ -178,14 +178,14 @@ public enum CommandBarRanking {
         input.tabs.compactMap { tab in
             let pane = tab.focusedPane
             guard let base = FuzzyMatch.bestScore(
-                query: query, candidates: [pane.displayTitle, pane.url.absoluteString]
+                query: query, candidates: [tab.displayTitle, pane.url.absoluteString]
             ) else { return nil }
 
             let spaceName = input.spaceNames[tab.spaceID] ?? ""
             return Suggestion(
                 id: "tab-\(tab.id.uuidString)",
                 kind: .openTab(tabID: tab.id, spaceID: tab.spaceID, spaceName: spaceName),
-                title: pane.displayTitle,
+                title: tab.displayTitle,
                 subtitle: spaceName.isEmpty ? "Open tab" : "Open tab · \(spaceName)",
                 score: base + Weight.openTabBias
                     + recencyBonus(from: tab.lastAccessedAt, now: input.now)

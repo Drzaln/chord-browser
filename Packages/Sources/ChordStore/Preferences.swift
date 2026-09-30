@@ -11,6 +11,8 @@ enum Preferences {
     private static let idleWindowKey = "prefs.idleWindow"
     private static let userAgentKey = "prefs.userAgent"
     private static let userAgentOverridesKey = "prefs.userAgentOverrides"
+    private static let referrerPolicyKey = "prefs.referrerPolicy"
+    private static let referrerOverridesKey = "prefs.referrerOverrides"
     private static let vaultLockTimeoutKey = "prefs.vaultLockTimeout"
     private static let collapsedPinnedSpacesKey = "prefs.collapsedPinnedSpaces"
     // Unprefixed, unlike the rest: these two predate this file and were written
@@ -85,6 +87,34 @@ enum Preferences {
         to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         encode(overrides, forKey: userAgentOverridesKey, to: defaults)
+    }
+
+    /// The global referrer policy (non-spec: user-requested). A choice, like the
+    /// User-Agent setting beside it.
+    static func loadReferrerPolicy(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> ReferrerPolicy {
+        decode(ReferrerPolicy.self, forKey: referrerPolicyKey, from: defaults) ?? .default
+    }
+
+    static func save(
+        _ policy: ReferrerPolicy, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(policy, forKey: referrerPolicyKey, to: defaults)
+    }
+
+    /// Per-domain referrer rules. A list of choices, like the UA overrides.
+    static func loadReferrerOverrides(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> [ReferrerOverride] {
+        decode([ReferrerOverride].self, forKey: referrerOverridesKey, from: defaults) ?? []
+    }
+
+    static func save(
+        _ overrides: [ReferrerOverride],
+        to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(overrides, forKey: referrerOverridesKey, to: defaults)
     }
 
     /// How long the vault stays unlocked when idle (V7). A choice, like the

@@ -61,8 +61,17 @@ public struct Tab: Identifiable, Codable, Hashable, Sendable {
         mutate(&panes[index])
     }
 
-    public var displayTitle: String { focusedPane.displayTitle }
+    public var displayTitle: String { customTitle ?? focusedPane.displayTitle }
 
-    /// The user's own name for this tab, if it has one.
-    public var customTitle: String? { focusedPane.customTitle }
+    /// The user's own name for this tab, if it has one (non-spec: user-requested).
+    ///
+    /// Tab-level, deliberately *not* tied to the focused pane: it is the tab the
+    /// user renames, so switching split focus must not change it. `renameTab`
+    /// writes the name to every pane and a new split pane inherits it, so any
+    /// pane carrying a non-empty name names the whole tab.
+    public var customTitle: String? {
+        panes.lazy
+            .compactMap(\.customTitle)
+            .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
 }

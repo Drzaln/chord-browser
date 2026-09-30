@@ -360,7 +360,8 @@ struct PinnedTests {
     func closingAPinnedTabReturnsHome() async {
         let icon = Data([0x11, 0x22, 0x33])
         let store = await makeStore(stored: [
-            TabBuilder().url("https://pin.example/home").favicon(icon).bookmarked(order: 0).build(),
+            TabBuilder().url("https://pin.example/home").customTitle("Work")
+                .favicon(icon).bookmarked(order: 0).build(),
             TabBuilder().url("https://loose.example").build(),
         ])
         let pin = try! #require(store.bookmarkedTabs.first)
@@ -377,6 +378,10 @@ struct PinnedTests {
         #expect(
             store.bookmarkedTabs.first?.focusedPane.faviconData == icon,
             "the favicon survives — home is the same origin"
+        )
+        #expect(
+            store.bookmarkedTabs.first?.customTitle == "Work",
+            "a renamed Pinned tab keeps its name across close/unload"
         )
     }
 }

@@ -115,6 +115,26 @@ public final class FakeWebEngine: WebEngine {
         customUserAgentSetCount += 1
     }
 
+    /// The referrer policy the store last pushed (non-spec: user-requested).
+    public private(set) var referrerPolicy: ReferrerPolicy = .default
+    public private(set) var referrerOverrides: [ReferrerOverride] = []
+    public private(set) var referrerPolicySetCount = 0
+    public func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride]) {
+        referrerPolicy = global
+        referrerOverrides = overrides
+        referrerPolicySetCount += 1
+    }
+
+    /// Cookies the fake reports for any URL, and the URLs it was asked to clear
+    /// (non-spec: user-requested, the per-site cookie view).
+    public var siteCookies: [SiteCookie] = []
+    public private(set) var clearedCookieURLs: [URL] = []
+    public func cookies(for url: URL, in space: Space) async -> [SiteCookie] { siteCookies }
+    public func clearCookies(for url: URL, in space: Space) async {
+        clearedCookieURLs.append(url)
+        siteCookies = []
+    }
+
     /// The swipe-to-close flag the store last pushed (non-spec experiment).
     public private(set) var swipeToCloseEnabled = true
     public func setSwipeToCloseEnabled(_ enabled: Bool) {

@@ -1,4 +1,5 @@
 import ChordCore
+import ChordEngine
 import ChordStore
 import SwiftUI
 
@@ -16,6 +17,14 @@ struct PrivacyDataSettings: View {
     @State private var confirming = false
     @State private var working = false
     @State private var lastCleared: String?
+
+    // Per-site cookie inspection (macOS 27). `siteInput` is the site being looked
+    // at, seeded from the focused window's current tab.
+    @State private var siteInput = ""
+    @State private var cookies: [SiteCookie] = []
+    @State private var inspectedSite: String?
+    @State private var loadingCookies = false
+    @State private var clearedCookies = false
 
     private var selection: BrowsingDataType {
         var types: BrowsingDataType = []
@@ -72,9 +81,14 @@ struct PrivacyDataSettings: View {
 
             sitePermissionsSection
 
+            Divider().padding(.vertical, 4)
+
+            cookieSection
+
             Spacer(minLength: 0)
         }
         .task { await store.refreshSitePermissions() }
+        .task { await primeCookies() }
         .confirmationDialog(
             "Clear the selected browsing data?",
             isPresented: $confirming,
@@ -165,6 +179,113 @@ struct PrivacyDataSettings: View {
             }
             .padding(.horizontal, 10)
             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
+
+    // MARK: - Per-site cookies (macOS 27)
+
+    /// Inspect and clear the cookies the current Space holds for one site.
+    /// Complements the site-permissions list above: where that shows the choices
+    /// you made, this shows the state a site actually stored.
+    @ViewBuilder
+    private var cookieSection: some View {
+        Text("Cookies for a Site")
+            .font(.system(size: 13, weight: .semibold))
+        Text(
+            "Look at, and clear, the cookies the current Space holds for one site. "
+                + "Clearing signs you out there without touching any other site."
+        )
+        .font(.system(size: 11)).foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+
+        HStack(spacing: 8) {
+            TextField("example.com", text: $siteInput)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 240)
+                .onSubmit(loadCookies)
+            Button("Inspect") { loadCookies() }
+                .disabled(cookieURL == nil || store.focusedWindow.activeSpaceID == nil)
+            Button(role: .destructive) {
+                clearInspectedCookies()
+            } label: {
+                Text("Clear")
+            }
+            .disabled(cookieURL == nil || store.focusedWindow.activeSpaceID == nil || cookies.isEmpty)
+            if loadingCookies {
+                ProgressView().controlSize(.small)
+            } else if clearedCookies {
+                Label("Cleared", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        }
+
+        if let inspectedSite {
+            if cookies.isEmpty {
+                Text("No cookies stored for \(inspectedSite).")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(cookies) { cookie in
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(cookie.name).font(.system(size: 12, weight: .medium))
+                                Text("\(cookie.domain)\(cookie.path)")
+                                    .font(.system(size: 10)).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if cookie.isSecure {
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 9)).foregroundStyle(.secondary)
+                                    .help("Secure")
+                            }
+                            if cookie.isHTTPOnly {
+                                Text("HttpOnly")
+                                    .font(.system(size: 9)).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 5)
+                        if cookie.id != cookies.last?.id { Divider() }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                .frame(maxWidth: 460)
+            }
+        }
+    }
+
+    /// The URL to inspect: a typed host gets `https://`, since a bare domain is
+    /// what the field invites.
+    private var cookieURL: URL? {
+        let trimmed = siteInput.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: trimmed.contains("://") ? trimmed : "https://\(trimmed)")
+    }
+
+    private func primeCookies() async {
+        if siteInput.isEmpty, let url = store.activeSiteURL {
+            siteInput = url.absoluteString
+        }
+        loadCookies()
+    }
+
+    private func loadCookies() {
+        guard let url = cookieURL, let spaceID = store.focusedWindow.activeSpaceID else { return }
+        loadingCookies = true
+        clearedCookies = false
+        Task {
+            cookies = await store.siteCookies(for: url, inSpace: spaceID)
+            inspectedSite = url.host() ?? url.absoluteString
+            loadingCookies = false
+        }
+    }
+
+    private func clearInspectedCookies() {
+        guard let url = cookieURL, let spaceID = store.focusedWindow.activeSpaceID else { return }
+        Task {
+            await store.clearSiteCookies(for: url, inSpace: spaceID)
+            cookies = []
+            clearedCookies = true
         }
     }
 

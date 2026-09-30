@@ -16,6 +16,11 @@ final class NavigationCoordinator: NSObject {
     /// with real CoreLocation fixes (see `GeolocationBridge`).
     private let locationProvider = ChordLocationProvider()
 
+    /// URLs already retried once after a transient WebKit load cancellation, so
+    /// a page that keeps failing cannot be retried forever. Cleared whenever a
+    /// navigation finishes, so a later real reload can retry again.
+    private var retriedTransientLoads: Set<URL> = []
+
     init(engine: WebKitEngine) {
         self.engine = engine
         super.init()
@@ -53,6 +58,7 @@ extension NavigationCoordinator: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        retriedTransientLoads.removeAll()
         guard let paneID = paneID(for: webView) else { return }
         engine?.publishSnapshot(for: paneID)
         engine?.fetchFavicon(for: paneID)
@@ -64,6 +70,7 @@ extension NavigationCoordinator: WKNavigationDelegate {
     func webView(
         _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error
     ) {
+        if retryTransientLoad(webView: webView, error: error) { return }
         report(error, webView: webView)
     }
 
@@ -72,7 +79,32 @@ extension NavigationCoordinator: WKNavigationDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
+        if retryTransientLoad(webView: webView, error: error) { return }
         report(error, webView: webView)
+    }
+
+    /// WebKit cancels the *first* navigation to a service-worker app shell with
+    /// a transient internal error — `WebKitInternal` "Request canceled from
+    /// preloader", or `WebKitErrorDomain` 102 "Frame load interrupted". It does
+    /// not retry, so the pane stays blank until the user reloads. Reloading
+    /// once, by hand, always works — the service worker is warm by then — so do
+    /// that automatically. Once per URL, so a genuinely dead page cannot spin.
+    private func retryTransientLoad(webView: WKWebView, error: Error) -> Bool {
+        let nsError = error as NSError
+        let transient =
+            nsError.domain == "WebKitInternal"
+            || (nsError.domain == "WebKitErrorDomain" && nsError.code == 102)
+        guard transient,
+            let url = webView.url
+                ?? (nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL),
+            url.scheme == "http" || url.scheme == "https",
+            !retriedTransientLoads.contains(url)
+        else { return false }
+
+        retriedTransientLoads.insert(url)
+        Log.engine.notice("retrying transient load of \(url.absoluteString)")
+        webView.load(URLRequest(url: url))
+        return true
     }
 
     private func report(_ error: Error, webView: WKWebView) {
@@ -87,15 +119,17 @@ extension NavigationCoordinator: WKNavigationDelegate {
         }
     }
 
-    /// Stamps the right User-Agent on a main-frame navigation before it goes out
-    /// (§9.6), then allows it.
+    /// The navigation policy: Peek lifting, the referrer override, and the
+    /// User-Agent stamp (§9.6).
     ///
-    /// **Why a cancel-and-reload rather than just setting the property.**
-    /// `customUserAgent` is read when the request is built, so a change made
-    /// here arrives too late for *this* request — the page would load under the
-    /// previous site's UA and only correct itself on the next navigation, which
-    /// is exactly the confusing half-fix this feature exists to avoid. So when
-    /// the UA actually changes, the navigation is cancelled and re-issued.
+    /// **Why the UA is a cancel-and-reload rather than just setting the
+    /// property.** `customUserAgent` is read when the request is built, so a
+    /// change made here arrives too late for *this* request — the page would load
+    /// under the previous site's UA and only correct itself on the next
+    /// navigation, which is exactly the confusing half-fix this feature exists to
+    /// avoid. So when the UA actually changes, the navigation is cancelled and
+    /// re-issued. (The referrer needs none of that: `overrideReferrer` is read
+    /// from these same preferences when the request is built.)
     ///
     /// Two guards keep that from being destructive:
     /// - it only re-issues **GET** requests in the **main frame**. Re-loading a
@@ -107,8 +141,18 @@ extension NavigationCoordinator: WKNavigationDelegate {
     ///   get wrong and no way to loop.
     func webView(
         _ webView: WKWebView,
-        decidePolicyFor navigationAction: WKNavigationAction
-    ) async -> WKNavigationActionPolicy {
+        decidePolicyFor navigationAction: WKNavigationAction,
+        preferences: WKWebpagePreferences
+    ) async -> (WKNavigationActionPolicy, WKWebpagePreferences) {
+        // The referrer policy is stamped on the preferences before anything can
+        // cancel the navigation, and for *every* frame: a subframe needs its own
+        // override, and the main frame's covers its subresources. `overrideReferrer`
+        // is read when the request is built, so unlike the UA it needs no
+        // re-issue.
+        if #available(macOS 27.0, *) {
+            engine?.applyReferrer(to: preferences, for: navigationAction.request.url)
+        }
+
         // A plain left-click on a link in a favourite/pinned tab is a Peek
         // (non-spec: user-requested): the store lifts the navigation into the
         // floating panel instead of letting the click move the protected page.
@@ -120,21 +164,21 @@ extension NavigationCoordinator: WKNavigationDelegate {
             let paneID = paneID(for: webView),
             engine?.delegate?.paneRequestedPeek(url: url, fromPane: paneID) == true
         {
-            return .cancel
+            return (.cancel, preferences)
         }
 
         guard navigationAction.targetFrame?.isMainFrame == true,
             let engine,
             engine.applyUserAgent(to: webView, for: navigationAction.request.url)
-        else { return .allow }
+        else { return (.allow, preferences) }
 
         guard navigationAction.request.httpMethod == "GET",
             navigationAction.request.httpBody == nil
-        else { return .allow }
+        else { return (.allow, preferences) }
 
         let request = navigationAction.request
         webView.load(request)
-        return .cancel
+        return (.cancel, preferences)
     }
 
     /// Turns a response the web view cannot display into a download.
@@ -145,16 +189,37 @@ extension NavigationCoordinator: WKNavigationDelegate {
         _ webView: WKWebView,
         decidePolicyFor navigationResponse: WKNavigationResponse
     ) async -> WKNavigationResponsePolicy {
+        let response = navigationResponse.response
+        let mime = response.mimeType ?? ""
+        let disposition =
+            (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
+
+        // An explicit attachment always downloads, whatever the type says.
+        if disposition.lowercased().contains("attachment") { return .download }
+
         // `canShowMIMEType` is false for anything WebKit has no renderer for,
-        // which is exactly the set that should download instead — unless the
-        // pane is a Peek preview, which was opened by a *hover*. Downloading
-        // there writes a file the user never asked for; cancelling just leaves
-        // the preview blank, which is the honest outcome for something that
-        // cannot be previewed.
+        // which is normally exactly the set that should download instead. But
+        // it is also false for a real *document* WebKit will happily render:
+        // a page served by a service worker arrives with no URL and no MIME
+        // (`mime=nil url=nil`), and turning that into a download saves the page
+        // the user navigated to and raises "Frame load interrupted". So the
+        // main document is never auto-downloaded on MIME alone — only a
+        // response that names a URL and is not HTML is a file worth saving.
         guard navigationResponse.canShowMIMEType else {
+            if navigationResponse.isForMainFrame,
+               response.url == nil || Self.isHTML(mime) {
+                return .allow
+            }
             return .download
         }
         return .allow
+    }
+
+    /// Whether a MIME type is an HTML document. Empty is deliberately *not*
+    /// treated as HTML: a missing type can accompany a real download.
+    private static func isHTML(_ mime: String) -> Bool {
+        let mime = mime.lowercased()
+        return mime == "text/html" || mime == "application/xhtml+xml"
     }
 
     /// After returning `.download` from the response policy above. Setting the
@@ -465,5 +530,56 @@ extension NavigationCoordinator: WKUIDelegate {
             let granted = await engine?.delegate?.paneRequestedGeolocation(prompt) ?? false
             decisionHandler(granted ? .grant : .deny)
         }
+    }
+}
+
+extension NavigationCoordinator {
+
+    /// WebKit's private form-submission callback (`_WKInputDelegate`, macOS
+    /// 26.4+), declared here and called by name through the ObjC runtime because
+    /// the SDK ships no public declaration — the same approach as the geolocation
+    /// SPI above. Unlike `WKNavigationDelegate.willSubmitForm` (macOS 27, still
+    /// Beta and never invoked on 27.0), this one actually fires, and it reports a
+    /// form inside a **closed** shadow root, which the page-side
+    /// `PasswordFormMonitor` cannot reach.
+    ///
+    /// `private` so the compiler does not treat it as a `WKNavigationDelegate`
+    /// near-match.
+    @objc private func _webView(
+        _ webView: WKWebView,
+        willSubmitFormValues values: [String: Any],
+        frameInfo: WKFrameInfo?,
+        sourceFrameInfo: WKFrameInfo?,
+        userObject: Any?,
+        requestURL: URL?,
+        method: String,
+        submissionHandler: @escaping () -> Void
+    ) {
+        // Let the submission proceed whatever we make of it. The callback wants
+        // this promptly, and the vault decision hops to its own task inside
+        // `paneDidSubmitLogin`, so nothing is awaited here.
+        submissionHandler()
+
+        guard let paneID = paneID(for: webView),
+            let login = NativeLoginCapture.credential(from: values)
+        else { return }
+
+        // The credential belongs to the page the form lives on, which for a
+        // cross-origin form is the *source* frame, not the URL it posts to.
+        // Falling back to the top-level page keeps ordinary forms identical to
+        // the page-side path.
+        let frameURL = sourceFrameInfo?.request.url ?? webView.url
+        guard let url = frameURL,
+            let origin = CredentialOrigin.canonical(
+                for: url, policy: engine?.loginOriginPolicy ?? .strict
+            )
+        else { return }
+
+        engine?.delegate?.paneDidSubmitLogin(
+            origin: origin,
+            username: login.username,
+            password: login.password,
+            fromPane: paneID
+        )
     }
 }

@@ -418,6 +418,45 @@ struct SpaceStoreTests {
         #expect(store.spaces[0].iconSymbol == original)
         #expect(store.spaces[0].gradient == Space.defaultGradient)  // empty falls back
     }
+
+    @Test("Switching a window to a Space records it as visited")
+    func selectSpaceRecordsVisited() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+        let personal = store.spaces[0].id
+        let work = store.addSpace(name: "Work")
+        // `addSpace` activates the new Space directly; `selectSpace` is what the
+        // sidebar and shortcuts use, and what must mark the Space visited so its
+        // live tab surfaces stay mounted after the window leaves.
+        let window = store.primaryWindow
+
+        store.selectSpace(personal, in: window)
+
+        #expect(window.visitedSpaceIDs.contains(personal))
+    }
+
+    @Test("A Space another window is showing is reported as active elsewhere")
+    func spaceActiveInOtherWindowDetects() async {
+        let (store, _, _) = makeStore()
+        await store.restore()
+        let personal = store.spaces[0].id
+        let work = store.addSpace(name: "Work")
+        // Two claims: the first is the primary, the second a real second window.
+        _ = store.claimWindow()
+        let second = store.claimWindow()
+        // Put the windows in different Spaces so "elsewhere" has a clear answer.
+        store.selectSpace(personal, in: store.primaryWindow)
+        store.selectSpace(work.id, in: second)
+
+        #expect(
+            !store.spaceActiveInOtherWindow(personal, than: store.primaryWindow),
+            "a window's own Space is not 'elsewhere' while it is the only one in it"
+        )
+        #expect(
+            store.spaceActiveInOtherWindow(work.id, than: store.primaryWindow),
+            "the content layer must not mount a Space another window owns"
+        )
+    }
 }
 
 @Suite("Space value type")

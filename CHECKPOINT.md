@@ -77,17 +77,66 @@ uses the developer certificate when the `MACOS_CERTIFICATE_BASE64`/
 
 **User-renamed tabs (2026-08-18).** Any tab can be given its own name — right-click
 a favourite, a Pinned tab, or a loose tab and choose **Rename Tab…** (non-spec:
-user-requested). The name lives as a nullable `customTitle` on the pane
-(preferred by `Pane.displayTitle` over the page title, host, and URL), so a
-page reload or a later title report never clobbers it. Blank input clears the
-name and falls back to the page title. The sweep archive carries it
-(`archivedTab.customTitle`), so a renamed ephemeral tab comes back renamed after
-restore. Schema **v14** adds both columns; purely additive (7.2). The alert is
-presented from `RootView` (not the sidebar) and `WindowState.renamingTabID`
-holds the revealed sidebar open while it is on screen — otherwise the
-auto-hiding sidebar collapsed beneath the alert and dismissed it. Tests:
-`DisplayTitleTests`, `RenameTests` (store), `MappingTests.customTitleRoundTrip`,
-`MigrationTests.v14AddsCustomTitle`, `RenameAlertSidebarTests`.
+user-requested). A page reload or a later title report never clobbers it.
+Blank input clears the name and falls back to the page title. The sweep archive
+carries it (`archivedTab.customTitle`), so a renamed ephemeral tab comes back
+renamed after restore. Schema **v14** adds both columns; purely additive (7.2).
+
+The name is **tab-level, not per-pane**: `renameTab` writes a nullable
+`customTitle` to *every* pane and `Tab.customTitle` reads the first non-empty
+one, so focusing a different half of a split never changes the sidebar name,
+and a new split pane inherits it. Closing/unloading a renamed Pinned tab keeps
+the name too (`unloadTab` carries `customTitle` onto the fresh home pane). The
+alert is presented from `RootView` (not the sidebar) and
+`WindowState.renamingTabID` holds the revealed sidebar open while it is on
+screen — otherwise the auto-hiding sidebar collapsed beneath the alert and
+dismissed it. Tests: `DisplayTitleTests`, `RenameTests` (store),
+`SplitTests.renameIsTabLevelAcrossPanes` / `.splitPaneInheritsTabName`,
+`PinnedTests.closingAPinnedTabReturnsHome`,
+`MappingTests.customTitleRoundTrip`, `MigrationTests.v14AddsCustomTitle`,
+`RenameAlertSidebarTests`.
+
+**Switching tabs or Spaces no longer resets in-page state (2026-09-30).** An SPA
+that kept its place across a switch in other browsers lost it here — an Instagram
+carousel snapped back to slide 1. Root cause was laid bare with a temporary
+in-page probe (now removed): `WebContentCard` swapped the selected tab's
+`SplitContentView` via `.id(tab.id)`, so on a switch the outgoing `WKWebView` was
+removed from the window; on return it rejoined the hierarchy at `0×0`, reported
+`visible`, then fired a `resize` back to full — and SPAs re-init on that. It was
+**not** an eviction or a reload (the pool kept the view, `nav start`/`didFinish`
+never re-fired). Fix: the content card now keeps a **stable `ZStack` slot for
+every open tab**, non-selected ones behind the selected with hit-testing off — a
+switch is *covered*, not detached, so no `0×0` resize fires. Mounting is limited
+to tabs whose panes already have a live view (so lazy/restored tabs stay lazy and
+the pool's 12-view cap still bounds memory), and a Space another window is
+showing is left to that window (one `NSView`, one superview). Spaces this window
+has visited stay mounted too, so a **Space** switch is covered as well. New:
+`WindowState.visitedSpaceIDs`, `TabStore.hasLiveView`, and
+`TabStore.spaceActiveInOtherWindow`; `SplitContentView` gained `isParked`.
+Tests: `SpaceTests.selectSpaceRecordsVisited` /
+`.spaceActiveInOtherWindowDetects`.
+
+The **Downloads popover** gets the same hold-open treatment: it is anchored to a
+button in the sidebar header, so a collapsed (auto-hiding) sidebar removed the
+anchor and closed it. Its presentation moved from local `@State` to
+`WindowState.isDownloadsPopoverOpen`, now part of `isSidebarHeldOpen`.
+Tests: `DownloadsPopoverSidebarTests`.
+
+**A first visit to a service-worker site no longer downloads or blanks the page
+(2026-09-30).** Opening `youtube.com` cold sometimes *downloaded* the page's HTML
+instead of rendering it. Diagnosed from the log: the navigation failed with
+`Frame load interrupted`, followed by a response policy with `main=true
+canShow=false mime=nil url=nil` — a service-worker-served document, which WebKit
+reports with no URL and no MIME and which `decidePolicyFor navigationResponse`
+was turning into a download because `canShowMIMEType` was false. On the next
+load it failed differently (`WebKitInternal` "Request canceled from preloader"),
+leaving the pane blank until a manual reload. Two fixes in
+`NavigationCoordinator`: (1) the response policy never auto-downloads a
+**main-frame** response that has no URL or is HTML — only a named, non-HTML
+response is a file to save (an explicit `Content-Disposition: attachment` still
+downloads, and subresources are unchanged); (2) a transient provisional failure
+(`WebKitInternal` / `WebKitErrorDomain` 102) is retried **once** per URL, which
+is exactly the manual reload that always worked, done automatically.
 
 **Engine state hygiene + Arc-style split close & pane undo (2026-08-21).** Three
 memory/behaviour changes, verified live:

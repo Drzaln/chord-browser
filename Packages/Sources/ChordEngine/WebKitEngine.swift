@@ -98,6 +98,12 @@ public final class WebKitEngine: WebEngine {
     private var globalUserAgent: UserAgentPreference = .default
     private var userAgentOverrides: [UserAgentOverride] = []
 
+    /// The referrer policy (non-spec: user-requested): the global choice, plus
+    /// the per-domain overrides that beat it. Resolved per navigation from the
+    /// URL — see `applyReferrer(to:for:)`.
+    private var globalReferrerPolicy: ReferrerPolicy = .default
+    private var referrerOverrides: [ReferrerOverride] = []
+
     /// Retained so an evicted or crashed pane can be revived without the model
     /// layer having to hand its state back. Capped at `interactionStateCap`
     /// newest entries — the persistence layer is the source of truth for
@@ -188,6 +194,25 @@ public final class WebKitEngine: WebEngine {
         for space in spaces {
             let store = dataStores.store(for: space)
             await store.removeData(ofTypes: wkTypes, modifiedSince: .distantPast)
+        }
+    }
+
+    /// Cookies the Space's store holds for one URL (non-spec: user-requested).
+    /// `cookies(for:)` is macOS 27, so older runtimes report none.
+    public func cookies(for url: URL, in space: Space) async -> [SiteCookie] {
+        guard #available(macOS 27.0, *) else { return [] }
+        let store = dataStores.store(for: space)
+        return await store.httpCookieStore.cookies(for: url).map(SiteCookie.init)
+    }
+
+    /// Deletes the Space's cookies for one URL (non-spec: user-requested). Scoped
+    /// to the URL's cookies, so it signs the user out of one site without
+    /// touching the rest of the Space.
+    public func clearCookies(for url: URL, in space: Space) async {
+        guard #available(macOS 27.0, *) else { return }
+        let cookieStore = dataStores.store(for: space).httpCookieStore
+        for cookie in await cookieStore.cookies(for: url) {
+            await cookieStore.deleteCookie(cookie)
         }
     }
 
@@ -353,6 +378,16 @@ public final class WebKitEngine: WebEngine {
         webView.pageZoom = pageZoomFactor
         webView.navigationDelegate = coordinator
         webView.uiDelegate = coordinator
+        // The native form-submission callback (`_WKInputDelegate`, macOS 26.4+),
+        // set through the ObjC runtime because the SDK ships no declaration — the
+        // same SPI-by-selector approach as the geolocation delegate. It is what
+        // captures a login inside a closed shadow root, which the page-side script
+        // cannot reach. Guarded, so a runtime without the setter skips it rather
+        // than crashing.
+        let inputDelegateSelector = NSSelectorFromString("_setInputDelegate:")
+        if webView.responds(to: inputDelegateSelector) {
+            webView.perform(inputDelegateSelector, with: coordinator)
+        }
 
         // "Open in Little Chord" on a link's context menu. The URL is resolved at
         // click time from the pane's last reported link, and routed out through
@@ -459,6 +494,27 @@ public final class WebKitEngine: WebEngine {
         for live in pool.liveViews {
             applyUserAgent(to: live.webView, for: live.webView.url)
         }
+    }
+
+    /// Sets the referrer policy (non-spec: user-requested). Stored so the
+    /// navigation policy can resolve it for each request; nothing is stamped on a
+    /// view here, because the referrer is read from `WKWebpagePreferences` at
+    /// navigation time, not from the view.
+    public func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride]) {
+        globalReferrerPolicy = global
+        referrerOverrides = overrides
+    }
+
+    /// Stamps the resolved referrer for one navigation onto the page preferences.
+    /// A no-op before macOS 27, where `overrideReferrer` does not exist.
+    @available(macOS 27.0, *)
+    func applyReferrer(to preferences: WKWebpagePreferences, for url: URL?) {
+        guard
+            let referrer = ReferrerRules.resolve(
+                url: url, overrides: referrerOverrides, global: globalReferrerPolicy
+            )
+        else { return }
+        preferences.overrideReferrer = referrer
     }
 
     /// Starts or stops the swipe-to-close monitor. The monitor's start/stop is

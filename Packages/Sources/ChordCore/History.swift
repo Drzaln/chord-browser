@@ -68,7 +68,7 @@ public struct ArchivedTab: Identifiable, Codable, Hashable, Sendable {
         self.init(
             url: pane.url,
             title: pane.title,
-            customTitle: pane.customTitle,
+            customTitle: tab.customTitle,
             faviconData: pane.faviconData,
             spaceID: tab.spaceID,
             archivedAt: archivedAt

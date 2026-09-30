@@ -1,6 +1,48 @@
 import ChordCore
 import Foundation
 
+/// One cookie the active Space's data store holds for a site (non-spec:
+/// user-requested). A flat value, WebKit-free, for the Settings → Privacy & Data
+/// per-site view. `id` is domain+path+name, the tuple that identifies a cookie.
+public struct SiteCookie: Sendable, Equatable, Identifiable {
+    public let name: String
+    public let value: String
+    public let domain: String
+    public let path: String
+    public let isSecure: Bool
+    public let isHTTPOnly: Bool
+    public let expiresAt: Date?
+
+    public var id: String { "\(domain);\(path);\(name)" }
+
+    public init(
+        name: String, value: String, domain: String, path: String,
+        isSecure: Bool, isHTTPOnly: Bool, expiresAt: Date?
+    ) {
+        self.name = name
+        self.value = value
+        self.domain = domain
+        self.path = path
+        self.isSecure = isSecure
+        self.isHTTPOnly = isHTTPOnly
+        self.expiresAt = expiresAt
+    }
+
+    /// The WebKit-free shape of a Foundation cookie. `HTTPCookie` is Foundation,
+    /// not WebKit, so this does not leak the framework across the seam.
+    public init(_ cookie: HTTPCookie) {
+        self.init(
+            name: cookie.name,
+            value: cookie.value,
+            domain: cookie.domain,
+            path: cookie.path,
+            isSecure: cookie.isSecure,
+            isHTTPOnly: cookie.isHTTPOnly,
+            expiresAt: cookie.expiresDate
+        )
+    }
+}
+
 /// Everything the rest of the app is allowed to know about a loaded page.
 ///
 /// No WebKit type appears here, or anywhere else in this package's public
@@ -246,6 +288,17 @@ public protocol WebEngine: AnyObject {
     /// data type and is ignored here; the Store clears it separately.
     func clearWebsiteData(_ types: BrowsingDataType, forSpaces spaces: [Space]) async
 
+    /// Cookies the Space's data store holds for a URL (non-spec: user-requested)
+    /// — the per-site cookie view in Settings → Privacy & Data. WebKit-free, like
+    /// every type crossing this seam. Empty before macOS 27, where
+    /// `WKHTTPCookieStore.cookies(for:)` does not exist.
+    func cookies(for url: URL, in space: Space) async -> [SiteCookie]
+
+    /// Deletes every cookie the Space's data store holds for a URL (non-spec:
+    /// user-requested). Scoped to one site, unlike `clearWebsiteData`'s
+    /// all-or-nothing sweep across the store. A no-op before macOS 27.
+    func clearCookies(for url: URL, in space: Space) async
+
     func load(_ url: URL, in paneID: UUID)
     func goBack(in paneID: UUID)
     func goForward(in paneID: UUID)
@@ -291,6 +344,14 @@ public protocol WebEngine: AnyObject {
     /// actually going to. Applies to views built afterwards and to any already
     /// live. See `UserAgentRules`.
     func setUserAgent(_ global: UserAgentPreference, overrides: [UserAgentOverride])
+
+    /// Sets the referrer policy: the global choice plus any per-domain overrides
+    /// (non-spec: user-requested). Resolved per navigation from the URL, because
+    /// the engine is the only layer that sees where a request is actually going.
+    /// Applied through `WKWebpagePreferences.overrideReferrer`, so it covers the
+    /// main resource and every subresource of the frame. A no-op on runtimes
+    /// before macOS 27, where the API does not exist.
+    func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride])
 
     /// Sets whether the swipe-to-close experiment is on (non-spec:
     /// user-requested). When off, the engine stops watching for the "undo page"
@@ -446,6 +507,13 @@ extension WebEngine {
     /// the dev-mode and zoom plumbing; only `WebKitEngine` gives real behaviour.
     public func setDeveloperMode(_ enabled: Bool) {}
     public func setPageZoom(_ factor: Double) {}
+    /// Default so test doubles and any non-WebKit engine need not implement the
+    /// referrer plumbing; only `WebKitEngine` gives real behaviour.
+    public func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride]) {}
+    /// Defaults so test doubles and any non-WebKit engine need not implement the
+    /// per-site cookie plumbing; only `WebKitEngine` gives real behaviour.
+    public func cookies(for url: URL, in space: Space) async -> [SiteCookie] { [] }
+    public func clearCookies(for url: URL, in space: Space) async {}
     public func setContentCornerRadius(_ radius: CGFloat, for paneID: UUID) {}
     public func showInspector(for paneID: UUID) {}
     public func mediaDiagnostics(for paneID: UUID) async -> MediaDiagnostics? { nil }

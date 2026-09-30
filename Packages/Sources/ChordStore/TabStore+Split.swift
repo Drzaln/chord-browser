@@ -25,7 +25,9 @@ extension TabStore {
         let insertAfter = tabs[index].panes.firstIndex { $0.id == tabs[index].focusedPaneID }
             ?? tabs[index].panes.count - 1
 
-        let pane = Pane(url: url ?? resolvedNewTabURL)
+        // The new pane inherits the tab's own name, if it has one, so splitting
+        // never drops a rename (the name is tab-level; see `Tab.customTitle`).
+        let pane = Pane(url: url ?? resolvedNewTabURL, customTitle: tabs[index].customTitle)
         tabs[index].panes.insert(pane, at: insertAfter + 1)
 
         // A new pane starts life resolved: nothing is stored for it, so a disk
@@ -247,7 +249,11 @@ extension TabStore {
         guard tabs[index].panes.count < SplitLayout.maxPanes else { return }
 
         let insertAt = min(position, tabs[index].panes.count)
-        tabs[index].panes.insert(pane, at: insertAt)
+        // Adopt the tab's current name: the pane was captured before it closed,
+        // so a rename that happened in the meantime must not be undone by it.
+        var reopened = pane
+        reopened.customTitle = tabs[index].customTitle
+        tabs[index].panes.insert(reopened, at: insertAt)
         applyFractions(
             SplitLayout.normalized(tabs[index].panes.map(\.widthFraction)), toTabAt: index
         )

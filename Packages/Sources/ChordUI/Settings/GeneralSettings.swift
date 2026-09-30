@@ -30,6 +30,14 @@ struct GeneralSettings: View {
     @State private var newOverridePreset: UserAgentPreference = .chrome
     @State private var overrideError = false
 
+    // Referrer. `customReferrer` holds the editable field while the global
+    // "Custom" is selected; per-domain rules carry their own custom URL inline.
+    @State private var isCustomReferrer = false
+    @State private var customReferrer = ""
+    @State private var newReferrerDomain = ""
+    @State private var newReferrerPolicy: ReferrerPolicy = .strip
+    @State private var referrerError = false
+
     private enum NewTabKind: String, CaseIterable, Identifiable {
         case blank, searchEngine, custom
         var id: String { rawValue }
@@ -49,6 +57,8 @@ struct GeneralSettings: View {
             newTabSection
             Divider()
             userAgentSection
+            Divider()
+            referrerSection
             Divider()
             hibernationSection
             Divider()
@@ -316,6 +326,191 @@ struct GeneralSettings: View {
         store.userAgent = .custom(customUA)
     }
 
+    // MARK: - Referrer
+
+    @ViewBuilder
+    private var referrerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Referrer").font(.system(size: 13, weight: .semibold))
+            Text(
+                "What address a site is told you came from. “Strip” sends no "
+                    + "referrer at all — useful on sites that leak the page you were "
+                    + "on. Takes effect on the next page load."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Picker("", selection: referrerSelection) {
+                ForEach(ReferrerPolicy.presets, id: \.self) { policy in
+                    Text(policy.displayName).tag(policy.displayName)
+                }
+                Text("Custom").tag("Custom")
+            }
+            .labelsHidden()
+            .frame(maxWidth: 260)
+
+            if isCustomReferrer {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("https://example.com/", text: $customReferrer)
+                        .onChange(of: customReferrer) { _, _ in commitCustomReferrer() }
+                    Text("The exact Referer every navigation sends.")
+                        .font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 360)
+            }
+
+            referrerPerDomainRules
+        }
+    }
+
+    /// The per-domain referrer map, mirroring the User-Agent rules above: a rule
+    /// beats the global policy, including a per-domain "Default" that carves one
+    /// site out of a global strip.
+    @ViewBuilder
+    private var referrerPerDomainRules: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Per-Site Rules")
+                .font(.system(size: 12, weight: .semibold))
+                .padding(.top, 6)
+            Text(
+                "A rule covers the domain and its subdomains, and beats the setting "
+                    + "above. Set a site to “Default” to keep its own referrer while "
+                    + "everywhere else is stripped."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            if !store.referrerOverrides.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(store.referrerOverrides) { override in
+                        referrerRuleRow(override)
+                        if override.id != store.referrerOverrides.last?.id { Divider() }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                .frame(maxWidth: 460)
+            }
+
+            HStack(spacing: 8) {
+                TextField("example.com", text: $newReferrerDomain)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 180)
+                    .onSubmit(addReferrerOverride)
+                Picker("", selection: $newReferrerPolicy) {
+                    ForEach(ReferrerPolicy.presets, id: \.self) { policy in
+                        Text(policy.displayName).tag(policy)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 120)
+                Button("Add", action: addReferrerOverride)
+                    .disabled(newReferrerDomain.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+
+            if referrerError {
+                Text("That does not look like a domain — try example.com.")
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func referrerRuleRow(_ override: ReferrerOverride) -> some View {
+        HStack(spacing: 8) {
+            Text(override.domain)
+                .font(.system(size: 12, weight: .medium))
+            Spacer()
+            if case .custom = override.policy {
+                TextField("https://…", text: customReferrerBinding(for: override))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 170)
+            }
+            Picker("", selection: referrerPolicyBinding(for: override)) {
+                ForEach(ReferrerPolicy.presets, id: \.self) { policy in
+                    Text(policy.displayName).tag(policy.displayName)
+                }
+                Text("Custom").tag("Custom")
+            }
+            .labelsHidden()
+            .frame(width: 120)
+            Button {
+                store.removeReferrerOverride(domain: override.domain)
+            } label: {
+                Image(systemName: "trash").foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Remove this rule")
+        }
+        .padding(.vertical, 5)
+    }
+
+    private var referrerSelection: Binding<String> {
+        Binding(
+            get: { isCustomReferrer ? "Custom" : store.referrerPolicy.displayName },
+            set: { tag in
+                switch tag {
+                case "Custom":
+                    if case .custom(let value) = store.referrerPolicy { customReferrer = value }
+                    isCustomReferrer = true
+                    commitCustomReferrer()
+                case "Strip":
+                    isCustomReferrer = false
+                    store.referrerPolicy = .strip
+                default:
+                    isCustomReferrer = false
+                    store.referrerPolicy = .default
+                }
+            }
+        )
+    }
+
+    private func referrerPolicyBinding(for override: ReferrerOverride) -> Binding<String> {
+        Binding(
+            get: {
+                switch override.policy {
+                case .default: return "Default"
+                case .strip: return "Strip"
+                case .custom: return "Custom"
+                }
+            },
+            set: { tag in
+                switch tag {
+                case "Strip":
+                    store.setReferrerOverride(domain: override.domain, policy: .strip)
+                case "Custom":
+                    let seed: String
+                    if case .custom(let value) = override.policy { seed = value } else { seed = "" }
+                    store.setReferrerOverride(domain: override.domain, policy: .custom(seed))
+                default:
+                    store.setReferrerOverride(domain: override.domain, policy: .default)
+                }
+            }
+        )
+    }
+
+    private func customReferrerBinding(for override: ReferrerOverride) -> Binding<String> {
+        Binding(
+            get: {
+                if case .custom(let value) = override.policy { return value }
+                return ""
+            },
+            set: { store.setReferrerOverride(domain: override.domain, policy: .custom($0)) }
+        )
+    }
+
+    private func commitCustomReferrer() {
+        store.referrerPolicy = .custom(customReferrer)
+    }
+
+    private func addReferrerOverride() {
+        referrerError = !store.setReferrerOverride(
+            domain: newReferrerDomain, policy: newReferrerPolicy
+        )
+        if !referrerError { newReferrerDomain = "" }
+    }
+
     // MARK: - Hibernation / auto-archive
 
     @ViewBuilder
@@ -437,6 +632,14 @@ struct GeneralSettings: View {
             customUA = value
         default:
             isCustomUA = false
+        }
+
+        switch store.referrerPolicy {
+        case .custom(let value):
+            isCustomReferrer = true
+            customReferrer = value
+        default:
+            isCustomReferrer = false
         }
     }
 }

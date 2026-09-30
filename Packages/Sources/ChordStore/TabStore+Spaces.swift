@@ -46,6 +46,7 @@ extension TabStore {
             }
         }
         window.activeSpaceID = spaceID
+        window.visitedSpaceIDs.insert(spaceID)
 
         // Entering a Space that was left blank keeps the window blank and
         // re-offers the bar. Purely per-Space: a Space holding a tab comes back

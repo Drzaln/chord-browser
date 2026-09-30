@@ -117,6 +117,10 @@ final class E2EHarness {
         // read `UserDefaults.standard` before the line above can redirect them,
         // so a rule written by an earlier run would otherwise arrive here.
         store.userAgentOverrides = []
+        // Same for the referrer policy: an ambient rule or global strip left by
+        // another run would otherwise decide a referrer test's outcome.
+        store.referrerPolicy = .default
+        store.referrerOverrides = []
         return (
             store,
             engine,

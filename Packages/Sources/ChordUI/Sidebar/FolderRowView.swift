@@ -6,6 +6,8 @@ import SwiftUI
 struct FolderRowView: View {
     let folder: Folder
     let isRenaming: Bool
+    /// The active Space's colour, so a folder's hover highlight matches its tabs.
+    var tint: Color = .accentColor
     let toggleCollapsed: () -> Void
     let rename: (String) -> Void
     let beginRename: () -> Void
@@ -51,6 +53,12 @@ struct FolderRowView: View {
         }
         .padding(.horizontal, 8)
         .frame(height: Metrics.sidebarRowHeight)
+        // A hover highlight matching a tab row's, so every sidebar entry reacts
+        // the same way to the pointer.
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(tint.opacity(isHovering ? 0.18 : 0))
+        }
         .contentShape(Rectangle())
         .onTapGesture { if !isRenaming { toggleCollapsed() } }
         .onHover { isHovering = $0 }

@@ -280,6 +280,46 @@ public final class TabStore {
         userAgentOverrides.removeAll { $0.domain == domain }
     }
 
+    /// The global referrer policy (non-spec: user-requested). Persisted and
+    /// pushed to the engine like the User-Agent setting beside it.
+    public var referrerPolicy: ReferrerPolicy = Preferences.loadReferrerPolicy() {
+        didSet {
+            Preferences.save(referrerPolicy, to: preferenceStore)
+            pushReferrerPolicy()
+        }
+    }
+
+    /// Per-domain referrer rules. These beat `referrerPolicy` for the sites they
+    /// name, including a per-domain `.default` that turns a global strip back off.
+    public var referrerOverrides: [ReferrerOverride] = Preferences.loadReferrerOverrides() {
+        didSet {
+            Preferences.save(referrerOverrides, to: preferenceStore)
+            pushReferrerPolicy()
+        }
+    }
+
+    /// Hands the engine the whole referrer policy at once. It resolves which
+    /// referrer a navigation gets, because it is the only layer that sees the URL.
+    func pushReferrerPolicy() {
+        engine.setReferrerPolicy(referrerPolicy, overrides: referrerOverrides)
+    }
+
+    /// Adds or replaces a referrer rule, normalising what the user typed. Returns
+    /// false when there is no usable domain in it, so the UI can say so rather
+    /// than storing a rule that matches nothing.
+    @discardableResult
+    public func setReferrerOverride(domain: String, policy: ReferrerPolicy) -> Bool {
+        guard let normalised = ReferrerRules.normalise(domain) else { return false }
+        var updated = referrerOverrides.filter { $0.domain != normalised }
+        updated.append(ReferrerOverride(domain: normalised, policy: policy))
+        referrerOverrides = updated.sorted { $0.domain < $1.domain }
+        return true
+    }
+
+    public func removeReferrerOverride(domain: String) {
+        referrerOverrides.removeAll { $0.domain == domain }
+    }
+
     /// Swipe-right-with-no-history closes the tab / Little Chord panel
     /// (non-spec: user-requested experiment). Defaults to on; the setter pushes
     /// it to the engine, which starts or stops its back-swipe monitor.
@@ -736,6 +776,9 @@ public final class TabStore {
         // not fire for their initial values, so the engine would otherwise start
         // on the default with no per-domain rules.
         self.pushUserAgent()
+        // Same for the referrer policy: its `didSet` does not fire for the
+        // initial value either.
+        self.pushReferrerPolicy()
         // Same for the swipe-to-close flag: the engine starts with the monitor
         // running and must be told if the user turned the feature off.
         self.pushSwipeToCloseEnabled()
@@ -1105,6 +1148,10 @@ public final class TabStore {
             let pane = Pane(
                 url: home,
                 title: home == previous.url ? previous.title : "",
+                // The user's own name is not page content, so returning home must
+                // not discard it. Without this a renamed Pinned tab silently
+                // reverted to its page title the moment it was closed/unloaded.
+                customTitle: previous.customTitle,
                 faviconData: sameOrigin ? previous.faviconData : nil
             )
             tabs[index].panes = [pane]
@@ -1222,18 +1269,17 @@ public final class TabStore {
     }
 
     /// Names a tab whatever the user wants, overriding the page title in the
-    /// sidebar (non-spec: user-requested). The name lives on the focused pane,
-    /// which is what the tab's `displayTitle` already reports from. A blank
-    /// name clears the override and falls back to the page title.
+    /// sidebar (non-spec: user-requested). The name is tab-level: it is written
+    /// to every pane, so a split's focus moving between panes never changes it.
+    /// A blank name clears the override and falls back to the page title.
     public func renameTab(_ tabID: UUID, to name: String) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let customTitle = trimmed.isEmpty ? nil : trimmed
+        guard tabs[index].customTitle != customTitle else { return }
 
-        let focusID = tabs[index].focusedPaneID
-        guard tabs[index].focusedPane.customTitle != customTitle else { return }
-        tabs[index].updatePane(focusID) { pane in
-            pane.customTitle = customTitle
+        for paneIndex in tabs[index].panes.indices {
+            tabs[index].panes[paneIndex].customTitle = customTitle
         }
         scheduleSave()
     }
@@ -1471,6 +1517,17 @@ public final class TabStore {
             .map { engine.stopLoading(paneID: $0.focusedPaneID) }
     }
 
+    /// Whether a Space is the active Space of a window other than `window`.
+    ///
+    /// The content layer uses this to avoid two windows mounting the same tab's
+    /// web view (one `NSView` has one superview); a Space shown elsewhere is
+    /// left to that window.
+    public func spaceActiveInOtherWindow(_ spaceID: UUID, than window: WindowState) -> Bool {
+        windows.contains { other in
+            other !== window && activeSpace(in: other)?.id == spaceID
+        }
+    }
+
     /// Whether any window *other than* `window` is showing this tab. Guards the
     /// teardown paths: a tab on screen somewhere else is not idle.
     func isShown(_ tabID: UUID, byAnyWindowOtherThan window: WindowState) -> Bool {
@@ -1510,6 +1567,15 @@ public final class TabStore {
         // this pane. Recorded so the Ctrl+Tab switcher only lists opened tabs.
         openedPaneIDs.insert(pane.id)
         return engine.surface(for: pane, in: space)
+    }
+
+    /// Whether a pane already has a live web view in the pool.
+    ///
+    /// The content layer uses this to decide if a background tab's surface can
+    /// be kept *mounted* (parked) without building a view for a pane that has
+    /// none — parking must never resurrect an evicted view.
+    public func hasLiveView(paneID: UUID) -> Bool {
+        engine.hasLiveView(paneID: paneID)
     }
 
     public func runtime(for paneID: UUID) -> PaneRuntime {

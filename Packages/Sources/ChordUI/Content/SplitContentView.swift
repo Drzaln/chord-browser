@@ -17,6 +17,11 @@ struct SplitContentView: View {
     /// from `RootView`. Both are zero when the window is edge-to-edge.
     var contentInset: CGFloat = Metrics.contentInset
     var contentCornerRadius: CGFloat = Metrics.contentCornerRadius
+    /// True for the *previous* tab kept mounted behind the current one so a
+    /// tab switch never detaches its web view (which would fire a 0×0 resize and
+    /// reset in-page SPA state, e.g. an Instagram carousel). A parked pane is
+    /// never focused, never a drop target, and takes no hits.
+    var isParked: Bool = false
 
     /// Widths as they were when the current divider drag began. Applying a
     /// drag's translation to a live baseline compounds it.
@@ -73,6 +78,7 @@ struct SplitContentView: View {
             showsFocusRing: tab.panes.count > 1,
             isFirst: position == 0,
             isLast: position == tab.panes.count - 1,
+            isParked: isParked,
             contentInset: contentInset,
             contentCornerRadius: contentCornerRadius
         )
@@ -90,6 +96,7 @@ private struct PaneCard: View {
     let showsFocusRing: Bool
     let isFirst: Bool
     let isLast: Bool
+    let isParked: Bool
     let contentInset: CGFloat
     let contentCornerRadius: CGFloat
 
@@ -137,7 +144,7 @@ private struct PaneCard: View {
             // would sit above the web view and swallow every click; without a
             // layer at all, the web view swallows the *drop*, because it
             // registers for dragged types itself and is above our destination.
-            if store.draggingTabID != nil {
+            if store.draggingTabID != nil, !isParked {
                 TabDropTarget(
                     isTargeted: { isDropTarget = $0 },
                     onDrop: { sourceID in
@@ -168,6 +175,9 @@ private struct PaneCard: View {
             // that is built later, which is what a lazy pane and a revived one
             // rely on.
             store.setContentCornerRadius(contentCornerRadius, for: pane.id)
+            // A parked pane is only kept alive so its web view is not detached;
+            // it must not grab the keyboard or spend on a thumbnail.
+            guard !isParked else { return }
             if isFocused {
                 store.focusWebView(for: pane.id)
                 // Refresh the switcher's page thumbnail while the page is on

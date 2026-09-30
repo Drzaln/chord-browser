@@ -220,6 +220,7 @@ struct CommandBarRow: View {
     var tint: Color = .accentColor
 
     @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovering = false
 
     /// Readable text when the row is picked with its 0.40 Space-accent fill,
     /// computed from that fill. `nil` otherwise — the faint bar wash is fine
@@ -273,7 +274,12 @@ struct CommandBarRow: View {
         .foregroundStyle(primaryText)
         .padding(.horizontal, 16)
         .padding(.vertical, 7)
-        .background(isHighlighted ? AnyShapeStyle(tint.opacity(0.40)) : AnyShapeStyle(.clear))
+        .background(
+            isHighlighted
+                ? AnyShapeStyle(tint.opacity(0.40))
+                : AnyShapeStyle(tint.opacity(isHovering ? 0.18 : 0))
+        )
+        .onHover { isHovering = $0 }
     }
 
     /// The row's title, with an inline completion suffix rendered dimmed. For a

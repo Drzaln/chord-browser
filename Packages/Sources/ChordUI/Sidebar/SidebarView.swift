@@ -288,6 +288,7 @@ struct SidebarView: View {
         }
         .overlay { if isDragging { bookmarkDropOverlay } }
         .padding(.horizontal, 8)
+        .hoverHighlight(tint: spaceTint, opacity: 0.18)
         .accessibilityLabel("Pinned tabs, \(store.bookmarkedTabs(in: windowState).count)")
         .accessibilityAddTraits(.isButton)
     }
@@ -385,6 +386,7 @@ struct SidebarView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
+        .hoverHighlight(opacity: 0.12)
         .help("Hide Sidebar")
         .accessibilityLabel("Hide Sidebar")
         // No `.keyboardShortcut` here. A view-level one is handled in the
@@ -402,6 +404,7 @@ struct SidebarView: View {
             FolderRowView(
                 folder: folder,
                 isRenaming: renamingFolderID == folder.id,
+                tint: spaceTint,
                 toggleCollapsed: { store.toggleFolderCollapsed(folder.id) },
                 rename: { store.renameFolder(folder.id, to: $0); renamingFolderID = nil },
                 beginRename: { renamingFolderID = folder.id },
@@ -599,6 +602,7 @@ struct SidebarView: View {
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 8)
+        .hoverHighlight(tint: spaceTint, opacity: 0.18)
         .padding(.bottom, 4)
         // No keyboard shortcut here on purpose — see `collapseButton`.
     }

@@ -24,26 +24,40 @@ struct WebContentCard: View {
 
     var body: some View {
         Group {
-            if let tab = store.selectedTab(in: windowState) {
-                // Split view is just a tab with more panes (3.2), so there is one
-                // path here rather than a normal case and a split case.
-                SplitContentView(
-                    store: store, windowState: windowState, tab: tab,
-                    contentInset: contentInset, contentCornerRadius: contentCornerRadius
-                )
-                    .id(tab.id)
-                    // Over the content rather than above it: pushing the page down
-                    // to make room would relayout every pane for the length of a
-                    // search.
-                    .overlay(alignment: .topTrailing) {
-                        if windowState.isFindBarVisible {
-                            FindBar(
-                                store: store, windowState: windowState,
-                                contentInset: contentInset
-                            )
-                        }
+            if let selectedID = windowState.selectedTabID,
+               store.tabs.contains(where: { $0.id == selectedID }) {
+                ZStack {
+                    // Every open tab keeps a stable slot so its web view is never
+                    // detached when the selection moves — a detach rejoins at 0×0
+                    // and fires a resize that resets in-page SPA state (an
+                    // Instagram carousel snaps back to slide 1). Only tabs whose
+                    // pane already has a live view are mounted, so this never
+                    // builds a view for a lazy/unopened tab, and the pool's cap
+                    // still bounds how many are kept.
+                    ForEach(mountedTabs) { mounted in
+                        SplitContentView(
+                            store: store, windowState: windowState, tab: mounted,
+                            contentInset: contentInset, contentCornerRadius: contentCornerRadius,
+                            isParked: mounted.id != selectedID
+                        )
+                        .id(mounted.id)
+                        .allowsHitTesting(mounted.id == selectedID)
+                        .accessibilityHidden(mounted.id != selectedID)
+                        .zIndex(mounted.id == selectedID ? 1 : 0)
                     }
-} else {
+                }
+                // Over the content rather than above it: pushing the page down
+                // to make room would relayout every pane for the length of a
+                // search.
+                .overlay(alignment: .topTrailing) {
+                    if windowState.isFindBarVisible {
+                        FindBar(
+                            store: store, windowState: windowState,
+                            contentInset: contentInset
+                        )
+                    }
+                }
+            } else {
                 // Arc: an empty content area blends with the chrome rather than
                 // showing a bare page card — the active Space's gradient under
                 // glass. On macOS 26 that glass is Liquid Glass (the system's
@@ -84,6 +98,28 @@ struct WebContentCard: View {
             .clipShape(
                 RoundedRectangle(cornerRadius: contentCornerRadius, style: .continuous)
             )
+        }
+    }
+
+    /// The tabs whose surfaces stay mounted for this window: the selected one
+    /// (so it is built on first show), plus live tabs of every Space this window
+    /// has shown — so neither a tab switch nor a Space switch detaches them.
+    ///
+    /// A tab with no live view is deliberately skipped, so mounting never builds
+    /// a view the pool did not already keep — the existing capacity cap still
+    /// governs memory, and lazy/restored-but-unopened tabs stay lazy. A Space
+    /// another window is showing is left to that window, since one `NSView` has
+    /// one superview.
+    private var mountedTabs: [ChordCore.Tab] {
+        let selectedID = windowState.selectedTabID
+        var spaces = windowState.visitedSpaceIDs
+        if let active = store.activeSpace(in: windowState)?.id { spaces.insert(active) }
+        return store.tabs.filter { tab in
+            if tab.id == selectedID { return true }
+            guard spaces.contains(tab.spaceID),
+                  tab.panes.allSatisfy({ store.hasLiveView(paneID: $0.id) })
+            else { return false }
+            return !store.spaceActiveInOtherWindow(tab.spaceID, than: windowState)
         }
     }
 }

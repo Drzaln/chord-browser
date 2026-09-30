@@ -41,6 +41,31 @@ struct LoginCaptureE2ETests {
         )
     }
 
+    /// A login form built inside a **closed** shadow root, submitted for real so
+    /// WebKit fires its native form-submission callback. The page-side script
+    /// cannot see into a closed root (`element.shadowRoot` is null), and the
+    /// `submit` event does not cross the shadow boundary — so nothing but the
+    /// native hook can capture this. That is the whole point of the ticket.
+    private static func closedShadowRootSignInPage(
+        username: String, password: String
+    ) -> TestHTTPServer.Route {
+        .page(
+            path: "/closed-shadow-signin",
+            title: "Sign in",
+            body: """
+                <div id="host"></div>
+                <script>
+                  var root = document.getElementById('host').attachShadow({ mode: 'closed' });
+                  root.innerHTML = '<form action="/signed-in" method="get">'
+                    + '<input name="username" type="text" value="\(username)">'
+                    + '<input name="password" type="password" value="\(password)">'
+                    + '<button type="submit">Sign in</button></form>';
+                  setTimeout(function () { root.querySelector('form').requestSubmit(); }, 300);
+                </script>
+                """
+        )
+    }
+
     /// In-memory secrets so no test touches the real Keychain.
     private final class MemorySecrets: SecretStore, @unchecked Sendable {
         private let lock = NSLock()
@@ -105,6 +130,33 @@ struct LoginCaptureE2ETests {
         // And the password itself came back, not just the metadata.
         let id = try #require(offeredBack.first?.id)
         #expect(try await #require(relaunched.vault).secret(for: id) == "hunter2")
+    }
+
+    @Test("A login inside a closed shadow root is captured by the native form hook")
+    func capturesClosedShadowRootLogin() async throws {
+        // The native hook is the `_WKInputDelegate` SPI, available from macOS
+        // 26.4. Before that there is genuinely no signal for a closed shadow root
+        // — the page-side script cannot reach into one — so the test is a no-op
+        // there rather than a false failure.
+        guard #available(macOS 26.4, *) else { return }
+
+        let harness = try await E2EHarness.make(
+            routes: [
+                Self.closedShadowRootSignInPage(username: "me@example.com", password: "hunter2"),
+                .page(path: "/signed-in", title: "Signed in"),
+            ]
+        )
+        defer { Task { await harness.tearDown() } }
+        await harness.store.restore()
+        attachVault(to: harness.store, database: harness.database, secrets: MemorySecrets())
+
+        #expect(await harness.openAndLoad(await harness.server.url("/closed-shadow-signin")))
+
+        // The page submits itself 300ms after load.
+        let offered = await harness.wait { harness.store.pendingCredentialSave != nil }
+        #expect(offered, "a closed-shadow-root login must be captured by the native hook")
+        let prompt = try #require(harness.store.pendingCredentialSave)
+        #expect(prompt.username == "me@example.com")
     }
 
     @Test("Signing in again with the same password does not ask twice")

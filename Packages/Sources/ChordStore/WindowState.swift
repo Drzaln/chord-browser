@@ -70,8 +70,16 @@ public final class WindowState {
     /// popup is anchored in.
     public var isExtensionPopupOpen: Bool = false
 
+    /// The toolbar's Downloads popover is on screen in this window. Volatile.
+    ///
+    /// Like `isExtensionPopupOpen`, the popover is anchored to a sidebar-header
+    /// button, so it must keep the sidebar from auto-hiding away from under it.
+    /// Set by `DownloadsButton` (it owns the popover's presentation).
+    public var isDownloadsPopoverOpen: Bool = false
+
     /// Something is keeping a revealed sidebar on screen, so the auto-hide must
-    /// not fire: a resize drag, a Space sheet, or an extension popup.
+    /// not fire: a resize drag, a Space sheet, an extension popup, or the
+    /// Downloads popover.
     ///
     /// One rule rather than four scattered checks. The popup case is the one that
     /// is not obvious: the popup is anchored to the sidebar-header button, so
@@ -79,14 +87,15 @@ public final class WindowState {
     /// the popup — and moving the pointer into the popup is precisely what ends
     /// the hover that was keeping the sidebar revealed. Without this, an
     /// extension popup could not be used at all with a collapsed sidebar. The
-    /// rename alert is the same shape: it is presented above the window, so the
-    /// pointer leaves the sidebar the moment it opens, and an auto-hide firing
-    /// then would drop the alert out from under the user.
+    /// rename alert and the Downloads popover are the same shape: they are
+    /// presented above/away from the sidebar, so the pointer leaves it the moment
+    /// they open, and an auto-hide firing then would drop them.
     public var isSidebarHeldOpen: Bool {
         isSidebarResizing
             || editingSpaceID != nil
             || deletingSpaceID != nil
             || isExtensionPopupOpen
+            || isDownloadsPopoverOpen
             || renamingTabID != nil
     }
 
@@ -227,6 +236,12 @@ public final class WindowState {
     /// only the window's *active* Space is restored from a saved layout, so a
     /// relaunch keeps just that one.
     public internal(set) var blankSpaceIDs: Set<UUID> = []
+
+    /// Spaces this window has shown this session. Used by the content layer to
+    /// keep a Space's live tab surfaces mounted after you leave it, so returning
+    /// to the Space does not detach (and reset) its pages. Ephemeral; the store
+    /// writes it.
+    public internal(set) var visitedSpaceIDs: Set<UUID> = []
 
     // MARK: - Find in page
 

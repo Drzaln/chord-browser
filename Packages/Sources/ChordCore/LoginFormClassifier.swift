@@ -102,12 +102,15 @@ public struct LoginFormAnalysis: Equatable, Sendable {
 /// not-yet-revealed field at once, and it is also §Threat-model rule 5.
 public enum LoginFormClassifier {
 
-    private static let usernameKeywords = [
+    /// Shared with `NativeLoginCapture`, which has only a control's `name` to
+    /// judge by (the native form hook reports values, not field types). Kept
+    /// here so the two paths agree on what "reads like a password".
+    static let usernameKeywords = [
         "username", "user", "email", "login", "identifier", "account", "phone",
     ]
-    private static let passwordKeywords = ["password", "passwd", "pass"]
+    static let passwordKeywords = ["password", "passwd", "pass"]
     /// Fields that look password-ish but must never receive one.
-    private static let otpKeywords = ["otp", "one-time", "onetime", "code", "2fa", "totp"]
+    static let otpKeywords = ["otp", "one-time", "onetime", "code", "2fa", "totp"]
 
     public static func analyse(_ fields: [LoginFieldDescriptor]) -> LoginFormAnalysis {
         // Rule 5 of the threat model, and the single highest-value line in the

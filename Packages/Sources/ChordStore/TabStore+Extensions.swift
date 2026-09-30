@@ -92,13 +92,12 @@ extension TabStore: ExtensionTabModel {
     }
 
     private func snapshot(of tab: Tab, index: Int) -> ExtensionTabSnapshot {
-        let pane = tab.focusedPane
         return ExtensionTabSnapshot(
             id: tab.id,
             spaceID: tab.spaceID,
             focusedPaneID: tab.focusedPaneID,
-            url: pane.url,
-            title: pane.displayTitle,
+            url: tab.focusedPane.url,
+            title: tab.displayTitle,
             isSelected: isSelectedByAnyWindow(tab.id),
             index: index
         )
