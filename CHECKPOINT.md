@@ -161,6 +161,10 @@ a new tab here with the **configured** engine (`SearchEngine.queryTemplate` via
 "Search with Brave" — from the engine's pushed `searchEngineName` (the store
 pushes it on change and at restore, the same shape as the User-Agent setting).
 
+**Settings sheet widened (2026-09-30).** The five-segment tab bar
+(General · Passwords · Privacy & Data · Extensions · Updates) overflowed the
+520-pt sheet and clipped the first and last labels; the sheet is now 660 pt wide.
+
 **Engine state hygiene + Arc-style split close & pane undo (2026-08-21).** Three
 memory/behaviour changes, verified live:
 

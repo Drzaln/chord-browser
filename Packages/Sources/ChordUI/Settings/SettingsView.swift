@@ -75,6 +75,8 @@ public struct SettingsView: View {
                 }
             }
         }
-        .frame(width: 520, height: 460)
+        // Wide enough for all five segmented labels ("Privacy & Data" is the
+        // longest) so the control does not overflow and clip at the edges.
+        .frame(width: 660, height: 480)
     }
 }
