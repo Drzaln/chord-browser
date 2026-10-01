@@ -425,6 +425,12 @@ public final class WebKitEngine: WebEngine {
                 self?.adoptDownload(download, suggestedURL: url)
             }
         }
+        webView.onSearchWeb = { [weak self, weak webView] query in
+            guard let self else { return }
+            let paneID = webView.flatMap { self.paneID(for: $0) }
+            self.delegate?.paneRequestedSearchWeb(query: query, fromPane: paneID)
+        }
+        webView.searchEngineName = { [weak self] in self?.searchEngineName ?? "Google" }
         webView.onOpenInLittleChord = { [weak self] url in
             self?.delegate?.paneRequestedLittleChord(url: url)
         }
@@ -532,6 +538,14 @@ public final class WebKitEngine: WebEngine {
     public func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride]) {
         globalReferrerPolicy = global
         referrerOverrides = overrides
+    }
+
+    /// The configured search provider's display name, shown in the page context
+    /// menu's "Search with …" item. Set by the store.
+    private(set) var searchEngineName = SearchEngine.default.displayName
+
+    public func setSearchEngine(name: String) {
+        searchEngineName = name
     }
 
     /// Stamps the resolved referrer for one navigation onto the page preferences.

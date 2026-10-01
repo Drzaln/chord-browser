@@ -152,6 +152,15 @@ the toolbar's Downloads button is hidden — shows a "Downloading …" toast
 (`DownloadsStore.onStarted` → `WindowState.showToast`), so the click is
 acknowledged. Verified on picsum, Google Images, and Google Drive.
 
+**Search with … searches in-app (2026-09-30).** Selected text → right-click →
+"Search with Google" handed the query to the **system default browser** (Safari).
+`ChordWebView.willOpenMenu` now takes that item over (id `…SearchWeb`), reads the
+live selection, and routes it to `paneRequestedSearchWeb`, so the search opens in
+a new tab here with the **configured** engine (`SearchEngine.queryTemplate` via
+`URLInput.search`). The item is also relabelled to match the provider —
+"Search with Brave" — from the engine's pushed `searchEngineName` (the store
+pushes it on change and at restore, the same shape as the User-Agent setting).
+
 **Engine state hygiene + Arc-style split close & pane undo (2026-08-21).** Three
 memory/behaviour changes, verified live:
 

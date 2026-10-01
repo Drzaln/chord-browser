@@ -29,6 +29,12 @@ final class ChordWebView: WKWebView {
     var onOpenInPrivateWindow: ((URL) -> Void)?
     /// "Download Image" — actually saves the right-clicked image.
     var onDownloadImage: ((URL) -> Void)?
+    /// "Search with Google" on selected text — searches in a new tab in-app,
+    /// instead of WebKit handing the query to the system default browser.
+    var onSearchWeb: ((String) -> Void)?
+    /// The configured search provider's name, so the item reads "Search with
+    /// Brave" and not WebKit's fixed "Google".
+    var searchEngineName: (() -> String)?
 
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         super.willOpenMenu(menu, with: event)
@@ -42,6 +48,16 @@ final class ChordWebView: WKWebView {
         }) {
             item.target = self
             item.action = #selector(downloadImage(_:))
+        }
+
+        // "Search with Google" would open the system default browser (Safari).
+        // Take it over so the query searches in a new tab here instead.
+        if let item = menu.items.first(where: {
+            $0.identifier?.rawValue.contains("SearchWeb") == true
+        }) {
+            item.title = "Search with \(searchEngineName?() ?? "Google")"
+            item.target = self
+            item.action = #selector(searchWeb(_:))
         }
 
         guard menuTargetsLink(menu) else { return }
@@ -96,5 +112,18 @@ final class ChordWebView: WKWebView {
     @objc private func downloadImage(_ sender: Any?) {
         guard let url = contextImageURL?() else { return }
         onDownloadImage?(url)
+    }
+
+    @objc private func searchWeb(_ sender: Any?) {
+        // The selected text is still live at click time; read it, then hand the
+        // query up to search in-app.
+        evaluateJavaScript("window.getSelection().toString()") { [weak self] result, _ in
+            MainActor.assumeIsolated {
+                guard let self, let text = result as? String,
+                      !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                else { return }
+                self.onSearchWeb?(text)
+            }
+        }
     }
 }

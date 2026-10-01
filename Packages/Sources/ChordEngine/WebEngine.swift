@@ -134,6 +134,11 @@ public protocol WebEngineDelegate: AnyObject {
     /// "Open Link in New Private Window" from a link's context menu.
     func paneRequestedPrivateWindow(url: URL)
 
+    /// "Search with Google" on selected text's context menu. WebKit's own item
+    /// hands off to the *system* default browser (Safari), so the app takes it
+    /// over and searches in a new tab instead, using the configured engine.
+    func paneRequestedSearchWeb(query: String, fromPane paneID: UUID?)
+
     func paneRequestedLittleChord(url: URL)
     /// The user performed the "undo page" swipe (a two-finger rightward drag) on
     /// a pane that had nothing to undo — WebKit's native back/forward gesture
@@ -200,6 +205,7 @@ extension WebEngineDelegate {
     public func paneRequestedPopup(url: URL?, popupPaneID: UUID, fromPane paneID: UUID?) {}
     public func panePopupDidClose(_ paneID: UUID) {}
     public func paneRequestedPrivateWindow(url: URL) {}
+    public func paneRequestedSearchWeb(query: String, fromPane paneID: UUID?) {}
     public func paneRequestedLittleChord(url: URL) {}
     public func paneRequestedSwipeClose(_ paneID: UUID) {}
     public func paneRequestedPeek(url: URL, fromPane paneID: UUID) -> Bool { false }
@@ -352,6 +358,11 @@ public protocol WebEngine: AnyObject {
     /// main resource and every subresource of the frame. A no-op on runtimes
     /// before macOS 27, where the API does not exist.
     func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride])
+
+    /// The configured search provider's display name, so the page context
+    /// menu's "Search with …" item reads the provider the user chose instead of
+    /// WebKit's fixed "Search with Google".
+    func setSearchEngine(name: String)
 
     /// Sets whether the swipe-to-close experiment is on (non-spec:
     /// user-requested). When off, the engine stops watching for the "undo page"
@@ -510,6 +521,7 @@ extension WebEngine {
     /// Default so test doubles and any non-WebKit engine need not implement the
     /// referrer plumbing; only `WebKitEngine` gives real behaviour.
     public func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride]) {}
+    public func setSearchEngine(name: String) {}
     /// Defaults so test doubles and any non-WebKit engine need not implement the
     /// per-site cookie plumbing; only `WebKitEngine` gives real behaviour.
     public func cookies(for url: URL, in space: Space) async -> [SiteCookie] { [] }

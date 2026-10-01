@@ -216,7 +216,17 @@ public final class TabStore {
     /// Persisted to `UserDefaults` as JSON, like the other window preferences —
     /// it is a user choice, not schema-bound user data.
     public var searchEngine: SearchEngine = Preferences.loadSearchEngine() {
-        didSet { Preferences.save(searchEngine) }
+        didSet {
+            Preferences.save(searchEngine)
+            pushSearchEngineName()
+        }
+    }
+
+    /// Hands the engine the engine's display name, so the page context menu's
+    /// "Search with …" item matches the configured provider rather than WebKit's
+    /// fixed "Google".
+    func pushSearchEngineName() {
+        engine.setSearchEngine(name: searchEngine.displayName)
     }
 
     /// What a brand-new tab opens to (non-spec: user-requested). Persisted
@@ -779,6 +789,9 @@ public final class TabStore {
         // Same for the referrer policy: its `didSet` does not fire for the
         // initial value either.
         self.pushReferrerPolicy()
+        // Same for the search engine's name: its `didSet` does not fire for the
+        // initial value, so the context menu would read "Search with Google".
+        self.pushSearchEngineName()
         // Same for the swipe-to-close flag: the engine starts with the monitor
         // running and must be told if the user turned the feature off.
         self.pushSwipeToCloseEnabled()
@@ -1855,6 +1868,17 @@ extension TabStore: WebEngineDelegate {
                 self?.select(tabID, in: targetWindow)
             }
         )
+    }
+
+    /// "Search with Google" on selected text: searches with the configured
+    /// engine in a new tab, in the window showing the page the text came from.
+    public func paneRequestedSearchWeb(query: String, fromPane paneID: UUID?) {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty,
+              let url = URLInput.search(for: text, template: searchEngine.queryTemplate)
+        else { return }
+        let targetWindow = paneID.map { window(showingPane: $0) } ?? focusedWindow
+        newTab(url: url, in: targetWindow)
     }
 
     public func paneRequestedPrivateWindow(url: URL) {
