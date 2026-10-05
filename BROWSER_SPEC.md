@@ -351,6 +351,10 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
 
 - App registers as an HTTP/HTTPS handler in `Info.plist`.
 - External link → borderless `NSPanel`, scale-and-fade in from cursor position.
+- The panel is moved by dragging its header — the borderless window has no
+  titlebar, so the header carries a `WindowDragGesture` explicitly (AppKit's
+  `isMovableByWindowBackground` no longer receives the click under a
+  SwiftUI-hosted borderless panel on macOS 27).
 - `Cmd+O` promotes it into a real tab in the active Space. Esc dismisses.
 - Panel is independent of the main window and may appear when the main window is
   closed.

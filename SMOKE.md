@@ -523,6 +523,8 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
 
 - [x] A web link from another app opens the floating panel, not a tab
 - [x] The panel appears at the cursor, borderless, over the main window
+- [ ] The panel can be moved by dragging its header (macOS 27 regression fix,
+      2026-10-02)
 - [x] `Cmd+O` promotes it into a real tab in the active Space, and the panel
       closes
 - [x] Esc dismisses without creating a tab, and tears the web view down

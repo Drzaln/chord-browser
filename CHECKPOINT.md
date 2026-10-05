@@ -4235,3 +4235,35 @@ below comparable Chromium browsers. Re-open only if a new feature pushes a
 ceiling. Relevant knobs: `WebKitEngine.swift:108` (`interactionStateCap`),
 `WebKitEngine.swift:15` (`liveViewCapacity`), `WebKitEngine.swift:1251`
 (`setOccluded`), `DataStoreRegistry.swift`.
+
+## Little Chord panel draggable on macOS 27 (2026-10-05, 1.16.2)
+
+**The bug.** The borderless Little Chord panel could no longer be dragged by its
+header on macOS 27 ("why can't I drag the little Chord window from the title
+bar?"). The panel never had a real titlebar; the drag came from
+`isMovableByWindowBackground = true` (`LittleChordPanel`) — AppKit started a
+window drag from a mouse-down the hosted SwiftUI view left unconsumed. macOS 27
+changed `NSHostingView`'s event routing: it now consumes the mouse-down across
+the whole hosted view, so the click never reaches `NSWindow` and the drag never
+starts. No panel/view code had changed since 2026-08-20 (and the feature is
+untouched across the whole git history), so this is an OS regression, not a code
+regression — it worked through 26.x.
+
+**The fix** (`LittleChordView.header`). The header now drags the window
+explicitly:
+- `.contentShape(Rectangle())` makes the whole 36 pt strip (including the
+  `Spacer`) hit-testable for the gesture;
+- `.gesture(WindowDragGesture())` (macOS 15+, so unconditionally available at the
+  15.4 floor) performs the drag;
+- `.allowsWindowActivationEvents()` lets the drag work while the panel is
+  inactive — it is a `.nonactivatingPanel` and is often shown over another app.
+
+Buttons keep their clicks (a tap is not a drag). `isMovableByWindowBackground`
+is left in place. A future borderless/plain window with SwiftUI content should
+reach for `WindowDragGesture` from the start rather than background drag.
+
+**Tests.** UI-only — no unit test can drive a real drag. `prepush` green
+(packages with warnings-as-errors, full suite, app build); verify by dragging the
+panel header in the running app. Everything else (present/dismiss/promote) is
+unchanged.
+

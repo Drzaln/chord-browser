@@ -61,5 +61,13 @@ struct LittleChordView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
+        // Borderless panel: AppKit's `isMovableByWindowBackground` no longer
+        // receives the click on macOS 27 (the SwiftUI host consumes it), so the
+        // header drags the window explicitly instead.
+        .contentShape(Rectangle())
+        .gesture(WindowDragGesture())
+        // The panel is a `.nonactivatingPanel` and may be dragged while the app
+        // is inactive, so let the gesture activate the window on mouse-down.
+        .allowsWindowActivationEvents()
     }
 }

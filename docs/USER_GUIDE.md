@@ -459,8 +459,10 @@ From the panel:
 - press `Cmd+O` to **promote** it into a full tab in the active Space, or
 - press `Esc` (or click away) to dismiss it — nothing is kept.
 
-The panel is resizable, and its size is remembered: resize it once and the next
-panel (Peek or Little Chord — they share it) opens at that size.
+Drag the panel by its **header** to move it (it is borderless, so that strip is
+the title bar). The panel is resizable, and its size is remembered: resize it
+once and the next panel (Peek or Little Chord — they share it) opens at that
+size.
 
 > **Testing it without setting a default browser:** from Terminal, run
 > `open -a Chord https://example.com` — this routes a URL to Chord exactly like

@@ -214,6 +214,7 @@ see the `chord-browser-youtube-ads` skill for the upkeep procedure.
 - `onDrag`'s `NSItemProvider` delivers zero bytes via pasteboard — use `beginDraggingSession` with `NSPasteboardItem`.
 - A `WKWebView` registers for dragged types itself; AppKit picks the deepest registered view under cursor, so SwiftUI `onDrop` always loses to the page.
 - Any NSPanel must size itself from content and say so twice — `setContentSize` after `contentViewController` assignment.
+- **A borderless SwiftUI-hosted panel is not draggable via `isMovableByWindowBackground` on macOS 27.** `NSHostingView` consumes the mouse-down across the whole hosted view, so the click never reaches `NSWindow` and no window drag starts (worked through 26.x; no code changed). Drag the intended handle explicitly: `.contentShape(Rectangle())` + `.gesture(WindowDragGesture())` (macOS 15+), and `.allowsWindowActivationEvents()` when the window is a `.nonactivatingPanel` that may be dragged while inactive (`LittleChordView.header`, fixed 1.16.2). Buttons keep their clicks — a tap is not a drag.
 - `onAppear` fires only once on a reused panel. Use a present token for reset/focus.
 - Focus must be requested repeatedly for ~200ms on panel because it races the view update.
 
