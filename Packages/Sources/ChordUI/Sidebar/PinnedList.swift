@@ -16,10 +16,14 @@ struct PinnedList: View {
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
     var tint: Color = .accentColor
+    /// When set, renders exactly these tabs instead of every Pinned tab in the
+    /// Space. Used to keep the active Pinned tab on screen while the section is
+    /// collapsed, so collapsing never hides the tab the window is on.
+    var tabs: [ChordCore.Tab]?
 
     var body: some View {
         LazyVStack(spacing: 2) {
-            ForEach(store.bookmarkedTabs(in: windowState)) { tab in
+            ForEach(tabs ?? store.bookmarkedTabs(in: windowState)) { tab in
                 TabRowView(
                     tab: tab,
                     isSelected: tab.id == windowState.selectedTabID,

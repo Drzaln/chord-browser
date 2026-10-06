@@ -250,7 +250,7 @@ is migrated to these paths on first launch (see `AppEnvironment.live()`).
 ## Three Tab Tiers (§4.1a)
 
 1. **Favourites** (`.pinned`) — icon grid at top. Sweep-exempt. Has optional `homeURL`.
-2. **Pinned** (`.bookmarked`) — list section between favourites and ephemeral. Sweep-exempt. Has required `homeURL`. Collapsible per-Space header.
+2. **Pinned** (`.bookmarked`) — list section between favourites and ephemeral. Sweep-exempt. Has required `homeURL`. Collapsible per-Space header; when collapsed the active Pinned tab's row stays visible.
 3. **Ephemeral** (`.ephemeral`) — the loose tabs swept after idle window (default 12h).
 
 Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps the sidebar entry and favicon.

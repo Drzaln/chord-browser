@@ -544,11 +544,21 @@ struct SidebarView: View {
             if !windowState.isPrivate {
                 if !store.bookmarkedTabs(in: windowState).isEmpty {
                     pinnedSectionHeader
-                    if !windowState.isPinnedSectionCollapsed(
+                    let pinned = store.bookmarkedTabs(in: windowState)
+                    let collapsed = windowState.isPinnedSectionCollapsed(
                         inSpace: store.activeSpace(in: windowState)?.id
-                    ) {
+                    )
+                    if !collapsed {
                         PinnedList(store: store, windowState: windowState, tint: spaceTint)
                             .overlay { if isDragging { bookmarkDropOverlay } }
+                    } else if let active = pinned.first(where: { $0.id == windowState.selectedTabID }) {
+                        // Keep the active Pinned tab visible when the section is
+                        // collapsed — otherwise collapsing hides the tab you are
+                        // on, with no highlighted row anywhere in the sidebar.
+                        PinnedList(
+                            store: store, windowState: windowState, tint: spaceTint,
+                            tabs: [active]
+                        )
                     }
                 } else if isDragging {
                     firstBookmarkDropZone

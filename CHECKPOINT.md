@@ -96,6 +96,14 @@ dismissed it. Tests: `DisplayTitleTests`, `RenameTests` (store),
 `MappingTests.customTitleRoundTrip`, `MigrationTests.v14AddsCustomTitle`,
 `RenameAlertSidebarTests`.
 
+**Collapsing the Pinned section keeps the active tab visible (2026-10-06).** The
+Pinned header collapses its list to save vertical space, but the ephemeral list
+renders only *un*Pinned tabs — so when the window was on a Pinned tab, collapsing
+hid it with no highlighted row left anywhere in the sidebar. The collapsed
+section now still renders the active Pinned tab's single row as a highlighted
+anchor; the rest stay hidden. `PinnedList` gained an optional `tabs:` override so
+`SidebarView` can pass just the selected tab.
+
 **Switching tabs or Spaces no longer resets in-page state (2026-09-30).** An SPA
 that kept its place across a switch in other browsers lost it here — an Instagram
 carousel snapped back to slide 1. Root cause was laid bare with a temporary

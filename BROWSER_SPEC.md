@@ -274,7 +274,9 @@ Three tab tiers, matching Arc, all per-Space:
 - **Pinned** — a list section between the favourites grid and the New Tab
   affordance (`TabPlacement.bookmarked`), under a collapsible header showing a
   count. Collapse state is per-Space and persisted (a window preference in
-  `UserDefaults`, not the schema). Exempt from the sweep.
+  `UserDefaults`, not the schema). When collapsed, the active Pinned tab's row
+  stays visible (highlighted) so the tab you are on is never hidden. Exempt from
+  the sweep.
 - **Ephemeral** — the loose tabs the sweep may close (§4.3).
 
 Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:

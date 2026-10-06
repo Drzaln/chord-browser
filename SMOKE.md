@@ -706,6 +706,8 @@ screenshot — a 6-point strip does not survive a guess.
 - [ ] "Set Current Page as Pinned URL" re-homes a Pinned tab
 - [ ] Closing a Pinned tab keeps the row and returns it to its home URL, favicon intact
 - [ ] The Pinned header collapses/expands the list; the count shows while collapsed
+- [ ] With a Pinned tab selected, collapsing the section keeps that tab's row
+      visible (highlighted) rather than hiding the tab the window is on
 - [ ] Collapse state is per-Space and survives relaunch
 - [ ] A Pinned tab is exempt from the idle sweep
 - [ ] Drag a tab onto the Pinned section to pin it; drag out to unpin
