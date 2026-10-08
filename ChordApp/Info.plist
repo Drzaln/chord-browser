@@ -17,7 +17,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.16.3</string>
+	<string>1.17.0</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -33,7 +33,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>38</string>
+	<string>39</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.4</string>
 	<key>NSCameraUsageDescription</key>
