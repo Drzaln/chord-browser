@@ -667,8 +667,9 @@ enum OfflineGamePage {
                   e.bTag = bl.id;
                   e.hp -= 1;
                   burst(bl.x, bl.y, 3, bl.pierce ? "#ff9f43" : "#ffd166");
-                  if (!bl.pierce) { g.bullets.splice(b, 1); break; }
+                  if (!bl.pierce) g.bullets.splice(b, 1);
                   if (e.hp <= 0) { killEnemy(e, i); break; }
+                  if (!bl.pierce) break;
                 }
               }
 

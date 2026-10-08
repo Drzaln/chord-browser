@@ -52,7 +52,10 @@ configuration (guarded — a popup config copied from a live view already carrie
 it, and double-registration is an exception). Typing `chord-offline://no-internet`
 opens the game directly. Covered by `OfflineGamePageTests` +
 `OfflineGameE2ETests` (the scheme serves through a real `WKWebView`; the page's
-script initialises and starts; a reload retries the target).
+script initialises and starts; a reload retries the target). **1.17.1 fix:** the
+piercing-round refactor had reordered the bullet-vs-enemy check so non-piercing
+bullets damaged but never killed; normal bullets kill again (verified headlessly
+with specials disabled).
 
 **Self-updates from GitHub releases (2026-08-22).** A built-in updater
 (non-spec: user-requested) keeps the app current without a browser download.
