@@ -114,9 +114,22 @@ extension NavigationCoordinator: WKNavigationDelegate {
         if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled { return }
 
         Log.engine.error("\(EngineError.navigationFailed(url: webView.url, underlying: error))")
-        if let paneID = paneID(for: webView) {
-            engine?.publishSnapshot(for: paneID)
+
+        guard let paneID = paneID(for: webView) else { return }
+
+        // Offline gets the Space Impact-style game instead of a blank pane
+        // (non-spec: user-requested). The URL the failed load was going to is
+        // what the page's retry re-issues; prefer the error's own failing URL,
+        // which is set even when `webView.url` is still the previous page.
+        if OfflineGamePage.isOfflineError(error),
+            let failed = (nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL) ?? webView.url,
+            failed.scheme == "http" || failed.scheme == "https"
+        {
+            engine?.presentOfflineGame(for: paneID, failedURL: failed)
+            return
         }
+
+        engine?.publishSnapshot(for: paneID)
     }
 
     /// The navigation policy: Peek lifting, the referrer override, and the

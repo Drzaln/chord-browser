@@ -335,3 +335,20 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
   action (e.g. "Opened in new tab" → selects the tab; `newTab` returns its id).
 - Full Instruments GUI trace (SwiftUI body counts, Energy Log)
 - Sidebar scroll fps measurement
+- ~~Offline Space Impact easter egg~~ **Done 2026-10-08** — an offline load
+  (`NSURLErrorNotConnectedToInternet` / `…NetworkConnectionLost`) shows an
+  endless, procedural side-scrolling shooter in the spirit of Nokia's *Space
+  Impact* instead of a blank page: per-wave enemy type + formation generation, a
+  boss with a random attack pattern each wave, one smooth difficulty dial
+  (`(wave-1) + progress-through-wave`) ramping from **EASY** to **ULTRA** and
+  beyond, and the classic homing-missile/laser/wall specials + power-ups
+  (lives, special refills, and an 8-step gun ladder up to a piercing rapid fan,
+  lost a step on a hit) (vector canvas, no assets). Served through a private
+  `chord-offline://` scheme
+  (`OfflineGamePage` + `OfflineGameSchemeHandler` in `ChordEngine`). The failed
+  URL rides in the query, so the page's **Try again** button and `⌘R`
+  (`WebKitEngine.reload`) retry the site; `handleSnapshot` keeps the game out of
+  `lastKnownURL`, so reload/crash-recovery target the site. The scheme handler is
+  re-asserted on each copied configuration, guarded — a popup config copied from
+  a live view already carries it, and double-registration is an exception that
+  aborts. Tests: `OfflineGamePageTests`, `OfflineGameE2ETests`.

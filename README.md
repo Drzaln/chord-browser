@@ -157,6 +157,15 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   check runs on open, but nothing downloads without a **Download & Install**
   click, and relaunching waits for the old instance to quit so session state is
   flushed first ([ADR 021](docs/adr/021-github-release-self-updater.md)).
+- **Offline Space Impact** — a failed load with no network shows an endless,
+  procedural side-scrolling shooter in the spirit of Nokia's *Space Impact*
+  instead of a blank page. Waves draw from an enemy pool and formations that
+  unlock as difficulty climbs from **EASY** to **ULTRA** (and keeps going), with
+  a boss of a random attack pattern each wave. Arrows/WASD fly, `Space` fires,
+  `X` uses the homing-missile/laser/wall special. Pickups grant lives, special
+  refills, and **gun upgrades** — an 8-step ladder from single up to a piercing
+  rapid fan, lost a step when you're hit). A **Try again** button retries the
+  site. It also opens on demand at `chord-offline://no-internet`.
 - **Native content blocking** — see below.
 
 ### Content blocking

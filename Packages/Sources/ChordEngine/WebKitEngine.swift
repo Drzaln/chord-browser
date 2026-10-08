@@ -82,6 +82,11 @@ public final class WebKitEngine: WebEngine {
 
     private var coordinator: NavigationCoordinator?
 
+    /// Serves the offline easter-egg page (non-spec: user-requested). Shared by
+    /// every web view and attached to each copied configuration explicitly, so
+    /// `WKWebViewConfiguration.copy()` cannot drop it.
+    private let offlineGamePage = OfflineGameSchemeHandler()
+
     /// Owns `WKDownload` and its delegate. Public so the UI can list and cancel
     /// downloads without WebKit appearing in any signature it can see.
     public let downloads: DownloadCoordinator
@@ -297,6 +302,13 @@ public final class WebKitEngine: WebEngine {
         // one thing that varies per Space.
         let config = Self.configurationTemplate.copy() as! WKWebViewConfiguration
         config.websiteDataStore = dataStores.store(for: space)
+        // The offline game's scheme, registered explicitly on every copy so a
+        // copied template can never lose it (non-spec: user-requested). Guarded:
+        // a popup configuration copied from a live view already carries the
+        // handler, and registering a scheme twice is an exception, not a no-op.
+        if config.urlSchemeHandler(forURLScheme: OfflineGamePage.scheme) == nil {
+            config.setURLSchemeHandler(offlineGamePage, forURLScheme: OfflineGamePage.scheme)
+        }
 
         // Attach this Space's extension controller, if the host has one loaded
         // (M7). Left unset when the Space has no extensions, so a configuration
@@ -475,6 +487,9 @@ public final class WebKitEngine: WebEngine {
     ) -> WKWebView {
         let config = openerConfiguration.copy() as! WKWebViewConfiguration
         config.userContentController = makeContentController()
+        if config.urlSchemeHandler(forURLScheme: OfflineGamePage.scheme) == nil {
+            config.setURLSchemeHandler(offlineGamePage, forURLScheme: OfflineGamePage.scheme)
+        }
         let webView = ChordWebView(frame: .zero, configuration: config)
         configure(webView)
         // Resolve the UA at creation, like `liveView` does, so the popup's
@@ -1066,9 +1081,29 @@ public final class WebKitEngine: WebEngine {
         live.webView.load(URLRequest(url: url))
     }
 
+    /// Stands the offline easter-egg page in for a load that failed with no
+    /// network (non-spec: user-requested). The failed URL rides along so the
+    /// page's "Try again" button re-issues it.
+    func presentOfflineGame(for paneID: UUID, failedURL: URL?) {
+        guard let live = pool.view(for: paneID) else { return }
+        live.webView.load(URLRequest(url: OfflineGamePage.url(target: failedURL)))
+    }
+
     public func goBack(in paneID: UUID) { pool.view(for: paneID)?.webView.goBack() }
     public func goForward(in paneID: UUID) { pool.view(for: paneID)?.webView.goForward() }
-    public func reload(paneID: UUID) { pool.view(for: paneID)?.webView.reload() }
+
+    public func reload(paneID: UUID) {
+        guard let live = pool.view(for: paneID) else { return }
+        // The offline game is not a real page: a reload should retry the site it
+        // stands in for, not reload the game itself.
+        if live.webView.url?.scheme == OfflineGamePage.scheme,
+            let target = lastKnownURL[paneID]
+        {
+            live.webView.load(URLRequest(url: target))
+            return
+        }
+        live.webView.reload()
+    }
     public func stopLoading(paneID: UUID) { pool.view(for: paneID)?.webView.stopLoading() }
 
     public func snapshot(for paneID: UUID) -> PaneSnapshot? {
@@ -1335,7 +1370,12 @@ public final class WebKitEngine: WebEngine {
     }
 
     private func handleSnapshot(_ snapshot: PaneSnapshot, for paneID: UUID) {
-        if let url = snapshot.url { lastKnownURL[paneID] = url }
+        // The offline game is not a real page, so it never becomes the pane's
+        // last-known URL — a reload (or a crash recovery) must retry the site
+        // the game stands in for (non-spec: user-requested).
+        if let url = snapshot.url, url.scheme != OfflineGamePage.scheme {
+            lastKnownURL[paneID] = url
+        }
         delegate?.paneDidUpdate(paneID, snapshot: snapshot)
     }
 

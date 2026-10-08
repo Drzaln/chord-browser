@@ -142,6 +142,22 @@ uses, which is why it works on pages where the site's own PiP option is greyed
 out (a macOS `WKWebView` does not expose the standard `requestPictureInPicture()`
 API).
 
+## Offline (Space Impact)
+
+If a page can't load because your Mac is offline, the tab shows an endless,
+procedurally generated side-scrolling shooter in the spirit of Nokia's *Space
+Impact* instead of a blank page. Fly with the arrow keys or WASD, fire normal
+shots with `Space`, and use the selected special (homing missile, laser, or wall)
+with `X` — power-ups can grant a life, refill specials, or upgrade the gun
+(an 8-step ladder from single up to a piercing rapid fan; a hit knocks it back a
+step); `P` pauses. Waves are
+generated on the fly and a boss with a different attack pattern ends each one,
+while the difficulty climbs from **EASY** through **NORMAL / HARD / EXPERT** to
+**ULTRA** and keeps rising, so a run only ends when you do. Once you're back
+online, press **Try again** on the page (or `⌘R`) to reload the site you were
+trying to reach. You can also open the game any time by typing
+`chord-offline://no-internet` into the command bar.
+
 ## General settings
 
 Open **Settings** with `Cmd+,` and pick **General** to choose:

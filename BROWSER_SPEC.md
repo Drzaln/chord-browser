@@ -557,6 +557,24 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   no-op'd). A `PictureInPictureMonitor` user script watches
   `webkitpresentationmodechanged` so the menu's Enter/Exit label stays honest
   when PiP is started/ended outside the command. Non-spec, user-requested.
+- **Offline Space Impact easter egg** (2026-10-08; details in the CHECKPOINT
+  2026-10-08 section) — when a navigation fails for want of a network
+  (`NSURLErrorNotConnectedToInternet` / `NSURLErrorNetworkConnectionLost`), the
+  pane shows a side-scrolling shooter in the spirit of Nokia's *Space Impact*
+  instead of a blank page. **Endless and procedural**: enemy type pool and
+  formation are drawn per wave, a boss with a random attack pattern ends each
+  wave, and one smooth difficulty dial ramps speed/HP/fire-rate/spawn-rate/group
+  size from **EASY** to **ULTRA** and beyond — infinitely replayable, no ceiling.
+  The classic homing-missile / laser / wall specials and power-ups return (lives,
+  special refills, and an 8-step gun ladder — single → double → triple → quad →
+  quint fan → rapid → piercing fan → full pierce — lost a step on a hit), all
+  vector-drawn on a canvas with no external assets.
+  Served through a
+  private `chord-offline://` scheme (`OfflineGamePage` + `OfflineGameSchemeHandler`
+  in `ChordEngine`), so it never enters history and never runs under a site's
+  origin; the failed URL rides in the query, so the page's **Try again** button —
+  and `⌘R`, via `WebKitEngine.reload` — retry the real site. Typing
+  `chord-offline://no-internet` opens it directly. Non-spec, user-requested.
 
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
 software-only in a general `WKWebView`: macOS reserves the hardware decode path

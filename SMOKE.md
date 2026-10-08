@@ -143,6 +143,28 @@ distribution.
 - [ ] There is exactly **one "View" menu** (no duplicate), containing Zoom, Actual
       Size, and the PiP toggle alongside Enter Full Screen
 
+### Offline Space Impact (2026-10-08)
+
+- [ ] Turn Wi-Fi off, open a tab, and navigate to any site: the pane shows the
+      **No internet** page with the shooter (not a blank page)
+- [ ] `↑↓←→`/WASD fly, `Space` fires, `X` fires the selected special (missile /
+      laser / wall); `P` pauses; score and lives update; crashing costs a life
+- [ ] Picking up a green **G** upgrade raises the gun (HUD `GUN n/8`): single →
+      double → triple → quad → quint → rapid → **piercing** fan → full pierce;
+      taking a hit drops it one step
+- [ ] Pickups for lives (♥), special refills (M/L/W), and gun upgrades (G) all
+      work
+- [ ] Clear a wave's enemies and a **boss** appears with a health bar; beating it
+      shows the next **WAVE n · TIER** banner
+- [ ] Difficulty rises with progression — the HUD tier moves **EASY → NORMAL →
+      HARD → EXPERT → ULTRA** and keeps going; the game never ends on its own
+      (only Game Over does)
+- [ ] Turn Wi-Fi back on and press the page's **Try again** button — the tab
+      reloads the site you were trying to reach; `⌘R` does the same
+- [ ] Typing `chord-offline://no-internet` in the command bar opens the game
+      directly
+- [ ] The offline page does **not** show up in History (`Cmd+Y`)
+
 ### Persistence
 
 - [ ] Quit and relaunch: tabs come back with titles and favicons
