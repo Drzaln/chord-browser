@@ -1072,6 +1072,11 @@ nothing, and that is the expected behaviour, not a bug.
 - [ ] **Allow** → capture starts. macOS's own TCC prompt appears the first time
       for the app as a whole
 - [ ] Revisiting the same site in the same Space **does not prompt again**
+- [ ] A link opened in the **Peek / Little Chord panel** (a Meet invite from a
+      pinned Gmail/Calendar tab) prompts once and is then remembered too — open
+      the same link again and there is no second prompt, and the site is listed
+      in Settings → Privacy & Data. A panel page belongs to no tab, so its Space
+      comes from the engine (ADR 014, updated 2026-10-15)
 - [ ] Quit and relaunch → still no prompt (the decision is on disk, not in memory)
 - [ ] The **same site in another Space prompts again** — this is the property the
       per-Space scoping exists for

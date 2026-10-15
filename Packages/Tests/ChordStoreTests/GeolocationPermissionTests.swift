@@ -14,45 +14,11 @@ import Testing
 @MainActor
 struct GeolocationPermissionTests {
 
-    /// In-memory `SitePermissionsRepository`, enough to assert ask-once without
-    /// pulling SQLite into a store test.
-    private actor FakeSitePermissions: SitePermissionsRepository {
-        private var store: [SitePermissionKind: SitePermissionDecision] = [:]
-        private var recordedOrigin = ""
-        private var recordedSpaceID = UUID()
-
-        func decisions(
-            forOrigin origin: String, spaceID: UUID
-        ) async throws -> [SitePermissionKind: SitePermissionDecision] {
-            store
-        }
-
-        func setDecision(
-            _ decision: SitePermissionDecision,
-            forOrigin origin: String, spaceID: UUID, kind: SitePermissionKind
-        ) async throws {
-            store[kind] = decision
-            recordedOrigin = origin
-            recordedSpaceID = spaceID
-        }
-
-        func all() async throws -> [SitePermissionRecord] {
-            store.map { kind, decision in
-                SitePermissionRecord(
-                    spaceID: recordedSpaceID, origin: recordedOrigin, kind: kind, decision: decision
-                )
-            }
-        }
-
-        func revoke(origin: String, spaceID: UUID) async throws {
-            store.removeAll()
-        }
-
-        func clearAll() async throws {
-            store.removeAll()
-        }
-    }
-
+    /// A store with the geolocation fake's repository attached.
+    ///
+    /// The `SitePermissionsRepository` is shared test support
+    /// (`ChordTestSupport.FakeSitePermissions`), keyed on the whole
+    /// `(Space, origin, kind)` tuple like the SQLite one.
     private func makeStore(
         stored: [Tab] = [TabBuilder().url("https://maps.google.com").build()]
     ) async -> (TabStore, FakeSitePermissions) {

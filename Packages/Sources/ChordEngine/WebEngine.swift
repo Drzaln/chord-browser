@@ -284,6 +284,18 @@ public protocol WebEngine: AnyObject {
     /// created here can only ever see that Space's cookies.
     func surface(for pane: Pane, in space: Space) -> AnyWebSurface
 
+    /// The Space a pane's view was built in, for a pane the Store cannot resolve
+    /// itself — the floating Little Chord / Peek panel (4.6) is a real browsing
+    /// surface but belongs to no `Tab`, so nothing above the engine knows which
+    /// Space it is showing.
+    ///
+    /// Recorded when the view is created (from the Space passed to
+    /// `surface(for:in:)`) and dropped when the pane is forgotten. `nil` for a
+    /// pane with no live view. The Store uses it to key a pane's per-site
+    /// permission decisions, which are per-Space (ADR 014) — without it a panel
+    /// page has nowhere to remember an answer and asks again on every visit.
+    func spaceID(forPane paneID: UUID) -> UUID?
+
     /// Deletes a Space's website data. Irreversible; prompt first (3.3).
     func removeData(for space: Space) async throws
 

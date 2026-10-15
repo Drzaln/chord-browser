@@ -52,6 +52,19 @@ ADR 011). A camera decision that leaked across Spaces would be the one identity
 boundary that did not hold, in the one place where the cost of getting it wrong is
 a live microphone.
 
+**Updated 2026-10-15 — the Space for a pane that is in no tab.** The Space was
+resolved from the pane's `Tab` alone, which silently excluded the floating Little
+Chord / Peek panel (4.6): its page is a real browsing surface, but it belongs to no
+`Tab`, so there was no Space to look up *or* to remember under. A granted decision
+was dropped and the site was asked again on every visit — reported in the field as
+Google Meet re-asking for the camera and microphone every time an invite link was
+opened from Gmail/Calendar in a pinned tab, with `meet.google.com` never appearing
+in the settings list. The engine records which Space's data store each pane's view
+was built in (`WebEngine.spaceID(forPane:)`), and the store prefers its own
+tab-based answer — a tab the user moved between Spaces must key on where it is now
+— falling back to the engine only when the pane has no tab. The rule is unchanged;
+only the resolver grew a second source.
+
 ## Consequences
 
 - A granted notification also asks macOS for authorization, since the OS grant is

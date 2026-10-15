@@ -120,6 +120,13 @@ public final class WebKitEngine: WebEngine {
     /// Last known URL per pane, for reload-after-crash.
     private var lastKnownURL: [UUID: URL] = [:]
 
+    /// The Space each live pane's view was built in. The Store has no way to
+    /// answer this for a pane outside a tab (the Little Chord / Peek panel), and
+    /// per-site permission decisions are per-Space (ADR 014) — so the engine,
+    /// which is handed the Space at `surface(for:in:)`, keeps the answer. A
+    /// revived pane re-records it; `forget` drops it.
+    private var paneSpaces: [UUID: UUID] = [:]
+
     /// The URL of the most recently right-clicked link per pane, fed by
     /// `ContextLinkMonitor` and read when "Open in Little Chord" is chosen.
     private var contextLinkURL: [UUID: URL] = [:]
@@ -182,6 +189,8 @@ public final class WebKitEngine: WebEngine {
         let live = liveView(for: pane, in: space)
         return AnyWebSurface(id: pane.id, container: live.container)
     }
+
+    public func spaceID(forPane paneID: UUID) -> UUID? { paneSpaces[paneID] }
 
     public func removeData(for space: Space) async throws {
         // The registry is dropped first, and for a private Space that is the
@@ -260,6 +269,11 @@ public final class WebKitEngine: WebEngine {
 
     private func liveView(for pane: Pane, in space: Space) -> LiveWebView {
         if let existing = pool.view(for: pane.id) { return existing }
+
+        // Recorded here, not at `surface`, so a pane revived after eviction (or
+        // after its tab moved between Spaces) always answers with the Space whose
+        // data store its view is actually using.
+        paneSpaces[pane.id] = space.id
 
         let webView = makeWebView(for: space)
         // The UA is resolved against the page this pane is on, not globally
@@ -507,6 +521,13 @@ public final class WebKitEngine: WebEngine {
         }
         pool.insert(live)
         lastKnownURL[popupPaneID] = url
+        // The popup copied its opener's configuration, so it is showing the
+        // opener's Space's data store — record that for the permission path,
+        // which needs a Space for a pane the store may not have a tab for yet.
+        // The store's own tab-based answer wins once the popup is hosted.
+        if let paneID, let openerSpaceID = paneSpaces[paneID] {
+            paneSpaces[popupPaneID] = openerSpaceID
+        }
         Log.engine.debug("created popup web view for pane \(popupPaneID), \(self.pool.count) live")
 
         delegate?.paneRequestedPopup(url: url, popupPaneID: popupPaneID, fromPane: paneID)
@@ -1328,6 +1349,7 @@ public final class WebKitEngine: WebEngine {
         interactionStates.removeValue(forKey: paneID)
         interactionStateOrder.removeAll { $0 == paneID }
         lastKnownURL.removeValue(forKey: paneID)
+        paneSpaces.removeValue(forKey: paneID)
         contextLinkURL.removeValue(forKey: paneID)
         contextImageURL.removeValue(forKey: paneID)
         mutedPanes.remove(paneID)

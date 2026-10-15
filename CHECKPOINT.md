@@ -4309,3 +4309,47 @@ reach for `WindowDragGesture` from the start rather than background drag.
 panel header in the running app. Everything else (present/dismiss/promote) is
 unchanged.
 
+## Site permissions remembered for a pane in no tab — Peek / Little Chord (2026-10-15)
+
+**The bug.** Opening Google Meet from an invite link in a pinned Gmail/Calendar
+tab (Arc-style **Peek** → the floating Little Chord panel) asked for the camera
+and microphone **every single time**, and allowing it never stuck:
+`meet.google.com` never appeared in Settings → Privacy & Data. A panel page is a
+real browsing surface, but it belongs to no `Tab`, and site permissions are keyed
+per `(Space, origin, kind)` (ADR 014) — the Space was resolved by scanning `tabs`
+alone, so for a panel pane `spaceID(forPane:)` was `nil`. That took the
+"prompt without persist" fallback in `TabStore.requestSitePermission` **and** the
+same guard in `resolveSitePermission`, so the decision was written nowhere. Field
+evidence: the running app's `sitePermission` table had rows for
+`www.transitions.com`/`optikmelawai.com` (camera, in a tab) and none for
+`meet.google.com`, and no Meet visit logged / stored a decision. The panel path
+was known and commented as unreachable ("it always is for a live `getUserMedia`")
+— it is not: a Meet invite in a favourite is exactly this path.
+
+**The fix.** The Space now has a second source, used only when the pane has no
+tab:
+
+- `WebEngine.spaceID(forPane:)` (new requirement) — the engine is handed the Space
+  at `surface(for:in:)`, so it records it per pane (`WebKitEngine.paneSpaces`,
+  set in `liveView(for:in:)`, inherited by `makeAndAdoptPopup` from the opener,
+  dropped in `forget`). `FakeWebEngine` answers from the `spaceForPane` map it
+  already kept.
+- `TabStore.sitePermissionSpaceID(forPane:)` — the tab's Space when the pane is in
+  one (authoritative: a tab moved between Spaces must key on where it is now),
+  else the engine's answer. It replaces the bare `spaceID(forPane:)` in
+  `requestSitePermission`, `resolveSitePermission`, and the two state queries
+  (`paneNotificationPermissionState`, `paneGeolocationPermissionState`), so a
+  panel page's `Notification.permission` also reads back a remembered grant.
+- The write no longer fails silently: a `setDecision` error is logged as
+  `[store] error` (a swallowed write is exactly what makes "ask once" become
+  "ask every time").
+
+**Tests.** New `ChordStoreTests/SitePermissionPanelTests.swift`: the media path
+had no store test at all — camera+microphone prompt together, grant persists per
+Space, denial blocks without re-prompting, a panel pane (no tab) remembers through
+the engine's Space, the state query answers a panel pane, and the degraded
+no-Space fallback still prompts each time. The private fake in
+`GeolocationPermissionTests` moved to `ChordTestSupport.FakeSitePermissions`,
+keyed on the whole `(Space, origin, kind)` tuple so a test can assert *where* a
+decision landed. Verified live per SMOKE → Camera and microphone (open a Meet link
+from a pinned tab twice).

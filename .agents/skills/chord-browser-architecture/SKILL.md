@@ -143,6 +143,15 @@ persists (`v9_window_layout`).
   (with-reply; `op: query` reads without prompting, `op: request` may prompt).
   **Not Web Push.** **ADR 015.**
 - Two permission layers stack: ours per site, macOS's per app. Both must be green.
+- **A pane's Space comes from its tab; a pane in no tab gets it from the engine.**
+  The Peek / Little Chord panel (4.6) is a real browsing surface that belongs to
+  no `Tab`, so `TabStore.spaceID(forPane:)` (tab scan) returns nil for it —
+  `TabStore.sitePermissionSpaceID(forPane:)` then falls back to
+  `WebEngine.spaceID(forPane:)`, which the engine fills in from the Space passed
+  to `surface(for:in:)`. Without that fallback a panel page is asked **every
+  visit** and nothing is written (field bug: Meet invites opened in a Peek panel,
+  2026-10-15). Never key a decision on the *selection* — the tab wins when there
+  is one.
 - **Camera/mic entitlements are required even unsandboxed.** WebKit builds its
   WebContent child sandbox from the host app's entitlements, so
   `com.apple.security.device.camera` / `.microphone` / `.audio-input` must be in

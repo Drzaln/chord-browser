@@ -626,7 +626,7 @@ public final class TabStore {
     /// honour a remembered decision for the pane's Space, else prompt once and let
     /// `resolveSitePermission` persist the answer and resume us.
     private func requestSitePermission(_ prompt: SitePermissionPrompt) async -> Bool {
-        if let spaceID = spaceID(forPane: prompt.paneID) {
+        if let spaceID = sitePermissionSpaceID(forPane: prompt.paneID) {
             let stored =
                 (try? await sitePermissions?.decisions(forOrigin: prompt.origin, spaceID: spaceID))
                 ?? [:]
@@ -656,24 +656,49 @@ public final class TabStore {
         if allow, prompt.kinds.contains(.notification) {
             Task { _ = await notificationPermissionRequester?() }
         }
-        guard let sitePermissions, let spaceID = spaceID(forPane: prompt.paneID) else { return }
+        guard let sitePermissions, let spaceID = sitePermissionSpaceID(forPane: prompt.paneID)
+        else { return }
         // The page gets its answer either way; a private session just does not
         // remember having given one, so the next private window asks again.
         guard !isPrivate(spaceID: spaceID) else { return }
         let decision: SitePermissionDecision = allow ? .granted : .denied
+        let origin = prompt.origin
         Task {
             for kind in prompt.kinds {
-                try? await sitePermissions.setDecision(
-                    decision, forOrigin: prompt.origin, spaceID: spaceID, kind: kind
-                )
+                do {
+                    try await sitePermissions.setDecision(
+                        decision, forOrigin: origin, spaceID: spaceID, kind: kind
+                    )
+                } catch {
+                    // Silently losing the write is what turns "ask once" into
+                    // "ask every time", so it must not be swallowed (7.5).
+                    Log.store.error(
+                        "site permission write failed for \(origin) \(kind.rawValue): "
+                            + "\(error)"
+                    )
+                }
             }
             await refreshSitePermissions()
         }
     }
 
-    /// The Space a pane lives in, for scoping its decision. `nil` if the
-    /// pane is not in any tab (it always is for a live `getUserMedia`, but the
-    /// caller degrades to prompt-without-persist rather than crash).
+    /// The Space a pane's site-permission decision is keyed on (ADR 014).
+    ///
+    /// The tab's Space when the pane is in one: authoritative, because a tab the
+    /// user moved between Spaces must key on where it is now. A pane in no tab —
+    /// the floating Little Chord / Peek panel (4.6) — has no Space the store can
+    /// resolve, so the engine, which built the view against a Space's data store,
+    /// is asked instead. Without that answer a panel page had nowhere to remember
+    /// an answer and re-asked on every visit.
+    func sitePermissionSpaceID(forPane paneID: UUID?) -> UUID? {
+        guard let paneID else { return nil }
+        return spaceID(forPane: paneID) ?? engine.spaceID(forPane: paneID)
+    }
+
+    /// The Space a pane lives in *through its tab*, for scoping a site-permission
+    /// decision. `nil` when the pane is in no tab — the Little Chord / Peek panel
+    /// (4.6) — in which case `sitePermissionSpaceID(forPane:)` asks the engine.
+    /// It also backs `isPrivate(paneID:)` and tab lookup generally.
     func spaceID(forPane paneID: UUID?) -> UUID? {
         guard let paneID else { return nil }
         return tabs.first { $0.panes.contains { $0.id == paneID } }?.spaceID
@@ -1935,7 +1960,7 @@ extension TabStore: WebEngineDelegate {
     public func paneGeolocationPermissionState(
         origin: String, paneID: UUID?
     ) async -> WebGeolocationPermission {
-        guard let spaceID = spaceID(forPane: paneID) else { return .notDetermined }
+        guard let spaceID = sitePermissionSpaceID(forPane: paneID) else { return .notDetermined }
         let stored =
             (try? await sitePermissions?.decisions(forOrigin: origin, spaceID: spaceID)) ?? [:]
         switch stored[.geolocation] {
@@ -1952,7 +1977,7 @@ extension TabStore: WebEngineDelegate {
     public func paneNotificationPermissionState(
         origin: String, paneID: UUID?
     ) async -> WebNotificationPermission {
-        guard let spaceID = spaceID(forPane: paneID) else { return .notDetermined }
+        guard let spaceID = sitePermissionSpaceID(forPane: paneID) else { return .notDetermined }
         let stored =
             (try? await sitePermissions?.decisions(forOrigin: origin, spaceID: spaceID)) ?? [:]
         switch stored[.notification] {

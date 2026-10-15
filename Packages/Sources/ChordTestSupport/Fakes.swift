@@ -40,6 +40,10 @@ public final class FakeWebEngine: WebEngine {
         return .empty(id: pane.id)
     }
 
+    /// Answers from the same map `surface(for:in:)` fills — the question the
+    /// store asks for a pane that is in no tab (the Little Chord / Peek panel).
+    public func spaceID(forPane paneID: UUID) -> UUID? { spaceForPane[paneID] }
+
     public func removeData(for space: Space) async throws {
         if let removeDataError { throw removeDataError }
         removedDataForSpaces.append(space.id)
@@ -303,6 +307,67 @@ public final class FakeWebEngine: WebEngine {
     /// Drives the delegate as a popup's `window.close()` would.
     public func emitPopupClosed(_ paneID: UUID) {
         delegate?.panePopupDidClose(paneID)
+    }
+}
+
+/// In-memory `SitePermissionsRepository` (ADR 014), keyed on the whole
+/// `(Space, origin, kind)` tuple like the SQLite one — so a test can assert both
+/// ask-once and *where* a decision was remembered, which is the part that breaks
+/// for a pane the store cannot resolve a Space for.
+public actor FakeSitePermissions: SitePermissionsRepository {
+    public struct Key: Hashable, Sendable {
+        public let spaceID: UUID
+        public let origin: String
+        public let kind: SitePermissionKind
+
+        public init(spaceID: UUID, origin: String, kind: SitePermissionKind) {
+            self.spaceID = spaceID
+            self.origin = origin
+            self.kind = kind
+        }
+    }
+
+    private var remembered: [Key: SitePermissionDecision] = [:]
+
+    public init() {}
+
+    public func decisions(
+        forOrigin origin: String, spaceID: UUID
+    ) async throws -> [SitePermissionKind: SitePermissionDecision] {
+        var result: [SitePermissionKind: SitePermissionDecision] = [:]
+        for (key, decision) in remembered where key.spaceID == spaceID && key.origin == origin {
+            result[key.kind] = decision
+        }
+        return result
+    }
+
+    public func setDecision(
+        _ decision: SitePermissionDecision,
+        forOrigin origin: String, spaceID: UUID, kind: SitePermissionKind
+    ) async throws {
+        remembered[Key(spaceID: spaceID, origin: origin, kind: kind)] = decision
+    }
+
+    public func all() async throws -> [SitePermissionRecord] {
+        remembered.map { key, decision in
+            SitePermissionRecord(
+                spaceID: key.spaceID, origin: key.origin, kind: key.kind, decision: decision
+            )
+        }
+    }
+
+    public func revoke(origin: String, spaceID: UUID) async throws {
+        remembered = remembered.filter { $0.key.spaceID != spaceID || $0.key.origin != origin }
+    }
+
+    public func clearAll() async throws { remembered = [:] }
+
+    /// The remembered answer for one triple — the assertion the ask-once tests
+    /// need beyond "it did not prompt again".
+    public func decision(
+        origin: String, spaceID: UUID, kind: SitePermissionKind
+    ) -> SitePermissionDecision? {
+        remembered[Key(spaceID: spaceID, origin: origin, kind: kind)]
     }
 }
 
