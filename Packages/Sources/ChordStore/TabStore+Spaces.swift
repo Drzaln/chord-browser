@@ -154,6 +154,9 @@ extension TabStore {
         spaces.remove(at: index)
         lastSelectedTabBySpace[spaceID] = nil
         for window in windows { window.blankSpaceIDs.remove(spaceID) }
+        // A rule naming the Space that just went would be inert at resolution
+        // time, but leaving dead rows in Settings is worse than removing them.
+        routeRules.removeAll { $0.spaceID == spaceID }
 
         if window.activeSpaceID == spaceID, let first = visibleSpaces.first {
             window.activeSpaceID = nil

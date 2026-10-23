@@ -295,6 +295,16 @@ extension NavigationCoordinator: WKScriptMessageHandler {
             engine?.setContextLinkURL(ContextLinkMonitor.linkURL(from: message.body), for: paneID)
         case ContextImageMonitor.messageName:
             engine?.setContextImageURL(ContextImageMonitor.imageURL(from: message.body), for: paneID)
+        case SiteOverridePicker.messageName:
+            guard let result = SiteOverridePicker.result(from: message.body) else { return }
+            if result.cancelled {
+                engine?.delegate?.paneDidCancelSiteOverridePick(fromPane: paneID)
+            } else if let selector = result.selector {
+                engine?.delegate?.panePickedSiteOverrideElement(
+                    selector: selector, host: result.host ?? webView.url?.host() ?? "",
+                    fromPane: paneID
+                )
+            }
         case PasswordFormMonitor.messageName:
             // One handler, two shapes: a submission carries values, a report
             // carries descriptors.

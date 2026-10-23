@@ -109,6 +109,11 @@ public final class WebKitEngine: WebEngine {
     private var globalReferrerPolicy: ReferrerPolicy = .default
     private var referrerOverrides: [ReferrerOverride] = []
 
+    /// Per-site CSS/JS/selector overrides (non-spec: user-requested, ADR 024).
+    /// Injected as one host-guarded user script per web view; an edit takes
+    /// effect on that view's next load, which is the contract the editor states.
+    private var siteOverrides: [SiteOverride] = []
+
     /// Retained so an evicted or crashed pane can be revived without the model
     /// layer having to hand its state back. Capped at `interactionStateCap`
     /// newest entries — the persistence layer is the source of truth for
@@ -347,28 +352,12 @@ public final class WebKitEngine: WebEngine {
     /// NSInvalidArgumentException and takes the app down on the second tab.
     private func makeContentController() -> WKUserContentController {
         let controller = WKUserContentController()
-        controller.addUserScript(MediaActivityMonitor.makeUserScript())
-        controller.addUserScript(ContextLinkMonitor.makeUserScript())
-        controller.addUserScript(ContextImageMonitor.makeUserScript())
-        controller.addUserScript(AudioMuteController.makeUserScript())
-        controller.addUserScript(SleepTimerController.makeUserScript())
-        controller.addUserScript(NotificationBridge.makeUserScript())
-        controller.addUserScript(ScreenShareMonitor.makeUserScript())
-        controller.addUserScript(YouTubeAdBlocker.makeUserScript())
-        controller.addUserScript(PasswordFormMonitor.makeUserScript())
-        controller.addUserScript(GeolocationBridge.makeUserScript())
-        controller.addUserScript(PictureInPictureMonitor.makeUserScript())
-        // The DRM error-capture script is only useful to the Diagnostics panel,
-        // which requires developer mode — so it is only installed (and its
-        // handler registered) when developer mode is on. Skipping it by default
-        // saves a script + handler on every web view for a feature that is off.
-        if developerMode {
-            controller.addUserScript(DRMDiagnosticsMonitor.makeUserScript())
-        }
+        installUserScripts(on: controller)
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
             controller.add(coordinator, name: ContextImageMonitor.messageName)
+            controller.add(coordinator, name: SiteOverridePicker.messageName)
             controller.add(coordinator, name: NotificationBridge.showMessageName)
             controller.add(coordinator, name: ScreenShareMonitor.messageName)
             controller.add(coordinator, name: PasswordFormMonitor.messageName)
@@ -401,6 +390,43 @@ public final class WebKitEngine: WebEngine {
             controller.add(list)
         }
         return controller
+    }
+
+    /// Installs (or re-installs) every user script on a controller.
+    ///
+    /// Split out from `makeContentController` because the per-site overrides
+    /// change at runtime and `WKUserContentController` has no public
+    /// `removeUserScript` — the only way to replace one is to clear the scripts
+    /// and add the set back. Handlers are registered separately and are
+    /// unaffected. A fresh install only takes effect on the next navigation,
+    /// which is exactly the contract the overrides editor states.
+    private func installUserScripts(on controller: WKUserContentController) {
+        controller.removeAllUserScripts()
+        controller.addUserScript(MediaActivityMonitor.makeUserScript())
+        controller.addUserScript(ContextLinkMonitor.makeUserScript())
+        controller.addUserScript(ContextImageMonitor.makeUserScript())
+        controller.addUserScript(AudioMuteController.makeUserScript())
+        controller.addUserScript(SleepTimerController.makeUserScript())
+        controller.addUserScript(NotificationBridge.makeUserScript())
+        controller.addUserScript(ScreenShareMonitor.makeUserScript())
+        controller.addUserScript(YouTubeAdBlocker.makeUserScript())
+        controller.addUserScript(PasswordFormMonitor.makeUserScript())
+        controller.addUserScript(GeolocationBridge.makeUserScript())
+        controller.addUserScript(PictureInPictureMonitor.makeUserScript())
+        // The DRM error-capture script is only useful to the Diagnostics panel,
+        // which requires developer mode — so it is only installed (and its
+        // handler registered) when developer mode is on. Skipping it by default
+        // saves a script + handler on every web view for a feature that is off.
+        if developerMode {
+            controller.addUserScript(DRMDiagnosticsMonitor.makeUserScript())
+        }
+        // Per-site overrides (non-spec: user-requested, ADR 024). Absent when
+        // nothing is enabled, so an install with no overrides carries no extra
+        // scripts. One for CSS plus one per override with JS, so a syntax error
+        // in somebody's script cannot take the stylesheets down with it.
+        for script in SiteOverrideInjector.makeUserScripts(overrides: siteOverrides) {
+            controller.addUserScript(script)
+        }
     }
 
     /// The shared post-configuration a web view needs before it is usable —
@@ -574,6 +600,33 @@ public final class WebKitEngine: WebEngine {
     public func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride]) {
         globalReferrerPolicy = global
         referrerOverrides = overrides
+    }
+
+    /// Starts the element picker on a pane's live page (non-spec: user-requested,
+    /// ADR 024) and reports through the delegate.
+    @discardableResult
+    public func beginPickingElement(paneID: UUID) -> Bool {
+        guard let webView = pool.view(for: paneID)?.webView else { return false }
+        webView.evaluateJavaScript(SiteOverridePicker.source) { _, error in
+            if let error {
+                Log.engine.debug("site override picker failed: \(String(describing: error))")
+            }
+        }
+        return true
+    }
+
+    /// Applies the per-site overrides (non-spec: user-requested, ADR 024).
+    ///
+    /// Stored for views built later, and swapped onto every live view now: the
+    /// old script is removed before the new one is added, or repeated edits would
+    /// stack scripts and apply the same CSS once per edit. Existing pages pick it
+    /// up on their next load — reloading every tab on a settings keystroke would
+    /// throw away what the user was reading.
+    public func setSiteOverrides(_ overrides: [SiteOverride]) {
+        siteOverrides = overrides
+        for live in pool.liveViews {
+            installUserScripts(on: live.webView.configuration.userContentController)
+        }
     }
 
     /// The configured search provider's display name, shown in the page context

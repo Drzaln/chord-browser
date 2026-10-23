@@ -290,6 +290,29 @@ public final class TabStore {
         userAgentOverrides.removeAll { $0.domain == domain }
     }
 
+    /// "This site belongs in that Space" rules (non-spec: user-requested). A
+    /// default only: an explicit Space choice, a split, a Peek, or a private
+    /// window all win. Persisted as a preference, like the per-domain UA map
+    /// beside it. ADR 023.
+    public var routeRules: [RouteRule] = Preferences.loadRouteRules() {
+        didSet { Preferences.save(routeRules: routeRules, to: preferenceStore) }
+    }
+
+    /// Per-site CSS/JS/hidden-selector overrides (non-spec: user-requested). The
+    /// setter pushes the whole list to the engine, which rebuilds the injected
+    /// script; edits take effect on each page's next load. ADR 024.
+    public var siteOverrides: [SiteOverride] = Preferences.loadSiteOverrides() {
+        didSet {
+            Preferences.save(siteOverrides, to: preferenceStore)
+            pushSiteOverrides()
+        }
+    }
+
+    /// The override pattern the running element picker will write into. Set when
+    /// the user starts a pick and consumed by the engine's reply, so a pick that
+    /// lands on a different site cannot silently edit the wrong override.
+    @ObservationIgnored var pendingPickPattern: String?
+
     /// The global referrer policy (non-spec: user-requested). Persisted and
     /// pushed to the engine like the User-Agent setting beside it.
     public var referrerPolicy: ReferrerPolicy = Preferences.loadReferrerPolicy() {
@@ -814,6 +837,9 @@ public final class TabStore {
         // Same for the referrer policy: its `didSet` does not fire for the
         // initial value either.
         self.pushReferrerPolicy()
+        // Same for the per-site overrides: without this the engine would start
+        // with none and no page would get its CSS until the first edit.
+        self.pushSiteOverrides()
         // Same for the search engine's name: its `didSet` does not fire for the
         // initial value, so the context menu would read "Search with Google".
         self.pushSearchEngineName()
@@ -963,13 +989,21 @@ public final class TabStore {
     /// tab in the window's active Space and make it that window's selection.
     /// Returns the new tab's id so a caller (like the "opened in new tab" toast)
     /// can point at the tab it created.
+    ///
+    /// `spaceID` lets a routing rule (ADR 023) put the tab in a Space the window
+    /// is not currently showing. When `selecting` is true the window is switched
+    /// there first, because a selected tab in an invisible Space is a tab the
+    /// user cannot see.
     
-    private func insertTab(panes: [Pane], in window: WindowState, selecting: Bool) -> UUID {
-        guard let spaceID = activeSpace(in: window)?.id else { return UUID() }
+    func insertTab(
+        panes: [Pane], in window: WindowState, spaceID explicitSpaceID: UUID? = nil,
+        selecting: Bool
+    ) -> UUID {
+        guard let spaceID = explicitSpaceID ?? activeSpace(in: window)?.id else { return UUID() }
 
         // Order is per-Space, so a new tab in one Space does not push another
         // Space's tabs down the list.
-        let order = (visibleTabs(in: window).map(\.placement.order).max() ?? -1) + 1
+        let order = (tabs.filter { $0.spaceID == spaceID }.map(\.placement.order).max() ?? -1) + 1
         let tab = Tab(
             spaceID: spaceID,
             placement: .ephemeral(order: order),
@@ -983,17 +1017,25 @@ public final class TabStore {
         // resolved rather than spending a disk read to discover that — and to
         // avoid withholding its surface for a frame.
         for pane in panes { stateResolution[pane.id] = .resolved }
-        let previous = window.selectedTabID
+        // A tab in the Space means the Space is not blank any more — true for a
+        // routed background tab too, which is exactly why this cannot live under
+        // `if selecting`: the tab would be there but the Space would keep showing
+        // its empty-state bar until something else cleared it.
+        window.blankSpaceIDs.remove(spaceID)
         extensionHost?.extensionTabDidOpen(tab.id, inSpace: spaceID)
         if selecting {
+            // A routed open into another Space: show it, or the user is looking
+            // at a Space that does not contain the tab they just asked for.
+            if window.activeSpaceID != spaceID {
+                selectSpace(spaceID, in: window)
+            }
+            let previous = window.selectedTabID
             window.selectedTabID = tab.id
             // The tab this new one replaced becomes its "previously active", so
             // closing the new tab returns to it rather than a positional
             // neighbour.
             recordSelection(tab.id, replacing: previous, in: window)
             extensionHost?.extensionTabDidActivate(tab.id, previous: previous, inSpace: spaceID)
-            // Opening a tab resolves a blank state; drop the bar and the mark.
-            window.blankSpaceIDs.remove(spaceID)
             if previous == nil { closeLeftBlankDismisser?(window) }
         }
         scheduleSave()
@@ -1882,6 +1924,10 @@ extension TabStore: WebEngineDelegate {
         // private session — which is what the user asked for by right-clicking
         // there.
         let targetWindow = paneID.map { window(showingPane: $0) } ?? primaryWindow
+        // A routing rule can put the tab in another Space. It stays in the
+        // background either way: a ⌘-click means "keep this", not "take me
+        // there" (ADR 023).
+        if openRoutedBackgroundTab(url: url, in: targetWindow) != nil { return }
         let tabID = newTab(url: url, in: targetWindow, selecting: false)
         // A clickable confirmation: tapping it switches to the tab it just opened
         // (non-spec: user-requested). The toast lives on that window, so the

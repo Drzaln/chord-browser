@@ -557,6 +557,19 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   no-op'd). A `PictureInPictureMonitor` user script watches
   `webkitpresentationmodechanged` so the menu's Enter/Exit label stays honest
   when PiP is started/ended outside the command. Non-spec, user-requested.
+- **Routing rules and site overrides** (2026-10-23; ADR 023 and ADR 024) —
+  Settings → Sites. **Routing rules** send a site's links to the Space it belongs
+  in (host pattern → Space, subdomains included, longest match wins). A rule is a
+  default: split, Peek, and private windows win. An external launch switches to
+  the target Space and selects the tab; a ⌘-clicked / `target=_blank` link is
+  appended there in the background with a toast. `window.open()` popups are not
+  routed (their web view is bound to the opener's data store). **Site overrides**
+  are per-site CSS, JS, and a list of hidden elements (`display: none` in an
+  injected stylesheet, so it survives SPA re-render). An in-page element picker
+  writes the shortest usable selector; it is main-frame only. Both apply on the
+  next load, are stored as preferences (`prefs.routeRules`,
+  `prefs.siteOverrides`), and are ignored in private windows (rules) / global
+  across Spaces (overrides). Non-spec, user-requested.
 - **Offline Space Impact easter egg** (2026-10-08; details in the CHECKPOINT
   2026-10-08 section) — when a navigation fails for want of a network
   (`NSURLErrorNotConnectedToInternet` / `NSURLErrorNetworkConnectionLost`), the

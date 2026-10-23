@@ -147,6 +147,15 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **User-Agent control** — Default / Chrome / Firefox / Safari-iPhone or a custom
   string from **Settings → General**, plus **per-domain override rules** (e.g.
   force `meet.google.com` back to Default), for the occasional site that sniffs.
+- **Routing rules** — send a site's links to the Space they belong in
+  (**Settings → Sites**): host pattern → Space, subdomains included. External
+  launches land there and are shown; ⌘-clicked links are queued there in the
+  background. Split, Peek, and private windows still win
+  ([ADR 023](docs/adr/023-routing-rules-decide-the-space.md)).
+- **Site overrides** — per-site CSS, JavaScript, and click-to-hide elements
+  (**Settings → Sites**). Hiding is a stylesheet, so it survives a page's own
+  re-renders; changes apply on the next load
+  ([ADR 024](docs/adr/024-site-overrides-are-generated-css.md)).
 - **Settings** (`Cmd+,`) — General preferences, clear browsing data (cache,
   cookies, site storage, history) across every Space, per-site permission
   management, extensions, and updates.

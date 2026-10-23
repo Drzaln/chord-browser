@@ -178,18 +178,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// glance, and promoting is one keystroke away.
     func application(_ application: NSApplication, open urls: [URL]) {
         let webLinks = urls.filter { $0.scheme == "http" || $0.scheme == "https" }
-        guard let url = webLinks.first else { return }
+        guard let url = webLinks.first, let store = launch.store else { return }
 
         if webLinks.count > 1 {
             // Several at once is a "open all of these" gesture, not a peek. They
             // land in the window the user last focused (the same window Little Chord
             // promotion targets), falling back to the primary at a cold launch.
             for extra in webLinks.dropFirst() {
-                guard let store = launch.store else { break }
-                store.newTab(url: extra, in: store.focusedNonPrivateWindow)
+                store.openExternallyAlongside(extra)
             }
         }
-        littleChord?.present(url: url)
+        // The store, not this delegate, decides whether the link opens in Little
+        // Chord or in the Space a routing rule names (ADR 023).
+        store.openExternally(url)
     }
 
     /// The Little Chord panel can be the only window there is (4.6), so the app

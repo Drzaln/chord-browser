@@ -129,6 +129,23 @@ public final class FakeWebEngine: WebEngine {
         referrerPolicySetCount += 1
     }
 
+    /// What the store last pushed for per-site overrides (non-spec:
+    /// user-requested), and how many times.
+    public private(set) var appliedSiteOverrides: [SiteOverride] = []
+    public private(set) var siteOverridesSetCount = 0
+    public func setSiteOverrides(_ overrides: [SiteOverride]) {
+        appliedSiteOverrides = overrides
+        siteOverridesSetCount += 1
+    }
+
+    /// Which panes the store asked to start the element picker on.
+    public private(set) var pickingPanes: [UUID] = []
+    public var canPickElements = true
+    public func beginPickingElement(paneID: UUID) -> Bool {
+        pickingPanes.append(paneID)
+        return canPickElements
+    }
+
     /// Cookies the fake reports for any URL, and the URLs it was asked to clear
     /// (non-spec: user-requested, the per-site cookie view).
     public var siteCookies: [SiteCookie] = []

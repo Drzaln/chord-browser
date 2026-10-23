@@ -196,6 +196,43 @@ native behaviour (the swipe just does nothing); toggle it off here any time.
   which codecs and HDCP levels this machine's engine and display chain support
   (handy for diagnosing why a 4K/HDR stream downgrades).
 
+## Sites — routing and overrides
+
+**Settings → Sites** holds the two per-site tools.
+
+**Routing rules** answer "where does this site belong?". Add a domain and pick a
+Space, and:
+
+- a link **from another app** opens in that Space (the window switches there, so
+  you can see it);
+- a **⌘-click or `target=_blank`** link is added to that Space in the background
+  — the window does not move, and a toast says where it went (click the toast to
+  go there). Untick **New tabs** on a rule to route only external launches.
+
+A rule covers the domain and its subdomains (`figma.com` matches
+`www.figma.com`), the most specific rule wins, and the toggle beside a rule turns
+it off without deleting it. Rules never apply in private windows, and an explicit
+choice — splitting a pane, opening a link from a pinned tab in Peek, switching
+Space yourself — always wins over a rule. `window.open()` popups stay in the
+Space they were opened from, because their web view belongs to that Space's
+session.
+
+**Site overrides** change how a site looks:
+
+- **CSS** — your own stylesheet, appended to the site's pages.
+- **JavaScript** — your own script, run at the top of matching pages. It runs in
+  the page's own world, so it can do anything you could do from the Web
+  Inspector; only paste code you trust.
+- **Hidden elements** — click **Pick on Page**, then click the element you want
+  gone (Escape cancels), or type a CSS selector (`.sidebar`, `#promo`) and press
+  **Hide**. Hiding is applied as a stylesheet rule, so it survives the page
+  redrawing itself and does not slow the site down. The picker works on the page
+  itself, not inside embedded frames from other sites.
+
+Overrides match the domain and its subdomains, apply in every Space, and take
+effect the **next time the page loads** — press `Cmd+R` (or the Save button's
+hint) to see a change. Edits are saved with **Save**, not as you type.
+
 ## Updates
 
 **Settings → Updates** keeps Chord current without a manual download:

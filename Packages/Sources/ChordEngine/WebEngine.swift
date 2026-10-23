@@ -196,6 +196,12 @@ public protocol WebEngineDelegate: AnyObject {
     ) async -> WebGeolocationPermission
     /// The content process died. The pane's model is intact; the view is gone.
     func paneContentProcessDidTerminate(_ paneID: UUID)
+    /// The element picker chose something on a page (non-spec: user-requested,
+    /// ADR 024). Carries the generated selector and the page's host so the store
+    /// can refuse a pick made on a different site than the override names.
+    func panePickedSiteOverrideElement(selector: String, host: String, fromPane paneID: UUID)
+    /// The element picker was cancelled (Escape) or the page navigated away.
+    func paneDidCancelSiteOverridePick(fromPane paneID: UUID)
 }
 
 extension WebEngineDelegate {
@@ -230,6 +236,8 @@ public func paneRequestedMediaCapture(_ prompt: SitePermissionPrompt) async -> B
     ) {}
     public func paneDidCaptureThumbnail(_ paneID: UUID, data: Data?) {}
     public func paneDidChangePictureInPicture(_ paneID: UUID, active: Bool) {}
+    public func panePickedSiteOverrideElement(selector: String, host: String, fromPane paneID: UUID) {}
+    public func paneDidCancelSiteOverridePick(fromPane paneID: UUID) {}
 }
 
 /// What a fill did or did not happen. Distinguished because "we refused" and
@@ -370,6 +378,19 @@ public protocol WebEngine: AnyObject {
     /// main resource and every subresource of the frame. A no-op on runtimes
     /// before macOS 27, where the API does not exist.
     func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride])
+
+    /// Sets the per-site overrides (non-spec: user-requested, ADR 024): CSS, JS
+    /// and zapped selectors injected into matching pages. Applies to views built
+    /// afterwards and to any already live; an existing page sees the change on
+    /// its next load.
+    func setSiteOverrides(_ overrides: [SiteOverride])
+
+    /// Starts the element picker on a pane's live page (non-spec: user-requested,
+    /// ADR 024). Evaluated into the current document, not injected as a user
+    /// script, so it can act on a page that is already loaded. Returns false when
+    /// the pane has no live view.
+    @discardableResult
+    func beginPickingElement(paneID: UUID) -> Bool
 
     /// The configured search provider's display name, so the page context
     /// menu's "Search with …" item reads the provider the user chose instead of
@@ -533,6 +554,11 @@ extension WebEngine {
     /// Default so test doubles and any non-WebKit engine need not implement the
     /// referrer plumbing; only `WebKitEngine` gives real behaviour.
     public func setReferrerPolicy(_ global: ReferrerPolicy, overrides: [ReferrerOverride]) {}
+    /// Default so test doubles need not implement the site-override plumbing;
+    /// only `WebKitEngine` gives real behaviour. `FakeWebEngine` overrides it to
+    /// record what the store pushed.
+    public func setSiteOverrides(_ overrides: [SiteOverride]) {}
+    public func beginPickingElement(paneID: UUID) -> Bool { false }
     public func setSearchEngine(name: String) {}
     /// Defaults so test doubles and any non-WebKit engine need not implement the
     /// per-site cookie plumbing; only `WebKitEngine` gives real behaviour.

@@ -557,6 +557,31 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
 - [ ] The scale-and-fade entry reads well, and Reduce Motion skips it
 - [ ] Browsing inside the panel and _then_ promoting keeps where you got to
 
+### Sites — routing rules & site overrides (2026-10-23)
+
+- [ ] **Settings → Sites** shows both lists, and adds a rule with a host and a
+      Space; a bad host (`chrome`, empty) is refused with a hint
+- [ ] A link from another app to a ruled site lands in the target Space and the
+      window **switches** to it with the tab selected
+- [ ] A ⌘-click on a ruled site's link opens the tab in the target Space
+      **without** switching Space, and the toast names that Space
+- [ ] Clicking that toast switches to the Space and selects the tab
+- [ ] Unticking **New tabs** on a rule routes external launches only
+- [ ] A rule covers `www.` and other subdomains; a lookalike (`notfigma.com`)
+      does not match
+- [ ] A private window ignores rules (an external link still opens Little Chord)
+- [ ] Deleting the target Space removes its rules from Settings
+- [ ] A popup (`window.open`, e.g. an OAuth login) stays in its own Space
+- [ ] An override's **CSS** changes the page on the next reload, and not before
+- [ ] **JavaScript** runs on the next load; a throwing script does not break the
+      page
+- [ ] **Pick on Page** highlights the element under the cursor; a click hides it
+      immediately and survives a page re-render; Escape cancels
+- [ ] A pick made after navigating to another site is refused with a toast
+- [ ] Overrides are disabled by their toggle without deleting the text, and the
+      disabled override no longer applies after a reload
+- [ ] Overrides and rules survive quit and relaunch
+
 ### Window chrome
 
 - [x] No dead band above the web content — the card starts at the top inset,

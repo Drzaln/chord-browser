@@ -17,6 +17,7 @@ public struct SettingsView: View {
 
     private enum Section: String, CaseIterable, Identifiable {
         case general = "General"
+        case sites = "Sites"
         case passwords = "Passwords"
         case privacy = "Privacy & Data"
         case extensions = "Extensions"
@@ -60,6 +61,9 @@ public struct SettingsView: View {
                 case .general:
                     GeneralSettings(store: store, windowState: windowState)
                         .padding(20)
+                case .sites:
+                    SitesSettings(store: store)
+                        .padding(20)
                 case .passwords:
                     PasswordsSettings(store: store)
                         .padding(20)
@@ -75,8 +79,8 @@ public struct SettingsView: View {
                 }
             }
         }
-        // Wide enough for all five segmented labels ("Privacy & Data" is the
+        // Wide enough for all six segmented labels ("Privacy & Data" is the
         // longest) so the control does not overflow and clip at the edges.
-        .frame(width: 660, height: 480)
+        .frame(width: 720, height: 480)
     }
 }

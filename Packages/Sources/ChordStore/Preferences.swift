@@ -25,6 +25,8 @@ enum Preferences {
     private static let swipeToCloseEnabledKey = "prefs.swipeToCloseEnabled"
     private static let developerModeKey = "prefs.developerMode"
     private static let pageZoomKey = "prefs.pageZoom"
+    private static let routeRulesKey = "prefs.routeRules"
+    private static let siteOverridesKey = "prefs.siteOverrides"
 
     static func loadSearchEngine(
         _ defaults: any PreferenceStore = UserDefaults.standard
@@ -254,6 +256,42 @@ enum Preferences {
         pageZoom factor: Double, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         defaults.set(PageZoom.clamped(factor), forKey: pageZoomKey)
+    }
+
+    // MARK: - Routing rules
+
+    /// "This site belongs in that Space" rules (non-spec: user-requested). A list
+    /// of choices like the per-domain UA map, not schema-bound user data — so it
+    /// lives here rather than in a table. A rule naming a Space that has since
+    /// been deleted is inert at resolution time (see `RouteRules.destination`),
+    /// and the Space deletion path removes it anyway.
+    static func loadRouteRules(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> [RouteRule] {
+        decode([RouteRule].self, forKey: routeRulesKey, from: defaults) ?? []
+    }
+
+    static func save(
+        routeRules: [RouteRule], to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(routeRules, forKey: routeRulesKey, to: defaults)
+    }
+
+    // MARK: - Site overrides
+
+    /// Per-site CSS/JS/hidden selectors (non-spec: user-requested). Text the user
+    /// wrote, tied to no Space, and small — a few KB at most — so `UserDefaults`
+    /// is the right shelf for it.
+    static func loadSiteOverrides(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> [SiteOverride] {
+        decode([SiteOverride].self, forKey: siteOverridesKey, from: defaults) ?? []
+    }
+
+    static func save(
+        _ overrides: [SiteOverride], to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(overrides, forKey: siteOverridesKey, to: defaults)
     }
 
     // MARK: - JSON helpers
