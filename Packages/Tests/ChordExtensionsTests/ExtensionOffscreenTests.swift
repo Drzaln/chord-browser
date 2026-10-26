@@ -20,8 +20,20 @@ struct ExtensionOffscreenTests {
         try manifest.write(
             to: dir.appending(path: "manifest.json"), atomically: true, encoding: .utf8
         )
-        try "<!doctype html><html><head></head><body>offscreen</body></html>"
+        try """
+            <!doctype html><html><head></head><body>offscreen</body>
+            <script src="offscreen.js"></script></html>
+            """
             .write(to: dir.appending(path: "offscreen.html"), atomically: true, encoding: .utf8)
+        try """
+            chrome.runtime.onMessage.addListener((message, sender, respond) => {
+              if (message && message.target === "offscreen") {
+                respond({ pong: message.ping });
+                return true;
+              }
+            });
+            """
+            .write(to: dir.appending(path: "offscreen.js"), atomically: true, encoding: .utf8)
         try ExtensionShims.prepare(dir, fresh: true)
         return (
             InstalledExtension(
@@ -61,6 +73,18 @@ struct ExtensionOffscreenTests {
             arguments: [:], in: nil, contentWorld: .page
         )
         #expect(has as? Bool == true)
+
+        // A worker's `runtime.sendMessage({target: "offscreen"})` is handed to
+        // the document by the browser, because WebKit does not deliver to this
+        // hidden page on its own.
+        let reply = try await ExtensionOffscreen.send(
+            ["target": "offscreen", "ping": 7],
+            sender: ["id": installed.identifier, "url": "chrome-extension://\(installed.identifier)/background.js"],
+            token: "test-worker", identifier: installed.identifier, spaceID: space.id
+        ) as? [String: Any]
+        #expect(reply?["handled"] as? Bool == true)
+        let value = reply?["value"] as? [String: Any]
+        #expect(value?["pong"] as? Int == 7)
 
         _ = try await ExtensionShimBroker.answer(
             ["api": "offscreen.closeDocument", "args": []],

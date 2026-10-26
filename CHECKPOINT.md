@@ -4566,3 +4566,63 @@ Follow-up from that probe:
 - The store field's Add button correctly stays disabled until SwiftUI sees a
   typed id; AppleScript `set value` bypasses the binding, so the live probe uses
   real keystrokes.
+
+### M9e — real-extension matrix (2026-10-27)
+
+Run against real Chrome Web Store bundles, first through the opt-in
+`RealExtensionProbeTests` (`CHORD_REAL_EXTENSIONS=1`) and then live in a
+throwaway `CFFIXED_USER_HOME` so no real session was touched. All six installed
+from Settings by store id, enabled in the active Space, and showed a header
+action.
+
+| Extension | Install | Signature | Worker | Action | Popup | Content scripts | Native host | Offscreen | Side panel |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| uBlock Origin Lite | yes | verified | yes | yes | renders | dynamic only | declared, not used | declared | no |
+| Bitwarden | yes | verified | yes | yes | spinner (parked) | 2 scripts / 4 matches | optional, absent | declared | declared |
+| Tampermonkey | yes | verified | yes | yes | renders | dynamic only | absent | declared | no |
+| 1Password | yes | verified | yes | yes | not opened | 8 scripts / 28 matches | absent on this Mac | no | no |
+| Claude | yes | verified | yes | yes | click → side panel tab | 3 scripts / 4 matches | absent on this Mac | declared | declared |
+| Figma | yes | verified | yes | yes | click only | 2 scripts / 6 matches | absent | no | no |
+
+**Fixed from the matrix.**
+
+- **CRX3 verification was checking a format Chrome does not use.** The old
+  verifier wanted an archive SHA-256 inside `signed_header_data` and checked the
+  RSA proof over the header alone; real store CRX3 has only `crx_id` there and
+  signs `"CRX3 SignedData\0" + u32le(header length) + header + archive`. Every
+  store install therefore read as `.unsupported`. The verifier now builds and
+  verifies Chrome's signing payload, so all six report `.verified`. Tests build
+  real signed payloads and still catch a tampered ZIP or header.
+- **Worker messages addressed to `target: "offscreen"` never reached the
+  offscreen document.** WebKit does not deliver extension messages to that
+  hidden page. The shim now hands those messages to
+  `ExtensionOffscreen.send`, rejects with Chrome's "Receiving end does not
+  exist" when no document is open, and keeps WebKit's delivery for every other
+  message. `ExtensionOffscreenTests` covers the dispatch round trip.
+- **The manager listed 32-letter Chrome ids instead of names.** Store slugs are
+  ids, and four bundles carry `"__MSG_extName__"` in their manifest. The row now
+  shows the localized manifest `name` (resolved from `_locales/<default>`) and
+  its version, with the Chrome id in the help text.
+
+**Parked, with evidence.**
+
+- Bitwarden's popup stays on its spinner. That is the `webkit-arc-like-browser-exn`
+  worker/port failure; its recovery code is not in this worktree, so it was not
+  duplicated here.
+- Claude and Figma actions that open `sidepanel.html?tabId=…` land on a blank
+  fallback tab. The page is a real side-panel page waiting for a worker port;
+  the docked panel and the port work are separate slices.
+- Tampermonkey's worker logs `unhandled: no response` once a second after about a
+  minute. It sends to an offscreen document it only creates for downloads, and
+  its own copied `lastError` descriptor does not see the shim's value. The
+  routing above is correct; no Chrome-visible response exists to fake.
+- Claude's `anthropic-client-platform` header rule is refused by WebKit and
+  dropped one-by-one, so the rest of its rules load (M9d DNR transforms).
+- 1Password's WASM core reports "not initialized" five times at startup; its
+  manifest allows `wasm-unsafe-eval`, so this is a WebKit/engine gap, not a CSP
+  one. Its native host is not installed on this Mac.
+- 1Password and Claude cannot reach their native hosts here because those hosts
+  are absent; uBlock Lite and Tampermonkey declare `nativeMessaging` but never
+  call it at load.
+
+`scripts/prepush.sh` remains the release gate; the probe stays opt-in.

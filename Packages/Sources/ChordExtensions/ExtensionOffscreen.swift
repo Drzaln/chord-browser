@@ -48,10 +48,19 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
         // WebKit needs a tab adapter to identify content scripts in this
         // page's frames. It is never inserted into a Space's tab row.
         context.didOpenTab(document)
+        Log.extensions.debug(
+            "creating offscreen document \(url.path) for \(context.uniqueIdentifier)"
+        )
         do {
             try await document.load()
+            Log.extensions.debug(
+                "offscreen document ready for \(context.uniqueIdentifier)"
+            )
         } catch {
             close(identifier: context.uniqueIdentifier, spaceID: spaceID)
+            Log.extensions.error(
+                "offscreen document failed for \(context.uniqueIdentifier): \(String(describing: error))"
+            )
             throw error
         }
     }

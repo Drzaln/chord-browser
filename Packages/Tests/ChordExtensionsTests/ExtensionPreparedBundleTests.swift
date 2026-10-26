@@ -44,6 +44,39 @@ struct ExtensionPreparedBundleTests {
         )
     }
 
+    @Test func resolvesLocalisedManifestName() throws {
+        let folder = try makeSource(files: [
+            "manifest.json": """
+                {
+                  "manifest_version": 3,
+                  "name": "__MSG_extName__",
+                  "default_locale": "en",
+                  "version": "1.0"
+                }
+                """,
+            "_locales/en/messages.json": """
+                { "extName": { "message": "Localised Test" } }
+                """,
+        ])
+        defer { try? FileManager.default.removeItem(at: folder) }
+        #expect(ExtensionBundle.displayName(at: folder) == "Localised Test")
+        #expect(ExtensionBundle.displayName(at: folder) != "__MSG_extName__")
+
+        // A key no locale defines is left as the manifest wrote it.
+        let missing = try makeSource(files: [
+            "manifest.json": """
+                {
+                  "manifest_version": 3,
+                  "name": "__MSG_missing__",
+                  "default_locale": "en",
+                  "version": "1.0"
+                }
+                """,
+        ])
+        defer { try? FileManager.default.removeItem(at: missing) }
+        #expect(ExtensionBundle.displayName(at: missing) == "__MSG_missing__")
+    }
+
     private static let manifest = """
         {
           "manifest_version": 3,
@@ -115,6 +148,7 @@ struct ExtensionPreparedBundleTests {
 
         let listed = try installer.installedExtensions().first
         #expect(listed?.identifier == installed.identifier)
+        #expect(listed?.displayName == "Prepared Test")
         #expect(listed?.version == "1.2.3")
         #expect(listed?.resourceURL == installed.resourceURL)
     }

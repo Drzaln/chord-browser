@@ -1,5 +1,4 @@
 import ChordCrypto
-import CryptoKit
 import Foundation
 import Security
 import Testing
@@ -121,7 +120,7 @@ struct ExtensionSignatureVerifierTests {
             == ChromeExtensionID.fromPath(path))
     }
 
-    @Test("A tampered CRX3 ZIP body is detected via its archive hash")
+    @Test("A tampered CRX3 ZIP body is detected by the signed payload")
     func tamperedCRX3ZipDetected() async throws {
         let key = try makeKey()
         var crx = try makeCRX3(zip: Self.zip, key: key)
@@ -132,12 +131,15 @@ struct ExtensionSignatureVerifierTests {
     @Test("A tampered CRX3 signed header is detected via its signature")
     func tamperedCRX3HeaderDetected() async throws {
         let key = try makeKey()
-        let signedHeaderData = protoBytes(2, Data(SHA256.hash(data: Self.zip)))
+        let id = ChromeExtensionID.fromPublicKey(key.publicSPKI)
+        let signedHeaderData = protoBytes(1, try idBytes(id))
         // The stored signed_header_data gains a field AFTER it was signed; the
-        // ZIP hash still matches, so only the header signature can catch it.
+        // ZIP is untouched, so only the header signature can catch it.
         let tampered = signedHeaderData + protoBytes(1, Data([0x01, 0x02, 0x03]))
         let proof = protoBytes(1, key.publicSPKI)
-            + protoBytes(2, try sign(signedHeaderData, key: key.privateKey))
+            + protoBytes(2, try sign(
+                crx3Payload(signedHeaderData, zip: Self.zip), key: key.privateKey
+            ))
         let header = protoBytes(2, proof) + protoBytes(10000, tampered)
         var crx = Data("Cr24".utf8)
         crx += le32(3)
@@ -208,16 +210,17 @@ struct ExtensionSignatureVerifierTests {
     }
 
     /// CRX3: `Cr24` | version:u32 | headerSize:u32 | protobuf header | ZIP.
-    /// The header carries one sha256_with_rsa proof signing `signed_header_data`,
-    /// which holds the SHA-256 of the ZIP.
+    /// The header carries one sha256_with_rsa proof signing Chrome's payload:
+    /// the `crx_id` header and the ZIP archive together.
     private func makeCRX3(
         zip: Data, key: KeyFixture, identifier: String? = nil
     ) throws -> Data {
         let id = identifier ?? ChromeExtensionID.fromPublicKey(key.publicSPKI)
         let signedHeaderData = protoBytes(1, try idBytes(id))
-            + protoBytes(2, Data(SHA256.hash(data: zip)))
         let proof = protoBytes(1, key.publicSPKI)
-            + protoBytes(2, try sign(signedHeaderData, key: key.privateKey))
+            + protoBytes(2, try sign(
+                crx3Payload(signedHeaderData, zip: zip), key: key.privateKey
+            ))
         let header = protoBytes(2, proof) + protoBytes(10000, signedHeaderData)
         var data = Data("Cr24".utf8)
         data += le32(3)
@@ -225,6 +228,15 @@ struct ExtensionSignatureVerifierTests {
         data += header
         data += zip
         return data
+    }
+
+    /// Chrome's CRX3 signing payload (the format the store actually uses).
+    private func crx3Payload(_ signedHeaderData: Data, zip: Data) -> Data {
+        var payload = Data("CRX3 SignedData\0".utf8)
+        payload += le32(UInt32(signedHeaderData.count))
+        payload += signedHeaderData
+        payload += zip
+        return payload
     }
 
     /// Chrome ids are two letters per byte; turn one back into the bytes a

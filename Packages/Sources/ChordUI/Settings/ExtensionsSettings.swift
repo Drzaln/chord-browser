@@ -136,9 +136,18 @@ struct ExtensionsSettings: View {
         HStack(spacing: 10) {
             Image(systemName: "puzzlepiece.extension.fill")
                 .foregroundStyle(.secondary)
-            Text(ext.slug)
-                .font(.system(size: 12, weight: .medium))
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(ext.displayName ?? ext.slug)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                if let version = ext.version {
+                    Text("v\(version)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .help(ext.identifier)
             if untrusted {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)

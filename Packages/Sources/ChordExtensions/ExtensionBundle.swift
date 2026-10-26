@@ -74,6 +74,49 @@ public enum ExtensionBundle {
         (try? manifest(at: folder))?["version"] as? String
     }
 
+    /// The name a person should see. Many store bundles carry
+    /// `"__MSG_extName__"` and keep the real name in `_locales`; leaving the
+    /// placeholder in the manager is worse than showing the slug.
+    public static func displayName(at folder: URL) -> String? {
+        guard let manifest = try? manifest(at: folder) else { return nil }
+        guard let raw = manifest["name"] as? String else { return nil }
+        let localized = localize(raw, manifest: manifest, folder: folder)
+        return localized.isEmpty ? nil : localized
+    }
+
+    /// Resolves `__MSG_key__` placeholders from the extension's default locale
+    /// (then English, then the first locale present). A key that cannot be
+    /// found is left as written, as Chrome does for an unknown key.
+    private static func localize(
+        _ value: String, manifest: [String: Any], folder: URL
+    ) -> String {
+        guard value.contains("__MSG_") else { return value }
+        let locales = folder.appending(path: "_locales", directoryHint: .isDirectory)
+        let fm = FileManager.default
+        let available = (try? fm.contentsOfDirectory(atPath: locales.path)) ?? []
+        let preferred = [manifest["default_locale"] as? String, "en", "en_US", "en_GB"]
+            .compactMap { $0 }
+        let chosen = preferred.first { available.contains($0) } ?? available.first
+        guard let chosen,
+              let data = try? Data(contentsOf: locales.appending(path: "\(chosen)/messages.json")),
+              let messages = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return value }
+        var result = value
+        let pattern = #"__MSG_([A-Za-z0-9_@]+?)__"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return value }
+        for match in regex.matches(in: value, range: NSRange(value.startIndex..., in: value)).reversed() {
+            guard let whole = Range(match.range(at: 0), in: result),
+                  let keyRange = Range(match.range(at: 1), in: value)
+            else { continue }
+            let key = String(value[keyRange])
+            guard let entry = messages[key] as? [String: Any],
+                  let message = entry["message"] as? String
+            else { continue }
+            result.replaceSubrange(whole, with: message)
+        }
+        return result
+    }
+
     /// Chrome gives an unpacked folder an id from its path; a manifest `key`
     /// is stronger when present, because it travels with the package.
     public static func fallbackIdentifier(manifest: [String: Any], source: URL) -> String {

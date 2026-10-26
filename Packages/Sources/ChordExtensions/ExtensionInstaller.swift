@@ -16,6 +16,9 @@ public struct InstalledExtension: Sendable, Equatable, Identifiable {
     public var id: String { slug }
     public let slug: String
     public let identifier: String
+    /// The manifest's `name`, for people: a store install's slug is its
+    /// 32-letter Chrome id, which is not something to show in a list.
+    public let displayName: String?
     public let version: String?
     /// True when the bundle came from the Chrome Web Store, so update checks
     /// know where to ask.
@@ -28,6 +31,7 @@ public struct InstalledExtension: Sendable, Equatable, Identifiable {
     public init(
         slug: String,
         identifier: String? = nil,
+        displayName: String? = nil,
         version: String? = nil,
         fromStore: Bool = false,
         resourceURL: URL,
@@ -35,6 +39,7 @@ public struct InstalledExtension: Sendable, Equatable, Identifiable {
     ) {
         self.slug = slug
         self.identifier = identifier ?? slug
+        self.displayName = displayName
         self.version = version
         self.fromStore = fromStore
         self.resourceURL = resourceURL
@@ -103,6 +108,7 @@ public struct ExtensionInstaller: Sendable {
         try fm.createDirectory(at: staging, withIntermediateDirectories: true)
 
         var identifier = ExtensionSignatureVerifier.extensionIdentifier(in: data)
+        var displayName: String?
         var version: String?
         var preparedURL: URL?
 
@@ -110,6 +116,7 @@ public struct ExtensionInstaller: Sendable {
         do {
             try ExtensionBundle.extract(zip, to: extracted)
             let manifest = try ExtensionBundle.manifest(at: extracted)
+            displayName = ExtensionBundle.displayName(at: extracted)
             version = manifest["version"] as? String
             if identifier == nil {
                 identifier = ExtensionBundle.fallbackIdentifier(
@@ -149,6 +156,7 @@ public struct ExtensionInstaller: Sendable {
         return InstalledExtension(
             slug: slug,
             identifier: identifier,
+            displayName: displayName,
             version: version,
             fromStore: fromStore,
             resourceURL: preparedURL ?? destination,
@@ -182,9 +190,13 @@ public struct ExtensionInstaller: Sendable {
                         : nil)
                     ?? slug
                 let version = hasPrepared ? ExtensionBundle.version(at: prepared) : nil
+                let displayName = hasPrepared
+                    ? ExtensionBundle.displayName(at: prepared)
+                    : nil
                 return InstalledExtension(
                     slug: slug,
                     identifier: identifier,
+                    displayName: displayName,
                     version: version,
                     fromStore: FileManager.default.fileExists(
                         atPath: storeURL(forSlug: slug).path
@@ -229,6 +241,7 @@ public struct ExtensionInstaller: Sendable {
             return InstalledExtension(
                 slug: installed.slug,
                 identifier: identifier,
+                displayName: ExtensionBundle.displayName(at: prepared),
                 version: manifest["version"] as? String,
                 fromStore: installed.fromStore,
                 resourceURL: preparedURL(forSlug: installed.slug),

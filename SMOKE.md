@@ -411,7 +411,16 @@ its service actions are unit-tested.)
       from the loaded `WKWebExtension`; Allow granted + the tab reloaded)
 - [ ] Enabling in Space A does not enable it in Space B (per-Space)
 - [ ] The trash button uninstalls (gone from every Space + the library)
-- [ ] An enabled extension's toolbar button appears in the sidebar header
+- [x] An enabled extension's toolbar button appears in the sidebar header
+      (verified live 2026-10-27: uBlock Origin Lite, Bitwarden, Tampermonkey,
+      1Password, Claude and Figma all had actions; uBlock and Tampermonkey
+      popups rendered — see M9e matrix in CHECKPOINT)
+- [x] **M9e:** a store CRX3 verifies as `.verified`, not `.unsupported`
+      (verified live 2026-10-27 after the signing-payload fix; automated:
+      `ExtensionSignatureVerifierTests`, `RealExtensionProbeTests`)
+- [x] **M9e:** the manager shows a localized manifest name and version, not the
+      32-letter id (verified live 2026-10-27; automated:
+      `resolvesLocalisedManifestName`)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

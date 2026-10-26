@@ -1209,11 +1209,43 @@ enum ExtensionShimScript {
           }).finally(() => { asking = false; });
         };
         checkWorker = page ? check : () => {};
+        let offscreenSequence = 0;
         put(runtime, "sendMessage", (...args) => {
           const callback = typeof args[args.length - 1] === "function" ? args.pop() : null;
           // Never heard back by the one that sends it, so said for it.
           if (!inContent) tell(typeof args[0] === "string" && args.length > 1 && typeof args[1] !== "function" ? args[1] : args[0], "passes");
           checkWorker();
+          // Chrome delivers runtime.sendMessage to every context of the
+          // extension, the offscreen document included. WebKit leaves that
+          // hidden document out of extension message delivery (it is not a
+          // page the extension opened), so a worker addressing it gets no
+          // answer and retries forever (Tampermonkey's keepalive did, once a
+          // second). Hand a message that names offscreen to the document
+          // directly; anything else keeps WebKit's delivery.
+          if (offscreenCapable) {
+            const options = args[1];
+            const isOptions = options == null || (typeof options === "object" && !Array.isArray(options)
+              && Object.keys(options).every((key) => key === "includeTlsChannelId"));
+            const explicit = args.length >= 3
+              || (args.length === 2 && typeof args[0] === "string" && !isOptions);
+            const message = args[explicit ? 1 : 0];
+            if (message && typeof message === "object" && message.target === "offscreen") {
+              const answer = native("offscreen.sendMessage", [
+                "worker:" + (++offscreenSequence), message,
+                { id: runtime.id, url: String((root.location && root.location.href) || runtime.getURL("")) },
+              ]).then((reply) => {
+                if (!reply || !reply.handled) {
+                  // Chrome rejects when no listener answers; WebKit resolves
+                  // undefined, which reads as a successful empty reply.
+                  throw new Error("Could not establish connection. Receiving end does not exist.");
+                }
+                return reply.value;
+              });
+              if (!callback) return answer;
+              answer.then((value) => callback(value), (error) => withLastError(error, callback));
+              return;
+            }
+          }
           const answer = send(...args).then((r) => { if (r !== undefined) heard = Date.now(); return r; });
           if (typeof args[0] !== "string" && !(args[0] && Object.keys(args[0]).some((k) => k.startsWith("__chord")))) relay(args[0]);
           return replied(answer, callback, "The message port closed before a response was received.");

@@ -24,12 +24,12 @@ import Security
 ///
 /// Both CRX formats are verified against the key they embed: CRX2's header
 /// carries the RSA public key and a signature over the ZIP body; CRX3's header
-/// is a protobuf whose RSA-SHA256 proof signs `signed_header_data`, which in
-/// turn carries the SHA-256 of the ZIP. When CRX3 names a `crx_id`, the proof
-/// key must hash to that id, so a signed payload cannot be paired with another
-/// extension's identity. The pinned-key set is empty today (no extension store
-/// exists yet); the plumbing is here so a store key slots in without
-/// re-designing the check.
+/// is a protobuf whose RSA-SHA256 proof signs
+/// `"CRX3 SignedData\0" | length(signed_header_data) | signed_header_data | ZIP`.
+/// The signed header carries the `crx_id`, so the proof key must hash to that
+/// id: a signed payload cannot be paired with another extension's identity.
+/// The pinned-key set is empty today (no extension store exists yet); the
+/// plumbing is here so a store key slots in without re-designing the check.
 public enum ExtensionSignatureVerifier {
 
     /// The Chrome id a CRX says it belongs to, independent of whether its
@@ -115,8 +115,10 @@ public enum ExtensionSignatureVerifier {
     /// Layout: `Cr24` | version:u32 | headerSize:u32 | header(protobuf) | ZIP.
     /// The header is a `CrxFileHeader` protobuf: repeated `sha256_with_rsa`
     /// proofs (field 2), and `signed_header_data` (field 10000), itself a
-    /// `SignedData` protobuf whose `sha256_with_rsa` (field 2) is the SHA-256 of
-    /// the ZIP. The proof's signature covers the serialized `signed_header_data`.
+    /// `SignedData` protobuf carrying the extension's `crx_id`. Chrome signs
+    /// `"CRX3 SignedData\0" + u32le(header length) + header + archive`; the
+    /// signature therefore covers both the identity and the ZIP, and there is
+    /// no separate archive hash in `SignedData`.
     private static func verifyCRX3(_ data: Data, pinnedKeys: [Data]) -> ExtensionSignatureStatus {
         guard let headerSize = readUInt32(data, at: 8) else { return .unsupported }
         let headerStart = 12
@@ -132,16 +134,13 @@ public enum ExtensionSignatureVerifier {
             let signed = SignedData.parse(signedHeaderBytes)
         else { return .unsupported }
 
-        // 1) The archive hash inside SignedData must match the ZIP we received.
-        guard let declaredHash = signed.sha256WithRSA, !declaredHash.isEmpty else {
-            return .unsupported
-        }
-        guard Data(SHA256.hash(data: zip)) == declaredHash else { return .tampered }
+        // The signature covers the signed header and the archive together.
+        let signedPayload = crx3SignedPayload(signedHeaderBytes, zip: zip)
 
-        // 2) An RSA-SHA256 proof must validate over the signed header bytes.
-        // When the header names a crx_id, the proof key must hash to it:
-        // otherwise a bundle could carry one extension's signed payload with
-        // another's id and still pass the old "any embedded key" check.
+        // An RSA-SHA256 proof must validate over that payload. When the header
+        // names a crx_id, the proof key must hash to it: otherwise a bundle
+        // could carry one extension's signed payload with another's id and
+        // still pass the old "any embedded key" check.
         let declaredID = signed.crxID.flatMap { $0.count == 16 ? ChromeExtensionID.letters($0) : nil }
         var pinnedMatch: Data?
         var anyVerified = false
@@ -151,7 +150,7 @@ public enum ExtensionSignatureVerifier {
                 continue
             }
             if verifyRSA(
-                key, data: signedHeaderBytes, signature: proof.signature,
+                key, data: signedPayload, signature: proof.signature,
                 algorithm: .rsaSignatureMessagePKCS1v15SHA256
             ) {
                 anyVerified = true
@@ -165,6 +164,18 @@ public enum ExtensionSignatureVerifier {
             return header.sha256RSAProofs.isEmpty ? .unsupported : .tampered
         }
         return pinnedMatch != nil ? .trusted : .verified
+    }
+
+    /// The exact bytes Chrome's CRX3 RSA proof signs: a NUL-terminated context
+    /// string, the little-endian length of the signed header, the header, then
+    /// the ZIP archive.
+    private static func crx3SignedPayload(_ signedHeaderData: Data, zip: Data) -> Data {
+        var payload = Data("CRX3 SignedData\0".utf8)
+        var size = UInt32(signedHeaderData.count).littleEndian
+        withUnsafeBytes(of: &size) { payload.append(contentsOf: $0) }
+        payload.append(signedHeaderData)
+        payload.append(zip)
+        return payload
     }
 
     // MARK: - Crypto plumbing
@@ -316,11 +327,10 @@ private struct CRX3Proof {
 }
 
 /// `SignedData` — the payload of `signed_header_data`. Field 1 is `crx_id`
-/// (Chrome's extension id bytes), field 2 is the SHA-256 digest of the ZIP
-/// archive for the RSA proof.
+/// (Chrome's extension id bytes). Chrome carries no archive hash here: the
+/// proof signature covers the ZIP directly (see `verifyCRX3`).
 private struct SignedData {
     var crxID: Data?
-    var sha256WithRSA: Data?
 
     static func parse(_ bytes: Data) -> SignedData? {
         var reader = ProtoReader(bytes)
@@ -328,7 +338,6 @@ private struct SignedData {
         while let field = reader.next() {
             switch field.number {
             case 1: result.crxID = field.data
-            case 2: result.sha256WithRSA = field.data
             default: continue
             }
         }
