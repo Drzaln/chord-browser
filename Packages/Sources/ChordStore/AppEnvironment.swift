@@ -23,19 +23,24 @@ public struct AppEnvironment {
     /// The native content blocker (§4.8, C2), present when the flag is on.
     /// Retained for the app's lifetime; it owns the compiled rule list.
     public let contentBlocker: ContentBlocker?
+    /// Store-side answers for the full Chrome shim (M9). Retained here because
+    /// the host holds it weakly.
+    public let extensionShim: ExtensionShimService?
 
     public init(
         store: TabStore,
         downloads: DownloadsStore,
         extensionHost: (any ExtensionHost)? = nil,
         extensions: ExtensionsService? = nil,
-        contentBlocker: ContentBlocker? = nil
+        contentBlocker: ContentBlocker? = nil,
+        extensionShim: ExtensionShimService? = nil
     ) {
         self.store = store
         self.downloads = downloads
         self.extensionHost = extensionHost
         self.extensions = extensions
         self.contentBlocker = contentBlocker
+        self.extensionShim = extensionShim
     }
 
     /// The real, on-disk configuration.
@@ -190,6 +195,9 @@ public struct AppEnvironment {
         store.afterRestore = { [weak store] in
             guard let store else { return }
             await extensionsService.restoreEnabled(spaces: store.spaces)
+            Task {
+                await extensionsService.updateStoreExtensions(in: store.spaces)
+            }
         }
 
         let downloadsStore = DownloadsStore(coordinator: engine.downloads)
@@ -203,12 +211,21 @@ public struct AppEnvironment {
             window.showToast("Downloading \(item.filename)", icon: "arrow.down.circle")
         }
 
+        let bookmarks = BookmarksStore(
+            fileURL: support.appending(path: "bookmarks.json")
+        )
+        let extensionShim = ExtensionShimService(
+            store: store, downloads: downloadsStore, bookmarks: bookmarks
+        )
+        host.shimData = extensionShim
+
         return AppEnvironment(
             store: store,
             downloads: downloadsStore,
             extensionHost: extensionHost,
             extensions: extensionsService,
-            contentBlocker: contentBlocker
+            contentBlocker: contentBlocker,
+            extensionShim: extensionShim
         )
     }
 

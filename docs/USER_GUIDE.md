@@ -657,8 +657,12 @@ worker process, which is why the management panel shows you how many are running
 
 Open **Settings** (`Cmd+,`) → **Extensions**:
 
-1. Click **Add Extension…** and pick a **Chrome `.crx`** or **Firefox `.xpi`**
-   file. It's unpacked and normalised into an on-disk library.
+1. Paste a **Chrome Web Store link or 32-letter id** into the field and press
+   **Add**, or click **Add Extension…** and pick a **Chrome `.crx`** or
+   **Firefox `.xpi`** file. A store bundle is downloaded from the public CRX
+   endpoint; every bundle is verified, given Chrome's id, and unpacked into an
+   on-disk library with a prepared copy for Chord's compatibility shim (the raw
+   ZIP is kept beside it).
 2. Each installed extension shows a row with an **Enabled** switch — turning it on
    loads the extension into the **active Space** (extensions are per-Space, so
    enable it in each Space where you want it).
@@ -669,6 +673,12 @@ Open **Settings** (`Cmd+,`) → **Extensions**:
    access. After you allow, open tabs reload so the extension takes effect.
 4. The **trash** button uninstalls an extension: it's unloaded from every Space
    and deleted from the library.
+
+The first shim slice covers `chrome.offscreen`, and native-messaging hosts on
+this Mac work when the extension's manifest asks for `nativeMessaging`. A
+worker that fails to start is revived once, and stale worker registrations are
+cleared when Chord's shim changes. The full Chrome API surface and Chrome Web
+Store install flow are not there yet.
 
 > **Ad blockers (AdBlock, uBlock Origin) don't really work here — by design.** A
 > Chrome ad blocker blocks via `declarativeNetRequest`, and its rule set (AdBlock

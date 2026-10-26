@@ -17,6 +17,8 @@ struct ExtensionsSettings: View {
     @State private var enabledSlugs: Set<String> = []
     @State private var importing = false
     @State private var busySlug: String?
+    @State private var busyStore = false
+    @State private var storeLink = ""
     @State private var errorMessage: String?
     @State private var warningMessage: String?
     /// An unverified extension whose enable toggle was flipped, awaiting a
@@ -34,6 +36,19 @@ struct ExtensionsSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
+
+            if extensions != nil {
+                HStack(spacing: 8) {
+                    TextField("Chrome Web Store link or extension id", text: $storeLink)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12))
+                        .onSubmit { addFromStore() }
+                    Button(busyStore ? "Adding…" : "Add") {
+                        addFromStore()
+                    }
+                    .disabled(busyStore || Crx.id(in: storeLink) == nil)
+                }
+            }
 
             if extensions == nil {
                 Text("The extension subsystem is not available.")
@@ -193,6 +208,25 @@ struct ExtensionsSettings: View {
             enabledSlugs = Set(extensions.enabledExtensions(in: space).map(\.slug))
         } else {
             enabledSlugs = []
+        }
+    }
+
+    private func addFromStore() {
+        guard let extensions, let id = Crx.id(in: storeLink) else { return }
+        busyStore = true
+        errorMessage = nil
+        Task {
+            do {
+                let installed = try await extensions.installFromStore(id: id)
+                storeLink = ""
+                if let space = store.activeSpace(in: windowState) {
+                    try await extensions.enable(slug: installed.slug, in: space)
+                }
+                refresh()
+            } catch {
+                errorMessage = "Could not add from the store: \(error.localizedDescription)"
+            }
+            busyStore = false
         }
     }
 

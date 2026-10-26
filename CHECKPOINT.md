@@ -15,6 +15,8 @@ only the current position within it.
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Completed**                    | M1 Browse, M2 Spaces, M3 Command bar, M4 Session restore + downloads, M5 Split view + Little Chord, M6 Polish                                                                                       |
 | **Completed (M7)**               | **M7 Extensions** — 7.1–7.6 all done and **VERIFIED LIVE**                                                                                                                                        |
+| **Completed (M8 foundation)**    | Chrome ids + `chrome-extension://` origin, prepared bundle + narrow `chrome.offscreen` shim, native messaging, worker recovery. **Not** Chrome Web Store or the full API shim — see the dated M8 section at the end. |
+| **In progress (M9)**            | Full Search JS shim active, native bridge core + data service, bookmarks store, folders-as-tabGroups, side-panel fallback. Store install, popup/capture/identity/sockets, permission UI and real-extension matrix remain. See the dated M9 section at the end. |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
@@ -4397,3 +4399,170 @@ no-Space fallback still prompts each time. The private fake in
 keyed on the whole `(Space, origin, kind)` tuple so a test can assert *where* a
 decision landed. Verified live per SMOKE → Camera and microphone (open a Meet link
 from a pinned tab twice).
+
+---
+
+## M8 — Chrome extension foundation (2026-10-26)
+
+An in-between milestone toward Search-style extension compatibility. It does
+**not** add the Chrome Web Store flow or the full API shim; it puts the parts
+that later work depends on in place, and proves them against real WebKit.
+
+**Chrome identity.** `ChordCrypto.ChromeExtensionID` spells Chrome's 32-letter
+id from a public key or a path. `ExtensionSignatureVerifier` now reads CRX3
+`crx_id` and requires the RSA proof key to hash to it — a signed payload can no
+longer be paired with another extension's id. CRX2 derives the id from its
+public key. `WebKitExtensionHost.load` sets `context.uniqueIdentifier` to that
+id and `context.baseURL` to `chrome-extension://<id>/`; the host registers the
+`chrome-extension` scheme once. Native-messaging origins therefore match what
+hosts list in `allowed_origins`.
+
+**Prepared bundle, raw ZIP kept.** `ExtensionInstaller` now writes the raw,
+signature-verified `<slug>.zip` first, then unpacks it with `/usr/bin/ditto`
+(no hand-rolled ZIP parser), rejects any symlink, reads `manifest.json`, derives
+the id if the CRX did not carry one, runs `ExtensionShims.prepare`, and swaps the
+prepared tree into `<slug>.prepared` with `RENAME_SWAP`. `InstalledExtension`
+carries `identifier` and `version`; `installedExtensions()` reads sidecars and
+prefers the prepared directory. A bundle that cannot unpack still installs as
+before and fails at load, rather than disappearing.
+
+**Narrow shim.** `ExtensionShims.prepare` injects `chord-shim.js` into the
+service worker (classic prefix or module import), background scripts, content
+scripts, and every HTML page. It adds `nativeMessaging` only when the manifest
+did not ask for it and records that in `.chord-added`, so a real native host is
+still gated by the extension's own permission. The first API is
+`chrome.offscreen` (`createDocument`, `closeDocument`, `hasDocument`), answered
+in-process by `ExtensionShimBroker`; the page is a hidden `WKWebView` built from
+the extension's configuration, registered with the extension context as a tab
+with no window. Message routing into the offscreen document is the next slice.
+
+**Native messaging.** `ExtensionNative` reads Chrome/Chromium/Edge/Brave/Arc
+host manifests, enforces `allowed_origins`, runs the host with Chrome's origin
+argument, and speaks the 4-byte length + JSON protocol for both
+`sendNativeMessage` and `connectNative`. A host requires the extension's own
+`nativeMessaging` permission; the shim's `chord` endpoint is always in-process.
+Hosts whose port died are stopped on unload.
+
+**Worker recovery.** Extensions restore sequentially with a 400 ms gap after a
+background worker, stale service-worker registrations are cleared once per Space
+when the shim version changes, and a context whose worker fails to start is
+unloaded/reloaded once a minute. `clearStaleWorkers` also clears website workers
+in that Space; they re-register on the next visit.
+
+**Tests.** New `ExtensionPreparedBundleTests` (valid ZIP → prepared tree, shim
+in worker/content/popup, raw ZIP + sidecars, reinstall, remove),
+`ExtensionNativeTests` (host allow-list, executable check, framed request
+round-trip), `ExtensionOffscreenTests` (real hidden page, `typeof
+chrome.offscreen`, `hasDocument()` through the bridge, close), plus CRX3
+id-binding tests and a load test for `uniqueIdentifier`/`baseURL`. Existing
+extension tests updated where the ID is now Chrome-shaped. `scripts/prepush.sh`
+green; full package tests green.
+
+**Still out of scope.** Chrome Web Store install/update, the full Chrome API
+shim (bookmarks, history, downloads, side panel, tab groups, userScripts,
+identity, DNR transforms, socket bridge, capture), offscreen message routing,
+and real-extension compatibility sweeps. Those are the next milestone, not
+claims of this one.
+
+---
+
+## M9 — Chrome compatibility, first slices (2026-10-26, in progress)
+
+**Full shim is now vendored and active.** `ExtensionShimScript.swift` carries the
+adapted Search MIT shim (3.3k lines of JS) with Chord's `chord` native endpoint
+and `__chord` markers. `ExtensionShims.prepare` fills its event list, shipped
+script list, Chrome version (156) and worker generation, and injects it into the
+worker, content scripts and HTML pages. It is no longer the M8 eight-line
+`chrome.offscreen` stub.
+
+**Native bridge core.** `ExtensionShimBroker` answers the WebKit-adjacent calls:
+`offscreen.*` (including message delivery through `__chordOffscreenDispatch`),
+`clients.pages`, `scripting.file`, `permissions.granted`, `background.*`,
+`tabs.describe`, `tabs.private`, `tabs.groups`, notifications, TTS,
+management-self, fonts, idle/power, system info and i18n. Unknown calls go to a
+new WebKit-free `ExtensionShimData` seam; `nil` is a refusal, not a silent
+success.
+
+**Data service.** `ExtensionShimService` (ChordStore) answers bookmarks,
+history, downloads, side-panel fallback, folders-as-tabGroups, sessions,
+topSites, search and browsing-data. It is injected by `AppEnvironment` into the
+host. A new JSON-backed `BookmarksStore` gives `chrome.bookmarks` real data even
+though Chord has no bookmarks UI yet. Side panel opens a tab until a docked panel
+exists. Tab groups map to sidebar folders, with stable numbers per Space.
+
+**Tab snapshots** now carry favicon, pin/audible/muted/loading, folder id/number
+and private-ness, so the shim can mend WebKit's tab objects.
+
+**Tests.** `ExtensionShimServiceTests` covers bookmark shape, folders-as-groups,
+side-panel fallback and search; the full shim still passes the M8 prepared-bundle,
+offscreen, native-messaging and worker tests. `scripts/prepush.sh` is the gate.
+
+**Still to do (M9 tasks).** Chrome Web Store install/update and UI (M9c); custom
+popup, capture, identity, externally_connectable, worker sockets, DNR redirects
+(M9d); permission-request UI for Search-answered APIs; real-extension matrix
+(M9e); bookmarks UI and a real docked side panel if those become user-facing.
+
+### M9c — Chrome Web Store install/update (2026-10-26)
+
+- `Crx` reads a store link/id, validates only the store's own https `/detail/`
+  path, asks `clients2.google.com/service/update2/crx` for the CRX3 form with
+  `prodversion=156`, and refuses a non-CRX response.
+- `ExtensionInstaller.install(data:sourceName:fromStore:)` installs a downloaded
+  bundle through the same signature check, prepared tree and Chrome id as a
+  picked file. Store installs are marked with `<slug>.store`.
+- `ExtensionsService.installFromStore(id:)` installs without enabling; Settings
+  then enables it in the active Space. `updateStoreExtensions(in:)` asks the
+  store's `updatecheck` endpoint once after restore, installs a newer version,
+  and reloads it in every Space where it was loaded.
+- Settings gains a **Chrome Web Store link or extension id** field beside the
+  file picker. The in-page store "Add to Chord" relay is still a later UI
+  slice (ADR 026).
+- Policy: BROWSER_SPEC §4.7's blanket "no CWS" is superseded by ADR 026; the
+  public CRX endpoint is supported, hosting/proxying the store is not.
+
+### M9a tails — permissions, user scripts, worker socket (2026-10-26)
+
+- `permissions.request`/`afterClick` now reuse the existing permission sheet
+  through `WebKitExtensionHost.requestShimPermissions`, with grants remembered
+  per extension in defaults. `permissions.remove` forgets them.
+- `userScripts` file/list/save/worlds are implemented in
+  `ExtensionShimFiles` under `_chord/`; `userScripts` adds `scripting` when the
+  manifest did not already declare it, recorded in `.chord-added`.
+- `ExtensionSocket` ports Search's worker WebSocket bridge; the host intercepts
+  `chord.socket` before the native-host permission gate.
+- `background.wake`/`revive` and `tabs.activate` are wired; `openNewTab` and
+  options pages create tabs through `ExtensionTabModel.extensionCreateTab`.
+- Tests: permission grant/deny/remove, user-script files/worlds, CRX URL/id
+  parsing and store marker. 77 extension tests green.
+
+### M9 real-app probe (2026-10-26)
+
+Run in a throwaway home (`CFFIXED_USER_HOME`) so no real session was touched:
+
+- Store install by id from Settings → Extensions worked: uBlock Origin Lite
+  downloaded, CRX3-verified, prepared, listed, enabled, host-access prompt shown.
+- uBlock Origin Lite: action button appeared in the sidebar header and its
+  popup rendered correctly.
+- Bitwarden: installed and loaded; its worker failed once and the revive path
+  brought it back. The manager listed it, but its header action was not visible
+  in this run — investigate in M9e.
+- 1Password, Tampermonkey, uBlock Lite and Bitwarden were also loaded through
+  the opt-in `RealExtensionProbeTests`; 1Password's native host is absent on
+  this Mac, and uBlock Origin MV2 is no longer served by the store.
+- The Settings sheet returned to General after the permission sheet. Fixed by
+  keeping the section in `WindowState.settingsSection`; needs a live re-check.
+
+The probe test is opt-in (`CHORD_REAL_EXTENSIONS=1`) and skipped in prepush.
+
+Follow-up from that probe:
+
+- `WindowState.settingsSection` now keeps the Settings tab selection across the
+  permission sheet, so enabling an extension returns to Extensions rather than
+  General.
+- `WebKitExtensionHost.actions(in:)` now asks each context for the **active
+  tab's** action, not only its default action. Bitwarden publishes no default
+  header action in this setup, which is why its button was missing while the
+  manager still listed it.
+- The store field's Add button correctly stays disabled until SwiftUI sees a
+  typed id; AppleScript `set value` bypasses the binding, so the live probe uses
+  real keystrokes.

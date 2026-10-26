@@ -24,7 +24,12 @@ public struct SettingsView: View {
         case updates = "Updates"
         var id: String { rawValue }
     }
-    @State private var section: Section = .general
+    private var section: Binding<Section> {
+        Binding(
+            get: { Section(rawValue: windowState.settingsSection) ?? .general },
+            set: { windowState.settingsSection = $0.rawValue }
+        )
+    }
 
     public init(
         store: TabStore, windowState: WindowState, extensions: ExtensionsService?
@@ -46,7 +51,7 @@ public struct SettingsView: View {
             .padding(.top, 18)
             .padding(.bottom, 12)
 
-            Picker("", selection: $section) {
+            Picker("", selection: section) {
                 ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
@@ -57,7 +62,7 @@ public struct SettingsView: View {
             Divider()
 
             ScrollView {
-                switch section {
+                switch section.wrappedValue {
                 case .general:
                     GeneralSettings(store: store, windowState: windowState)
                         .padding(20)

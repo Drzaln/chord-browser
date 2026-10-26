@@ -9,6 +9,9 @@ import Foundation
 public struct LoadedExtension: Sendable, Equatable, Identifiable {
     public var id: String { "\(spaceID.uuidString):\(slug)" }
     public let slug: String
+    /// Chrome's id for this extension. The stable `chrome-extension://` origin
+    /// and native-messaging origin both use it.
+    public let identifier: String
     public let spaceID: UUID
     public let displayName: String?
     public let manifestVersion: Double
@@ -22,6 +25,7 @@ public struct LoadedExtension: Sendable, Equatable, Identifiable {
 
     public init(
         slug: String,
+        identifier: String? = nil,
         spaceID: UUID,
         displayName: String?,
         manifestVersion: Double,
@@ -29,6 +33,7 @@ public struct LoadedExtension: Sendable, Equatable, Identifiable {
         hasPersistentBackgroundContent: Bool = false
     ) {
         self.slug = slug
+        self.identifier = identifier ?? slug
         self.spaceID = spaceID
         self.displayName = displayName
         self.manifestVersion = manifestVersion

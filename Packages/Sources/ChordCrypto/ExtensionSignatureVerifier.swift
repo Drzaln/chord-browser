@@ -25,10 +25,47 @@ import Security
 /// Both CRX formats are verified against the key they embed: CRX2's header
 /// carries the RSA public key and a signature over the ZIP body; CRX3's header
 /// is a protobuf whose RSA-SHA256 proof signs `signed_header_data`, which in
-/// turn carries the SHA-256 of the ZIP. The pinned-key set is empty today (no
-/// extension store exists yet); the plumbing is here so a store key slots in
-/// without re-designing the check.
+/// turn carries the SHA-256 of the ZIP. When CRX3 names a `crx_id`, the proof
+/// key must hash to that id, so a signed payload cannot be paired with another
+/// extension's identity. The pinned-key set is empty today (no extension store
+/// exists yet); the plumbing is here so a store key slots in without
+/// re-designing the check.
 public enum ExtensionSignatureVerifier {
+
+    /// The Chrome id a CRX says it belongs to, independent of whether its
+    /// signature validates. The installer uses this to give the bundle the
+    /// same identity Chrome and native-messaging hosts expect; a tampered
+    /// bundle is still flagged by `verify`.
+    ///
+    /// CRX3 carries the id directly in `signed_header_data.crx_id`; CRX2 only
+    /// carries the public key, so the id is its SHA-256 spelling.
+    public static func extensionIdentifier(in data: Data) -> String? {
+        guard data.starts(with: crxMagic), let version = readUInt32(data, at: 4) else {
+            return nil
+        }
+        switch version {
+        case 2:
+            guard let pubKeyLen = readUInt32(data, at: 8) else { return nil }
+            let pubKeyStart = 16
+            let pubKeyEnd = pubKeyStart + Int(pubKeyLen)
+            guard pubKeyEnd <= data.count else { return nil }
+            return ChromeExtensionID.fromPublicKey(Data(data[pubKeyStart..<pubKeyEnd]))
+        case 3:
+            guard let headerSize = readUInt32(data, at: 8) else { return nil }
+            let headerStart = 12
+            let zipStart = headerStart + Int(headerSize)
+            guard zipStart <= data.count else { return nil }
+            let headerBytes = Data(data[headerStart..<zipStart])
+            guard let header = CrxFileHeader.parse(headerBytes),
+                  let signedHeaderBytes = header.signedHeaderData,
+                  let signed = SignedData.parse(signedHeaderBytes),
+                  let crxID = signed.crxID, crxID.count == 16
+            else { return nil }
+            return ChromeExtensionID.letters(crxID)
+        default:
+            return nil
+        }
+    }
 
     public static func verify(
         _ data: Data, pinnedKeys: [Data] = []
@@ -102,10 +139,17 @@ public enum ExtensionSignatureVerifier {
         guard Data(SHA256.hash(data: zip)) == declaredHash else { return .tampered }
 
         // 2) An RSA-SHA256 proof must validate over the signed header bytes.
+        // When the header names a crx_id, the proof key must hash to it:
+        // otherwise a bundle could carry one extension's signed payload with
+        // another's id and still pass the old "any embedded key" check.
+        let declaredID = signed.crxID.flatMap { $0.count == 16 ? ChromeExtensionID.letters($0) : nil }
         var pinnedMatch: Data?
         var anyVerified = false
         for proof in header.sha256RSAProofs {
             guard let key = secKey(from: proof.publicKey) else { continue }
+            if let declaredID, ChromeExtensionID.fromPublicKey(proof.publicKey) != declaredID {
+                continue
+            }
             if verifyRSA(
                 key, data: signedHeaderBytes, signature: proof.signature,
                 algorithm: .rsaSignatureMessagePKCS1v15SHA256
@@ -271,16 +315,22 @@ private struct CRX3Proof {
     }
 }
 
-/// `SignedData` — the payload of `signed_header_data`. `sha256_with_rsa`
-/// (field 2) is the SHA-256 digest of the ZIP archive.
+/// `SignedData` — the payload of `signed_header_data`. Field 1 is `crx_id`
+/// (Chrome's extension id bytes), field 2 is the SHA-256 digest of the ZIP
+/// archive for the RSA proof.
 private struct SignedData {
+    var crxID: Data?
     var sha256WithRSA: Data?
 
     static func parse(_ bytes: Data) -> SignedData? {
         var reader = ProtoReader(bytes)
         var result = SignedData()
         while let field = reader.next() {
-            if field.number == 2 { result.sha256WithRSA = field.data }
+            switch field.number {
+            case 1: result.crxID = field.data
+            case 2: result.sha256WithRSA = field.data
+            default: continue
+            }
         }
         return result
     }

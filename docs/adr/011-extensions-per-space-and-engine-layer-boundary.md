@@ -1,6 +1,7 @@
 # 011 — Extensions are per-Space; the engine *layer* is the WebKit boundary
 
-**Status:** accepted (M7) — resolves BROWSER_SPEC 12's open decision, amends 7.1
+**Status:** accepted (M7) — resolves BROWSER_SPEC 12's open decision, amends 7.1;
+the ZIP-only install layout in §7.2 is superseded in part by ADR 025 (M8).
 
 Two decisions M7 forces, taken together because the second follows from the
 first.

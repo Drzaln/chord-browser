@@ -13,6 +13,14 @@ public struct ExtensionTabSnapshot: Sendable, Equatable {
     public let isSelected: Bool
     /// Position within its Space, for `tabs.query({index})`.
     public let index: Int
+    public let faviconData: Data?
+    public let isPinned: Bool
+    public let isAudible: Bool
+    public let isMuted: Bool
+    public let isLoading: Bool
+    public let groupID: UUID?
+    public let groupNumber: Int?
+    public let isPrivate: Bool
 
     public init(
         id: UUID,
@@ -21,7 +29,15 @@ public struct ExtensionTabSnapshot: Sendable, Equatable {
         url: URL?,
         title: String,
         isSelected: Bool,
-        index: Int
+        index: Int,
+        faviconData: Data? = nil,
+        isPinned: Bool = false,
+        isAudible: Bool = false,
+        isMuted: Bool = false,
+        isLoading: Bool = false,
+        groupID: UUID? = nil,
+        groupNumber: Int? = nil,
+        isPrivate: Bool = false
     ) {
         self.id = id
         self.spaceID = spaceID
@@ -30,6 +46,14 @@ public struct ExtensionTabSnapshot: Sendable, Equatable {
         self.title = title
         self.isSelected = isSelected
         self.index = index
+        self.faviconData = faviconData
+        self.isPinned = isPinned
+        self.isAudible = isAudible
+        self.isMuted = isMuted
+        self.isLoading = isLoading
+        self.groupID = groupID
+        self.groupNumber = groupNumber
+        self.isPrivate = isPrivate
     }
 }
 
@@ -47,10 +71,23 @@ public protocol ExtensionTabModel: AnyObject {
     func extensionActiveTab(inSpace spaceID: UUID) -> ExtensionTabSnapshot?
     func extensionTab(_ tabID: UUID) -> ExtensionTabSnapshot?
 
+    /// Create a tab for `chrome.tabs.create`, in the Space's window. A nil
+    /// result means the browser could not make one.
+    func extensionCreateTab(
+        url: URL, inSpace spaceID: UUID, active: Bool
+    ) -> ExtensionTabSnapshot?
+
     func extensionActivateTab(_ tabID: UUID)
     func extensionLoadURL(_ url: URL, inTab tabID: UUID)
     func extensionReloadTab(_ tabID: UUID, fromOrigin: Bool)
     func extensionGoBack(inTab tabID: UUID)
     func extensionGoForward(inTab tabID: UUID)
     func extensionCloseTab(_ tabID: UUID)
+}
+
+public extension ExtensionTabModel {
+    /// Optional for test doubles and older conformers.
+    func extensionCreateTab(
+        url: URL, inSpace spaceID: UUID, active: Bool
+    ) -> ExtensionTabSnapshot? { nil }
 }

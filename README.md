@@ -85,6 +85,13 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   popover surfacing. Install, enable per Space, and uninstall from **Settings**.
   Bundles are **signature-verified at install** (CRX2/CRX3); unsigned or
   unknown-signer ones still install but are flagged with a warning (ADR 017).
+  Each bundle gets Chrome's id and `chrome-extension://<id>/` origin, an
+  unpacked copy for Chord's compatibility shim, and the full Search-derived
+  Chrome API shim (offscreen, bookmarks, history, downloads, folders-as-tab-
+  groups, side-panel fallback, scripting, native messaging and more). The
+  Store links and ids can be installed from Settings through the public CRX
+  endpoint; the store page's own Add button is still a later slice. Extension
+  gaps are tracked as M9 in CHECKPOINT.md.
 - **History** (`Cmd+Y`) — a searchable, **per-Space** window of visited pages
   grouped by day, with per-entry and multi-select delete, open-in-new-tab, and
   clear. Each Space keeps its own history, matching its isolated data store.
@@ -332,8 +339,8 @@ Packages/              All logic, as a Swift package (ChordPackages)
     ChordCore/         Value types, no WebKit — models, converters, ranking
     ChordPersistence/  GRDB-backed storage (history, tabs, spaces)
     ChordEngine/       The WebKit-importing layer (WKWebView, content blocking)
-    ChordExtensions/   WKWebExtension host + .crx unpack + signature stamping
-    ChordCrypto/       Security/CryptoKit — extension signature verification
+    ChordExtensions/   WKWebExtension host + .crx unpack + prepared shim bundle
+    ChordCrypto/       Security/CryptoKit — Chrome ids + extension signature verification
     ChordUpdater/      GitHub-release self-updater (check, download, install)
     ChordStore/        App state store
     ChordUI/           SwiftUI views
@@ -343,6 +350,7 @@ docs/adr/              Architecture Decision Records
 BROWSER_SPEC.md        The full specification (read this first)
 CHECKPOINT.md          Living status log, updated with the work it describes
 SMOKE.md               Manual smoke-test checklists and soak measurements
+THIRD_PARTY_NOTICES.md Licenses for adapted third-party code
 ```
 
 **Architectural rule:** WebKit is imported only inside `ChordEngine` (and the

@@ -46,6 +46,16 @@ extension TabStore: ExtensionTabModel {
 
     // MARK: - Actions
 
+    public func extensionCreateTab(
+        url: URL, inSpace spaceID: UUID, active: Bool
+    ) -> ExtensionTabSnapshot? {
+        let window = window(inSpace: spaceID) ?? focusedWindow
+        let id = newTab(url: url, in: window, selecting: active)
+        guard let tab = tabs.first(where: { $0.id == id }) else { return nil }
+        let index = tabsInSpace(tab.spaceID).firstIndex { $0.id == id } ?? 0
+        return snapshot(of: tab, index: index)
+    }
+
     public func extensionActivateTab(_ tabID: UUID) {
         // The window already in that tab's Space, so an extension activating a
         // tab does not drag an unrelated window along with it.
@@ -92,14 +102,30 @@ extension TabStore: ExtensionTabModel {
     }
 
     private func snapshot(of tab: Tab, index: Int) -> ExtensionTabSnapshot {
+        let runtime = runtime(for: tab.focusedPaneID)
+        let space = spaces.first { $0.id == tab.spaceID }
+        let spaceFolders = folders
+            .filter { $0.spaceID == tab.spaceID }
+            .sorted { $0.sortIndex < $1.sortIndex }
+        let groupNumber = tab.folderID.flatMap { id in
+            spaceFolders.firstIndex { $0.id == id }.map { $0 + 1 }
+        }
         return ExtensionTabSnapshot(
             id: tab.id,
             spaceID: tab.spaceID,
             focusedPaneID: tab.focusedPaneID,
-            url: tab.focusedPane.url,
+            url: runtime.currentURL ?? tab.focusedPane.url,
             title: tab.displayTitle,
             isSelected: isSelectedByAnyWindow(tab.id),
-            index: index
+            index: index,
+            faviconData: tab.focusedPane.faviconData,
+            isPinned: !tab.placement.isEphemeral,
+            isAudible: runtime.isPlayingAudio,
+            isMuted: runtime.isMuted,
+            isLoading: runtime.isLoading,
+            groupID: tab.folderID,
+            groupNumber: groupNumber,
+            isPrivate: space?.isPrivate ?? false
         )
     }
 }

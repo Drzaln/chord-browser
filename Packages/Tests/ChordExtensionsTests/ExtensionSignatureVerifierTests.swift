@@ -52,6 +52,10 @@ struct ExtensionSignatureVerifierTests {
         let crx = try makeCRX2(zip: Self.zip, key: key)
         #expect(ExtensionSignatureVerifier.verify(crx) == .verified)
         #expect(ExtensionSignatureVerifier.verify(crx, pinnedKeys: [key.publicSPKI]) == .trusted)
+        #expect(
+            ExtensionSignatureVerifier.extensionIdentifier(in: crx)
+                == ChromeExtensionID.fromPublicKey(key.publicSPKI)
+        )
     }
 
     @Test("A tampered CRX2 ZIP body is detected")
@@ -85,6 +89,36 @@ struct ExtensionSignatureVerifierTests {
         let crx = try makeCRX3(zip: Self.zip, key: key)
         #expect(ExtensionSignatureVerifier.verify(crx) == .verified)
         #expect(ExtensionSignatureVerifier.verify(crx, pinnedKeys: [key.publicSPKI]) == .trusted)
+        #expect(
+            ExtensionSignatureVerifier.extensionIdentifier(in: crx)
+                == ChromeExtensionID.fromPublicKey(key.publicSPKI)
+        )
+    }
+
+    @Test("A CRX3 carrying another extension's id is tampered")
+    func crx3WithAnotherIDIsTampered() async throws {
+        let signer = try makeKey()
+        let other = try makeKey()
+        let crx = try makeCRX3(
+            zip: Self.zip, key: signer,
+            identifier: ChromeExtensionID.fromPublicKey(other.publicSPKI)
+        )
+        #expect(ExtensionSignatureVerifier.extensionIdentifier(in: crx)
+            == ChromeExtensionID.fromPublicKey(other.publicSPKI))
+        #expect(ExtensionSignatureVerifier.verify(crx) == .tampered)
+    }
+
+    @Test("Chrome ids are 32 letters from a to p")
+    func chromeIDSpelling() {
+        #expect(ChromeExtensionID.letters(Data(repeating: 0, count: 16))
+            == String(repeating: "a", count: 32))
+        #expect(ChromeExtensionID.letters(Data(repeating: 0xFF, count: 16))
+            == String(repeating: "p", count: 32))
+        let path = URL(fileURLWithPath: "/tmp/chord-id-test")
+        #expect(ChromeExtensionID.fromPath(path) == ChromeExtensionID.fromPath(path))
+        #expect(ChromeExtensionID.isValid(ChromeExtensionID.fromPath(path)))
+        #expect(ChromeExtensionID.parse("chrome-extension://\(ChromeExtensionID.fromPath(path))/x")
+            == ChromeExtensionID.fromPath(path))
     }
 
     @Test("A tampered CRX3 ZIP body is detected via its archive hash")
@@ -176,8 +210,12 @@ struct ExtensionSignatureVerifierTests {
     /// CRX3: `Cr24` | version:u32 | headerSize:u32 | protobuf header | ZIP.
     /// The header carries one sha256_with_rsa proof signing `signed_header_data`,
     /// which holds the SHA-256 of the ZIP.
-    private func makeCRX3(zip: Data, key: KeyFixture) throws -> Data {
-        let signedHeaderData = protoBytes(2, Data(SHA256.hash(data: zip)))
+    private func makeCRX3(
+        zip: Data, key: KeyFixture, identifier: String? = nil
+    ) throws -> Data {
+        let id = identifier ?? ChromeExtensionID.fromPublicKey(key.publicSPKI)
+        let signedHeaderData = protoBytes(1, try idBytes(id))
+            + protoBytes(2, Data(SHA256.hash(data: zip)))
         let proof = protoBytes(1, key.publicSPKI)
             + protoBytes(2, try sign(signedHeaderData, key: key.privateKey))
         let header = protoBytes(2, proof) + protoBytes(10000, signedHeaderData)
@@ -187,6 +225,20 @@ struct ExtensionSignatureVerifierTests {
         data += header
         data += zip
         return data
+    }
+
+    /// Chrome ids are two letters per byte; turn one back into the bytes a
+    /// CRX3 `crx_id` field carries.
+    private func idBytes(_ id: String) throws -> Data {
+        let scalars = Array(id.utf8)
+        guard scalars.count == 32 else { throw CocoaError(.fileReadCorruptFile) }
+        var bytes: [UInt8] = []
+        for index in stride(from: 0, to: scalars.count, by: 2) {
+            let high = scalars[index] - 97
+            let low = scalars[index + 1] - 97
+            bytes.append((high << 4) | low)
+        }
+        return Data(bytes)
     }
 
     // MARK: - DER / protobuf encoding

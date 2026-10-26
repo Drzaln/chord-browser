@@ -45,7 +45,7 @@ deliberately small and closed — it replicates only what I actually use in Arc:
 | 4 | Command bar | Cmd+T overlay: navigate, search, jump to open tab, run commands |
 | 5 | Split view | 2–4 web views tiled in one tab, resizable, persisted |
 | 6 | Little Chord | Links from other apps open in a floating panel, promotable to a real tab |
-| 7 | Extensions | WKWebExtension-hosted MV3 extensions, loaded from unpacked directories |
+| 7 | Extensions | WKWebExtension-hosted MV3 extensions, loaded from prepared directories (raw ZIP kept beside) |
 
 **Explicit non-goals.** No AI features. No Easels/Notes. No cross-device sync in
 v1. No iOS target. No Windows/Linux. No Chrome Web Store integration. No
@@ -367,21 +367,41 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
   per Space** (ADR 011 — resolves §12; storage isolation lives on the
   controller's configuration and data store, so per-Space contexts on a shared
   controller would not isolate).
-- Load from unpacked directories in
-  `~/Library/Application Support/<App>/Extensions/`.
-- Ship a small CLI or in-app helper to unpack a `.crx` into that directory. Do
-  **not** attempt Chrome Web Store install flows — CWS blocks non-Chrome agents.
+- Load from a prepared directory in
+  `~/Library/Application Support/<App>/Extensions/<slug>.prepared`, with the
+  signed ZIP kept beside it as `<slug>.zip` for provenance. The prepared copy is
+  the signed bundle plus Chord's narrow compatibility shim; the signature is
+  verified before the copy is prepared.
+- **Chrome identity.** Every bundle gets a Chrome-style id (32 letters `a`–`p`)
+  and the stable `chrome-extension://<id>/` origin. CRX3's `crx_id` must match
+  the proof key; CRX2 derives it from the embedded public key; a plain
+  `.xpi`/`.zip` falls back to its manifest `key`, then its source path. This is
+  what native-messaging hosts and extension code expect.
+- Ship a small CLI or in-app helper to unpack a `.crx` into that directory.
+  Chrome Web Store installs are supported through the store's public CRX update
+  endpoint, with the CRX3 signature verified before install (ADR 026). The
+  in-page "Add to Chord" relay is a later UI slice; Settings accepts a store
+  link or id now.
 - MV3 only. Do not add MV2 shims.
 - **Signature verification is warn-but-install (ADR 017).** `ChordCrypto`
   verifies the CRX2/CRX3 signature at install; a valid signature from a pinned
   key is `.trusted`, a valid one from an unknown signer is `.verified`, and
   unsigned `.xpi`/`.zip` or tampered bundles still install but are flagged in the
   UI (row icon, install-time message, enable-time confirmation) rather than
-  silently trusted.
+  silently trusted. In this milestone the verifier also binds the CRX3 proof key
+  to the declared `crx_id`.
 - Surface extension toolbar popovers in the sidebar header.
-- **Critical:** do not reimplement the WebExtensions API. Kagi's Orion did that
-  and reached ~70% coverage after six years with a funded team. We use Apple's
-  framework and accept its coverage gaps.
+- **Compatibility shim.** Apple's `WKWebExtension` remains the runtime; Chord
+  fills APIs WebKit lacks with a Search-derived shim. It covers offscreen,
+  bookmarks, history, downloads, side-panel fallback, folders-as-tab-groups,
+  scripting/userScripts, notifications, TTS, sessions/topSites fallbacks and
+  native messaging. The WebKit-adjacent half lives in `ChordExtensions`; the
+  Store-side data answers live in `ExtensionShimService`. Do not let this grow
+  into a general WebExtensions implementation without a narrow native answer
+  and a real-extension test: Kagi's Orion reached ~70% coverage after six years
+  with a funded team. Chrome Web Store install/update remains out of scope
+  through the public CRX endpoint only; hosting or proxying the store is out of
+  scope.
 
 ### 4.8 Content blocking (independent of extensions)
 

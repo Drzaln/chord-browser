@@ -53,6 +53,26 @@ struct ExtensionLoadingTests {
         #expect(host.loadedExtensions(in: s).map(\.slug) == ["test-mv3"])
     }
 
+    @Test func loadUsesTheChromeIdentifierAndOrigin() async throws {
+        let host = WebKitExtensionHost()
+        let id = String(repeating: "a", count: 32)
+        let (installed, cleanup) = try installedExtension(
+            slug: "chrome-id", manifest: Self.mv3
+        )
+        defer { cleanup() }
+        let qualified = InstalledExtension(
+            slug: installed.slug, identifier: id, resourceURL: installed.resourceURL
+        )
+        let s = space()
+
+        let loaded = try await host.load(qualified, in: s)
+        let context = try #require(host.context(forSlug: "chrome-id", in: s))
+
+        #expect(loaded.identifier == id)
+        #expect(context.uniqueIdentifier == id)
+        #expect(context.baseURL.absoluteString == "chrome-extension://\(id)/")
+    }
+
     @Test func loadAndUnloadFireOnActionsChanged() async throws {
         // The sidebar header re-reads `actions(in:)` only when this fires. WebKit
         // does not emit `didUpdate action:` for a statically-declared default

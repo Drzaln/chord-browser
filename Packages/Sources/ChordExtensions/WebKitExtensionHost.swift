@@ -23,13 +23,35 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     // the controllers through `@testable`; the handle's controller is internal
     // to the engine and cannot be read from here.
     private(set) var controllers: [UUID: WKWebExtensionController] = [:]
+    /// The website data store backing each Space's controller, kept so stale
+    /// extension service-worker registrations can be cleared without creating
+    /// a second store for a private Space.
+    private var dataStores: [UUID: WKWebsiteDataStore] = [:]
 
     private struct Loaded {
         let context: WKWebExtensionContext
         let descriptor: LoadedExtension
+        let installed: InstalledExtension
+        let wasLoadedBefore: Bool
     }
     /// Loaded contexts, keyed by Space then by extension slug.
     private var loadedContexts: [UUID: [String: Loaded]] = [:]
+
+    /// Context error observations, keyed by "space|slug".
+    private var errorWatchers: [String: NSObjectProtocol] = [:]
+    /// Last automatic revival, so a worker that can never start is not put
+    /// through an unload/load loop once a second.
+    private var revived: [String: Date] = [:]
+    /// Spaces whose stale service-worker registrations have been cleared this
+    /// launch. The check is per-space and cheap after the first extension.
+    private var clearedWorkers: Set<UUID> = []
+    /// (Space, Chrome id) pairs loaded at least once this run, for the shim's
+    /// `onInstalled` reason: WebKit says "install" again on every reload.
+    private var loadedOnce: Set<String> = []
+
+    /// Store-side data APIs for the full Chrome shim (M9). WebKit-free at this
+    /// seam: the host passes only an id and a Space.
+    public weak var shimData: (any ExtensionShimData)?
 
     /// Fired on the main actor when an extension updates its action (7.5a).
     public var onActionsChanged: (@MainActor () -> Void)?
@@ -78,6 +100,10 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         let respond: (_ allow: Bool) -> Void
     }
     private var pendingPermissions: [UUID: PendingPermission] = [:]
+    /// Permission requests for APIs Chord answers itself (history, bookmarks,
+    /// downloads, …). They use the same UI sheet but do not go to WebKit's
+    /// permission table.
+    private var pendingShimPermissions: [UUID: (Bool) -> Void] = [:]
 
     // MARK: - Tab/window model (7.3b)
 
@@ -95,7 +121,14 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// Space metadata needed after `prepare` (e.g. private-ness).
     private var spaces: [UUID: Space] = [:]
 
-    public override init() { super.init() }
+    public override init() {
+        // Extension pages must use Chrome's origin, not WebKit's private one:
+        // `chrome-extension://<id>/` is what native-messaging hosts allow and
+        // what servers and extension code recognise. Registering the scheme
+        // once is enough for every controller in the process.
+        WKWebExtension.MatchPattern.registerCustomURLScheme("chrome-extension")
+        super.init()
+    }
 
     public var preparedSpaceIDs: Set<UUID> { Set(controllers.keys) }
 
@@ -184,11 +217,17 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
 
         prepare(space)  // ensures the Space's controller exists and is cached
         let controller = controllers[space.id]!
+        await clearStaleWorkers(for: space)
         let context = WKWebExtensionContext(for: webExtension)
-        // Stable per (Space, slug): the controller is already per-Space, so the
-        // slug is enough to keep this extension's granted permissions and
-        // storage across launches.
-        context.uniqueIdentifier = installed.slug
+        // Chrome's id, not the human-readable slug: it is the stable
+        // `chrome-extension://<id>/` origin, the native-messaging origin, and
+        // the key Chrome Web Store updates use. The controller is already
+        // per-Space, so the same id in another Space still has separate
+        // storage and a separate worker.
+        context.uniqueIdentifier = installed.identifier
+        guard let baseURL = URL(string: "chrome-extension://\(installed.identifier)/")
+        else { throw ExtensionShimError.invalidIdentifier }
+        context.baseURL = baseURL
 
         // Re-apply permissions the user granted in a previous session (7.5c),
         // before the extension starts, so content scripts and host access work
@@ -210,6 +249,10 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         for permission in webExtension.requestedPermissions {
             context.setPermissionStatus(.grantedExplicitly, for: permission)
         }
+        // WebKit otherwise refuses `runtime.connectNative` even though the
+        // manifest (and Chord's shim) asks for it. Chrome grants this at
+        // install; the per-host allow-list is enforced in ExtensionNative.
+        context.setPermissionStatus(.grantedExplicitly, for: .nativeMessaging)
 
         do {
             try controller.load(context)
@@ -225,8 +268,11 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             )
         }
 
+        let loadedKey = "\(space.id)|\(installed.identifier)"
+        let wasLoadedBefore = loadedOnce.contains(loadedKey)
         let descriptor = LoadedExtension(
             slug: installed.slug,
+            identifier: installed.identifier,
             spaceID: space.id,
             displayName: webExtension.displayName,
             manifestVersion: webExtension.manifestVersion,
@@ -234,10 +280,13 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             hasPersistentBackgroundContent: webExtension.hasPersistentBackgroundContent
         )
         loadedContexts[space.id, default: [:]][installed.slug] = Loaded(
-            context: context, descriptor: descriptor
+            context: context, descriptor: descriptor, installed: installed,
+            wasLoadedBefore: wasLoadedBefore
         )
+        loadedOnce.insert(loadedKey)
+        watchErrors(context, spaceID: space.id, slug: installed.slug)
         Log.extensions.notice(
-            "loaded extension \(installed.slug) in space \(space.id)"
+            "loaded extension \(installed.slug) as \(installed.identifier) in space \(space.id)"
         )
         // Tell the UI to re-read `actions(in:)`. WebKit's `didUpdate action:`
         // does not fire for an extension's statically-declared default action on
@@ -250,19 +299,30 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
 
     public func unload(slug: String, in space: Space) throws {
         guard let loaded = loadedContexts[space.id]?[slug] else { return }
+        let key = watchKey(spaceID: space.id, slug: slug)
+        if let watcher = errorWatchers.removeValue(forKey: key) {
+            NotificationCenter.default.removeObserver(watcher)
+        }
+        revived[key] = nil
+        var unloadError: Error?
         if let controller = controllers[space.id] {
             do {
                 try controller.unload(loaded.context)
             } catch {
-                throw ExtensionLoadError.controllerRejected(error)
+                unloadError = error
             }
         }
         loadedContexts[space.id]?[slug] = nil
+        ExtensionOffscreen.close(identifier: loaded.installed.identifier, spaceID: space.id)
+        ExtensionNative.stopOrphans()
         Log.extensions.notice(
             "unloaded extension \(slug) in space \(space.id)"
         )
         // Same reason as `load`: refresh the header so the removed button clears.
         onActionsChanged?()
+        if let unloadError {
+            throw ExtensionLoadError.controllerRejected(unloadError)
+        }
     }
 
     public func loadedExtensions(in space: Space) -> [LoadedExtension] {
@@ -271,15 +331,23 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             .sorted { $0.slug < $1.slug }
     }
 
+    /// The live context for an extension, for tests and diagnostics. Internal:
+    /// no WK* type crosses the package boundary.
+    func context(forSlug slug: String, in space: Space) -> WKWebExtensionContext? {
+        loadedContexts[space.id]?[slug]?.context
+    }
+
     // MARK: - Toolbar actions (7.5a)
 
     public func actions(in space: Space) -> [ExtensionActionSnapshot] {
-        (loadedContexts[space.id] ?? [:])
+        let active = tabModel?.extensionActiveTab(inSpace: space.id)
+        let adapter = active.map { tabAdapter(for: $0.id, inSpace: space.id) }
+        return (loadedContexts[space.id] ?? [:])
             .sorted { $0.key < $1.key }
             .compactMap { slug, loaded in
-                // The default (tab-independent) action; `action(for: nil)` is
-                // the toolbar action the header button represents.
-                guard let action = loaded.context.action(for: nil) else { return nil }
+                // Some extensions (Bitwarden) only publish an action for the
+                // tab in front; the header button represents that tab.
+                guard let action = loaded.context.action(for: adapter) else { return nil }
                 return snapshot(of: action, slug: slug, spaceID: space.id)
             }
     }
@@ -326,6 +394,10 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     // MARK: - Permissions (7.5c)
 
     public func resolvePermission(id: UUID, allow: Bool) {
+        if let shim = pendingShimPermissions.removeValue(forKey: id) {
+            shim(allow)
+            return
+        }
         guard let pending = pendingPermissions.removeValue(forKey: id) else { return }
         pending.respond(allow)
         guard allow else { return }
@@ -455,6 +527,289 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         return nil
     }
 
+
+    // MARK: - Shim permissions and worker
+
+    private func shimGrantKey(_ context: WKWebExtensionContext) -> String {
+        "chord.extensions.shim.\(context.uniqueIdentifier)"
+    }
+
+    /// Permissions the user granted to the Search-answered side of the shim.
+    func shimGranted(_ context: WKWebExtensionContext) -> [String] {
+        UserDefaults.standard.stringArray(forKey: shimGrantKey(context)) ?? []
+    }
+
+    /// Ask through the existing permission sheet, then remember the grant.
+    func requestShimPermissions(
+        _ names: [String], context: WKWebExtensionContext
+    ) async -> Bool {
+        let wanted = Array(Set(names)).sorted()
+        guard !wanted.isEmpty else { return true }
+        let already = Set(shimGranted(context))
+        let missing = wanted.filter { !already.contains($0) }
+        guard !missing.isEmpty else { return true }
+        guard let (spaceID, slug) = locate(context) else { return false }
+        return await withCheckedContinuation { continuation in
+            let id = UUID()
+            pendingShimPermissions[id] = { allow in
+                if allow {
+                    let merged = Array(Set(self.shimGranted(context) + missing)).sorted()
+                    UserDefaults.standard.set(merged, forKey: self.shimGrantKey(context))
+                }
+                continuation.resume(returning: allow)
+            }
+            let request = PermissionRequest(
+                id: id, slug: slug, spaceID: spaceID, kind: .permission,
+                items: missing, displayName: context.webExtension.displayName
+            )
+            guard let onPermissionRequest else {
+                pendingShimPermissions.removeValue(forKey: id)
+                continuation.resume(returning: false)
+                return
+            }
+            onPermissionRequest(request)
+        }
+    }
+
+    func removeShimPermissions(_ names: [String], context: WKWebExtensionContext) {
+        let gone = Set(names)
+        let kept = shimGranted(context).filter { !gone.contains($0) }
+        if kept.isEmpty {
+            UserDefaults.standard.removeObject(forKey: shimGrantKey(context))
+        } else {
+            UserDefaults.standard.set(kept, forKey: shimGrantKey(context))
+        }
+    }
+
+    func wakeBackground(_ context: WKWebExtensionContext) async -> Error? {
+        guard context.webExtension.hasBackgroundContent else { return nil }
+        return await withCheckedContinuation { continuation in
+            var finished = false
+            let done: (Error?) -> Void = { error in
+                guard !finished else { return }
+                finished = true
+                continuation.resume(returning: error)
+            }
+            context.loadBackgroundContent { error in
+                DispatchQueue.main.async { done(error) }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                done(NSError(domain: "Chord", code: 1,
+                             userInfo: [NSLocalizedDescriptionKey: "worker did not answer"]))
+            }
+        }
+    }
+
+    func reviveForShim(_ context: WKWebExtensionContext) {
+        guard let (spaceID, slug) = locate(context) else { return }
+        revive(spaceID: spaceID, slug: slug, context: context)
+    }
+
+    // MARK: - Shim data
+
+    /// The prepared package folder for a live context.
+    func extensionFolder(for context: WKWebExtensionContext) -> URL? {
+        guard let (spaceID, slug) = locate(context),
+              let installed = loadedContexts[spaceID]?[slug]?.installed
+        else { return nil }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(
+            atPath: installed.resourceURL.path, isDirectory: &isDirectory
+        ), isDirectory.boolValue else { return nil }
+        return installed.resourceURL
+    }
+
+    func wasLoadedBefore(_ context: WKWebExtensionContext) -> Bool {
+        guard let (spaceID, slug) = locate(context),
+              let loaded = loadedContexts[spaceID]?[slug]
+        else { return false }
+        return loaded.wasLoadedBefore
+    }
+
+    /// The extension's own execution contexts, for `runtime.getContexts`.
+    func runtimeContexts(_ context: WKWebExtensionContext) -> [[String: Any]] {
+        var found: [[String: Any]] = []
+        let manifest = context.webExtension.manifest
+        if context.webExtension.hasBackgroundContent {
+            let background = manifest["background"] as? [String: Any] ?? [:]
+            let script = background["service_worker"] as? String
+                ?? background["page"] as? String
+            let url = script.map {
+                context.baseURL.appendingPathComponent($0).absoluteString
+            } ?? context.baseURL.absoluteString
+            found.append([
+                "contextType": "BACKGROUND",
+                "contextId": "\(context.uniqueIdentifier)-background",
+                "tabId": -1, "windowId": -1, "frameId": -1,
+                "documentUrl": url,
+                "documentOrigin": context.baseURL.absoluteString,
+                "incognito": false,
+            ])
+        }
+        if let url = ExtensionOffscreen.url(
+            identifier: context.uniqueIdentifier, spaceID: locate(context)?.spaceID ?? UUID()
+        ) {
+            found.append([
+                "contextType": "OFFSCREEN_DOCUMENT",
+                "contextId": "\(context.uniqueIdentifier)-offscreen",
+                "tabId": -1, "windowId": -1, "frameId": 0,
+                "documentUrl": url.absoluteString,
+                "documentOrigin": context.baseURL.absoluteString,
+                "incognito": false,
+            ])
+        }
+        return found
+    }
+
+    /// The extension's own pages that are open, for `clients.matchAll()`.
+    func extensionPages(spaceID: UUID, identifier: String) -> [[String: Any]] {
+        var pages: [[String: Any]] = []
+        for tab in tabModel?.extensionTabs(inSpace: spaceID) ?? [] {
+            guard let url = tab.url, url.scheme?.lowercased() == "chrome-extension",
+                  url.host?.lowercased() == identifier.lowercased()
+            else { continue }
+            pages.append([
+                "id": tab.id.uuidString, "url": url.absoluteString,
+                "visible": tab.isSelected, "focused": tab.isSelected,
+            ])
+        }
+        if let url = ExtensionOffscreen.url(
+            identifier: identifier, spaceID: spaceID
+        ) {
+            pages.append([
+                "id": "offscreen", "url": url.absoluteString,
+                "visible": false, "focused": false,
+            ])
+        }
+        return pages
+    }
+
+    private func shimTabs(_ places: Any?, spaceID: UUID) -> [ExtensionTabSnapshot] {
+        let all = tabModel?.extensionTabs(inSpace: spaceID) ?? []
+        guard let places = places as? [[String: Any]] else { return all }
+        return places.compactMap { place in
+            guard let index = place["i"] as? Int, all.indices.contains(index)
+            else { return nil }
+            return all[index]
+        }
+    }
+
+    func tabDescriptions(for places: Any?, spaceID: UUID) -> [[String: Any]] {
+        shimTabs(places, spaceID: spaceID).map { tab in
+            var value: [String: Any] = ["url": tab.url?.absoluteString ?? ""]
+            if !tab.title.isEmpty { value["title"] = tab.title }
+            if let data = tab.faviconData {
+                value["favIconUrl"] = "data:image/png;base64," + data.base64EncodedString()
+            }
+            return value
+        }
+    }
+
+    func tabPrivacy(for places: Any?, spaceID: UUID) -> Any {
+        let tabs = shimTabs(places, spaceID: spaceID)
+        if places is [[String: Any]] { return tabs.map(\.isPrivate) }
+        return tabs.contains(where: \.isPrivate)
+    }
+
+    /// Chord's folders are shown to Chrome as tab groups. Until the folder
+    /// bridge lands, a tab reports "no group" (`-1`), which every extension
+    /// understands.
+    func tabGroups(for places: Any?, spaceID: UUID) -> [Int] {
+        shimTabs(places, spaceID: spaceID).map { $0.groupNumber ?? -1 }
+    }
+
+    func activateTab(for place: Any?, spaceID: UUID) {
+        guard let tab = shimTabs(place, spaceID: spaceID).first else { return }
+        tabModel?.extensionActivateTab(tab.id)
+    }
+
+    // MARK: - Worker health
+
+    private func watchKey(spaceID: UUID, slug: String) -> String {
+        "\(spaceID.uuidString)|\(slug)"
+    }
+
+    /// Clear extension service-worker registrations when the shim changes.
+    /// WebKit may start a worker from the previous build's script, and a
+    /// worker built against an older shim can stay dead across reinstalls.
+    /// Clearing all workers in the Space also clears website workers; they
+    /// register again on the next visit, as Search accepts.
+    private func clearStaleWorkers(for space: Space) async {
+        guard !clearedWorkers.contains(space.id) else { return }
+        clearedWorkers.insert(space.id)
+        guard !space.isPrivate, let store = dataStores[space.id] else { return }
+        let key = "chord.extensions.shim.\(space.id.uuidString)"
+        guard UserDefaults.standard.string(forKey: key) != ExtensionShims.version else {
+            return
+        }
+        await store.removeData(
+            ofTypes: [WKWebsiteDataTypeServiceWorkerRegistrations],
+            modifiedSince: .distantPast
+        )
+        UserDefaults.standard.set(ExtensionShims.version, forKey: key)
+    }
+
+    /// WebKit records a background worker that failed to start on the context
+    /// and then never tries again. Take the same context up afresh once, but
+    /// not more than once a minute for one extension.
+    private func watchErrors(
+        _ context: WKWebExtensionContext, spaceID: UUID, slug: String
+    ) {
+        let key = watchKey(spaceID: spaceID, slug: slug)
+        if let old = errorWatchers.removeValue(forKey: key) {
+            NotificationCenter.default.removeObserver(old)
+        }
+        errorWatchers[key] = NotificationCenter.default.addObserver(
+            forName: WKWebExtensionContext.errorsDidUpdateNotification,
+            object: context, queue: .main
+        ) { [weak self, weak context] _ in
+            MainActor.assumeIsolated {
+                guard let self, let context,
+                      self.loadedContexts[spaceID]?[slug]?.context === context
+                else { return }
+                let failed = context.errors.contains { error in
+                    let e = error as NSError
+                    return e.domain == WKWebExtensionContext.errorDomain
+                        && e.code == WKWebExtensionContext.Error
+                            .backgroundContentFailedToLoad.rawValue
+                }
+                guard failed else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    MainActor.assumeIsolated {
+                        self?.revive(spaceID: spaceID, slug: slug, context: context)
+                    }
+                }
+            }
+        }
+    }
+
+    private func revive(
+        spaceID: UUID, slug: String, context: WKWebExtensionContext
+    ) {
+        let key = watchKey(spaceID: spaceID, slug: slug)
+        guard let loaded = loadedContexts[spaceID]?[slug],
+              loaded.context === context,
+              let controller = controllers[spaceID],
+              Date().timeIntervalSince(revived[key] ?? .distantPast) > 60
+        else { return }
+        revived[key] = Date()
+        do {
+            try controller.unload(context)
+            try controller.load(context)
+            watchErrors(context, spaceID: spaceID, slug: slug)
+            Log.extensions.notice(
+                "revived extension \(slug) in space \(spaceID) after its worker failed"
+            )
+            onActionsChanged?()
+        } catch {
+            loadedContexts[spaceID]?[slug] = nil
+            onActionsChanged?()
+            Log.extensions.error(
+                "could not revive \(slug) in space \(spaceID): \(String(describing: error))"
+            )
+        }
+    }
+
     // MARK: - ExtensionControllerProviding
 
     public func extensionControllerHandle(for space: Space) -> ExtensionControllerHandle? {
@@ -483,10 +838,12 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             // A non-persistent configuration already defaults to a
             // non-persistent data store, so nothing survives a quit.
             configuration = .nonPersistent()
+            dataStores[space.id] = .nonPersistent()
         } else {
             configuration = WKWebExtensionController.Configuration(identifier: space.dataStoreID)
-            configuration.defaultWebsiteDataStore =
-                WKWebsiteDataStore(forIdentifier: space.dataStoreID)
+            let store = WKWebsiteDataStore(forIdentifier: space.dataStoreID)
+            configuration.defaultWebsiteDataStore = store
+            dataStores[space.id] = store
         }
         return configuration
     }
@@ -507,6 +864,101 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
     ) -> (any WKWebExtensionWindow)? {
         guard let spaceID = controllerSpace[ObjectIdentifier(controller)] else { return nil }
         return windowAdapter(forSpace: spaceID)
+    }
+
+    /// The shim's own native endpoint (`chord`) is answered in-process. Any
+    /// other name is a Chrome native-messaging host installed on this Mac and
+    /// is only run when the extension's own manifest asked for it.
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        sendMessage message: Any,
+        toApplicationWithIdentifier applicationIdentifier: String?,
+        for context: WKWebExtensionContext
+    ) async throws -> Any? {
+        if applicationIdentifier == nil || applicationIdentifier == ExtensionShims.application {
+            guard let (spaceID, _) = locate(context) else {
+                throw ExtensionNative.Refused(why: "Extension context is not loaded.")
+            }
+            return try await ExtensionShimBroker.answer(
+                message, context: context, spaceID: spaceID, host: self
+            )
+        }
+        guard let applicationIdentifier else { return nil }
+        guard let (spaceID, slug) = locate(context),
+              let loaded = loadedContexts[spaceID]?[slug],
+              ExtensionShims.asksForNative(
+                in: loaded.installed.resourceURL, context: context
+              )
+        else {
+            throw ExtensionNative.Refused(
+                why: "Access to native messaging requires the nativeMessaging permission."
+            )
+        }
+        return try await ExtensionNative.send(
+            message, to: applicationIdentifier, from: context.uniqueIdentifier
+        )
+    }
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        connectUsing port: WKWebExtension.MessagePort,
+        for context: WKWebExtensionContext
+    ) async throws {
+        // The shim only opens this port to find what ports share; it is not a
+        // host and has nothing to keep.
+        if port.applicationIdentifier == nil
+            || port.applicationIdentifier == ExtensionShims.application {
+            return
+        }
+        // A worker's WebSocket is made by the browser, not by WebKit (see
+        // ExtensionSocket). It is not a Mac native host and needs no
+        // nativeMessaging permission.
+        if port.applicationIdentifier == ExtensionSocket.name {
+            ExtensionSocket.connect(port, from: context.uniqueIdentifier)
+            return
+        }
+        guard let applicationIdentifier = port.applicationIdentifier else { return }
+        guard let (spaceID, slug) = locate(context),
+              let loaded = loadedContexts[spaceID]?[slug],
+              ExtensionShims.asksForNative(
+                in: loaded.installed.resourceURL, context: context
+              )
+        else {
+            throw ExtensionNative.Refused(
+                why: "Access to native messaging requires the nativeMessaging permission."
+            )
+        }
+        try ExtensionNative.connect(
+            port, named: applicationIdentifier, from: context.uniqueIdentifier
+        )
+    }
+
+    // MARK: - New tabs and options pages
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        openNewTabUsing configuration: WKWebExtension.TabConfiguration,
+        for context: WKWebExtensionContext
+    ) async throws -> (any WKWebExtensionTab)? {
+        guard let url = configuration.url else { return nil }
+        let spaceID = (configuration.window as? ExtensionWindowAdapter)?.spaceID
+            ?? locate(context)?.spaceID
+        guard let spaceID,
+              let snapshot = tabModel?.extensionCreateTab(
+                url: url, inSpace: spaceID, active: configuration.shouldBeActive
+              )
+        else { return nil }
+        return tabAdapter(for: snapshot.id, inSpace: spaceID)
+    }
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        openOptionsPageFor context: WKWebExtensionContext
+    ) async throws {
+        guard let url = context.optionsPageURL,
+              let spaceID = locate(context)?.spaceID
+        else { return }
+        _ = tabModel?.extensionCreateTab(url: url, inSpace: spaceID, active: true)
     }
 
     // MARK: - Action updates (7.5a)

@@ -147,6 +147,10 @@ public final class WindowState {
 
     /// Whether the settings sheet is showing. Kept here for the same reason.
     public var isSettingsPresented = false
+    /// The settings section last shown in this window. A permission sheet can
+    /// replace the settings sheet while an extension is enabled; keeping the
+    /// selection here means the user returns to Extensions, not General.
+    public var settingsSection = "General"
 
     /// Whether the History window is showing. Kept here for the same reason.
     public var isHistoryPresented = false

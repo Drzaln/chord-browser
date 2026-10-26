@@ -416,6 +416,28 @@ its service actions are unit-tested.)
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —
       expect limited blocking; not a full replacement for built-in blocking)
+- [ ] **M8:** a bundle installed after 2026-10-26 runs from
+      `Extensions/<slug>.prepared`, keeps `<slug>.zip` beside it, and its
+      extension page's origin is `chrome-extension://<32-letter-id>/`
+      (automated: `ExtensionPreparedBundleTests`, `loadUsesTheChromeIdentifierAndOrigin`)
+- [ ] **M8:** an extension declaring `offscreen` can create and close one
+      (`chrome.offscreen.createDocument` / `hasDocument` / `closeDocument`);
+      the page is a hidden `WKWebView` with no tab (automated:
+      `ExtensionOffscreenTests`)
+- [ ] **M8:** a Chrome native-messaging host whose `allowed_origins` names the
+      extension runs; one naming another id is refused (automated:
+      `ExtensionNativeTests`)
+- [ ] **M8:** an extension with a real native host still cannot reach it after
+      Chord adds `nativeMessaging` for its shim (`asksForNative` test)
+- [ ] **M9:** paste a Chrome Web Store link/id in Settings → Add; it downloads,
+      verifies, prepares, and enables in the active Space
+      (automated: `CrxTests`; store network is manual)
+- [ ] **M9:** a Search-answered API permission (`history`, `bookmarks`, …) shows
+      the same grant sheet and is remembered per extension
+      (automated: `ExtensionShimPermissionTests`)
+- [ ] **M9:** a `userScripts` extension writes `_chord/us-*.js` and its script
+      runs on matching pages (automated: `ExtensionUserScriptTests`; page-run is
+      manual)
 
 **Note on why they "didn't work" before:** enabling loaded the extension but
 never granted host access (WebKit does not prompt for required `host_permissions`),
