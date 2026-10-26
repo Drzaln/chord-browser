@@ -4626,3 +4626,40 @@ action.
   call it at load.
 
 `scripts/prepush.sh` remains the release gate; the probe stays opt-in.
+
+### M9f — worker recovery for Bitwarden (2026-10-27)
+
+Ported the `webkit-arc-like-browser-exn` design from the local backup branch
+(`71c25b8`) and the working Search reference. The full shim already carried the
+JavaScript half (`runtime.connect`/`onConnect` tracking, `background.observe`,
+`chordWorkerRecovery`); the native half was missing from this worktree.
+
+- **`ExtensionWorkerRecovery`** keeps one generation per (Space, slug). It
+  registers the extension's context *before* `controller.load`, listens for
+  WebKit's private
+  `_webExtensionController:didCreateBackgroundWebView:forExtensionContext:`,
+  and records each background view's lifetime. A replaced context raises the
+  generation; an idle wake/crash retry keeps it and reports the new lifetime.
+  `background.observe` answers a stale shim immediately, otherwise holds the
+  request until the worker is replaced; `background.unobserve` cancels it.
+- **Content scripts** ask through `chordWorkerRecovery`, a with-reply handler in
+  the extension's isolated world. The engine now carries the attach closure on
+  `ExtensionControllerHandle` and installs it on every page controller,
+  including `window.open()` popups.
+- **Host lifecycle.** Reloading a live slug unloads the old context and raises
+  the generation; `unload` raises it and detaches the bridge; the existing
+  failed-worker revive now marks the background replaced (same context), so
+  ports disconnect and reconnect Chrome-style.
+- No `loadBackgroundContent` call is added: the previous attempt blanked
+  Bitwarden's popup. Recovery only observes; `connect()` wakes the worker.
+
+**Verified live** in a fresh `CFFIXED_USER_HOME`: install Bitwarden from the
+store, grant host access, open its header action. The popup renders its
+onboarding screen ("Security, prioritised", Log in) instead of the spinner, and
+the log has no `No runtime.onConnect listeners found` or disconnected-port
+errors. Unlock with a real master password was **not** run here (no account
+credentials), so `exn`'s login acceptance stays open.
+
+**Tests.** `ExtensionWorkerRecoveryTests` covers the generation state machine
+(8 cases) and loads a real MV3 background to prove the private delegate records
+its lifetime and that `background.observe` answers through the broker.

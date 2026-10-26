@@ -14,8 +14,18 @@ public struct ExtensionControllerHandle {
     /// WebKit too); nothing in Store or UI can name the type.
     let controller: WKWebExtensionController
 
-    public init(_ controller: WKWebExtensionController) {
+    /// Adds the extension host's worker-recovery channel to a page's content
+    /// controller (899/worker recovery). The host owns the handler objects; the
+    /// engine only provides the controllers they must be installed on, because
+    /// every tab makes its own. Nil for a handle built without a host.
+    public var attachWorkerRecovery: ((WKUserContentController) -> Void)?
+
+    public init(
+        _ controller: WKWebExtensionController,
+        attachWorkerRecovery: ((WKUserContentController) -> Void)? = nil
+    ) {
         self.controller = controller
+        self.attachWorkerRecovery = attachWorkerRecovery
     }
 }
 

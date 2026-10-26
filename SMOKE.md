@@ -421,6 +421,12 @@ its service actions are unit-tested.)
 - [x] **M9e:** the manager shows a localized manifest name and version, not the
       32-letter id (verified live 2026-10-27; automated:
       `resolvesLocalisedManifestName`)
+- [x] **M9f:** Bitwarden's popup renders its onboarding screen, not a spinner,
+      after enabling it from the store; the log has no
+      `No runtime.onConnect listeners found` (verified live 2026-10-27;
+      automated: `ExtensionWorkerRecoveryTests`)
+- [ ] **M9f:** Bitwarden accepts a correct master password and completes the
+      email-code login (needs a real account; manual acceptance for `exn`)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

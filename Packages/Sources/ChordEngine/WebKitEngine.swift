@@ -334,11 +334,17 @@ public final class WebKitEngine: WebEngine {
         // for an extension-free Space is exactly what it was before M7. The
         // controller stays behind the opaque handle — no WebKit type reaches
         // here from above the engine. See ADR 011.
-        if let handle = extensionControllerProvider?.extensionControllerHandle(for: space) {
+        let handle = extensionControllerProvider?.extensionControllerHandle(for: space)
+        if let handle {
             config.webExtensionController = handle.controller
+            if let attach = handle.attachWorkerRecovery {
+                workerRecoveryAttachers[space.id] = attach
+            }
         }
 
-        config.userContentController = makeContentController()
+        config.userContentController = makeContentController(
+            workerRecovery: handle?.attachWorkerRecovery
+        )
         let webView = ChordWebView(frame: .zero, configuration: config)
         configure(webView)
         return webView
@@ -350,9 +356,15 @@ public final class WebKitEngine: WebEngine {
     /// does *not* deep-copy this object, so sharing the template's controller
     /// means adding the same handler name twice — which throws
     /// NSInvalidArgumentException and takes the app down on the second tab.
-    private func makeContentController() -> WKUserContentController {
+    private func makeContentController(
+        workerRecovery: ((WKUserContentController) -> Void)? = nil
+    ) -> WKUserContentController {
         let controller = WKUserContentController()
         installUserScripts(on: controller)
+        // The extension host's worker-recovery channel, in the isolated world
+        // its content scripts run in (899/worker recovery). Nil when the Space
+        // has no extension host — the controller is then exactly as before.
+        workerRecovery?(controller)
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
@@ -526,7 +538,10 @@ public final class WebKitEngine: WebEngine {
         openerConfiguration: WKWebViewConfiguration, url: URL?, fromPane paneID: UUID?
     ) -> WKWebView {
         let config = openerConfiguration.copy() as! WKWebViewConfiguration
-        config.userContentController = makeContentController()
+        config.userContentController = makeContentController(
+            workerRecovery: paneID.flatMap { spaceID(forPane: $0) }
+                .flatMap { workerRecoveryAttachers[$0] }
+        )
         if config.urlSchemeHandler(forURLScheme: OfflineGamePage.scheme) == nil {
             config.setURLSchemeHandler(offlineGamePage, forURLScheme: OfflineGamePage.scheme)
         }
@@ -628,6 +643,13 @@ public final class WebKitEngine: WebEngine {
             installUserScripts(on: live.webView.configuration.userContentController)
         }
     }
+
+    /// The extension host's worker-recovery installer, remembered per Space so a
+    /// `window.open()` popup — whose configuration is copied from the opener —
+    /// can put the same channel on its rebuilt content controller
+    /// (899/worker recovery). Filled the first time a view for the Space is
+    /// made.
+    private var workerRecoveryAttachers: [UUID: (WKUserContentController) -> Void] = [:]
 
     /// The configured search provider's display name, shown in the page context
     /// menu's "Search with …" item. Set by the store.

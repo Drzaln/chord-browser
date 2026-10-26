@@ -402,8 +402,16 @@ enum ExtensionShimBroker {
         case "background.loadedBefore":
             return host?.wasLoadedBefore(context) ?? false
         case "background.observe":
-            return 0
+            guard let host else { return 0 }
+            let generation = args.first as? Int ?? 0
+            let token = args.count > 1 ? args[1] as? String ?? "" : ""
+            return await host.observeWorker(
+                context, generation: generation, token: token
+            )
         case "background.unobserve":
+            if let token = args.first as? String {
+                host?.cancelWorkerObservation(context, token: token)
+            }
             return nil
         case "background.wake":
             if let error = await host?.wakeBackground(context) {

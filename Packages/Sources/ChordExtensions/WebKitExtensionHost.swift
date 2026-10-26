@@ -42,6 +42,10 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// Last automatic revival, so a worker that can never start is not put
     /// through an unload/load loop once a second.
     private var revived: [String: Date] = [:]
+    /// Per-(Space, extension) worker generations and background lifetimes
+    /// (899/worker recovery). Shared so content controllers built by the
+    /// engine can carry its bridge too.
+    let workerRecovery = ExtensionWorkerRecovery.shared
     /// Spaces whose stale service-worker registrations have been cleared this
     /// launch. The check is per-space and cheap after the first extension.
     private var clearedWorkers: Set<UUID> = []
@@ -136,7 +140,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     public func prepare(_ space: Space) -> ExtensionControllerHandle {
         spaces[space.id] = space
         if let existing = controllers[space.id] {
-            return ExtensionControllerHandle(existing)
+            return controllerHandle(existing, for: space.id)
         }
 
         let controller = WKWebExtensionController(configuration: makeConfiguration(for: space))
@@ -146,7 +150,21 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         Log.extensions.debug(
             "prepared extension controller for space \(space.id)"
         )
-        return ExtensionControllerHandle(controller)
+        return controllerHandle(controller, for: space.id)
+    }
+
+    /// The handle the engine attaches to every page's configuration. The
+    /// worker-recovery bridge travels with it so each new content controller
+    /// gains the extension's isolated-world handler (899/worker recovery).
+    private func controllerHandle(
+        _ controller: WKWebExtensionController, for spaceID: UUID
+    ) -> ExtensionControllerHandle {
+        ExtensionControllerHandle(
+            controller,
+            attachWorkerRecovery: { [workerRecovery] contentController in
+                workerRecovery.attach(spaceID: spaceID, controller: contentController)
+            }
+        )
     }
 
     // MARK: - Adapter cache (7.3b)
@@ -202,6 +220,28 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     public func load(_ installed: InstalledExtension, in space: Space) async throws
         -> LoadedExtension
     {
+        // Loading a slug that is already live is a reload: unload the old
+        // context first, and tell its pages their ports belong to a retired
+        // context (899/worker recovery). Without this, WebKit can end up with
+        // two contexts for one origin.
+        if let previous = loadedContexts[space.id]?[installed.slug] {
+            try? controllers[space.id]?.unload(previous.context)
+            loadedContexts[space.id]?[installed.slug] = nil
+            ExtensionOffscreen.close(
+                identifier: previous.installed.identifier, spaceID: space.id
+            )
+            let key = ExtensionWorkerRecovery.Key(
+                spaceID: space.id, slug: installed.slug
+            )
+            if let watcher = errorWatchers.removeValue(
+                forKey: watchKey(spaceID: space.id, slug: installed.slug)
+            ) {
+                NotificationCenter.default.removeObserver(watcher)
+            }
+            workerRecovery.restarted(key, replacingContext: true)
+            workerRecovery.unregister(key)
+        }
+
         let webExtension: WKWebExtension
         do {
             webExtension = try await WKWebExtension(resourceBaseURL: installed.resourceURL)
@@ -254,9 +294,15 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // install; the per-host allow-list is enforced in ExtensionNative.
         context.setPermissionStatus(.grantedExplicitly, for: .nativeMessaging)
 
+        // Before load: WebKit can create the background synchronously inside
+        // it, and the callback must already have somewhere to land.
+        let recoveryUndo = workerRecovery.register(
+            context, spaceID: space.id, slug: installed.slug
+        )
         do {
             try controller.load(context)
         } catch {
+            recoveryUndo()
             throw ExtensionLoadError.controllerRejected(error)
         }
 
@@ -313,6 +359,14 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             }
         }
         loadedContexts[space.id]?[slug] = nil
+        // Every port the extension held belonged to this context. Raise the
+        // generation so its pages learn to reconnect to whatever replaces it,
+        // and detach the content-script bridge (899/worker recovery).
+        let recoveryKey = ExtensionWorkerRecovery.Key(
+            spaceID: space.id, slug: slug
+        )
+        workerRecovery.restarted(recoveryKey, replacingContext: true)
+        workerRecovery.unregister(recoveryKey)
         ExtensionOffscreen.close(identifier: loaded.installed.identifier, spaceID: space.id)
         ExtensionNative.stopOrphans()
         Log.extensions.notice(
@@ -529,6 +583,26 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
 
 
     // MARK: - Shim permissions and worker
+
+    /// Holds `chrome.runtime.connect` observers open until the extension's
+    /// background is replaced (899/worker recovery). The shim calls this as
+    /// `background.observe`; `nil` means the extension is no longer loaded.
+    func observeWorker(
+        _ context: WKWebExtensionContext, generation: Int, token: String
+    ) async -> Int? {
+        guard let (spaceID, slug) = locate(context) else { return nil }
+        return await workerRecovery.observe(
+            ExtensionWorkerRecovery.Key(spaceID: spaceID, slug: slug),
+            generation: generation, token: token
+        )
+    }
+
+    func cancelWorkerObservation(_ context: WKWebExtensionContext, token: String) {
+        guard let (spaceID, slug) = locate(context) else { return }
+        workerRecovery.cancel(
+            ExtensionWorkerRecovery.Key(spaceID: spaceID, slug: slug), token: token
+        )
+    }
 
     private func shimGrantKey(_ context: WKWebExtensionContext) -> String {
         "chord.extensions.shim.\(context.uniqueIdentifier)"
@@ -749,6 +823,22 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         UserDefaults.standard.set(ExtensionShims.version, forKey: key)
     }
 
+    // MARK: - Worker lifecycle (899/worker recovery)
+
+    /// WebKit calls this before every background web view it creates,
+    /// including one woken inside a context that already ran (idle exit,
+    /// crash retry). Undocumented but long-lived — the reference browser has
+    /// relied on it since WebKit 26, and it is the only signal that
+    /// distinguishes "the same worker restarted" from "this port is stale".
+    @objc(_webExtensionController:didCreateBackgroundWebView:forExtensionContext:)
+    func createdBackground(
+        _ controller: WKWebExtensionController,
+        webView: WKWebView,
+        context: WKWebExtensionContext
+    ) {
+        workerRecovery.created(webView, in: context)
+    }
+
     /// WebKit records a background worker that failed to start on the context
     /// and then never tries again. Take the same context up afresh once, but
     /// not more than once a minute for one extension.
@@ -795,6 +885,13 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         revived[key] = Date()
         do {
             try controller.unload(context)
+            // Same context, so the generation stays: pages keep their API
+            // objects. The new background's lifetime is what tells their ports
+            // to reconnect (899/worker recovery).
+            workerRecovery.restarted(
+                ExtensionWorkerRecovery.Key(spaceID: spaceID, slug: slug),
+                replacingContext: false
+            )
             try controller.load(context)
             watchErrors(context, spaceID: spaceID, slug: slug)
             Log.extensions.notice(
