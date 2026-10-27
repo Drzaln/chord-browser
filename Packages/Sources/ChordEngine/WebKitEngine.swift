@@ -422,6 +422,7 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(NotificationBridge.makeUserScript())
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
+        controller.addUserScript(ChromeWebStoreRelay.makeUserScript())
         controller.addUserScript(PasswordFormMonitor.makeUserScript())
         controller.addUserScript(GeolocationBridge.makeUserScript())
         controller.addUserScript(PictureInPictureMonitor.makeUserScript())

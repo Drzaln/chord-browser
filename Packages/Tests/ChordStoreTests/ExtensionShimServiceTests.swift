@@ -35,8 +35,12 @@ struct ExtensionShimServiceTests {
             coordinator: DownloadCoordinator(directory: root.appending(path: "Downloads"))
         )
         let bookmarks = BookmarksStore(fileURL: root.appending(path: "bookmarks.json"))
+        let readingList = ReadingListStore(fileURL: root.appending(path: "reading-list.json"))
         return (
-            ExtensionShimService(store: store, downloads: downloads, bookmarks: bookmarks),
+            ExtensionShimService(
+                store: store, downloads: downloads, bookmarks: bookmarks,
+                readingList: readingList
+            ),
             store, engine, root
         )
     }
@@ -57,6 +61,35 @@ struct ExtensionShimServiceTests {
             "downloads.search", args: [[]], context: context
         ) as? [[String: Any]]
         #expect(empty?.isEmpty == true)
+    }
+
+    @Test func readingListAddsQueriesAndUpdates() async throws {
+        let (service, _, _, root) = try await makeService()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        _ = try await service.answer(
+            "readingList.addEntry",
+            args: [["url": "https://example.com/read", "title": "Read me"]],
+            context: context
+        )
+        let list = try await service.answer(
+            "readingList.query", args: [[:]], context: context
+        ) as? [[String: Any]]
+        let entry = try #require(list?.first)
+        #expect(entry["url"] as? String == "https://example.com/read")
+        #expect(entry["title"] as? String == "Read me")
+        #expect(entry["hasBeenRead"] as? Bool == false)
+        #expect((entry["creationTime"] as? Double ?? 0) > 0)
+
+        _ = try await service.answer(
+            "readingList.updateEntry",
+            args: [["url": "https://example.com/read", "hasBeenRead": true]],
+            context: context
+        )
+        let read = try await service.answer(
+            "readingList.query", args: [["hasBeenRead": true]], context: context
+        ) as? [[String: Any]]
+        #expect(read?.count == 1)
     }
 
     @Test func bookmarksRoundTripThroughTheChromeShape() async throws {

@@ -4784,3 +4784,21 @@ listing through the host.
   reports.
 - Tests cover the refusal of non-web addresses and an empty list. A live
   extension download is still manual.
+
+### M9b/M9c — reading list, store feedback, old signatures (2026-10-28)
+
+- **Reading list.** `chrome.readingList` now has a real JSON store beside
+  bookmarks (`reading-list.json`): query by url/title/hasBeenRead, add, remove,
+  update. Times are Chrome's milliseconds, entries are id-stable UUIDs, and a
+  re-add of the same URL updates rather than duplicates.
+- **Store update feedback.** A store update (or the same-version reinstall used
+  to repair an old `.unsupported` CRX3 verdict) now raises a toast through the
+  focused window, not just a log line. An old sidecar is refreshed on launch
+  when the store answers, without waiting for a version bump.
+- **Store page furniture.** The Chrome Web Store's "Switch to Chrome" banner,
+  card and disabled install button are hidden/relabelled on
+  `chromewebstore.google.com`; the real path is Settings → “Add to Chord”.
+  This quiets the page only — it is not yet an in-page install relay.
+
+Tests: reading-list add/query/update, Chrome Web Store script shape. The live
+store page and a real extension download remain manual.

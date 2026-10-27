@@ -444,6 +444,12 @@ its service actions are unit-tested.)
 - [x] **M9b:** `chrome.downloads.download` starts an HTTP(S) download and
       `downloads.open`/`show` act on it (automated: `ExtensionShimServiceTests`;
       a real extension download is manual)
+- [x] **M9b:** `chrome.readingList` query/add/remove/update round-trip through
+      `reading-list.json` (automated: `ExtensionShimServiceTests`)
+- [x] **M9c:** a store update or same-version signature repair shows a toast,
+      and old `.unsupported` sidecars are refreshed on launch
+- [ ] **M9c:** in-page “Add to Chord” relay on the store page (only the
+      “Switch to Chrome” furniture is hidden today)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

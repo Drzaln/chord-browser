@@ -14,6 +14,7 @@ public final class ExtensionShimService: ExtensionShimData {
     private unowned let store: TabStore
     private let downloads: DownloadsStore
     private let bookmarks: BookmarksStore
+    private let readingList: ReadingListStore
 
     /// Side-panel options are per extension. Chord has no docked panel yet, so
     /// `open` uses an ordinary tab — Search does the same when a panel cannot
@@ -22,10 +23,14 @@ public final class ExtensionShimService: ExtensionShimData {
     private var panelOff: Set<String> = []
     private var panelOnClick: Set<String> = []
 
-    public init(store: TabStore, downloads: DownloadsStore, bookmarks: BookmarksStore) {
+    public init(
+        store: TabStore, downloads: DownloadsStore, bookmarks: BookmarksStore,
+        readingList: ReadingListStore
+    ) {
         self.store = store
         self.downloads = downloads
         self.bookmarks = bookmarks
+        self.readingList = readingList
         bookmarks.load()
     }
 
@@ -85,10 +90,10 @@ public final class ExtensionShimService: ExtensionShimData {
         case "topSites.get":
             return await topSites(context: context)
         case "readingList.query":
-            return []
+            return try answerReadingList(api, args)
         case "readingList.addEntry", "readingList.removeEntry",
              "readingList.updateEntry":
-            return nil
+            return try answerReadingList(api, args)
         case "search.query":
             return answerSearch(args, context: context)
         case "browsingData.settings":
@@ -332,6 +337,58 @@ public final class ExtensionShimService: ExtensionShimData {
                 FileManager.default.fileExists(atPath: $0.path)
             } ?? false,
             "startTime": ISO8601DateFormatter().string(from: item.startedAt), "mime": "",
+        ]
+    }
+
+    // MARK: - Reading list
+
+    private func answerReadingList(_ api: String, _ args: [Any]) throws -> Any? {
+        switch api {
+        case "readingList.query":
+            let filter = args.first as? [String: Any] ?? [:]
+            return readingList.entries.filter { entry in
+                if let url = filter["url"] as? String, entry.url != url { return false }
+                if let title = filter["title"] as? String,
+                   !entry.title.localizedCaseInsensitiveContains(title) { return false }
+                if let read = filter["hasBeenRead"] as? Bool,
+                   entry.hasBeenRead != read { return false }
+                return true
+            }.map(readingListJSON)
+        case "readingList.addEntry":
+            let spec = args.first as? [String: Any] ?? [:]
+            guard let url = spec["url"] as? String, !url.isEmpty else {
+                throw Unsupported(what: "A reading-list entry needs an address")
+            }
+            readingList.add(
+                url: url, title: spec["title"] as? String ?? "",
+                hasBeenRead: spec["hasBeenRead"] as? Bool ?? false
+            )
+            return nil
+        case "readingList.removeEntry":
+            guard let url = args.first as? String else { return nil }
+            readingList.remove(url: url)
+            return nil
+        case "readingList.updateEntry":
+            let spec = args.first as? [String: Any] ?? [:]
+            guard let url = spec["url"] as? String else { return nil }
+            readingList.update(
+                url: url, title: spec["title"] as? String,
+                hasBeenRead: spec["hasBeenRead"] as? Bool
+            )
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    private func readingListJSON(_ entry: ReadingListEntry) -> [String: Any] {
+        [
+            "id": entry.id.uuidString,
+            "url": entry.url,
+            "title": entry.title,
+            "creationTime": entry.created.timeIntervalSince1970 * 1000,
+            "lastUpdateTime": entry.updated.timeIntervalSince1970 * 1000,
+            "hasBeenRead": entry.hasBeenRead,
         ]
     }
 

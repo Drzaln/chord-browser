@@ -27,6 +27,10 @@ public final class ExtensionsService {
     private let enablement: any ExtensionEnablementRepository
     private let log = AppLog.category("extensions")
 
+    /// Fired after a store update attempt, so the UI can say what changed.
+    /// WebKit-free: a plain human-readable line.
+    public var onStoreUpdate: (@MainActor (String) -> Void)?
+
     public init(
         installer: ExtensionInstaller,
         host: any ExtensionHost,
@@ -111,7 +115,10 @@ public final class ExtensionsService {
         for item in installed where item.fromStore {
             guard let current = item.version,
                   let newer = await newerVersion(for: item.identifier),
-                  newer != current
+                  // An older build recorded `.unsupported` for every store CRX3
+                  // (the verifier read a field Chrome does not write). Reinstall
+                  // even at the same version so the sidecar tells the truth.
+                  newer != current || item.signatureStatus == .unsupported
             else { continue }
             do {
                 let data = try await Crx.fetch(item.identifier)
@@ -127,6 +134,12 @@ public final class ExtensionsService {
                 }
                 log.notice(
                     "updated store extension \(item.slug) from \(current) to \(newer)"
+                )
+                let label = updated.displayName ?? item.displayName ?? item.slug
+                onStoreUpdate?(
+                    newer != current
+                        ? "Updated \(label) to \(newer)"
+                        : "Verified \(label)"
                 )
             } catch {
                 log.error(

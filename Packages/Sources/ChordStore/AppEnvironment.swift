@@ -208,6 +208,9 @@ public struct AppEnvironment {
                 await extensionsService.updateStoreExtensions(in: store.spaces)
             }
         }
+        extensionsService.onStoreUpdate = { [weak store] message in
+            store?.focusedWindow.showToast(message, icon: "puzzlepiece.extension")
+        }
 
         let downloadsStore = DownloadsStore(coordinator: engine.downloads)
         // A download started while the sidebar is collapsed has no visible
@@ -223,8 +226,12 @@ public struct AppEnvironment {
         let bookmarks = BookmarksStore(
             fileURL: support.appending(path: "bookmarks.json")
         )
+        let readingList = ReadingListStore(
+            fileURL: support.appending(path: "reading-list.json")
+        )
         let extensionShim = ExtensionShimService(
-            store: store, downloads: downloadsStore, bookmarks: bookmarks
+            store: store, downloads: downloadsStore, bookmarks: bookmarks,
+            readingList: readingList
         )
         host.shimData = extensionShim
 
