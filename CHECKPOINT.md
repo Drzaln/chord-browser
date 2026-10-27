@@ -4836,3 +4836,22 @@ history merely by calling the namespace. Test covers `downloads.search` without
 `downloads`.
 
 Still M9b: bookmarks UI, persisted side-panel options.
+
+### M9d — custom action popup (2026-10-28)
+
+Action popups no longer use WebKit's `action.popupPopover`. The page is loaded
+in a `WKWebView` built from the extension's own configuration, inside an
+`NSPopover` hung from the header button:
+
+- Same reason as Search: for some extensions WebKit's popup never reaches its
+  worker, while the identical page in an extension-configured view does.
+- Chrome-style auto-size (25–800 wide, up to 600 tall) measured from the page,
+  clamped to what the popover actually shows. `window.close()` closes it; a
+  link asking for a new window opens as a tab and closes the popup.
+- The extension sees the page through a `PopupPage` tab adapter in the Space's
+  window, as Chrome gives a popup the browser's window. A second press on the
+  same header button closes it without reopening.
+- Live check: uBlock Origin Lite installs and its popup renders in the custom
+  popover with the filter controls; Bitwarden's popup still needs a recheck.
+
+Still M9d: capture bridge, DNR redirect/return-navigation.

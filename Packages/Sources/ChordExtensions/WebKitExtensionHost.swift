@@ -459,6 +459,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
 
     public func presentAction(slug: String, in space: Space) {
         guard let loaded = loadedContexts[space.id]?[slug] else { return }
+        // A press on the button of an extension whose popup is up closes it;
+        // the same click must not reopen it.
+        if ExtensionPopup.shared.closes(loaded.context.uniqueIdentifier) { return }
         // Perform the action for the Space's active tab if there is one, so a
         // popup opens against the page the user is actually reading and the tab
         // is marked as having a user gesture. `nil` performs the default action.
@@ -1201,26 +1204,33 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         completionHandler: @escaping (((any Error)?) -> Void)
     ) {
         // Both a user click (via `presentAction`) and an extension-initiated
-        // popup land here. We show the ready-made popover — which wraps the
-        // popup `WKWebView` — against the sidebar-header button registered for
-        // this (Space, slug), keeping WebKit inside the host.
+        // popup land here. WebKit's own popover is closed and the page is
+        // loaded in a view built from the extension's configuration instead:
+        // for some extensions WebKit's popup cannot reach the worker.
         guard let (spaceID, slug) = locate(context),
-            let anchor = actionAnchors[spaceID]?[slug]?.view,
-            let popover = action.popupPopover
+              let anchor = actionAnchors[spaceID]?[slug]?.view,
+              let url = action.popupWebView?.url ?? popupURL(for: context)
         else {
             completionHandler(nil)
             return
         }
-        popover.behavior = .transient
-        // Report open/close so the anchor's window can hold its revealed sidebar
-        // in place. Without this the sidebar retracts the moment the pointer
-        // leaves it for the popup, taking the anchor — and the popup — with it.
-        popover.delegate = self
-        visiblePopover = popover
-        visiblePopoverWindow = anchor.window
-        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
-        onPopupVisibilityChanged?(anchor.window, true)
+        action.closePopup()
+        let window = anchor.window
+        ExtensionPopup.shared.onClose = { [weak self] in
+            self?.onPopupVisibilityChanged?(window, false)
+        }
+        ExtensionPopup.shared.show(
+            url, for: context, from: anchor, host: self, spaceID: spaceID
+        )
+        onPopupVisibilityChanged?(window, true)
         completionHandler(nil)
+    }
+
+    private func popupURL(for context: WKWebExtensionContext) -> URL? {
+        guard let action = context.webExtension.manifest["action"] as? [String: Any],
+              let path = action["default_popup"] as? String
+        else { return nil }
+        return URL(string: path, relativeTo: context.baseURL)
     }
 
     // MARK: - Permission prompts (7.5c)
