@@ -10,11 +10,15 @@ rather than assumed shut:
 
 - **WebKit's own autofill is Safari's.** There is no fill hook, no keychain
   bridge, and no credential API in any `WKWebView` header.
-- **Passkeys are unavailable.** A probe against real WebKit reported
-  `isUserVerifyingPlatformAuthenticatorAvailable() == false` and a `create()`
-  rejected with `NotAllowedError`, in a focused window. The native path needs an
-  Associated Domains entitlement per relying-party domain, which is impossible for
-  sites you do not own — so a paid account would not fix it either.
+- **Passkeys are unavailable to this unentitled build.** A probe against real
+  WebKit reported `isUserVerifyingPlatformAuthenticatorAvailable() == false` and
+  a `create()` rejected with `NotAllowedError`. **Superseded 2026-10-27:** the
+  Search build proves otherwise with
+  `com.apple.developer.web-browser.public-key-credential` and a browser passkey
+  subsystem (`Sources/Search/Passkeys.swift`) that runs the ceremony through
+  `ASAuthorizationWebBrowserPublicKeyCredentialManager`. Chord still lacks the
+  entitlement and that subsystem; see CHECKPOINT "Passkeys — Search parity
+  finding" and `40q`. The vault remains the supported password path meanwhile.
 - **Password-manager extensions do not run.** Bitwarden's MV3 build fails with
   `WKWebExtensionContextErrorDomain` code 6 because its service worker calls
   `chrome.offscreen`, which Apple's runtime does not implement. Most MV3 managers

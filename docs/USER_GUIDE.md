@@ -314,7 +314,9 @@ you told "Never" are listed at the bottom with an **Ask Again** button.
 - **Fill inside an embedded frame**, which is the classic way credentials get
   stolen.
 - **Sync anywhere.** Passwords stay on this Mac, like everything else in Chord.
-- **Replace passkeys.** Chord cannot do passkeys at all — see
+- **Replace passkeys.** Chord cannot use passkeys yet: the app is not signed
+  with the browser public-key-credential entitlement and has no browser passkey
+  subsystem. The Search build does both, so this is planned, not impossible — see
   [Capability summary](#capability-summary).
 
 > **A dialog you may see:** after Chord is rebuilt from source, macOS may ask for
@@ -715,8 +717,8 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | Camera & microphone, asked once per site and Space        | ✅                                      |
 | Web geolocation (`navigator.geolocation`), asked once per site and Space | ✅ (host `CLLocationManager` shim)   |
 | Saving and filling passwords, with a Keychain-backed vault | ✅                                     |
-| Passkeys                                                  | ❌ not available to a WKWebView app     |
-| Password-manager extensions (Bitwarden, 1Password)        | ❌ MV3 APIs missing; use the built-in vault |
+| Passkeys                                                  | ❌ not yet — needs browser public-key-credential entitlement + Search’s passkey subsystem (`40q`) |
+| Password-manager extensions (Bitwarden, 1Password)        | ⚠️ Bitwarden login/autofill work; passkeys and other M9 gaps remain |
 | Web notifications while the page is open                  | ✅ (per-site, per-Space)                |
 | Background Web Push (site closed)                         | ❌ Safari-gated, not available to WKWebView |
 | YouTube / YouTube Music ad skipping (built-in script)     | ✅ best-effort                          |

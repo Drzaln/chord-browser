@@ -4676,3 +4676,28 @@ separately.
 **Tests.** `ExtensionWorkerRecoveryTests` covers the generation state machine
 (8 cases) and loads a real MV3 background to prove the private delegate records
 its lifetime and that `background.observe` answers through the broker.
+
+### Passkeys — Search parity finding (2026-10-27)
+
+Bitwarden's passkey prompt fails in Chord while the Search build completes the
+same Google sign-in. This is a missing feature in Chord, not a WebKit limit and
+not "by design":
+
+- Search signs with `com.apple.developer.web-browser.public-key-credential`
+  (`Search.passkeys.entitlements`) and carries
+  `Sources/Search/Passkeys.swift` (1,189 lines), which takes
+  `navigator.credentials` public-key requests, checks the caller against
+  WebKit's frame origin, and runs the ceremony through
+  `ASAuthorizationWebBrowserPublicKeyCredentialManager`. It also implements
+  conditional mediation — passkeys offered under the account field — and a
+  settings toggle.
+- Chord's `Chord.entitlements` has no such key, and the app carries no
+  `navigator.credentials` bridge. Its `DEVELOPMENT_TEAM` is `74XUPW85K2`, the
+  same team Search uses, so the first step is an entitlement/provisioning
+  spike, not an account purchase.
+- ADR 016's "passkeys are unavailable" paragraph described the unentitled
+  WebKit default. It is superseded by this finding; the built-in vault remains
+  the supported password path until the Search subsystem is ported.
+
+Tracked in `40q`. Do not claim passkey support until the entitlement is present
+in `codesign -d --entitlements` and a real Bitwarden Google sign-in completes.
