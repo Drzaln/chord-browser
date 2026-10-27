@@ -1,3 +1,4 @@
+import AppKit
 import ChordCore
 import ChordEngine
 import Foundation
@@ -37,6 +38,26 @@ public final class DownloadsStore {
 
     public func cancel(_ id: UUID) { coordinator.cancel(id) }
     public func clear(_ id: UUID) { coordinator.clear(id) }
+
+    /// `chrome.downloads.download`: start a URL as a normal entry in this list.
+    @discardableResult
+    public func start(url: URL, suggestedFilename: String? = nil) -> UUID {
+        coordinator.start(url: url, suggestedFilename: suggestedFilename)
+    }
+
+    /// `chrome.downloads.open`: hand the finished file to the system.
+    public func open(_ id: UUID) {
+        guard let destination = downloads.first(where: { $0.id == id })?.destination
+        else { return }
+        NSWorkspace.shared.open(destination)
+    }
+
+    /// `chrome.downloads.show`: reveal the file in Finder.
+    public func show(_ id: UUID) {
+        guard let destination = downloads.first(where: { $0.id == id })?.destination
+        else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([destination])
+    }
 }
 
 extension DownloadsStore: DownloadObserver {

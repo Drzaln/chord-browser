@@ -41,6 +41,24 @@ struct ExtensionShimServiceTests {
         )
     }
 
+    @Test func downloadsDownloadRefusesNonWebAddresses() async throws {
+        let (service, _, _, root) = try await makeService()
+        defer { try? FileManager.default.removeItem(at: root) }
+        do {
+            _ = try await service.answer(
+                "downloads.download", args: [["url": "ftp://example.com/file"]],
+                context: context
+            )
+            Issue.record("an ftp download should be refused")
+        } catch {
+            #expect(String(describing: error).contains("downloadable"))
+        }
+        let empty = try await service.answer(
+            "downloads.search", args: [[]], context: context
+        ) as? [[String: Any]]
+        #expect(empty?.isEmpty == true)
+    }
+
     @Test func bookmarksRoundTripThroughTheChromeShape() async throws {
         let (service, _, _, root) = try await makeService()
         defer { try? FileManager.default.removeItem(at: root) }

@@ -35,6 +35,8 @@ public final class DownloadCoordinator: NSObject {
     /// WebKit for the life of the transfer; we hold it to support cancellation.
     private var downloads: [UUID: WKDownload] = [:]
     private var identities: [ObjectIdentifier: UUID] = [:]
+    /// Non-WebKit downloads started by an extension's `downloads.download`.
+    private var tasks: [UUID: URLSessionDownloadTask] = [:]
     /// Progress is observed rather than polled — `WKDownload` conforms to
     /// `NSProgressReporting`, so there is no byte counting to do by hand.
     private var progressObservations: [UUID: NSKeyValueObservation] = [:]
@@ -73,6 +75,78 @@ public final class DownloadCoordinator: NSObject {
     }
 
     public var downloadItems: [DownloadItem] { order.compactMap { items[$0] } }
+
+    /// Starts an extension-requested download (`chrome.downloads.download`).
+    /// WebKit's `WKDownload` only exists for a navigation, so this uses
+    /// `URLSession`; the item, progress, list and destination are the same.
+    @discardableResult
+    public func start(url: URL, suggestedFilename: String? = nil) -> UUID {
+        let name = suggestedFilename
+            ?? (url.lastPathComponent.isEmpty ? "download" : url.lastPathComponent)
+        let id = UUID()
+        let destination = DownloadNaming.uniqueURL(
+            for: name, in: directory,
+            exists: { FileManager.default.fileExists(atPath: $0.path) }
+        )
+        items[id] = DownloadItem(
+            id: id, url: url, filename: destination.lastPathComponent,
+            destination: destination, startedAt: now()
+        )
+        order.insert(id, at: 0)
+
+        let task = URLSession.shared.downloadTask(with: url) { [weak self] temp, response, error in
+            Task { @MainActor [weak self] in
+                guard let self, self.items[id]?.isActive == true else { return }
+                if let error {
+                    self.finish(
+                        id: id,
+                        state: .failed(
+                            message: error.localizedDescription, canResume: false
+                        )
+                    )
+                    return
+                }
+                guard let temp else {
+                    self.finish(
+                        id: id, state: .failed(message: "The download was empty.", canResume: false)
+                    )
+                    return
+                }
+                do {
+                    try FileManager.default.createDirectory(
+                        at: self.directory, withIntermediateDirectories: true
+                    )
+                    try? FileManager.default.removeItem(at: destination)
+                    try FileManager.default.moveItem(at: temp, to: destination)
+                    if let expected = response?.expectedContentLength, expected > 0,
+                       var item = self.items[id] {
+                        item.bytesExpected = expected
+                        item.bytesReceived = expected
+                        self.items[id] = item
+                    }
+                    self.finish(id: id, state: .finished)
+                } catch {
+                    self.finish(
+                        id: id,
+                        state: .failed(message: error.localizedDescription, canResume: false)
+                    )
+                }
+            }
+        }
+        tasks[id] = task
+        progressObservations[id] = task.progress.observe(
+            \.completedUnitCount, options: [.new]
+        ) { [weak self] progress, _ in
+            let received = progress.completedUnitCount
+            let total = progress.totalUnitCount
+            Task { @MainActor [weak self] in
+                self?.updateBytes(id: id, received: received, total: total)
+            }
+        }
+        publish()
+        task.resume()
+        return id
+    }
 
     /// Adopts a download WebKit has just handed us. The delegate must be set
     /// here or no progress is ever reported.
@@ -118,6 +192,11 @@ public final class DownloadCoordinator: NSObject {
     }
 
     public func cancel(_ id: UUID) {
+        if let task = tasks[id] {
+            task.cancel()
+            finish(id: id, state: .cancelled)
+            return
+        }
         guard let download = downloads[id] else { return }
         download.cancel { _ in }
         finish(id: id, state: .cancelled)
@@ -138,6 +217,7 @@ public final class DownloadCoordinator: NSObject {
             identities[ObjectIdentifier(download)] = nil
         }
         downloads[id] = nil
+        tasks[id] = nil
 
         guard var item = items[id] else { return }
         item.state = state

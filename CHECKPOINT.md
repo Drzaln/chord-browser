@@ -4772,3 +4772,15 @@ now gets `chrome.runtime` in its own world:
 
 Tests: pattern filter, listing JSON, script content, and a loaded extension's
 listing through the host.
+
+### M9b — downloads.download/open (2026-10-28)
+
+- `chrome.downloads.download` starts an HTTP(S) URL through
+  `DownloadCoordinator.start`, which uses `URLSession` because a `WKDownload`
+  only exists for a navigation. The item appears in the same list, with the
+  same destination naming, progress observation, cancel/clear behavior.
+- `downloads.open` hands the finished file to the system; `downloads.show`
+  reveals it in Finder. Both resolve the integer ids `downloads.search`
+  reports.
+- Tests cover the refusal of non-web addresses and an empty list. A live
+  extension download is still manual.

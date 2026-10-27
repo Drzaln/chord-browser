@@ -441,6 +441,9 @@ its service actions are unit-tested.)
 - [x] **M9d:** a page listed in an extension’s `externally_connectable` gets
       `chrome.runtime` and can message it; unlisted ids fail Chrome-style
       (automated: `ExtensionExternalTests`; live claude.ai flow still manual)
+- [x] **M9b:** `chrome.downloads.download` starts an HTTP(S) download and
+      `downloads.open`/`show` act on it (automated: `ExtensionShimServiceTests`;
+      a real extension download is manual)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

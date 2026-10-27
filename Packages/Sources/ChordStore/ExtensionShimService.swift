@@ -45,6 +45,27 @@ public final class ExtensionShimService: ExtensionShimData {
             return downloads.downloads.enumerated().map {
                 downloadJSON($0.element, id: $0.offset + 1)
             }
+        case "downloads.download":
+            let spec = args.first as? [String: Any] ?? [:]
+            guard let raw = spec["url"] as? String, let url = URL(string: raw),
+                  ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+            else { throw Unsupported(what: "That isn't a downloadable address") }
+            downloads.start(
+                url: url, suggestedFilename: spec["filename"] as? String
+            )
+            // Chrome's download ids are integers; the newest is first in this
+            // list, so it is id 1 to `downloads.search` until the next one.
+            return 1
+        case "downloads.open":
+            guard let id = args.first as? Int, downloads.downloads.indices.contains(id - 1)
+            else { throw Unsupported(what: "No such download") }
+            downloads.open(downloads.downloads[id - 1].id)
+            return nil
+        case "downloads.show":
+            guard let id = args.first as? Int, downloads.downloads.indices.contains(id - 1)
+            else { throw Unsupported(what: "No such download") }
+            downloads.show(downloads.downloads[id - 1].id)
+            return nil
         case "downloads.showDefaultFolder", "downloads.erase":
             return nil
         case "sidePanel.setOptions", "sidePanel.getOptions",
