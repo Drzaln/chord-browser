@@ -348,6 +348,32 @@ enum ExtensionShimBroker {
                 args[1], sender: sender, token: token,
                 identifier: context.uniqueIdentifier, spaceID: spaceID
             )
+        case "identity.launchWebAuthFlow":
+            guard declared("identity", in: context) else {
+                throw Unsupported(what: "The extension never asked for “identity”")
+            }
+            let options = args.first as? [String: Any] ?? [:]
+            guard let raw = options["url"] as? String, let url = URL(string: raw) else {
+                throw Unsupported(what: "The authorization page could not be loaded.")
+            }
+            let store = context.webViewConfiguration?.websiteDataStore
+                ?? WKWebsiteDataStore.default()
+            let redirect = try await ExtensionAuthWindow.run(
+                url: url, extensionID: context.uniqueIdentifier,
+                dataStore: store,
+                interactive: options["interactive"] as? Bool ?? true
+            )
+            return redirect.absoluteString
+        case "identity.getProfileUserInfo":
+            // No Google account is signed into Chord, as in Chrome without
+            // one. The empty identity is the honest answer.
+            return ["id": "", "email": ""]
+        case "identity.removeCachedAuthToken", "identity.clearAllCachedAuthTokens":
+            return nil
+        case "identity.getAuthToken":
+            throw Unsupported(
+                what: "Google sign-in tokens aren't available; use launchWebAuthFlow"
+            )
         case "clients.pages":
             return host?.extensionPages(
                 spaceID: spaceID, identifier: context.uniqueIdentifier

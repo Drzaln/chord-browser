@@ -430,6 +430,10 @@ its service actions are unit-tested.)
 - [ ] **M9f:** Bitwarden passkeys work (blocked: Chord lacks the
       `com.apple.developer.web-browser.public-key-credential` entitlement and
       Search's passkey subsystem; Search build has both)
+- [x] **M9d:** `chrome.identity.launchWebAuthFlow` opens a sign-in window from
+      the Space's cookies and returns only the extension's
+      `https://<id>.chromiumapp.org/…` redirect (automated:
+      `ExtensionAuthWindowTests`; live provider flow still manual)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

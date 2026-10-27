@@ -4701,3 +4701,28 @@ not "by design":
 
 Tracked in `40q`. Do not claim passkey support until the entitlement is present
 in `codesign -d --entitlements` and a real Bitwarden Google sign-in completes.
+
+### M9d — OAuth window, first slice (2026-10-27)
+
+`chrome.identity.launchWebAuthFlow` now opens a real sign-in window instead of
+failing with "isn't available in Chord yet":
+
+- `ExtensionAuthWindow` uses the Space's website data store (so the provider
+  sees the same cookies as the tabs), gives the page the browser's completed
+  Safari UA token, and closes the moment it navigates to
+  `https://<extension-id>.chromiumapp.org/…`. That redirect URL is the answer;
+  nothing is ever loaded from chromiumapp.org. `interactive: false` runs the
+  same view with no window and a one-minute limit, as Claude restores its
+  sign-in at launch.
+- HTTP(S) and `about:` only. Closing the window, a crashed web process, a new
+  flow for the same extension, or ten minutes with no redirect fails the flow
+  Chrome-style ("The user did not approve access.").
+- `identity.getProfileUserInfo` returns the empty profile; cached-token removal
+  is a no-op; `getAuthToken` refuses and points at launchWebAuthFlow. The
+  gateway requires the manifest's `identity` permission (required or optional).
+- Tests: redirect boundary (own host only, https only, no credentials) and the
+  permission/invalid-URL refusals through the shim broker. A live provider flow
+  has not been run yet; that needs an extension that uses this API.
+
+Still M9d: custom popup fallback, capture bridge, `externally_connectable`,
+DNR redirect/return-navigation, `windows.create`, `tabs.move`.
