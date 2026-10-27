@@ -22,6 +22,9 @@ public final class ExtensionShimService: ExtensionShimData {
     private var panelPaths: [String: String] = [:]
     private var panelOff: Set<String> = []
     private var panelOnClick: Set<String> = []
+    /// The docked side panel, when the app can show one. Nil leaves the
+    /// fallback of opening the panel's page as a normal tab.
+    public var onSidePanel: (@MainActor (ExtensionShimContext, URL) -> Void)?
 
     public init(
         store: TabStore, downloads: DownloadsStore, bookmarks: BookmarksStore,
@@ -424,7 +427,11 @@ public final class ExtensionShimService: ExtensionShimData {
                   let path = panelPaths[context.identifier],
                   let url = URL(string: path, relativeTo: URL(string: "chrome-extension://\(context.identifier)/"))
             else { throw Unsupported(what: "No active side panel for this extension") }
-            store.newTab(url: url, in: store.focusedWindow)
+            if let onSidePanel {
+                onSidePanel(context, url)
+            } else {
+                store.newTab(url: url, in: store.focusedWindow)
+            }
             return nil
         case "sidePanel.close":
             return nil

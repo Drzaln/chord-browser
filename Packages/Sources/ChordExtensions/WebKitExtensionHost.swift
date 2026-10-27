@@ -36,6 +36,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     }
     /// Loaded contexts, keyed by Space then by extension slug.
     private var loadedContexts: [UUID: [String: Loaded]] = [:]
+    /// Docked side-panel pages, keyed "space|slug". Kept while the panel is
+    /// open; closing releases them.
+    private var sidePanelViews: [String: WKWebView] = [:]
 
     /// Context error observations, keyed by "space|slug".
     private var errorWatchers: [String: NSObjectProtocol] = [:]
@@ -386,6 +389,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         workerRecovery.restarted(recoveryKey, replacingContext: true)
         workerRecovery.unregister(recoveryKey)
         ExtensionOffscreen.close(identifier: loaded.installed.identifier, spaceID: space.id)
+        closeSidePanel(slug: slug, in: space)
         ExtensionNative.stopOrphans()
         Log.extensions.notice(
             "unloaded extension \(slug) in space \(space.id)"
@@ -839,6 +843,42 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             modifiedSince: .distantPast
         )
         UserDefaults.standard.set(ExtensionShims.version, forKey: key)
+    }
+
+    // MARK: - Side panel
+
+    func shimSlug(for context: WKWebExtensionContext) -> String? {
+        locate(context)?.slug
+    }
+
+    /// The docked side panel's page. It is an ordinary extension page with the
+    /// extension's own configuration (runtime, storage, cookies), kept alive
+    /// while the panel is open. The UI receives an `NSView` so no WebKit type
+    /// crosses into ChordUI.
+    public func sidePanelView(
+        slug: String, url: URL, in space: Space
+    ) -> NSView? {
+        guard let loaded = loadedContexts[space.id]?[slug],
+              let configuration = loaded.context.webViewConfiguration
+        else { return nil }
+        let key = "\(space.id.uuidString)|\(slug)"
+        if let existing = sidePanelViews[key] {
+            if existing.url != url { existing.load(URLRequest(url: url)) }
+            return existing
+        }
+        let web = WKWebView(
+            frame: NSRect(x: 0, y: 0, width: 380, height: 640),
+            configuration: configuration
+        )
+        web.allowsBackForwardNavigationGestures = true
+        sidePanelViews[key] = web
+        web.load(URLRequest(url: url))
+        return web
+    }
+
+    public func closeSidePanel(slug: String, in space: Space) {
+        sidePanelViews["\(space.id.uuidString)|\(slug)"]?.stopLoading()
+        sidePanelViews["\(space.id.uuidString)|\(slug)"] = nil
     }
 
     // MARK: - Externally connectable

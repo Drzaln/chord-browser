@@ -77,6 +77,36 @@ public final class WindowState {
     /// Set by `DownloadsButton` (it owns the popover's presentation).
     public var isDownloadsPopoverOpen: Bool = false
 
+    /// A docked extension side panel in this window. Volatile: opening it again
+    /// replaces it, closing releases the page. The panel is a window preference,
+    /// like the sidebar, not shared with other windows.
+    public struct ExtensionSidePanelState: Equatable {
+        public let slug: String
+        public let identifier: String
+        public let url: URL
+        public let spaceID: UUID
+
+        public init(slug: String, identifier: String, url: URL, spaceID: UUID) {
+            self.slug = slug
+            self.identifier = identifier
+            self.url = url
+            self.spaceID = spaceID
+        }
+    }
+    public private(set) var extensionSidePanel: ExtensionSidePanelState?
+
+    public func showExtensionPanel(
+        slug: String, identifier: String, url: URL, in spaceID: UUID
+    ) {
+        extensionSidePanel = ExtensionSidePanelState(
+            slug: slug, identifier: identifier, url: url, spaceID: spaceID
+        )
+    }
+
+    public func closeExtensionPanel() {
+        extensionSidePanel = nil
+    }
+
     /// Something is keeping a revealed sidebar on screen, so the auto-hide must
     /// not fire: a resize drag, a Space sheet, an extension popup, or the
     /// Downloads popover.

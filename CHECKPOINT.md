@@ -4802,3 +4802,25 @@ listing through the host.
 
 Tests: reading-list add/query/update, Chrome Web Store script shape. The live
 store page and a real extension download remain manual.
+
+### M9b — docked side panel (2026-10-28)
+
+The side panel is now a docked column in the window, not a tab fallback:
+
+- `chrome.sidePanel.open` reaches `ExtensionShimService.onSidePanel`, which
+  sets a per-window `WindowState.extensionSidePanel` (slug, Chrome id, URL,
+  Space). RootView shows `ExtensionSidePanelView` on the right; the page is the
+  extension's own `WKWebView`, built from its context configuration so runtime,
+  storage and cookies are the extension's. `sidePanel.setOptions` still supplies
+  the path; the tab fallback remains for hosts that cannot dock (tests, no
+  page).
+- Closing the panel releases the web view; disabling/uninstalling the
+  extension closes it too. The panel is per-window and volatile, like the
+  sidebar.
+- Tests: service prefers the docked callback and still falls back to a tab when
+  none is installed; the panel view is not unit-testable without a window.
+- Live check: Figma's action still opens its own tab because Figma uses
+  `tabs.create` for its side panel, not `sidePanel.open`. A real
+  `sidePanel.open` extension still needs a manual click-through.
+
+Still M9b: bookmarks UI, Store-API permission gating, persisted panel options.

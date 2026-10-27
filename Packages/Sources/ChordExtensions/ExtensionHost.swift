@@ -144,4 +144,14 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     func extensionTabDidActivate(_ tabID: UUID, previous previousTabID: UUID?, inSpace spaceID: UUID)
     func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID)
     func extensionTabDidMove(_ tabID: UUID, from oldIndex: Int, inSpace spaceID: UUID)
+
+    /// The docked side panel's page as an `NSView`. Optional: test hosts and
+    /// builds without a panel return nil and the Store falls back to a tab.
+    func sidePanelView(slug: String, url: URL, in space: Space) -> NSView?
+    func closeSidePanel(slug: String, in space: Space)
+}
+
+public extension ExtensionHost {
+    func sidePanelView(slug: String, url: URL, in space: Space) -> NSView? { nil }
+    func closeSidePanel(slug: String, in space: Space) {}
 }

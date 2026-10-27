@@ -246,10 +246,13 @@ public enum ExtensionShims {
 public struct ExtensionShimContext: Sendable {
     public let identifier: String
     public let spaceID: UUID
+    /// The library slug, for app surfaces that key on it (side panel, UI).
+    public let slug: String
 
-    public init(identifier: String, spaceID: UUID) {
+    public init(identifier: String, spaceID: UUID, slug: String = "") {
         self.identifier = identifier
         self.spaceID = spaceID
+        self.slug = slug
     }
 }
 
@@ -583,7 +586,8 @@ enum ExtensionShimBroker {
                 return try await data.answer(
                     api, args: args,
                     context: ExtensionShimContext(
-                        identifier: context.uniqueIdentifier, spaceID: spaceID
+                        identifier: context.uniqueIdentifier, spaceID: spaceID,
+                        slug: host?.shimSlug(for: context) ?? ""
                     )
                 )
             }

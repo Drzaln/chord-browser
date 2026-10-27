@@ -128,6 +128,21 @@ struct ExtensionShimServiceTests {
         #expect(groups?.first?["color"] as? String == "grey")
     }
 
+    @Test func sidePanelOpenPrefersTheDockedPanel() async throws {
+        let (service, _, _, root) = try await makeService()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        var opened: URL?
+        service.onSidePanel = { _, url in opened = url }
+        _ = try await service.answer(
+            "sidePanel.setOptions", args: [["path": "panel.html", "enabled": true]],
+            context: context
+        )
+        _ = try await service.answer("sidePanel.open", args: [], context: context)
+        #expect(opened?.path == "/panel.html")
+        #expect(opened?.host() == context.identifier)
+    }
+
     @Test func sidePanelOpenFallsBackToATab() async throws {
         let (service, store, _, root) = try await makeService()
         defer { try? FileManager.default.removeItem(at: root) }

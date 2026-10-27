@@ -175,6 +175,14 @@ public struct RootView: View {
                     contentInset: contentInset,
                     contentCornerRadius: contentCornerRadius
                 )
+                if let panel = windowState.extensionSidePanel {
+                    ExtensionSidePanelView(
+                        store: store, windowState: windowState,
+                        host: extensionHost, panel: panel
+                    )
+                    .transition(reduceMotion ? .opacity : .move(edge: .trailing))
+                    .zIndex(1)
+                }
             }
 
             // Only while hidden. A permanent strip is not needed once the
@@ -278,6 +286,10 @@ public struct RootView: View {
         .animation(
             Motion.respectingReduceMotion(Motion.sidebarCollapse, reduceMotion: reduceMotion),
             value: isHidden
+        )
+        .animation(
+            Motion.respectingReduceMotion(Motion.sidebarCollapse, reduceMotion: reduceMotion),
+            value: windowState.extensionSidePanel
         )
         .animation(
             Motion.respectingReduceMotion(Motion.toast, reduceMotion: reduceMotion),

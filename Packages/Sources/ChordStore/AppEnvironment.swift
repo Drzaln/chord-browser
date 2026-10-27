@@ -233,6 +233,12 @@ public struct AppEnvironment {
             store: store, downloads: downloadsStore, bookmarks: bookmarks,
             readingList: readingList
         )
+        extensionShim.onSidePanel = { [weak store] context, url in
+            store?.focusedWindow.showExtensionPanel(
+                slug: context.slug, identifier: context.identifier,
+                url: url, in: context.spaceID
+            )
+        }
         host.shimData = extensionShim
 
         return AppEnvironment(
