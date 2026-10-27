@@ -143,4 +143,5 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     func extensionTabDidOpen(_ tabID: UUID, inSpace spaceID: UUID)
     func extensionTabDidActivate(_ tabID: UUID, previous previousTabID: UUID?, inSpace spaceID: UUID)
     func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID)
+    func extensionTabDidMove(_ tabID: UUID, from oldIndex: Int, inSpace spaceID: UUID)
 }

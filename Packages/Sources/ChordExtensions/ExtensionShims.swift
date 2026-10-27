@@ -456,6 +456,12 @@ enum ExtensionShimBroker {
         case "tabs.activate":
             host?.activateTab(for: args.first, spaceID: spaceID)
             return nil
+        case "tabs.move":
+            guard let index = args.dropFirst().first as? Int else {
+                throw Unsupported(what: "No destination for the tab")
+            }
+            host?.moveTab(for: args.first, to: index, spaceID: spaceID)
+            return nil
         case "tabs.discard":
             return nil
         case "action.popup":

@@ -83,6 +83,16 @@ public protocol ExtensionTabModel: AnyObject {
     func extensionGoBack(inTab tabID: UUID)
     func extensionGoForward(inTab tabID: UUID)
     func extensionCloseTab(_ tabID: UUID)
+
+    /// `chrome.tabs.move`: reorder within a Space, or move across Spaces.
+    /// Optional for test doubles.
+    func extensionMoveTab(_ tabID: UUID, to index: Int, inSpace spaceID: UUID)
+    func extensionMoveTab(_ tabID: UUID, toSpace spaceID: UUID, at index: Int)
+}
+
+public extension ExtensionTabModel {
+    func extensionMoveTab(_ tabID: UUID, to index: Int, inSpace spaceID: UUID) {}
+    func extensionMoveTab(_ tabID: UUID, toSpace spaceID: UUID, at index: Int) {}
 }
 
 public extension ExtensionTabModel {

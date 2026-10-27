@@ -214,6 +214,24 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         tabAdapters[spaceID]?[tabID] = nil
     }
 
+    public func extensionTabDidMove(
+        _ tabID: UUID, from oldIndex: Int, inSpace spaceID: UUID
+    ) {
+        guard let controller = controllers[spaceID] else { return }
+        controller.didMoveTab(
+            tabAdapter(for: tabID, inSpace: spaceID),
+            from: oldIndex,
+            in: windowAdapter(forSpace: spaceID)
+        )
+    }
+
+    /// `chrome.tabs.move`: the shim sends the tab's place and the requested
+    /// flat index. The Store clamps it into Chord's section order.
+    func moveTab(for place: Any?, to index: Int, spaceID: UUID) {
+        guard let tab = shimTabs(place, spaceID: spaceID).first else { return }
+        tabModel?.extensionMoveTab(tab.id, to: index, inSpace: spaceID)
+    }
+
     // MARK: - Loading (7.3)
 
     @discardableResult
@@ -1046,6 +1064,48 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
               )
         else { return nil }
         return tabAdapter(for: snapshot.id, inSpace: spaceID)
+    }
+
+    public func webExtensionController(
+        _ controller: WKWebExtensionController,
+        openNewWindowUsing configuration: WKWebExtension.WindowConfiguration,
+        for context: WKWebExtensionContext
+    ) async throws -> (any WKWebExtensionWindow)? {
+        guard let spaceID = locate(context)?.spaceID, let model = tabModel else {
+            return nil
+        }
+        // A private window isn't something an extension can have here: its
+        // pages would land in the normal Space's store while the extension
+        // believed them private. Refused, as Chrome refuses without incognito.
+        guard !configuration.shouldBePrivate else {
+            throw NSError(
+                domain: "Chord", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Private windows can't be opened by extensions."]
+            )
+        }
+
+        // Chord's WebExtension "window" is a Space (ADR 011), so a requested
+        // window is a tab home in the active Space. Callers get a real window
+        // id and working tabs; they do not get a second OS window on the same
+        // Space, which the tab/window adapters cannot tell apart.
+        for (index, url) in configuration.tabURLs.enumerated() {
+            _ = model.extensionCreateTab(
+                url: url, inSpace: spaceID, active: index == 0
+            )
+        }
+        for asked in configuration.tabs {
+            guard let tab = asked as? ExtensionTabAdapter,
+                  let snapshot = model.extensionTab(tab.tabID),
+                  snapshot.spaceID != spaceID
+            else { continue }
+            model.extensionMoveTab(tab.tabID, toSpace: spaceID, at: snapshot.index)
+        }
+        if configuration.tabURLs.isEmpty && configuration.tabs.isEmpty {
+            _ = model.extensionCreateTab(
+                url: URL(string: "about:blank")!, inSpace: spaceID, active: true
+            )
+        }
+        return windowAdapter(forSpace: spaceID)
     }
 
     public func webExtensionController(

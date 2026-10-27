@@ -395,8 +395,9 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
   fills APIs WebKit lacks with a Search-derived shim. It covers offscreen,
   bookmarks, history, downloads, side-panel fallback, folders-as-tab-groups,
   scripting/userScripts, notifications, TTS, sessions/topSites fallbacks,
-  native messaging and OAuth sign-in (`identity.launchWebAuthFlow` in its own
-  window). The WebKit-adjacent half lives in `ChordExtensions`; the
+  native messaging, OAuth sign-in (`identity.launchWebAuthFlow` in its own
+  window), and window/tab moves (`windows.create`, `tabs.move`). The
+  WebKit-adjacent half lives in `ChordExtensions`; the
   Store-side data answers live in `ExtensionShimService`. Do not let this grow
   into a general WebExtensions implementation without a narrow native answer
   and a real-extension test: Kagi's Orion reached ~70% coverage after six years

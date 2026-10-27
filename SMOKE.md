@@ -434,6 +434,10 @@ its service actions are unit-tested.)
       the Space's cookies and returns only the extension's
       `https://<id>.chromiumapp.org/…` redirect (automated:
       `ExtensionAuthWindowTests`; live provider flow still manual)
+- [x] **M9d:** `chrome.windows.create` opens the requested URLs as tabs in the
+      active Space and `chrome.tabs.move` reorders/relocates them (automated:
+      `windowsCreateOpensTheRequestedTab`, `tabsMoveByPlaceReachesTheTabModel`,
+      `extensionMoveTab`; live OAuth/2FA flow still manual)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

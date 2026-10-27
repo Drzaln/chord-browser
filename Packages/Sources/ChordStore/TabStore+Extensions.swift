@@ -93,6 +93,41 @@ extension TabStore: ExtensionTabModel {
             .flatMap { window(inSpace: $0.spaceID) } ?? primaryWindow)
     }
 
+    /// `chrome.tabs.move` within one Space, or into another.
+    ///
+    /// Chord's visual order has three sections (favourites, Pinned, ephemeral),
+    /// so Chrome's flat index is clamped into the tab's own section. A tab
+    /// moving to another Space takes that Space's data store with it, exactly
+    /// like a drag across Spaces (`moveTab` evicts the panes first).
+    public func extensionMoveTab(_ tabID: UUID, to index: Int, inSpace spaceID: UUID) {
+        guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
+        if tab.spaceID != spaceID {
+            extensionMoveTab(tabID, toSpace: spaceID, at: index)
+            return
+        }
+        guard let from = tabsInSpace(spaceID).firstIndex(where: { $0.id == tabID })
+        else { return }
+        reorderTab(tabID, to: section(of: tab.placement), at: index)
+        extensionHost?.extensionTabDidMove(tabID, from: from, inSpace: spaceID)
+    }
+
+    /// `chrome.tabs.move` with a different `windowId`. A window is a Space in
+    /// Chord, so this is the same Space change the sidebar confirms for a drag;
+    /// an extension asked for it, so there is no prompt.
+    public func extensionMoveTab(_ tabID: UUID, toSpace spaceID: UUID, at index: Int) {
+        guard let tab = tabs.first(where: { $0.id == tabID }),
+              tab.spaceID != spaceID,
+              spaces.contains(where: { $0.id == spaceID })
+        else {
+            extensionMoveTab(tabID, to: index, inSpace: spaceID)
+            return
+        }
+        let window = window(inSpace: spaceID) ?? focusedWindow
+        moveTab(tabID, toSpace: spaceID, in: window)
+        reorderTab(tabID, to: section(of: tab.placement), at: index)
+        extensionHost?.extensionTabDidMove(tabID, from: 0, inSpace: spaceID)
+    }
+
     // MARK: -
 
     private func tabsInSpace(_ spaceID: UUID) -> [Tab] {

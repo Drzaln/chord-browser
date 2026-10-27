@@ -16,6 +16,9 @@ private final class FakeTabModel: ExtensionTabModel {
     var wentBack: [UUID] = []
     var wentForward: [UUID] = []
     var closed: [UUID] = []
+    var moved: [UUID] = []
+    var movedTo: [Int] = []
+    var created: [(URL, UUID)] = []
 
     func extensionTabs(inSpace spaceID: UUID) -> [ExtensionTabSnapshot] {
         snapshots.filter { $0.spaceID == spaceID }
@@ -32,6 +35,19 @@ private final class FakeTabModel: ExtensionTabModel {
     func extensionGoBack(inTab tabID: UUID) { wentBack.append(tabID) }
     func extensionGoForward(inTab tabID: UUID) { wentForward.append(tabID) }
     func extensionCloseTab(_ tabID: UUID) { closed.append(tabID) }
+    func extensionCreateTab(
+        url: URL, inSpace spaceID: UUID, active: Bool
+    ) -> ExtensionTabSnapshot? {
+        created.append((url, spaceID))
+        return ExtensionTabSnapshot(
+            id: UUID(), spaceID: spaceID, focusedPaneID: UUID(),
+            url: url, title: "", isSelected: active, index: snapshots.count
+        )
+    }
+    func extensionMoveTab(_ tabID: UUID, to index: Int, inSpace spaceID: UUID) {
+        moved.append(tabID)
+        movedTo.append(index)
+    }
 }
 
 @MainActor
@@ -150,6 +166,61 @@ struct ExtensionAdapterTests {
 
         let tab = host.tabAdapter(for: tabID, inSpace: space)
         #expect(tab.webView(for: context) === webView)
+    }
+
+    @Test func tabsMoveByPlaceReachesTheTabModel() async throws {
+        let host = WebKitExtensionHost()
+        let model = FakeTabModel()
+        host.tabModel = model
+        let space = UUID()
+        let a = UUID(), b = UUID()
+        model.snapshots = [
+            snap(a, space: space, url: "https://a.test", selected: true, index: 0),
+            snap(b, space: space, url: "https://b.test", selected: false, index: 1),
+        ]
+        host.moveTab(for: [["i": 0]], to: 1, spaceID: space)
+        #expect(model.moved == [a])
+        #expect(model.movedTo == [1])
+    }
+
+    @Test func windowsCreateOpensTheRequestedTab() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "chord-window-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try """
+            {
+              "manifest_version": 3,
+              "name": "Window Probe",
+              "version": "1.0",
+              "background": { "service_worker": "bg.js" },
+              "permissions": ["tabs"]
+            }
+            """.write(
+                to: folder.appending(path: "manifest.json"), atomically: true, encoding: .utf8
+            )
+        try """
+            chrome.windows.create({ url: "https://example.com/window-probe", focused: true });
+            """.write(to: folder.appending(path: "bg.js"), atomically: true, encoding: .utf8)
+        try ExtensionShims.prepare(folder, fresh: true)
+
+        let host = WebKitExtensionHost()
+        let model = FakeTabModel()
+        host.tabModel = model
+        let space = Space(name: "Probe", sortIndex: 0)
+        _ = try await host.load(
+            InstalledExtension(
+                slug: "window-probe",
+                identifier: String(repeating: "b", count: 32),
+                resourceURL: folder
+            ),
+            in: space
+        )
+        for _ in 0..<30 where model.created.isEmpty {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        #expect(model.created.map(\.0.absoluteString) == ["https://example.com/window-probe"])
+        #expect(model.created.first?.1 == space.id)
     }
 }
 

@@ -27,6 +27,7 @@ private final class RecordingExtensionHost: ExtensionHost {
     func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID) {
         closed.append((tabID, spaceID))
     }
+    func extensionTabDidMove(_ tabID: UUID, from oldIndex: Int, inSpace spaceID: UUID) {}
 
     // Unused by these tests.
     var preparedSpaceIDs: Set<UUID> { [] }

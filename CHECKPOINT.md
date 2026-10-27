@@ -4726,3 +4726,28 @@ failing with "isn't available in Chord yet":
 
 Still M9d: custom popup fallback, capture bridge, `externally_connectable`,
 DNR redirect/return-navigation, `windows.create`, `tabs.move`.
+
+### M9d — windows and tab moves (2026-10-28)
+
+The second M9d slice covers the two calls password managers and OAuth flows use
+after `launchWebAuthFlow`:
+
+- **`chrome.windows.create`** is answered by WebKit's
+  `openNewWindowUsing` delegate. Chord's WebExtension "window" is a Space
+  (ADR 011), so the requested URLs become tabs in the extension's active Space
+  and the Space's window adapter is returned. A `tabId`/`tabs` request moves
+  those tabs into the Space. Private windows are refused (an extension must not
+  believe pages are private while they land in the normal store). Callers get a
+  real window id and working tabs; they do not get a second OS window on the
+  same Space, which the current adapters cannot distinguish.
+- **`chrome.tabs.move`** now reaches `TabStore`. Within a Space it reorders in
+  the tab's own section (favourites/Pinned/ephemeral), clamped to that section;
+  a different `windowId` is the same Space move the sidebar already supports,
+  with no prompt because the extension asked. `WKWebExtensionController.didMoveTab`
+  fires afterwards so `tabs.onMoved` reaches the extension.
+- Tests: a real MV3 background that calls `chrome.windows.create` lands the URL
+  in the fake tab model; `tabs.move` reaches the model by place; and a store
+  reorder test covers the section order.
+
+Still M9d: custom popup fallback, capture bridge, `externally_connectable`,
+DNR redirect/return-navigation.

@@ -40,6 +40,21 @@ struct ReorderTests {
         #expect(store.unpinnedTabs.map(\.placement.order) == [0, 1, 2])
     }
 
+    @Test("chrome.tabs.move reorders the tab's own section")
+    func extensionMoveTab() async {
+        let space = Space(name: "S", sortIndex: 0)
+        let a = ephemeral("https://a.example", space: space.id, order: 0)
+        let b = ephemeral("https://b.example", space: space.id, order: 1)
+        let c = ephemeral("https://c.example", space: space.id, order: 2)
+        let store = makeStore(tabs: [a, b, c], spaces: [space])
+        await store.restore()
+
+        store.extensionMoveTab(c.id, to: 0, inSpace: space.id)
+
+        #expect(store.unpinnedTabs.map { $0.panes[0].url.host() }
+            == ["c.example", "a.example", "b.example"])
+    }
+
     @Test("Dragging an ephemeral tab into the pinned section pins it")
     func crossSectionPins() async {
         let space = Space(name: "S", sortIndex: 0)
