@@ -425,8 +425,11 @@ its service actions are unit-tested.)
       after enabling it from the store; the log has no
       `No runtime.onConnect listeners found` (verified live 2026-10-27;
       automated: `ExtensionWorkerRecoveryTests`)
-- [ ] **M9f:** Bitwarden accepts a correct master password and completes the
-      email-code login (needs a real account; manual acceptance for `exn`)
+- [x] **M9f:** Bitwarden accepts a correct master password, and autofill works
+      on Google's sign-in page (verified live 2026-10-27)
+- [ ] **M9f:** Bitwarden passkeys work (blocked: Chord lacks the
+      `com.apple.developer.web-browser.public-key-credential` entitlement and
+      Search's passkey subsystem; Search build has both)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

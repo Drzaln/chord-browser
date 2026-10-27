@@ -4657,8 +4657,21 @@ JavaScript half (`runtime.connect`/`onConnect` tracking, `background.observe`,
 store, grant host access, open its header action. The popup renders its
 onboarding screen ("Security, prioritised", Log in) instead of the spinner, and
 the log has no `No runtime.onConnect listeners found` or disconnected-port
-errors. Unlock with a real master password was **not** run here (no account
-credentials), so `exn`'s login acceptance stays open.
+errors.
+
+The account holder then logged in with the master password. Autofill worked on
+Google's sign-in page, confirming the content script and the live worker port.
+Bitwarden's passkey prompt does not work in Chord: this build is not signed with
+`com.apple.developer.web-browser.public-key-credential`, and Chord does not yet
+carry Search's browser passkey subsystem (`Sources/Search/Passkeys.swift`, which
+uses `ASAuthorizationWebBrowserPublicKeyCredentialManager`). The Search build is
+entitled and its passkeys work, so this is a missing feature, not a WebKit
+limit — tracked by `40q`. The password path is the supported one today. One
+pre-login line, "Cannot refresh access token, no refresh token or api keys are
+stored", was logged by Bitwarden itself and did not block the session.
+
+`exn`'s worker/port acceptance is met; the passkey limitation is tracked
+separately.
 
 **Tests.** `ExtensionWorkerRecoveryTests` covers the generation state machine
 (8 cases) and loads a real MV3 background to prove the private delegate records
