@@ -32,6 +32,16 @@ struct ExtensionShimPermissionTests {
         return (host, context, space, dir)
     }
 
+    @Test func storeApiWithoutItsManifestPermissionIsRefused() async throws {
+        let (_, context, space, dir) = try await makeContext()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let answer = try await ExtensionShimBroker.answer(
+            ["api": "downloads.search", "args": [[]]],
+            context: context, spaceID: space.id
+        ) as? [String: Any]
+        #expect((answer?["error"] as? String)?.contains("downloads") == true)
+    }
+
     @Test func shimPermissionIsAskedAndRemembered() async throws {
         let (host, context, _, dir) = try await makeContext()
         defer {

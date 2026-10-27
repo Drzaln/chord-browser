@@ -582,6 +582,11 @@ enum ExtensionShimBroker {
                         ["language": $0.key.rawValue, "percentage": Int($0.value * 100)]
                     }]
         default:
+            if let permission = shimPermission(for: api), !declared(permission, in: context) {
+                throw Unsupported(
+                    what: "The extension never asked for “\(permission)”"
+                )
+            }
             if let data = host?.shimData {
                 return try await data.answer(
                     api, args: args,
@@ -592,6 +597,27 @@ enum ExtensionShimBroker {
                 )
             }
             throw Unsupported(what: "\(api) isn't available in Chord yet")
+        }
+    }
+
+    /// The manifest permission Chrome requires for a Store-answered namespace.
+    /// A nil answer means the API has no separate permission (or is handled
+    /// above with its own gate).
+    private static func shimPermission(for api: String) -> String? {
+        switch api.split(separator: ".").first.map(String.init) {
+        case "bookmarks": return "bookmarks"
+        case "history": return "history"
+        case "downloads": return "downloads"
+        case "readingList": return "readingList"
+        case "tabGroups": return "tabGroups"
+        case "sidePanel": return "sidePanel"
+        case "sessions": return "sessions"
+        case "topSites": return "topSites"
+        case "browsingData": return "browsingData"
+        case "search": return "search"
+        case "privacy": return "privacy"
+        case "contentSettings": return "contentSettings"
+        default: return nil
         }
     }
 

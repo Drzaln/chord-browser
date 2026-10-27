@@ -453,6 +453,8 @@ its service actions are unit-tested.)
 - [x] **M9b:** `chrome.sidePanel.open` opens a docked column, not a tab;
       closing it releases the page (automated: `sidePanelOpenPrefersTheDockedPanel`;
       a real extension using `sidePanel.open` is still manual)
+- [x] **M9b:** Store-answered APIs require their manifest permission
+      (automated: `storeApiWithoutItsManifestPermissionIsRefused`)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

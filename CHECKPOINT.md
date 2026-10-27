@@ -4824,3 +4824,15 @@ The side panel is now a docked column in the window, not a tab fallback:
   `sidePanel.open` extension still needs a manual click-through.
 
 Still M9b: bookmarks UI, Store-API permission gating, persisted panel options.
+
+### M9b — Store-API permission gate (2026-10-28)
+
+APIs answered by `ExtensionShimService` now require the manifest permission
+Chrome requires: bookmarks, history, downloads, readingList, tabGroups,
+sidePanel, sessions, topSites, browsingData, search, privacy and
+contentSettings. A missing (required or optional) declaration is refused before
+the service is reached, so an extension cannot read Chord's bookmarks or
+history merely by calling the namespace. Test covers `downloads.search` without
+`downloads`.
+
+Still M9b: bookmarks UI, persisted side-panel options.
