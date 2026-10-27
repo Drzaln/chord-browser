@@ -4855,3 +4855,10 @@ in a `WKWebView` built from the extension's own configuration, inside an
   popover with the filter controls; Bitwarden's popup still needs a recheck.
 
 Still M9d: capture bridge, DNR redirect/return-navigation.
+
+### M9e — prepush gate (2026-10-28)
+
+`scripts/prepush.sh` now runs `swift test --no-parallel` (the parallel run can
+wedge in ChordStoreTests on testmanagerd), and `CHORD_REAL_EXTENSIONS=1` opts
+into the real-store probe during the same gate. The probe is still skipped by
+default because it needs the network and real bundles.

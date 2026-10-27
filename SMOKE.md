@@ -453,6 +453,8 @@ its service actions are unit-tested.)
       and old `.unsupported` sidecars are refreshed on launch
 - [ ] **M9c:** in-page “Add to Chord” relay on the store page (only the
       “Switch to Chrome” furniture is hidden today)
+- [x] **M9e:** prepush uses serial tests and accepts
+      `CHORD_REAL_EXTENSIONS=1` for the real-store probe
 - [x] **M9b:** `chrome.sidePanel.open` opens a docked column, not a tab;
       closing it releases the page (automated: `sidePanelOpenPrefersTheDockedPanel`;
       a real extension using `sidePanel.open` is still manual)

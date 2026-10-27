@@ -9,7 +9,17 @@ echo "==> Building packages"
 swift build --package-path Packages -Xswiftc -warnings-as-errors
 
 echo "==> Running tests"
-swift test --package-path Packages
+# Serial: the parallel run can hang in ChordStoreTests waiting on testmanagerd.
+swift test --package-path Packages --no-parallel
+
+# The real-extension matrix needs the Chrome Web Store and the Mac's
+# extensions, so it is not part of the default gate. `CHORD_REAL_EXTENSIONS=1`
+# opts in for a release sweep.
+if [[ "${CHORD_REAL_EXTENSIONS:-0}" == "1" ]]; then
+    echo "==> Probing real Chrome extensions"
+    CHORD_REAL_EXTENSIONS=1 swift test \
+        --package-path Packages --filter RealExtensionProbeTests --no-parallel
+fi
 
 echo "==> Building app"
 # Not piped straight into grep: `set -e` takes the *pipeline's* status, which is
