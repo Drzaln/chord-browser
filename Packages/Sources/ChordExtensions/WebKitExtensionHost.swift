@@ -841,6 +841,26 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         UserDefaults.standard.set(ExtensionShims.version, forKey: key)
     }
 
+    // MARK: - Externally connectable
+
+    /// The page-world bootstrap listing every loaded extension that names a
+    /// website in `externally_connectable`, or nil when none do. The engine
+    /// injects this at document start; a page not listed gets no `chrome`.
+    public func externallyConnectableScript() -> String? {
+        var manifests: [(id: String, manifest: [String: Any])] = []
+        for bySlug in loadedContexts.values {
+            for loaded in bySlug.values {
+                manifests.append((
+                    loaded.installed.identifier,
+                    loaded.context.webExtension.manifest
+                ))
+            }
+        }
+        return ExtensionExternal.script(
+            for: ExtensionExternal.listings(from: manifests)
+        )
+    }
+
     // MARK: - Worker lifecycle (899/worker recovery)
 
     /// WebKit calls this before every background web view it creates,

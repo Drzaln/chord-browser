@@ -438,6 +438,9 @@ its service actions are unit-tested.)
       active Space and `chrome.tabs.move` reorders/relocates them (automated:
       `windowsCreateOpensTheRequestedTab`, `tabsMoveByPlaceReachesTheTabModel`,
       `extensionMoveTab`; live OAuth/2FA flow still manual)
+- [x] **M9d:** a page listed in an extension’s `externally_connectable` gets
+      `chrome.runtime` and can message it; unlisted ids fail Chrome-style
+      (automated: `ExtensionExternalTests`; live claude.ai flow still manual)
 - [ ] Enhancer for YouTube's on-page controls render after grant (last mile —
       mechanism verified, extension-specific UI not screenshot-confirmed)
 - [ ] AdBlock actually blocks (WebKit's `declarativeNetRequest` is partial —

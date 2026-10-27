@@ -77,6 +77,12 @@ public struct AppEnvironment {
         // per-Space controller wiring is always present.
         let host = WebKitExtensionHost()
         engine.extensionControllerProvider = host
+        // A page an extension names in `externally_connectable` gets
+        // `chrome.runtime` for that extension; the engine injects the listing
+        // at document start and refreshes it when extensions load/unload.
+        engine.externallyConnectableProvider = { [weak host] in
+            host?.externallyConnectableScript()
+        }
         let extensionHost: (any ExtensionHost)? = host
 
         // Native content blocking (§4.8). Shipped — flag deleted. The compile
@@ -123,7 +129,10 @@ public struct AppEnvironment {
         // An action update (badge, icon, enabled-ness) bumps an observable token
         // on the store so the sidebar header re-reads `actions(in:)` (7.5a). No
         // action data flows through here — just the trigger.
-        host.onActionsChanged = { [weak store] in store?.extensionActionsToken &+= 1 }
+        host.onActionsChanged = { [weak store, weak engine] in
+            store?.extensionActionsToken &+= 1
+            engine?.refreshExternallyConnectable()
+        }
 
         // Permission prompts (7.5c): the host surfaces a WebKit-free request,
         // which the store queues for the UI's grant/deny sheet. The grants

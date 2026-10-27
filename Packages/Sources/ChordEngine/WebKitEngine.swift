@@ -439,6 +439,32 @@ public final class WebKitEngine: WebEngine {
         for script in SiteOverrideInjector.makeUserScripts(overrides: siteOverrides) {
             controller.addUserScript(script)
         }
+        installExternallyConnectable(on: controller)
+    }
+
+    /// Adds (or replaces) the `externally_connectable` page bootstrap. WebKit
+    /// gives every page a `browser.runtime`; this only names it `chrome` on
+    /// pages a loaded extension lists. New source applies to the next
+    /// navigation, which is when a page can first see `chrome`.
+    private func installExternallyConnectable(on controller: WKUserContentController) {
+        let source = externallyConnectableProvider?()
+        guard let source else { return }
+        externallyConnectableSource = source
+        controller.addUserScript(WKUserScript(
+            source: source, injectionTime: .atDocumentStart,
+            forMainFrameOnly: true, in: .page
+        ))
+    }
+
+    /// Re-reads the loaded extensions' listings. Called when one loads or
+    /// unloads; a live page picks the change up on its next navigation.
+    public func refreshExternallyConnectable() {
+        let source = externallyConnectableProvider?()
+        guard source != externallyConnectableSource else { return }
+        externallyConnectableSource = source
+        for live in pool.liveViews {
+            installUserScripts(on: live.webView.configuration.userContentController)
+        }
     }
 
     /// The shared post-configuration a web view needs before it is usable —
@@ -650,6 +676,15 @@ public final class WebKitEngine: WebEngine {
     /// (899/worker recovery). Filled the first time a view for the Space is
     /// made.
     private var workerRecoveryAttachers: [UUID: (WKUserContentController) -> Void] = [:]
+
+    /// The page-world `chrome.runtime` bootstrap for extensions that name a
+    /// site in `externally_connectable`. Nil when no loaded extension lists a
+    /// page; the script itself decides per page.
+    public var externallyConnectableProvider: (() -> String?)?
+
+    /// The source last installed, so an action update does not churn every
+    /// controller when nothing about the listings changed.
+    private var externallyConnectableSource: String?
 
     /// The configured search provider's display name, shown in the page context
     /// menu's "Search with …" item. Set by the store.

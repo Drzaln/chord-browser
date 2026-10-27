@@ -4751,3 +4751,24 @@ after `launchWebAuthFlow`:
 
 Still M9d: custom popup fallback, capture bridge, `externally_connectable`,
 DNR redirect/return-navigation.
+
+### M9d — externally_connectable (2026-10-28)
+
+A page an extension names in its manifest's `externally_connectable.matches`
+now gets `chrome.runtime` in its own world:
+
+- WebKit already provides `browser.runtime` to every page and routes a listed
+  page's message to `runtime.onMessageExternal`. Chord injects an at-document-
+  start page script that names it `chrome` only for pages a loaded extension
+  lists, and only when the page has no `chrome` of its own.
+- Chrome's pattern rules apply: HTTP(S), a host with a dot for `*.`, no
+  every-site pattern, no Google sites (a partial `chrome` there is what their
+  sign-in treats as a fake browser).
+- `sendMessage` supports both promise and callback forms; an id the page may
+  not reach fails with Chrome's "Receiving end does not exist" instead of
+  silence. `connect` passes through to WebKit.
+- The engine refreshes the listing when extensions load/unload; an already-open
+  page picks it up on its next navigation.
+
+Tests: pattern filter, listing JSON, script content, and a loaded extension's
+listing through the host.
