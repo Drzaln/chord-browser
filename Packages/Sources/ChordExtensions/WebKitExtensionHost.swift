@@ -589,15 +589,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             let own = actionAnchors[space.id]?[slug]?.view
             let anchor = (own?.window != nil ? own : nil)
                 ?? actionAnchors[space.id]?[Self.managerAnchorSlug]?.view
-            let window = anchor?.window
-            ExtensionPopup.shared.onClose = { [weak self] in
-                self?.onPopupVisibilityChanged?(window, false)
-            }
-            ExtensionPopup.shared.show(
-                url, for: loaded.context, from: anchor,
-                host: self, spaceID: space.id
-            )
-            onPopupVisibilityChanged?(window, true)
+            showPopup(url, for: loaded.context, from: anchor, spaceID: space.id)
             return
         }
         loaded.context.performAction(for: adapter)
@@ -1455,15 +1447,25 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
             return
         }
         action.closePopup()
-        let window = anchor.window
+        showPopup(url, for: context, from: anchor, spaceID: spaceID)
+        completionHandler(nil)
+    }
+
+    /// Shows an extension's popup and tells the window it is up, then down.
+    /// `onClose` is set only after `show`: `show` first closes any popup
+    /// already up, which fires `onClose` — set before, it was used up at once,
+    /// "closed" never reached the window, and a folded sidebar stayed out.
+    private func showPopup(
+        _ url: URL, for context: WKWebExtensionContext, from anchor: NSView?,
+        spaceID: UUID
+    ) {
+        let window = anchor?.window
+        ExtensionPopup.shared.show(url, for: context, from: anchor, host: self, spaceID: spaceID)
+        guard ExtensionPopup.shared.isUp else { return }
         ExtensionPopup.shared.onClose = { [weak self] in
             self?.onPopupVisibilityChanged?(window, false)
         }
-        ExtensionPopup.shared.show(
-            url, for: context, from: anchor, host: self, spaceID: spaceID
-        )
         onPopupVisibilityChanged?(window, true)
-        completionHandler(nil)
     }
 
     private func popupURL(for context: WKWebExtensionContext) -> URL? {
