@@ -703,6 +703,13 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
   **"Access on all sites"** toggle for host permissions.
 - **Permission prompts** — when an extension requests access, a grant/deny sheet
   appears; grants are remembered across launches.
+- **Screen recording** — extensions such as Loom or Awesome Screenshot that ask
+  for `desktopCapture` (or call `getDisplayMedia`) can record a screen or
+  window. Chord brings the extension's page on screen and then WebKit shows the
+  Mac's own screen/window picker; the Mac remains the consent. Recording a
+  **tab** alone is not available on WebKit, so `tabCapture` refuses and
+  extensions that offer a tab option fall back to a screen/window. There is no
+  recording pill yet.
 - **Restore on launch** — extensions you had enabled are re-loaded into their
   Spaces after session restore.
 
@@ -733,6 +740,7 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | Find-in-page, print, PDF viewing                          | ✅                                      |
 | Native content blocking (network + cosmetic, `:has()`)    | ✅ (on by default)                      |
 | Extension hosting (buttons, panel, permissions, restore)  | ✅                                      |
+| Extension screen recording (`desktopCapture`, `getDisplayMedia`) | ✅ screen/window, via the Mac picker; no tab capture, no recording pill yet |
 | In-app extension install / enable / uninstall (Settings)  | ✅                                      |
 | Settings: clear cache / cookies / storage / history       | ✅                                      |
 | Per-site blocking whitelist / disable toggle              | ⚠️ not implemented                      |

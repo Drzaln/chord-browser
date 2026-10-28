@@ -456,8 +456,13 @@ its service actions are unit-tested.)
       (automated: `ChromeWebStoreRelayTests`; live click-through manual)
 - [x] **M9d:** extension popups/panels allow `getDisplayMedia` and camera/mic;
       the Mac picks the screen (live check pending)
-- [ ] **M9d:** `desktopCapture.chooseDesktopMedia` / `tabCapture` bridge
-      (Loom-style recording) still missing
+- [x] **M9d:** `desktopCapture.chooseDesktopMedia` + `getUserMedia` desktop
+      constraints work from a worker or page; stream ids are one-use/60 s;
+      `tabCapture` refuses (automated: `ExtensionCaptureTests`; live Loom /
+      Awesome Screenshot still manual)
+- [ ] **M9d (manual):** record with Loom and Awesome Screenshot in a throwaway
+      `CFFIXED_USER_HOME`; the Mac's picker appears, the stream starts, and a
+      second use of the same id fails
 - [x] **M9b:** Settings › Bookmarks lists/adds/opens/deletes the same store as
       `chrome.bookmarks`
 - [x] **M9b:** `sidePanel.setOptions`/`setPanelBehavior` persist across

@@ -396,8 +396,11 @@ Both non-ephemeral tiers carry a **home URL** — the URL the tab was pinned at:
   bookmarks, history, downloads, side-panel fallback, folders-as-tab-groups,
   scripting/userScripts, notifications, TTS, sessions/topSites fallbacks,
   native messaging, OAuth sign-in (`identity.launchWebAuthFlow` in its own
-  window), window/tab moves (`windows.create`, `tabs.move`), and
-  `externally_connectable` page messaging. The WebKit-adjacent half lives in
+  window), window/tab moves (`windows.create`, `tabs.move`),
+  `externally_connectable` page messaging, and screen recording
+  (`desktopCapture` + the `getUserMedia` desktop constraints, through WebKit's
+  own `getDisplayMedia` picker; `tabCapture` is still refused, ADR 012). The
+  WebKit-adjacent half lives in
   `ChordExtensions`; the
   Store-side data answers live in `ExtensionShimService`. Do not let this grow
   into a general WebExtensions implementation without a narrow native answer

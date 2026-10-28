@@ -4954,3 +4954,56 @@ keep the no-widening rule and real extension tests.
 Bitwarden popup after the custom-popover change, OAuth window, 2FA
 windows/tabs, a real `sidePanel.open` extension. Known: passkeys blocked on
 `40q`; Tampermonkey keepalive log; 1Password WASM.
+
+### M9d — desktopCapture bridge (2026-10-28)
+
+Ported the Search screen-recording bridge with Chord's names. `chordCapture`
+is a with-reply channel on every extension page: engine tab pages get it from
+the `ExtensionControllerHandle`, while popup, docked panel and offscreen
+documents get it from the Space controller's `webViewConfiguration` (set
+before the controller copies it). The handler accepts only a main frame whose
+`securityOrigin` is that extension's `chrome-extension://` host and whose view
+uses a persistent data store — a site cannot post, and neither can a framed
+extension page.
+
+- **Tokens.** `desktopCapture.chooseDesktopMedia` in a worker goes through
+  `capture.grant`: a 32-hex id good once, for 60 s, for that extension only.
+  A page redeems it with `getUserMedia({video: {mandatory: {chromeMediaSource,
+  chromeMediaSourceId}}})`; `consume` takes the id before checking the
+  extension, so a stolen id is burned. Unloading the extension drops its
+  unused ids. The API itself is gated on the manifest's `desktopCapture`.
+- **Record.** Native `ExtensionCapture` brings the asking page forward (selects
+  its tab and raises its window through the tab model), then calls the page's
+  shim-held `getDisplayMedia` symbol in `.page` via `callAsyncJavaScript` —
+  before any app-side `await`, so WebKit counts it as the click. The Mac's
+  picker is the consent every time. Offscreen documents pass `lend` only when
+  created for `USER_MEDIA`/`DISPLAY_MEDIA`; the `USER_MEDIA` focus preference
+  is relaxed for them.
+- **Display decision.** The SPI delegate returns 1 (screen) or 2 (window) only
+  while that web view has a Chord record call in flight, and 0 otherwise.
+  Websites keep WebKit's own answer, so ordinary screen sharing is unchanged.
+  `tabCapture` still refuses (ADR 012).
+- **Tests.** `ExtensionCaptureTests`: one-use, expiry, foreign-extension
+  redemption, manifest gate, unload purge, offscreen channel round trip, engine
+  handle wiring, shim names. Live Loom / Awesome Screenshot remains manual; the
+  recording pill (`RecordingIndicator.swift`) is not ported yet.
+
+**DNR leftovers, checked against the real bundles.** The remaining losses are
+WebKit's, not the shim's, and are documented instead of papered over:
+
+- **Claude:** WebKit rejects its `modifyHeaders` rule with “The header
+  `anthropic-client-platform` is not recognized.” WebKit's DNR only accepts a
+  fixed set of header names; custom request headers cannot be expressed (WebKit
+  bug 290922). The rule is dropped one-by-one and the rest of Claude's rules
+  load.
+- **Tampermonkey:** its generic `.user.js` install redirect uses
+  `excludedRequestDomains`, which WebKit cannot load beside rules narrowed to
+  given domains. The fallback drops the excluding rule, never the narrowed
+  ones — a kept rule must not match more than Chrome asked for. The 23
+  domain-specific install redirects still load; only the generic catch-all is
+  lost.
+- **Tests.** `ExtensionDNRTransformTests` pins the transforms that are ours:
+  extension-URL redirects become `extensionPath`, unknown resource types are
+  removed, and a rule left with no known type is dropped. Both gaps above
+  remain in Search too; fixing them needs a custom networking layer, out of
+  scope.

@@ -88,7 +88,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   Each bundle gets Chrome's id and `chrome-extension://<id>/` origin, an
   unpacked copy for Chord's compatibility shim, and the full Search-derived
   Chrome API shim (offscreen, bookmarks, history, downloads, folders-as-tab-
-  groups, side-panel fallback, scripting, native messaging and more). The
+  groups, side-panel fallback, scripting, native messaging, extension screen
+  recording through `desktopCapture`, and more). The
   Store links and ids can be installed from Settings through the public CRX
   endpoint; the store page's own Add button is still a later slice. Extension
   gaps are tracked as M9 in CHECKPOINT.md.
