@@ -21,6 +21,15 @@ public protocol PaneWebViewProviding: AnyObject {
     /// (restore is lazy, and an evicted pane has none). An extension simply
     /// cannot reach a page that is not currently rendered — which is correct.
     func paneWebView(_ paneID: UUID) -> WKWebView?
+
+    /// The pane a live web view belongs to. Used by screen recording to find
+    /// and select the tab an extension's page is in, because WebKit refuses
+    /// capture in a page that is not on screen.
+    func paneID(for webView: WKWebView) -> UUID?
+}
+
+extension PaneWebViewProviding {
+    public func paneID(for webView: WKWebView) -> UUID? { nil }
 }
 
 extension WebKitEngine: PaneWebViewProviding {

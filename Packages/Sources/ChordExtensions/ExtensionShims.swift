@@ -324,6 +324,13 @@ enum ExtensionShimBroker {
         }
 
         switch api {
+        case "capture.grant":
+            // A worker has no page to record in: chooseDesktopMedia gets an
+            // id now, and one of its pages redeems it through getUserMedia.
+            guard let host else {
+                throw Unsupported(what: "Extension is not loaded")
+            }
+            return host.capture.grant(for: context)
         case "offscreen.createDocument":
             let options = args.first as? [String: Any] ?? [:]
             guard let path = options["url"] as? String, !path.isEmpty else {
@@ -331,7 +338,8 @@ enum ExtensionShimBroker {
             }
             let reasons = options["reasons"] as? [String] ?? []
             try await ExtensionOffscreen.create(
-                path: path, reasons: reasons, context: context, spaceID: spaceID
+                path: path, reasons: reasons, context: context,
+                spaceID: spaceID, capture: host?.capture
             )
             return nil
         case "offscreen.closeDocument":

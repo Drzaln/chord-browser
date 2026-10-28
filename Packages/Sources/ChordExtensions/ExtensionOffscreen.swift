@@ -22,7 +22,8 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
     private static var documents: [Key: ExtensionOffscreen] = [:]
 
     static func create(
-        path: String, reasons: [String], context: WKWebExtensionContext, spaceID: UUID
+        path: String, reasons: [String], context: WKWebExtensionContext,
+        spaceID: UUID, capture: ExtensionCapture? = nil
     ) async throws {
         let key = Key(spaceID: spaceID, identifier: context.uniqueIdentifier)
         guard documents[key] == nil else {
@@ -38,11 +39,16 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
 
         let preferences = configuration.preferences.copy() as? WKPreferences
         preferences?.inactiveSchedulingPolicy = .throttle
+        // An offscreen document has no window to focus, so WebKit would hold
+        // its getUserMedia for ever. A document made to record is allowed to.
+        if reasons.contains("USER_MEDIA"), let preferences {
+            ExtensionCapture.set("_setGetUserMediaRequiresFocus:", false, in: preferences)
+        }
         if let preferences { configuration.preferences = preferences }
 
         let document = ExtensionOffscreen(
             context: context, spaceID: spaceID, url: url,
-            reasons: Set(reasons), configuration: configuration
+            reasons: Set(reasons), configuration: configuration, capture: capture
         )
         documents[key] = document
         // WebKit needs a tab adapter to identify content scripts in this
@@ -105,6 +111,7 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
     private let spaceID: UUID
     private let url: URL
     private let reasons: Set<String>
+    private let capture: ExtensionCapture?
     private let web: WKWebView
     private var loading: CheckedContinuation<Void, Error>?
     private var deadline: Task<Void, Never>?
@@ -113,12 +120,13 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
 
     private init(
         context: WKWebExtensionContext, spaceID: UUID, url: URL, reasons: Set<String>,
-        configuration: WKWebViewConfiguration
+        configuration: WKWebViewConfiguration, capture: ExtensionCapture?
     ) {
         extensionContext = context
         self.spaceID = spaceID
         self.url = url
         self.reasons = reasons
+        self.capture = capture
         web = WKWebView(
             frame: CGRect(x: 0, y: 0, width: 800, height: 600),
             configuration: configuration
@@ -211,6 +219,16 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
 
     func webViewDidClose(_ webView: WKWebView) {
         close(error: Failure.closed)
+    }
+
+    /// Screen recording from an offscreen document: only while Chord's own
+    /// call is in flight, never the extension's on its own.
+    @objc(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:)
+    func displayCapture(
+        _ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
+        systemAudio: Bool, decisionHandler: @escaping (Int) -> Void
+    ) {
+        decisionHandler(capture?.displayDecision(for: webView) ?? 0)
     }
 
     // MARK: - WKWebExtensionTab

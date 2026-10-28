@@ -20,12 +20,26 @@ public struct ExtensionControllerHandle {
     /// every tab makes its own. Nil for a handle built without a host.
     public var attachWorkerRecovery: ((WKUserContentController) -> Void)?
 
+    /// Adds the extension host's screen-capture channel to a page's content
+    /// controller. Every extension page the engine shows — an options page, a
+    /// popup opened as a tab — posts through it.
+    public var attachCapture: ((WKUserContentController) -> Void)?
+
+    /// WebKit's display-capture question for an extension page: 1 for a
+    /// screen, 2 for a window, 0 when Chord has no capture call in flight.
+    /// Supplied by the host so the engine names no capture type.
+    public var captureDisplayDecision: ((WKWebView) -> Int)?
+
     public init(
         _ controller: WKWebExtensionController,
-        attachWorkerRecovery: ((WKUserContentController) -> Void)? = nil
+        attachWorkerRecovery: ((WKUserContentController) -> Void)? = nil,
+        attachCapture: ((WKUserContentController) -> Void)? = nil,
+        captureDisplayDecision: ((WKWebView) -> Int)? = nil
     ) {
         self.controller = controller
         self.attachWorkerRecovery = attachWorkerRecovery
+        self.attachCapture = attachCapture
+        self.captureDisplayDecision = captureDisplayDecision
     }
 }
 

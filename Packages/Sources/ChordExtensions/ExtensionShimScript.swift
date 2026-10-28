@@ -1496,15 +1496,16 @@ enum ExtensionShimScript {
       put2("omnibox", { setDefaultSuggestion: () => {}, onInputStarted: event(), onInputChanged: event(),
         onInputEntered: event(), onInputCancelled: event(), onDeleteSuggestion: event() });
       // Screen recording (see ExtensionCapture.swift). Chrome's picker is
-      // Search's question, then the Mac's own; the stream id it hands back is
-      // an id Search gives once, which getUserMedia in the extension's page
+      // Chord's question, then the Mac's own; the stream id it hands back is
+      // an id Chord gives once, which getUserMedia in the extension's page
       // turns into the stream. Defined only for an extension that asks for
       // it, as in Chrome: Awesome Screenshot records with getDisplayMedia
       // when there is no desktopCapture.
       const declares = (name) => [...(manifest.permissions || []), ...(manifest.optional_permissions || [])].includes(name);
       const recorder = !inContent && !worker && typeof navigator !== "undefined" && !!navigator.mediaDevices
         && typeof root.MediaDevices === "function";
-      // Only an extension's own page, at the top: Search checks that too.
+      // Only an extension's own page, at the top: the native handler checks
+      // the sender's origin too.
       const captureChannel = (() => {
         try { return recorder && !embedded && window.top === window ? root.webkit.messageHandlers.chordCapture : null; } catch (e) { return null; }
       })();
@@ -1532,7 +1533,7 @@ enum ExtensionShimScript {
         const P = root.MediaDevices.prototype;
         const realGUM = P.getUserMedia, realGDM = P.getDisplayMedia;
         const held = new Map();
-        // Called by Search alone (ExtensionCapture.record). WebKit counts an
+        // Called by Chord alone (ExtensionCapture.record). WebKit counts an
         // app's call as a click, and only until its first await, so the
         // page's own getDisplayMedia — kept before any of the extension's
         // code ran — is called at once.
@@ -1590,7 +1591,7 @@ enum ExtensionShimScript {
           // The sound of a screen or a tab alone: WebKit records none.
           if (desktopId(c.video) === null) {
             stream.getTracks().forEach((t) => t.stop());
-            throw new DOMException("Search can't record the sound of a screen or a tab", "NotFoundError");
+            throw new DOMException("Chord can't record the sound of a screen or a tab", "NotFoundError");
           }
           const [track] = stream.getVideoTracks();
           const want = displayVideo(c.video);
@@ -1650,8 +1651,8 @@ enum ExtensionShimScript {
           DesktopCaptureSourceType: { SCREEN: "screen", WINDOW: "window", TAB: "tab", AUDIO: "audio" },
         });
       }
-      // A tab alone can't be recorded in Search: an extension that falls back
-      // to the screen, as Loom does, records the window instead.
+      // A tab alone can't be recorded on WebKit (ADR 012): an extension that
+      // falls back to the screen, as Loom does, records the window instead.
       if (declares("tabCapture")) {
         put2("tabCapture", { capture: refuse("tabCapture.capture"), getMediaStreamId: refuse("tabCapture.getMediaStreamId"),
           getCapturedTabs: (cb) => { if (cb) cb([]); else return Promise.resolve([]); }, onStatusChanged: event() });

@@ -340,10 +340,17 @@ public final class WebKitEngine: WebEngine {
             if let attach = handle.attachWorkerRecovery {
                 workerRecoveryAttachers[space.id] = attach
             }
+            if let attach = handle.attachCapture {
+                captureAttachers[space.id] = attach
+            }
+            if let decision = handle.captureDisplayDecision {
+                extensionDisplayDecision = decision
+            }
         }
 
         config.userContentController = makeContentController(
-            workerRecovery: handle?.attachWorkerRecovery
+            workerRecovery: handle?.attachWorkerRecovery,
+            capture: handle?.attachCapture
         )
         let webView = ChordWebView(frame: .zero, configuration: config)
         configure(webView)
@@ -357,7 +364,8 @@ public final class WebKitEngine: WebEngine {
     /// means adding the same handler name twice — which throws
     /// NSInvalidArgumentException and takes the app down on the second tab.
     private func makeContentController(
-        workerRecovery: ((WKUserContentController) -> Void)? = nil
+        workerRecovery: ((WKUserContentController) -> Void)? = nil,
+        capture: ((WKUserContentController) -> Void)? = nil
     ) -> WKUserContentController {
         let controller = WKUserContentController()
         installUserScripts(on: controller)
@@ -365,6 +373,10 @@ public final class WebKitEngine: WebEngine {
         // its content scripts run in (899/worker recovery). Nil when the Space
         // has no extension host — the controller is then exactly as before.
         workerRecovery?(controller)
+        // The screen-capture channel. It authenticates every message by the
+        // sender's extension origin, so it is safe on an ordinary web page:
+        // a site cannot post to it and a framed extension page cannot either.
+        capture?(controller)
         if let coordinator {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
@@ -569,7 +581,9 @@ public final class WebKitEngine: WebEngine {
         let config = openerConfiguration.copy() as! WKWebViewConfiguration
         config.userContentController = makeContentController(
             workerRecovery: paneID.flatMap { spaceID(forPane: $0) }
-                .flatMap { workerRecoveryAttachers[$0] }
+                .flatMap { workerRecoveryAttachers[$0] },
+            capture: paneID.flatMap { spaceID(forPane: $0) }
+                .flatMap { captureAttachers[$0] }
         )
         if config.urlSchemeHandler(forURLScheme: OfflineGamePage.scheme) == nil {
             config.setURLSchemeHandler(offlineGamePage, forURLScheme: OfflineGamePage.scheme)
@@ -679,6 +693,14 @@ public final class WebKitEngine: WebEngine {
     /// (899/worker recovery). Filled the first time a view for the Space is
     /// made.
     private var workerRecoveryAttachers: [UUID: (WKUserContentController) -> Void] = [:]
+    private var captureAttachers: [UUID: (WKUserContentController) -> Void] = [:]
+    /// The extension host's display-capture answer, used only for extension
+    /// pages. Ordinary sites keep WebKit's own screen picker.
+    private var extensionDisplayDecision: ((WKWebView) -> Int)?
+
+    func displayDecision(for webView: WKWebView) -> Int {
+        extensionDisplayDecision?(webView) ?? 0
+    }
 
     /// The page-world `chrome.runtime` bootstrap for extensions that name a
     /// site in `externally_connectable`. Nil when no loaded extension lists a
@@ -1497,7 +1519,7 @@ public final class WebKitEngine: WebEngine {
 
     // MARK: - Coordinator callbacks
 
-    func paneID(for webView: WKWebView) -> UUID? {
+    public func paneID(for webView: WKWebView) -> UUID? {
         // The pool is capped at 12, so a linear scan here is cheaper than
         // maintaining a second index.
         pool.paneID(matching: webView)

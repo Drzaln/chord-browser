@@ -4,8 +4,16 @@ import Foundation
 import WebKit
 
 /// Allows an extension's docked panel page to ask for its own camera,
-/// microphone or screen. The Mac still shows the picker for `getDisplayMedia`.
+/// microphone or screen. The Mac still shows the picker for `getDisplayMedia`,
+/// and only while Chord's capture call is in flight.
 private final class ExtensionPanelMediaDelegate: NSObject, WKUIDelegate {
+    let capture: ExtensionCapture
+
+    init(capture: ExtensionCapture) {
+        self.capture = capture
+        super.init()
+    }
+
     func webView(
         _ webView: WKWebView,
         decideMediaCapturePermissionsFor origin: WKSecurityOrigin,
@@ -20,7 +28,7 @@ private final class ExtensionPanelMediaDelegate: NSObject, WKUIDelegate {
         _ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
         systemAudio: Bool, decisionHandler: @escaping (Int) -> Void
     ) {
-        decisionHandler(1)
+        decisionHandler(capture.displayDecision(for: webView))
     }
 }
 
@@ -71,6 +79,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// (899/worker recovery). Shared so content controllers built by the
     /// engine can carry its bridge too.
     let workerRecovery = ExtensionWorkerRecovery.shared
+    /// Screen recording for extension pages: the `chordCapture` channel,
+    /// one-use stream ids and WebKit's display-capture answer.
+    let capture = ExtensionCapture()
     /// Spaces whose stale service-worker registrations have been cleared this
     /// launch. The check is per-space and cheap after the first extension.
     private var clearedWorkers: Set<UUID> = []
@@ -157,6 +168,12 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // once is enough for every controller in the process.
         WKWebExtension.MatchPattern.registerCustomURLScheme("chrome-extension")
         super.init()
+        capture.context = { [weak self] identifier in
+            self?.context(identifier: identifier)
+        }
+        capture.bringForward = { [weak self] web in
+            await self?.bringForward(web) ?? false
+        }
     }
 
     public var preparedSpaceIDs: Set<UUID> { Set(controllers.keys) }
@@ -188,6 +205,12 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             controller,
             attachWorkerRecovery: { [workerRecovery] contentController in
                 workerRecovery.attach(spaceID: spaceID, controller: contentController)
+            },
+            attachCapture: { [capture] contentController in
+                capture.attach(contentController)
+            },
+            captureDisplayDecision: { [capture] web in
+                capture.displayDecision(for: web)
             }
         )
     }
@@ -273,6 +296,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             ExtensionOffscreen.close(
                 identifier: previous.installed.identifier, spaceID: space.id
             )
+            capture.purge(previous.installed.identifier)
             let key = ExtensionWorkerRecovery.Key(
                 spaceID: space.id, slug: installed.slug
             )
@@ -311,6 +335,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         guard let baseURL = URL(string: "chrome-extension://\(installed.identifier)/")
         else { throw ExtensionShimError.invalidIdentifier }
         context.baseURL = baseURL
+        // Pages in engine tabs get the capture channel through the controller
+        // handle; pages built from the extension configuration get it from
+        // the controller's view configuration (`makeConfiguration`).
 
         // Re-apply permissions the user granted in a previous session (7.5c),
         // before the extension starts, so content scripts and host access work
@@ -411,6 +438,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         workerRecovery.restarted(recoveryKey, replacingContext: true)
         workerRecovery.unregister(recoveryKey)
         ExtensionOffscreen.close(identifier: loaded.installed.identifier, spaceID: space.id)
+        capture.purge(loaded.installed.identifier)
         closeSidePanel(slug: slug, in: space)
         ExtensionNative.stopOrphans()
         Log.extensions.notice(
@@ -433,6 +461,53 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// no WK* type crosses the package boundary.
     func context(forSlug slug: String, in space: Space) -> WKWebExtensionContext? {
         loadedContexts[space.id]?[slug]?.context
+    }
+
+    /// A loaded context by its Chrome id, for the capture channel's sender
+    /// check. Few extensions load, so a linear scan is enough.
+    func context(identifier: String) -> WKWebExtensionContext? {
+        for bySlug in loadedContexts.values {
+            for loaded in bySlug.values
+            where loaded.context.uniqueIdentifier.caseInsensitiveCompare(identifier)
+                == .orderedSame {
+                return loaded.context
+            }
+        }
+        return nil
+    }
+
+    /// Selects the tab an extension's page is in and raises its window. WebKit
+    /// refuses to start a recording in a page that is not visible; a popup or
+    /// a docked panel is already on screen, but an options page may sit in a
+    /// background tab. Not in a test run, where nothing is shown.
+    private func bringForward(_ web: WKWebView) async -> Bool {
+        if web.window?.isVisible == true,
+           (try? await web.evaluateJavaScript("document.visibilityState")) as? String
+            == "visible" {
+            return true
+        }
+        if let provider = paneWebViewProvider,
+           let paneID = provider.paneID(for: web),
+           let model = tabModel {
+            for spaceID in spaces.keys {
+                if let tab = model.extensionTabs(inSpace: spaceID)
+                    .first(where: { $0.focusedPaneID == paneID }) {
+                    model.extensionActivateTab(tab.id)
+                    break
+                }
+            }
+        }
+        web.window?.makeKeyAndOrderFront(nil)
+        for _ in 0..<20 {
+            if web.window?.isVisible == true,
+               web.window?.occlusionState.contains(.visible) == true,
+               (try? await web.evaluateJavaScript("document.visibilityState")) as? String
+                == "visible" {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return false
     }
 
     // MARK: - Toolbar actions (7.5a)
@@ -896,7 +971,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             configuration: configuration
         )
         web.allowsBackForwardNavigationGestures = true
-        let media = ExtensionPanelMediaDelegate()
+        let media = ExtensionPanelMediaDelegate(capture: capture)
         web.uiDelegate = media
         sidePanelDelegates[key] = media
         sidePanelViews[key] = web
@@ -1050,6 +1125,13 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             configuration.defaultWebsiteDataStore = store
             dataStores[space.id] = store
         }
+        // Extension pages built from this controller's configuration — popup,
+        // docked panel, offscreen document — need the capture channel too.
+        // The controller copies the configuration at init, so it must be set
+        // here, before the controller exists.
+        let views = configuration.webViewConfiguration ?? WKWebViewConfiguration()
+        capture.attach(views.userContentController)
+        configuration.webViewConfiguration = views
         return configuration
     }
 }

@@ -523,6 +523,24 @@ extension NavigationCoordinator: WKUIDelegate {
         }
     }
 
+    /// WebKit's display-capture question (SPI, as in the popup and panel
+    /// delegates). A website keeps WebKit's own answer — the Mac's picker — so
+    /// ordinary screen sharing is unchanged. An extension's page is answered
+    /// only while Chord's own `getDisplayMedia` call is in flight; an extension
+    /// cannot raise the picker on its own.
+    @objc(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:)
+    func displayCapture(
+        _ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
+        systemAudio: Bool, decisionHandler: @escaping (Int) -> Void
+    ) {
+        let scheme = origin.`protocol`.lowercased()
+        guard scheme == "chrome-extension" || scheme == "webkit-extension" else {
+            decisionHandler(1)
+            return
+        }
+        decisionHandler(engine?.displayDecision(for: webView) ?? 0)
+    }
+
     /// Geolocation for `navigator.geolocation` — Google Maps, Apple Maps web,
     /// etc.
     ///

@@ -20,6 +20,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     private var web: WKWebView?
     private var page: PopupPage?
     private var extensionID: String?
+    private var capture: ExtensionCapture?
     private weak var button: NSView?
     private var sizing: Timer?
     private var shown = false
@@ -59,6 +60,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
         self.web = web
         self.popover = popover
         extensionID = context.uniqueIdentifier
+        capture = host.capture
         button = anchor
         let page = PopupPage(
             web: web, context: context, host: host, spaceID: spaceID
@@ -132,6 +134,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
         popover = nil
         web = nil
         extensionID = nil
+        capture = nil
         button = nil
         shown = false
         ticks = 0
@@ -210,8 +213,9 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
         _ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
         systemAudio: Bool, decisionHandler: @escaping (Int) -> Void
     ) {
-        // 1: the Mac's screen picker. The Mac asks what to share.
-        decisionHandler(1)
+        // Only while Chord's own capture call is in flight: the extension
+        // cannot raise the Mac's picker on its own.
+        decisionHandler(capture?.displayDecision(for: webView) ?? 0)
     }
 
     func webView(
