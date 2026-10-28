@@ -4862,3 +4862,19 @@ Still M9d: capture bridge, DNR redirect/return-navigation.
 wedge in ChordStoreTests on testmanagerd), and `CHORD_REAL_EXTENSIONS=1` opts
 into the real-store probe during the same gate. The probe is still skipped by
 default because it needs the network and real bundles.
+
+### M9b/M9c — bookmarks UI, store Add relay (2026-10-28)
+
+- **Bookmarks UI.** Settings has a **Bookmarks** section: add a title/address,
+  open one in the focused window, or delete it. It reads and writes the same
+  `BookmarksStore` that `chrome.bookmarks` uses, so an extension's writes appear
+  there and a user's edits reach the extension.
+- **In-page “Add to Chord”.** On `chromewebstore.google.com/detail/<id>` the
+  store's disabled Chrome button is replaced by an **Add to Chord** button
+  (same shape, store markup only). The click posts through the engine handler
+  `chordStore`; `StoreInstallRelay` checks the id against the focused tab's own
+  address, then runs the normal install-from-store + enable path and toasts the
+  result. A page cannot ask Chord to install an unrelated id. The previous
+  “Use Add to Chord above” label is gone.
+- Tests: store script/handler shape. The live store page and a click-through
+  install are still manual.

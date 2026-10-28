@@ -26,6 +26,8 @@ public struct AppEnvironment {
     /// Store-side answers for the full Chrome shim (M9). Retained here because
     /// the host holds it weakly.
     public let extensionShim: ExtensionShimService?
+    /// Bookmark data (`chrome.bookmarks` and the Settings list).
+    public let bookmarks: BookmarksStore?
 
     public init(
         store: TabStore,
@@ -33,7 +35,8 @@ public struct AppEnvironment {
         extensionHost: (any ExtensionHost)? = nil,
         extensions: ExtensionsService? = nil,
         contentBlocker: ContentBlocker? = nil,
-        extensionShim: ExtensionShimService? = nil
+        extensionShim: ExtensionShimService? = nil,
+        bookmarks: BookmarksStore? = nil
     ) {
         self.store = store
         self.downloads = downloads
@@ -41,6 +44,7 @@ public struct AppEnvironment {
         self.extensions = extensions
         self.contentBlocker = contentBlocker
         self.extensionShim = extensionShim
+        self.bookmarks = bookmarks
     }
 
     /// The real, on-disk configuration.
@@ -211,6 +215,12 @@ public struct AppEnvironment {
         extensionsService.onStoreUpdate = { [weak store] message in
             store?.focusedWindow.showToast(message, icon: "puzzlepiece.extension")
         }
+        // A store page's "Add to Chord" button posts through the engine; this
+        // object checks the id against the focused tab and runs the normal
+        // install + enable path.
+        engine.storeRelayDelegate = StoreInstallRelay(
+            store: store, extensions: extensionsService
+        )
 
         let downloadsStore = DownloadsStore(coordinator: engine.downloads)
         // A download started while the sidebar is collapsed has no visible
@@ -239,6 +249,12 @@ public struct AppEnvironment {
                 url: url, in: context.spaceID
             )
         }
+        extensionShim.onSidePanel = { [weak store] context, url in
+            store?.focusedWindow.showExtensionPanel(
+                slug: context.slug, identifier: context.identifier,
+                url: url, in: context.spaceID
+            )
+        }
         host.shimData = extensionShim
 
         return AppEnvironment(
@@ -247,7 +263,8 @@ public struct AppEnvironment {
             extensionHost: extensionHost,
             extensions: extensionsService,
             contentBlocker: contentBlocker,
-            extensionShim: extensionShim
+            extensionShim: extensionShim,
+            bookmarks: bookmarks
         )
     }
 

@@ -116,6 +116,7 @@ struct AppRootView: View {
                 downloads: environment.downloads,
                 extensionHost: environment.extensionHost,
                 extensions: environment.extensions,
+                bookmarks: environment.bookmarks,
                 openCommandBar: { mode, query in
                     commandBar?.present(
                         over: NSApp.keyWindow,

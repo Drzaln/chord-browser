@@ -14,6 +14,8 @@ public struct RootView: View {
     /// The extension install/enable/remove coordinator, present only when the
     /// subsystem is wired. Threaded to the settings sheet's Extensions section.
     private let extensions: ExtensionsService?
+    /// Bookmark data, threaded to the settings sheet's Bookmarks section.
+    private let bookmarks: BookmarksStore?
     /// Opens the command bar, optionally pre-filled with a query. Injected
     /// because the controller is owned by the app delegate — the panel outlives
     /// any view, and Store must not depend on UI to reach it.
@@ -47,6 +49,7 @@ public struct RootView: View {
         downloads: DownloadsStore,
         extensionHost: (any ExtensionHost)? = nil,
         extensions: ExtensionsService? = nil,
+        bookmarks: BookmarksStore? = nil,
         openCommandBar: @escaping (CommandBarMode, String?) -> Void = { _, _ in }
     ) {
         self.store = store
@@ -54,6 +57,7 @@ public struct RootView: View {
         self.downloads = downloads
         self.extensionHost = extensionHost
         self.extensions = extensions
+        self.bookmarks = bookmarks
         self.openCommandBar = openCommandBar
     }
 
@@ -379,7 +383,10 @@ public struct RootView: View {
         // their own modifier because inlining them puts `body` past what the
         // type-checker will solve in reasonable time.
         .modifier(
-            RootSheets(store: store, windowState: windowState, extensions: extensions)
+            RootSheets(
+                store: store, windowState: windowState, extensions: extensions,
+                bookmarks: bookmarks
+            )
         )
         // The rename alert lives here for the same reason: an alert attached to
         // the sidebar would be torn down the instant the sidebar collapsed (and

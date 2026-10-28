@@ -451,8 +451,11 @@ its service actions are unit-tested.)
       `reading-list.json` (automated: `ExtensionShimServiceTests`)
 - [x] **M9c:** a store update or same-version signature repair shows a toast,
       and old `.unsupported` sidecars are refreshed on launch
-- [ ] **M9c:** in-page “Add to Chord” relay on the store page (only the
-      “Switch to Chrome” furniture is hidden today)
+- [x] **M9c:** store page’s disabled Chrome button becomes **Add to Chord**;
+      clicking it installs/enables the id read from the tab address
+      (automated: `ChromeWebStoreRelayTests`; live click-through manual)
+- [x] **M9b:** Settings › Bookmarks lists/adds/opens/deletes the same store as
+      `chrome.bookmarks`
 - [x] **M9e:** prepush uses serial tests and accepts
       `CHORD_REAL_EXTENSIONS=1` for the real-store probe
 - [x] **M9b:** `chrome.sidePanel.open` opens a docked column, not a tab;

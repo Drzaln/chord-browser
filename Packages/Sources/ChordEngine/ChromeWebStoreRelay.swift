@@ -1,23 +1,40 @@
 import Foundation
 import WebKit
 
-/// Quietens the Chrome Web Store's "this isn't Chrome" furniture.
+/// A Chrome Web Store page asking Chord to install the extension it shows.
 ///
-/// The store covers its page with a "Switch to Chrome" banner/card and leaves
-/// its install button disabled for non-Chrome browsers. Chord installs from
-/// the store already — Settings accepts the link or id — so the banner and card
-/// are hidden and the grey button points at the real path instead of pretending
-/// to work.
-///
-/// Page-only and idempotent: it looks for the store's own disabled button and
-/// the Chrome logo in a dialog, never for generated class names.
+/// The store detects a non-Chrome browser: it covers the page with a "Switch to
+/// Chrome" banner and leaves its install button disabled. The page script hides
+/// that furniture and puts an "Add to Chord" button in the store's own place.
+/// The id comes from the tab's address, never from the page, and the normal
+/// install path (signature check, prepared bundle, enable) still runs.
+public protocol ChromeStoreRelayDelegate: AnyObject {
+    @MainActor func installFromStorePage(id: String)
+}
+
+@MainActor
+final class ChromeStoreRelayHandler: NSObject, WKScriptMessageHandler {
+    static let name = "chordStore"
+    var delegate: ChromeStoreRelayDelegate?
+
+    nonisolated func userContentController(
+        _ controller: WKUserContentController, didReceive message: WKScriptMessage
+    ) {
+        guard let body = message.body as? [String: Any],
+              let id = body["add"] as? String
+        else { return }
+        MainActor.assumeIsolated {
+            delegate?.installFromStorePage(id: id)
+        }
+    }
+}
+
+/// Quietens the store's non-Chrome furniture and relays its install button.
 enum ChromeWebStoreRelay {
     @MainActor
     static func makeUserScript() -> WKUserScript {
         WKUserScript(
-            source: script,
-            injectionTime: .atDocumentEnd,
-            forMainFrameOnly: true
+            source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true
         )
     }
 
@@ -25,6 +42,31 @@ enum ChromeWebStoreRelay {
     (function () {
       if (location.hostname !== 'chromewebstore.google.com' || window.__chordStore) return;
       window.__chordStore = true;
+
+      function pageID() {
+        var m = location.pathname.match(/\\/detail\\/(?:[^\\/]+\\/)?([a-p]{32})/);
+        return m ? m[1] : null;
+      }
+
+      function theirs() {
+        var buttons = document.querySelectorAll('button[disabled]');
+        for (var i = 0; i < buttons.length; i++) {
+          var b = buttons[i];
+          if (!b.dataset.chord && /chrome/i.test(b.textContent || '')) return b;
+        }
+        return null;
+      }
+
+      function bannerOf(button) {
+        var box = null, up = button.parentElement;
+        while (up && up !== document.body) {
+          if (up.querySelector('button[disabled], button[data-chord]')) break;
+          if ((up.innerText || '').length > 160) break;
+          box = up;
+          up = up.parentElement;
+        }
+        return box;
+      }
 
       function hideBanner() {
         var cards = document.querySelectorAll('[role="dialog"]');
@@ -38,13 +80,7 @@ enum ChromeWebStoreRelay {
         for (var i = 0; i < buttons.length; i++) {
           var b = buttons[i];
           if (b.dataset.chord || !/chrome/i.test(b.getAttribute('aria-label') || '')) continue;
-          var box = null, up = b.parentElement;
-          while (up && up !== document.body) {
-            if (up.querySelector('button[disabled], button[data-chord]')) break;
-            if ((up.innerText || '').length > 160) break;
-            box = up;
-            up = up.parentElement;
-          }
+          var box = bannerOf(b);
           if (box && !box.dataset.chord) {
             box.style.display = 'none';
             box.dataset.chord = 'banner';
@@ -52,24 +88,53 @@ enum ChromeWebStoreRelay {
         }
       }
 
-      function relabel() {
-        var buttons = document.querySelectorAll('button[disabled]');
-        for (var i = 0; i < buttons.length; i++) {
-          var b = buttons[i];
-          if (b.dataset.chord || !/chrome/i.test(b.textContent || '')) continue;
-          b.dataset.chord = 'theirs';
-          var walker = document.createTreeWalker(b, NodeFilter.SHOW_TEXT);
-          var node, last = null;
-          while ((node = walker.nextNode())) { if (node.nodeValue.trim()) last = node; }
-          if (last) last.nodeValue = 'Use Add to Chord above';
+      function label(button, text) {
+        var walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+        var node, last = null;
+        while ((node = walker.nextNode())) { if (node.nodeValue.trim()) last = node; }
+        if (last) last.nodeValue = text; else button.textContent = text;
+      }
+
+      function mend() {
+        hideBanner();
+        var id = pageID();
+        if (!id) return;
+        var original = theirs();
+        if (original && original.parentNode) {
+          var ours = original.cloneNode(true);
+          ['disabled', 'jsaction', 'jscontroller', 'jsname', 'jslog', 'aria-describedby']
+            .forEach(function (name) { ours.removeAttribute(name); });
+          ours.dataset.chord = 'add';
+          original.dataset.chord = 'theirs';
+          original.style.display = 'none';
+          original.parentNode.insertBefore(ours, original.nextSibling);
+          label(ours, 'Add to Chord');
+        }
+        var mine = document.querySelectorAll('button[data-chord="add"]');
+        for (var i = 0; i < mine.length; i++) {
+          if (!mine[i].dataset.chordBound) {
+            mine[i].dataset.chordBound = '1';
+            mine[i].addEventListener('click', function (e) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              if (this.disabled) return;
+              this.disabled = true;
+              label(this, 'Adding…');
+              try {
+                window.webkit.messageHandlers.chordStore.postMessage({ add: id });
+              } catch (x) {}
+            }, true);
+          }
         }
       }
 
-      function mend() { hideBanner(); relabel(); }
+      var queued = false;
+      new MutationObserver(function () {
+        if (queued) return;
+        queued = true;
+        setTimeout(function () { queued = false; mend(); }, 60);
+      }).observe(document.documentElement, { childList: true, subtree: true });
       mend();
-      new MutationObserver(mend).observe(document.documentElement, {
-        childList: true, subtree: true, characterData: true
-      });
     })();
     """
 }

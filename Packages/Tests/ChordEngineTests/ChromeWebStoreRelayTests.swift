@@ -10,7 +10,9 @@ struct ChromeWebStoreRelayTests {
         #expect(script.injectionTime == .atDocumentEnd)
         #expect(script.isForMainFrameOnly)
         #expect(script.source.contains("chromewebstore.google.com"))
-        #expect(script.source.contains("Use Add to Chord above"))
+        #expect(script.source.contains("Add to Chord"))
+        #expect(script.source.contains("chordStore"))
         #expect(script.source.contains("__chordStore"))
+        #expect(ChromeStoreRelayHandler.name == "chordStore")
     }
 }

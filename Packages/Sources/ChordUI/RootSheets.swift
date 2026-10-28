@@ -13,6 +13,7 @@ struct RootSheets: ViewModifier {
     @Bindable var store: TabStore
     @Bindable var windowState: WindowState
     let extensions: ExtensionsService?
+    let bookmarks: BookmarksStore?
 
     /// The Space being edited, resolved against the shared store. Written back
     /// as `nil` only, since dismissal is the sheet's own doing.
@@ -80,7 +81,10 @@ struct RootSheets: ViewModifier {
                 SitePermissionSheet(prompt: prompt, store: store)
             }
             .sheet(isPresented: $windowState.isSettingsPresented) {
-                SettingsView(store: store, windowState: windowState, extensions: extensions)
+                SettingsView(
+                    store: store, windowState: windowState,
+                    extensions: extensions, bookmarks: bookmarks
+                )
             }
             .sheet(isPresented: $windowState.isHistoryPresented) {
                 HistoryView(store: store, windowState: windowState)

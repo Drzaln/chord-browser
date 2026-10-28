@@ -423,6 +423,8 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
         controller.addUserScript(ChromeWebStoreRelay.makeUserScript())
+        storeRelay.delegate = storeRelayDelegate
+        controller.add(storeRelay, name: ChromeStoreRelayHandler.name)
         controller.addUserScript(PasswordFormMonitor.makeUserScript())
         controller.addUserScript(GeolocationBridge.makeUserScript())
         controller.addUserScript(PictureInPictureMonitor.makeUserScript())
@@ -686,6 +688,11 @@ public final class WebKitEngine: WebEngine {
     /// The source last installed, so an action update does not churn every
     /// controller when nothing about the listings changed.
     private var externallyConnectableSource: String?
+
+    /// Receives the store page's "Add to Chord" click; the app installs and
+    /// enables the id after checking it against the tab's address.
+    public var storeRelayDelegate: ChromeStoreRelayDelegate?
+    private let storeRelay = ChromeStoreRelayHandler()
 
     /// The configured search provider's display name, shown in the page context
     /// menu's "Search with …" item. Set by the store.

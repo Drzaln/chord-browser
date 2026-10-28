@@ -14,6 +14,7 @@ public struct SettingsView: View {
     /// The presenting window's state — this sheet's Done button closes it.
     @Bindable var windowState: WindowState
     let extensions: ExtensionsService?
+    let bookmarks: BookmarksStore?
 
     private enum Section: String, CaseIterable, Identifiable {
         case general = "General"
@@ -21,6 +22,7 @@ public struct SettingsView: View {
         case passwords = "Passwords"
         case privacy = "Privacy & Data"
         case extensions = "Extensions"
+        case bookmarks = "Bookmarks"
         case updates = "Updates"
         var id: String { rawValue }
     }
@@ -32,11 +34,13 @@ public struct SettingsView: View {
     }
 
     public init(
-        store: TabStore, windowState: WindowState, extensions: ExtensionsService?
+        store: TabStore, windowState: WindowState,
+        extensions: ExtensionsService?, bookmarks: BookmarksStore?
     ) {
         self.store = store
         self.windowState = windowState
         self.extensions = extensions
+        self.bookmarks = bookmarks
     }
 
     public var body: some View {
@@ -78,6 +82,11 @@ public struct SettingsView: View {
                 case .extensions:
                     ExtensionsSettings(store: store, windowState: windowState, extensions: extensions)
                         .padding(20)
+                case .bookmarks:
+                    BookmarksSettings(
+                        store: store, windowState: windowState, bookmarks: bookmarks
+                    )
+                    .padding(20)
                 case .updates:
                     UpdateSettings()
                         .padding(20)
