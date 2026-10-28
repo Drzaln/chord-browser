@@ -29,8 +29,9 @@ struct ExtensionActionsBar: View {
     @ViewBuilder private var content: some View {
         if let space = store.activeSpace(in: windowState) {
             let loaded = host.loadedExtensions(in: space)
+            let actions = host.actions(in: space)
             HStack(spacing: 2) {
-                ForEach(host.actions(in: space)) { action in
+                ForEach(actions) { action in
                     ExtensionActionButton(action: action, space: space, host: host)
                 }
                 // A manage button opens the per-Space panel (background-worker
@@ -50,8 +51,20 @@ struct ExtensionActionsBar: View {
                     .popover(isPresented: $showingPanel, arrowEdge: .bottom) {
                         ExtensionsPanel(store: store, windowState: windowState, host: host)
                     }
+                    .background(
+                        PopoverAnchorView { view in
+                            host.registerActionAnchor(
+                                view, forSlug: WebKitExtensionHost.managerAnchorSlug,
+                                in: space
+                            )
+                        }
+                    )
                 }
             }
+            // Rebuild the row when the loaded set changes. Without this,
+            // SwiftUI can keep the button created for one extension while its
+            // icon updates to another, so the Loom icon opened Bitwarden.
+            .id((actions.map(\.id) + ["loaded:\(loaded.count)"]).joined(separator: "|"))
         }
     }
 }
@@ -126,7 +139,8 @@ private struct PopoverAnchorView: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        register(nsView)
-    }
+    // Deliberately not re-registered from `updateNSView`, as in Search: the
+    // outgoing layout can still update during a transition, and must not
+    // replace the new layout's anchor with a view about to disappear.
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

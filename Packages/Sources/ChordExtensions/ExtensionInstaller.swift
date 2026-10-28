@@ -210,14 +210,20 @@ public struct ExtensionInstaller: Sendable {
 
     /// Bring a bundle installed before the prepared layout up to date: unpack
     /// the stored ZIP, inject the shim, derive a Chrome id, and write the
-    /// identity sidecar. Best-effort: a bundle that cannot be prepared is
-    /// returned unchanged, so it still loads the old way.
+    /// identity sidecar. A prepared tree stamped with an older shim is
+    /// re-prepared too, so a shim fix actually reaches existing installs.
+    /// Best-effort: a bundle that cannot be prepared is returned unchanged, so
+    /// it still loads the old way.
     public func prepareIfNeeded(_ installed: InstalledExtension) -> InstalledExtension {
         var isDirectory: ObjCBool = false
         if FileManager.default.fileExists(
             atPath: installed.resourceURL.path, isDirectory: &isDirectory
         ), isDirectory.boolValue {
-            return installed
+            let stamp = try? String(
+                contentsOf: installed.resourceURL.appending(path: ExtensionShims.stamp),
+                encoding: .utf8
+            )
+            if stamp == ExtensionShims.version { return installed }
         }
         let zipURL = resourceURL(forSlug: installed.slug)
         guard let data = try? Data(contentsOf: zipURL) else { return installed }

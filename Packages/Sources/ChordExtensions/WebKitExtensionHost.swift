@@ -48,6 +48,10 @@ private final class ExtensionPanelMediaDelegate: NSObject, WKUIDelegate {
 /// `ExtensionHost`, which is WebKit-free.
 @MainActor
 public final class WebKitExtensionHost: NSObject, ExtensionHost {
+    /// The sidebar's manage button, used as a popup anchor when an
+    /// extension's own button has not registered one (it was rebuilt while
+    /// the action list grew).
+    public static let managerAnchorSlug = "__chord.manager"
     // `private(set)` rather than `private` so the package's own tests can reach
     // the controllers through `@testable`; the handle's controller is internal
     // to the engine and cannot be read from here.
@@ -515,14 +519,20 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     public func actions(in space: Space) -> [ExtensionActionSnapshot] {
         let active = tabModel?.extensionActiveTab(inSpace: space.id)
         let adapter = active.map { tabAdapter(for: $0.id, inSpace: space.id) }
-        return (loadedContexts[space.id] ?? [:])
+        let built: [ExtensionActionSnapshot] = (loadedContexts[space.id] ?? [:])
             .sorted { $0.key < $1.key }
             .compactMap { slug, loaded in
-                // Some extensions (Bitwarden) only publish an action for the
-                // tab in front; the header button represents that tab.
-                guard let action = loaded.context.action(for: adapter) else { return nil }
+                // Some extensions (Bitwarden) publish an action only for the
+                // tab in front; the header button represents that tab. Others
+                // (Loom, Awesome Screenshot) have no per-tab action yet, so
+                // WebKit answers nil — fall back to the default action rather
+                // than hiding the button entirely.
+                guard let action = loaded.context.action(for: adapter)
+                        ?? loaded.context.action(for: nil)
+                else { return nil }
                 return snapshot(of: action, slug: slug, spaceID: space.id)
             }
+        return built
     }
 
     private func snapshot(
@@ -561,9 +571,31 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         if ExtensionPopup.shared.closes(loaded.context.uniqueIdentifier) { return }
         // Perform the action for the Space's active tab if there is one, so a
         // popup opens against the page the user is actually reading and the tab
-        // is marked as having a user gesture. `nil` performs the default action.
+        // is marked as having a user gesture. A popup is opened here, straight
+        // away, as in Search: left to WebKit, some extensions (Loom, Awesome
+        // Screenshot) publish no per-tab action and `performAction` quietly
+        // does nothing.
         let activeTab = tabModel?.extensionActiveTab(inSpace: space.id)
         let adapter = activeTab.map { tabAdapter(for: $0.id, inSpace: space.id) }
+        if let adapter { loaded.context.userGesturePerformed(in: adapter) }
+        let action = loaded.context.action(for: adapter)
+            ?? loaded.context.action(for: nil)
+        if action?.presentsPopup == true,
+           let url = action?.popupWebView?.url ?? popupURL(for: loaded.context) {
+            let own = actionAnchors[space.id]?[slug]?.view
+            let anchor = (own?.window != nil ? own : nil)
+                ?? actionAnchors[space.id]?[Self.managerAnchorSlug]?.view
+            let window = anchor?.window
+            ExtensionPopup.shared.onClose = { [weak self] in
+                self?.onPopupVisibilityChanged?(window, false)
+            }
+            ExtensionPopup.shared.show(
+                url, for: loaded.context, from: anchor,
+                host: self, spaceID: space.id
+            )
+            onPopupVisibilityChanged?(window, true)
+            return
+        }
         loaded.context.performAction(for: adapter)
     }
 

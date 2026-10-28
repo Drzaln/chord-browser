@@ -113,6 +113,25 @@ struct WebViewPoolTests {
         #expect(engine.interactionState(for: paneID) == nil)
     }
 
+    @Test("Refreshing externally-connectable scripts keeps one store handler")
+    func refreshExternallyConnectableDoesNotReAddTheStoreHandler() {
+        let engine = WebKitEngine(
+            configuration: EngineConfiguration(
+                faviconCacheDirectory: URL(fileURLWithPath: "/tmp/engine-tests")
+            )
+        )
+        let space = Space(name: "Personal", sortIndex: 0)
+        let pane = Pane(url: URL(string: "about:blank")!)
+        _ = engine.surface(for: pane, in: space)
+
+        engine.externallyConnectableProvider = { "globalThis.__chordExternal = 1;" }
+        engine.refreshExternallyConnectable()
+        engine.externallyConnectableProvider = { "globalThis.__chordExternal = 2;" }
+        // A second refresh used to call `installUserScripts`, which added the
+        // `chordStore` handler a second time and made WebKit throw.
+        engine.refreshExternallyConnectable()
+    }
+
     @Test("A pane's clip radius is applied live and remembered for a later view")
     func contentCornerRadiusPerPane() {
         let engine = WebKitEngine(

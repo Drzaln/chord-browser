@@ -153,6 +153,43 @@ struct ExtensionPreparedBundleTests {
         #expect(listed?.resourceURL == installed.resourceURL)
     }
 
+    @Test func aStaleShimIsReappliedFromTheStoredZIP() throws {
+        let source = try makeSource(files: [
+            "manifest.json": Self.manifest,
+            "bg.js": "globalThis.version = 1;\n",
+            "popup.html": "<html><head></head><body>popup</body></html>",
+        ])
+        defer { try? FileManager.default.removeItem(at: source) }
+        let zipURL = try zip(source)
+        defer { try? FileManager.default.removeItem(at: zipURL) }
+
+        let (installer, root) = makeInstaller()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let installed = try installer.install(from: zipURL)
+        let prepared = installed.resourceURL
+
+        // A prepared tree stamped with an older shim must be rebuilt from the
+        // stored ZIP, or a shim fix never reaches an existing install.
+        try "0".write(
+            to: prepared.appending(path: ExtensionShims.stamp), atomically: true, encoding: .utf8
+        )
+        try "globalThis.stale = true;\n".write(
+            to: prepared.appending(path: "bg.js"), atomically: true, encoding: .utf8
+        )
+
+        let refreshed = installer.prepareIfNeeded(installed)
+        #expect(refreshed.resourceURL == prepared)
+        #expect(try String(
+            contentsOf: refreshed.resourceURL.appending(path: ExtensionShims.stamp),
+            encoding: .utf8
+        ) == ExtensionShims.version)
+        let background = try String(
+            contentsOf: refreshed.resourceURL.appending(path: "bg.js"), encoding: .utf8
+        )
+        #expect(!background.contains("globalThis.stale"))
+        #expect(background.contains(ExtensionShims.marker))
+    }
+
     @Test func reinstallReplacesThePreparedTree() throws {
         let first = try makeSource(files: [
             "manifest.json": Self.manifest,

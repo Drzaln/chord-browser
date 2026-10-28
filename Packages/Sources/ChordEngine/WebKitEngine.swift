@@ -369,6 +369,12 @@ public final class WebKitEngine: WebEngine {
     ) -> WKUserContentController {
         let controller = WKUserContentController()
         installUserScripts(on: controller)
+        // The store relay is a handler, not a user script: it belongs to a
+        // controller once, while `installUserScripts` also runs again when the
+        // externally-connectable listing changes. Adding it there twice made
+        // WebKit throw "handler with name 'chordStore' already exists".
+        storeRelay.delegate = storeRelayDelegate
+        controller.add(storeRelay, name: ChromeStoreRelayHandler.name)
         // The extension host's worker-recovery channel, in the isolated world
         // its content scripts run in (899/worker recovery). Nil when the Space
         // has no extension host — the controller is then exactly as before.
@@ -435,8 +441,6 @@ public final class WebKitEngine: WebEngine {
         controller.addUserScript(ScreenShareMonitor.makeUserScript())
         controller.addUserScript(YouTubeAdBlocker.makeUserScript())
         controller.addUserScript(ChromeWebStoreRelay.makeUserScript())
-        storeRelay.delegate = storeRelayDelegate
-        controller.add(storeRelay, name: ChromeStoreRelayHandler.name)
         controller.addUserScript(PasswordFormMonitor.makeUserScript())
         controller.addUserScript(GeolocationBridge.makeUserScript())
         controller.addUserScript(PictureInPictureMonitor.makeUserScript())
@@ -713,7 +717,9 @@ public final class WebKitEngine: WebEngine {
 
     /// Receives the store page's "Add to Chord" click; the app installs and
     /// enables the id after checking it against the tab's address.
-    public var storeRelayDelegate: ChromeStoreRelayDelegate?
+    public var storeRelayDelegate: ChromeStoreRelayDelegate? {
+        didSet { storeRelay.delegate = storeRelayDelegate }
+    }
     private let storeRelay = ChromeStoreRelayHandler()
 
     /// The configured search provider's display name, shown in the page context
