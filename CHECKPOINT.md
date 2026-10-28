@@ -4899,3 +4899,58 @@ them to a missing `WKUIDelegate`:
 - This is the fallback path Search uses for extensions such as Awesome
   Screenshot. Chrome's `desktopCapture.chooseDesktopMedia` channel (Loom and
   friends) is **not** implemented yet, and `tabCapture` still refuses.
+
+### M9 handoff — capture + DNR (2026-10-28)
+
+Worktree clean at `6849242` (plus this note). Remaining M9 is two large ports
+and a matrix rerun; start here next session.
+
+**Done for capture already.** Popup and docked-panel `WKWebView`s answer
+WebKit's media delegate (`decideMediaCapturePermissionsFor` → grant,
+`requestDisplayCapturePermissionFor…` → 1: Mac picker). That is the
+`getDisplayMedia` fallback Awesome Screenshot uses. No recording indicator and
+no `desktopCapture`/`tabCapture` yet.
+
+**Port `desktopCapture` from Search.** Reference files:
+- `~/perkodingan/Search/Sources/Search/ExtensionCapture.swift` (498 lines):
+  `searchCapture` channel, per-extension consent, one-use stream tokens,
+  `choose`/`display`/`consume`/`lend` ops, `record` calls the page's kept
+  `getDisplayMedia`, in-flight display-decision map, KVO recording watch.
+- `~/perkodingan/Search/Sources/Search/RecordingIndicator.swift`: the pill and
+  stop control (optional first cut).
+- `~/perkodingan/Search/Sources/Search/ExtensionShims.swift` ~1780–1950: the
+  JS half. Intercepts `MediaDevices.prototype.getUserMedia` for
+  `chromeMediaSource`/`chromeMediaSourceId`, calls `getDisplayMedia` through a
+  page-held symbol, defines `desktopCapture.chooseDesktopMedia` for page and
+  worker, and refuses `tabCapture`.
+
+Chord adaptation:
+1. Add a `WKScriptMessageHandlerWithReply` named `chordCapture` to every
+   extension page `WKWebView` (engine content controllers, custom popup, docked
+   panel). Authenticate by `frameInfo.securityOrigin` = `chrome-extension://`
+   host matching the context id, main frame only, persistent store.
+2. Port the shim block with names `chordCapture` / `Symbol.for("chord.capture")`,
+   gated on the manifest's `desktopCapture`. Keep Chrome's token semantics:
+   one use, 60 s, same extension.
+3. Native `ExtensionCapture` in `ChordExtensions`: consent (first cut can rely
+   on the Mac picker; Search's per-extension "always allow" is nicer), token
+   store, `record` via `callAsyncJavaScript` in `.page`, and a display-decision
+   delegate that returns 1/2 only while a Chord call is in flight.
+4. Bring the page forward or use a visible side panel; WebKit refuses capture
+   in a page that is not on screen. Do not use `loadBackgroundContent`.
+5. Tests: token one-use/expiry/extension mismatch, permission gate, shim script
+   shape. Live Loom/Awesome Screenshot remains manual.
+
+**DNR gap.** Current `ExtensionShimScript.swift` already drops unknown resource
+types, rewrites extension-URL redirects to `extensionPath`, filters rejected
+rules one by one, and drops `excluded*` rules that conflict with domain-narrowed
+rules. Observed leftovers: Claude's `anthropic-client-platform` header rule is
+refused by WebKit and dropped; Tampermonkey redirect/exclusion rules are dropped
+whole. Search has the same code/limits — no ready reference. Any change must
+keep the no-widening rule and real extension tests.
+
+**Matrix.** `CHORD_REAL_EXTENSIONS=1 swift test --package-path Packages
+--filter RealExtensionProbeTests --no-parallel`. Live checks still open:
+Bitwarden popup after the custom-popover change, OAuth window, 2FA
+windows/tabs, a real `sidePanel.open` extension. Known: passkeys blocked on
+`40q`; Tampermonkey keepalive log; 1Password WASM.
