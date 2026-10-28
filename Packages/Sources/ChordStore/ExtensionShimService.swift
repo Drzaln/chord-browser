@@ -16,24 +16,23 @@ public final class ExtensionShimService: ExtensionShimData {
     private let bookmarks: BookmarksStore
     private let readingList: ReadingListStore
 
-    /// Side-panel options are per extension. Chord has no docked panel yet, so
-    /// `open` uses an ordinary tab — Search does the same when a panel cannot
-    /// be made.
-    private var panelPaths: [String: String] = [:]
-    private var panelOff: Set<String> = []
-    private var panelOnClick: Set<String> = []
+    /// Side-panel options are per extension and persist across launches, as
+    /// Chrome's do. `open` reaches the docked panel; the tab fallback remains
+    /// for hosts without one.
+    private let defaults: UserDefaults
     /// The docked side panel, when the app can show one. Nil leaves the
     /// fallback of opening the panel's page as a normal tab.
     public var onSidePanel: (@MainActor (ExtensionShimContext, URL) -> Void)?
 
     public init(
         store: TabStore, downloads: DownloadsStore, bookmarks: BookmarksStore,
-        readingList: ReadingListStore
+        readingList: ReadingListStore, defaults: UserDefaults = .standard
     ) {
         self.store = store
         self.downloads = downloads
         self.bookmarks = bookmarks
         self.readingList = readingList
+        self.defaults = defaults
         bookmarks.load()
     }
 
@@ -403,28 +402,34 @@ public final class ExtensionShimService: ExtensionShimData {
         switch api {
         case "sidePanel.setOptions":
             let options = args.first as? [String: Any] ?? [:]
-            if let path = options["path"] as? String { panelPaths[context.identifier] = path }
+            if let path = options["path"] as? String {
+                defaults.set(path, forKey: panelKey("path", context.identifier))
+            }
             if let enabled = options["enabled"] as? Bool {
-                if enabled { panelOff.remove(context.identifier) }
-                else { panelOff.insert(context.identifier) }
+                defaults.set(enabled, forKey: panelKey("enabled", context.identifier))
             }
             return nil
         case "sidePanel.getOptions":
-            return [
-                "enabled": !panelOff.contains(context.identifier),
-                "path": panelPaths[context.identifier] ?? "",
-            ]
+            let path = defaults.string(forKey: panelKey("path", context.identifier)) ?? ""
+            let enabled = defaults.object(forKey: panelKey("enabled", context.identifier))
+                as? Bool ?? !path.isEmpty
+            return ["enabled": enabled, "path": path]
         case "sidePanel.setPanelBehavior":
             if let on = (args.first as? [String: Any])?["openPanelOnActionClick"] as? Bool {
-                if on { panelOnClick.insert(context.identifier) }
-                else { panelOnClick.remove(context.identifier) }
+                defaults.set(on, forKey: panelKey("onClick", context.identifier))
             }
             return nil
         case "sidePanel.getPanelBehavior":
-            return ["openPanelOnActionClick": panelOnClick.contains(context.identifier)]
+            return [
+                "openPanelOnActionClick": defaults.bool(
+                    forKey: panelKey("onClick", context.identifier)
+                )
+            ]
         case "sidePanel.open":
-            guard !panelOff.contains(context.identifier),
-                  let path = panelPaths[context.identifier],
+            let enabled = defaults.object(forKey: panelKey("enabled", context.identifier))
+                as? Bool ?? true
+            guard enabled,
+                  let path = defaults.string(forKey: panelKey("path", context.identifier)),
                   let url = URL(string: path, relativeTo: URL(string: "chrome-extension://\(context.identifier)/"))
             else { throw Unsupported(what: "No active side panel for this extension") }
             if let onSidePanel {
@@ -438,6 +443,10 @@ public final class ExtensionShimService: ExtensionShimData {
         default:
             return nil
         }
+    }
+
+    private func panelKey(_ name: String, _ identifier: String) -> String {
+        "chord.extensions.sidePanel.\(identifier).\(name)"
     }
 
     // MARK: - Tab groups (folders)

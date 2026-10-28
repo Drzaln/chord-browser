@@ -4878,3 +4878,10 @@ default because it needs the network and real bundles.
   “Use Add to Chord above” label is gone.
 - Tests: store script/handler shape. The live store page and a click-through
   install are still manual.
+
+### M9b — side-panel options persist (2026-10-28)
+
+`sidePanel.setOptions` / `setPanelBehavior` now write to `UserDefaults` per
+Chrome id instead of memory, so a panel path, enabled flag and
+`openPanelOnActionClick` survive a relaunch and a worker restart. `getOptions`
+and `getPanelBehavior` read them back; `open` honours `enabled`.

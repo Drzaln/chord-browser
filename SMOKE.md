@@ -456,6 +456,8 @@ its service actions are unit-tested.)
       (automated: `ChromeWebStoreRelayTests`; live click-through manual)
 - [x] **M9b:** Settings › Bookmarks lists/adds/opens/deletes the same store as
       `chrome.bookmarks`
+- [x] **M9b:** `sidePanel.setOptions`/`setPanelBehavior` persist across
+      launches (`UserDefaults` per Chrome id)
 - [x] **M9e:** prepush uses serial tests and accepts
       `CHORD_REAL_EXTENSIONS=1` for the real-store probe
 - [x] **M9b:** `chrome.sidePanel.open` opens a docked column, not a tab;
