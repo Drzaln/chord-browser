@@ -21,6 +21,8 @@ struct RealExtensionProbeTests {
         "1password": "aeblfdkhhhdcdjpifhhbdiojplfjncoa",
         "claude": "fcoeoabgfenejglbffodgkkbkcdhcgfn",
         "figma": "fkmaohpngenfoccdgceedjkfhkdcohmg",
+        "loom": "liecbddmkiiihnedobmlmillhodjkdmb",
+        "awesome-screenshot": "nlipoenfbbikpbjkfpfillcgkoblgpmj",
     ]
 
     /// Answers the Store-side shim calls a real bundle makes during startup.
@@ -119,6 +121,8 @@ struct RealExtensionProbeTests {
                     contentScripts=\(contentScripts.count)/\(contentMatches.count) matches \
                     nativeHosts=\(nativeHosts) \
                     offscreen=\(permissions.contains("offscreen")) \
+                    desktopCapture=\(permissions.contains("desktopCapture")) \
+                    tabCapture=\(permissions.contains("tabCapture")) \
                     sidePanel=\(hasSidePanel) \
                     allHosts=\(context?.hasAccessToAllHosts ?? false) \
                     shimCalls=\(shim.calls.sorted { $0.key < $1.key }) \

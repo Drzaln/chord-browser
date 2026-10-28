@@ -5007,3 +5007,26 @@ WebKit's, not the shim's, and are documented instead of papered over:
   removed, and a rule left with no known type is dropped. Both gaps above
   remain in Search too; fixing them needs a custom networking layer, out of
   scope.
+
+### M9e — probe rerun after capture (2026-10-28)
+
+The opt-in real-store probe now also covers the two recording extensions:
+
+`CHORD_REAL_EXTENSIONS=1 swift test --package-path Packages --filter
+RealExtensionProbeTests --no-parallel` in a throwaway `CFFIXED_USER_HOME`:
+**8/8 installed, CRX3-verified, loaded, and published an action.**
+
+- **Loom** (5.5.214): worker clean, popup declared, `desktopCapture` +
+  `tabCapture`, 5 content scripts / 43 matches. First automated proof the
+  bundle Chord must support for recording loads cleanly under the current
+  shim.
+- **Awesome Screenshot** (4.4.44): worker runs, popup declared,
+  `desktopCapture` + `tabCapture`, offscreen, 3 content scripts / 6 matches.
+  Its worker logs one `TypeError: undefined is not an object (evaluating
+  'r.options[e]')` on a fresh profile — its own `chrome.storage.local.get
+  ("options")` assumes install-time defaults exist. Recheck on the live run;
+  no shim API is missing at the throwing site.
+- Claude, Tampermonkey, uBlock Origin Lite, Figma: unchanged from the M9e
+  matrix. Bitwarden and 1Password still log their absent native hosts.
+- Live Loom / Awesome Screenshot recording remains the manual gate; automated
+  probe only proves install/load/worker/action.
