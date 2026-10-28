@@ -24,6 +24,10 @@ private final class FakeHost: ExtensionHost {
         )
     }
     func unload(slug: String, in space: Space) throws { unloaded.append((slug, space.id)) }
+    var forgotten: [(identifier: String, spaces: [UUID])] = []
+    func forgetData(identifier: String, in spaces: [Space]) async {
+        forgotten.append((identifier, spaces.map(\.id)))
+    }
     func loadedExtensions(in space: Space) -> [LoadedExtension] {
         loaded.filter { $0.space == space.id }.map {
             LoadedExtension(slug: $0.slug, spaceID: space.id, displayName: nil, manifestVersion: 3)
@@ -160,6 +164,22 @@ struct ExtensionsServiceTests {
         #expect(Set(host.unloaded.map(\.space)) == [a.id, b.id])
         #expect(try await enablement.allEnabled().isEmpty)
         #expect(try service.installedExtensions().isEmpty)
+    }
+
+    @Test func removeForgetsWhatItKeptInPersistentSpaces() async throws {
+        let (service, host, _, cleanup) = makeService(installed: ["bitwarden"])
+        defer { cleanup() }
+        let a = Space(name: "A", sortIndex: 0)
+        let hidden = Space(name: "Private", sortIndex: 1, isPrivate: true)
+
+        try await service.remove(slug: "bitwarden", from: [a, hidden])
+
+        // Installed again, it must start from nothing, as in Chrome: Bitwarden
+        // reinstalled over its old storage drew an empty popup. A private
+        // Space keeps nothing past a quit, so there is nothing to clear there.
+        #expect(host.forgotten.count == 1)
+        #expect(host.forgotten.first?.identifier == "bitwarden")
+        #expect(host.forgotten.first?.spaces == [a.id])
     }
 
     @Test func restoreLoadsEnabledExtensionsForExistingSpaces() async throws {

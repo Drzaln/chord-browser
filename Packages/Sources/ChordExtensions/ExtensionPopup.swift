@@ -49,6 +49,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
         web.uiDelegate = self
         web.navigationDelegate = self
         web.alphaValue = 0
+        Log.extensions.notice("popup: opening \(url.absoluteString)")
         web.load(URLRequest(url: url))
 
         // The page sits in a stage view: the popover takes its size from the
@@ -291,7 +292,33 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard webView === web else { return }
+        Log.extensions.notice("popup: loaded \(webView.url?.absoluteString ?? "-")")
         follow()
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard webView === web else { return }
+        Log.extensions.notice("popup: committed \(webView.url?.absoluteString ?? "-")")
+    }
+
+    func webView(
+        _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error
+    ) {
+        guard webView === web else { return }
+        Log.extensions.error("popup: failed: \(String(describing: error))")
+    }
+
+    func webView(
+        _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
+        withError error: Error
+    ) {
+        guard webView === web else { return }
+        Log.extensions.error("popup: failed to start: \(String(describing: error))")
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        guard webView === web else { return }
+        Log.extensions.error("popup: page process ended")
     }
 
     func webViewDidClose(_ webView: WKWebView) { close() }

@@ -311,6 +311,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             }
             workerRecovery.restarted(key, replacingContext: true)
             workerRecovery.unregister(key)
+            workersChanged(in: space.id)
         }
 
         let webExtension: WKWebExtension
@@ -339,6 +340,8 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         guard let baseURL = URL(string: "chrome-extension://\(installed.identifier)/")
         else { throw ExtensionShimError.invalidIdentifier }
         context.baseURL = baseURL
+        // Its worker and pages show in Safari's Develop menu, as in Search.
+        context.isInspectable = true
         // Pages in engine tabs get the capture channel through the controller
         // handle; pages built from the extension configuration get it from
         // the controller's view configuration (`makeConfiguration`).
@@ -441,6 +444,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         )
         workerRecovery.restarted(recoveryKey, replacingContext: true)
         workerRecovery.unregister(recoveryKey)
+        workersChanged(in: space.id)
         ExtensionOffscreen.close(identifier: loaded.installed.identifier, spaceID: space.id)
         capture.purge(loaded.installed.identifier)
         closeSidePanel(slug: slug, in: space)
@@ -957,24 +961,110 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         "\(spaceID.uuidString)|\(slug)"
     }
 
-    /// Clear extension service-worker registrations when the shim changes.
-    /// WebKit may start a worker from the previous build's script, and a
-    /// worker built against an older shim can stay dead across reinstalls.
-    /// Clearing all workers in the Space also clears website workers; they
-    /// register again on the next visit, as Search accepts.
+    /// Clear extension service-worker registrations when what they would run
+    /// has changed. WebKit keeps each extension's worker registered from one
+    /// launch to the next, with the scripts it fetched then, and may start
+    /// that copy rather than what is on disk — a copy from another shim or
+    /// another install can leave the worker dead for good, and reinstalling
+    /// brings the same copy back (Bitwarden: a popup loading for ever, its
+    /// worker silent). WebKit lists no records for extension origins, and
+    /// clearing stops running workers, so it is done once per Space per
+    /// launch, before its first extension loads, as Search does. Website
+    /// workers go with them and register again on the next visit.
     private func clearStaleWorkers(for space: Space) async {
         guard !clearedWorkers.contains(space.id) else { return }
         clearedWorkers.insert(space.id)
         guard !space.isPrivate, let store = dataStores[space.id] else { return }
-        let key = "chord.extensions.shim.\(space.id.uuidString)"
+        let key = Self.workersKey(space.id)
         guard UserDefaults.standard.string(forKey: key) != ExtensionShims.version else {
             return
         }
-        await store.removeData(
-            ofTypes: [WKWebsiteDataTypeServiceWorkerRegistrations],
-            modifiedSince: .distantPast
-        )
+        // Extension pages kept their data in WebKit's default store before
+        // they were given the Space's, so a stale registration can be there.
+        for stale in [store, WKWebsiteDataStore.default()] {
+            await stale.removeData(
+                ofTypes: [WKWebsiteDataTypeServiceWorkerRegistrations],
+                modifiedSince: .distantPast
+            )
+        }
         UserDefaults.standard.set(ExtensionShims.version, forKey: key)
+        Log.extensions.notice("cleared extension workers in space \(space.id)")
+    }
+
+    public func forgetData(identifier: String, in spaces: [Space]) async {
+        for space in spaces {
+            loadedOnce.remove("\(space.id)|\(identifier)")
+            workersChanged(in: space.id)
+            prepare(space)
+            guard let controller = controllers[space.id] else { continue }
+            if await forgetData(of: identifier, in: controller) {
+                Log.extensions.notice("cleared data of \(identifier) in space \(space.id)")
+            }
+        }
+    }
+
+    /// Its chrome.storage, which WebKit keeps by id, and what its pages kept
+    /// at chrome-extension://<id>. WebKit lists no website records for that
+    /// origin, so the second is cleared from a blank page at that origin,
+    /// which only an extension context can host: a stand-in with no worker,
+    /// scripts or pages of its own, so nothing of the removed extension runs
+    /// again. Ported from Search. Whether all of it was cleared.
+    private func forgetData(
+        of identifier: String, in controller: WKWebExtensionController
+    ) async -> Bool {
+        let types = WKWebExtensionController.allExtensionDataTypes
+        let records = await controller.dataRecords(ofTypes: types)
+            .filter { $0.uniqueIdentifier == identifier }
+        if !records.isEmpty { await controller.removeData(ofTypes: types, from: records) }
+        guard let base = URL(string: "chrome-extension://\(identifier)/") else { return false }
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "chord-forget-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try Data(#"{"manifest_version": 3, "name": "Chord", "version": "1"}"#.utf8)
+                .write(to: folder.appending(path: "manifest.json"))
+            let standIn = WKWebExtensionContext(
+                for: try await WKWebExtension(resourceBaseURL: folder)
+            )
+            standIn.uniqueIdentifier = identifier
+            standIn.baseURL = base
+            try controller.load(standIn)
+            defer { try? controller.unload(standIn) }
+            guard let configuration = standIn.webViewConfiguration else { return false }
+            let page = BlankExtensionPage(configuration)
+            guard await page.load(at: base) else {
+                Log.extensions.error("could not open \(identifier) to clear what it kept")
+                return false
+            }
+            _ = try await page.web.callAsyncJavaScript(
+                Self.forgetScript, contentWorld: .defaultClient
+            )
+            return true
+        } catch {
+            Log.extensions.error(
+                "could not clear what \(identifier) kept: \(String(describing: error))"
+            )
+            return false
+        }
+    }
+
+    private static let forgetScript = """
+        localStorage.clear();
+        for (const db of await indexedDB.databases()) {
+            await new Promise(done => { const q = indexedDB.deleteDatabase(db.name); q.onsuccess = q.onerror = q.onblocked = done; });
+        }
+        for (const key of await caches.keys()) await caches.delete(key);
+        """
+
+    private static func workersKey(_ spaceID: UUID) -> String {
+        "chord.extensions.workers.\(spaceID.uuidString)"
+    }
+
+    /// An extension installed again, reloaded or removed: the version alone
+    /// doesn't tell, so the next launch clears regardless.
+    private func workersChanged(in spaceID: UUID) {
+        UserDefaults.standard.removeObject(forKey: Self.workersKey(spaceID))
     }
 
     // MARK: - Side panel
@@ -1162,6 +1252,15 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // The controller copies the configuration at init, so it must be set
         // here, before the controller exists.
         let views = configuration.webViewConfiguration ?? WKWebViewConfiguration()
+        // Its own configuration starts with WebKit's default store; the
+        // extension's pages keep what they store where the Space does.
+        if let store = dataStores[space.id] { views.websiteDataStore = store }
+        // The same user agent as the tabs, to the letter. WebKit gives workers
+        // the user agent of the last page that loaded and, when it differs,
+        // stops the running workers to apply it — and never starts an
+        // extension's worker again: the first page a tab loaded left Bitwarden's
+        // popup loading for ever. Search does the same.
+        views.applicationNameForUserAgent = UserAgentPreference.safariVersionToken
         capture.attach(views.userContentController)
         configuration.webViewConfiguration = views
         return configuration
@@ -1446,4 +1545,45 @@ extension WebKitExtensionHost: NSPopoverDelegate {
         visiblePopoverWindow = nil
         onPopupVisibilityChanged?(window, false)
     }
+}
+
+/// A page no one sees, at an extension's origin, for clearing what the
+/// extension kept there (`forgetData`). Ported from Search's HiddenPage.
+@MainActor
+private final class BlankExtensionPage: NSObject, WKNavigationDelegate {
+    let web: WKWebView
+    private var loaded: CheckedContinuation<Bool, Never>?
+
+    init(_ configuration: WKWebViewConfiguration) {
+        web = WKWebView(frame: .zero, configuration: configuration)
+        super.init()
+        web.navigationDelegate = self
+    }
+
+    /// Whether an empty page at `base` loaded within `limit` seconds.
+    func load(at base: URL, within limit: TimeInterval = 10) async -> Bool {
+        await withCheckedContinuation { done in
+            loaded = done
+            web.loadHTMLString("<!doctype html>", baseURL: base)
+            DispatchQueue.main.asyncAfter(deadline: .now() + limit) { [weak self] in
+                MainActor.assumeIsolated { self?.finish(false) }
+            }
+        }
+    }
+
+    private func finish(_ ok: Bool) {
+        loaded?.resume(returning: ok)
+        loaded = nil
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { finish(true) }
+
+    func webView(
+        _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error
+    ) { finish(false) }
+
+    func webView(
+        _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
+        withError error: Error
+    ) { finish(false) }
 }

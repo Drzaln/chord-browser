@@ -44,6 +44,12 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// Extensions currently loaded in a Space, sorted by slug.
     func loadedExtensions(in space: Space) -> [LoadedExtension]
 
+    /// Clears what a removed extension kept in each Space — its
+    /// `chrome.storage` and its pages' data at `chrome-extension://<id>/` —
+    /// so installing it again starts from nothing, as in Chrome. Call after
+    /// it is unloaded everywhere.
+    func forgetData(identifier: String, in spaces: [Space]) async
+
     // MARK: - Toolbar actions (7.5a)
 
     /// The default toolbar-action snapshot for every extension loaded in a
@@ -154,4 +160,5 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
 public extension ExtensionHost {
     func sidePanelView(slug: String, url: URL, in space: Space) -> NSView? { nil }
     func closeSidePanel(slug: String, in space: Space) {}
+    func forgetData(identifier: String, in spaces: [Space]) async {}
 }

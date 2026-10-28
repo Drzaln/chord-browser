@@ -104,6 +104,14 @@ public final class ExtensionsService {
         for space in spaces {
             try? await disable(slug: slug, in: space)
         }
+        // What it kept goes with it, as in Chrome: installed again, it starts
+        // from nothing. Bitwarden reinstalled over its old storage drew an
+        // empty popup.
+        let identifier = ((try? installer.installedExtensions()) ?? [])
+            .first { $0.slug == slug }?.identifier
+        if let identifier {
+            await host.forgetData(identifier: identifier, in: spaces.filter { !$0.isPrivate })
+        }
         try installer.remove(slug: slug)
     }
 
