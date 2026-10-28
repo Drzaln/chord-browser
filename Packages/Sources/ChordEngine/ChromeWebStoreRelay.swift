@@ -20,10 +20,12 @@ final class ChromeStoreRelayHandler: NSObject, WKScriptMessageHandler {
     nonisolated func userContentController(
         _ controller: WKUserContentController, didReceive message: WKScriptMessage
     ) {
-        guard let body = message.body as? [String: Any],
-              let id = body["add"] as? String
-        else { return }
+        // `body` is main-actor isolated in current WebKit; read it with the
+        // delegate call rather than from the nonisolated entry point.
         MainActor.assumeIsolated {
+            guard let body = message.body as? [String: Any],
+                  let id = body["add"] as? String
+            else { return }
             delegate?.installFromStorePage(id: id)
         }
     }

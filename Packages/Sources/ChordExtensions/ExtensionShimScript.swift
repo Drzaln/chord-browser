@@ -2005,8 +2005,16 @@ enum ExtensionShimScript {
 
       // Rules WebKit can't carry out — a header it doesn't know how to set,
       // say — are refused one by one, where Chrome would take them all. The
-      // rest still go in: one rule Search can't honour shouldn't cost an
+      // rest still go in: one rule Chord can't honour shouldn't cost an
       // extension every other rule, or its startup.
+      //
+      // Two losses are WebKit's own. Its DNR recognises a fixed set of header
+      // names, so a custom one (Claude's anthropic-client-platform) rejects
+      // its whole rule. And one content blocker cannot hold a rule that
+      // excludes sites beside rules narrowed to sites, so Tampermonkey's
+      // generic .user.js redirect is left out. The exclusions are what go,
+      // never the narrowing: a kept rule must not match more than its
+      // extension asked for.
       const dnr = chrome.declarativeNetRequest;
       // Before WebKit sees them, rules are put the way it takes them: a
       // redirect to one of the extension's own files by path rather than by
