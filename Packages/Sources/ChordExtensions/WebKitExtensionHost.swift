@@ -3,6 +3,27 @@ import ChordEngine
 import Foundation
 import WebKit
 
+/// Allows an extension's docked panel page to ask for its own camera,
+/// microphone or screen. The Mac still shows the picker for `getDisplayMedia`.
+private final class ExtensionPanelMediaDelegate: NSObject, WKUIDelegate {
+    func webView(
+        _ webView: WKWebView,
+        decideMediaCapturePermissionsFor origin: WKSecurityOrigin,
+        initiatedBy frame: WKFrameInfo,
+        type: WKMediaCaptureType
+    ) async -> WKPermissionDecision {
+        .grant
+    }
+
+    @objc(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:)
+    func displayCapture(
+        _ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
+        systemAudio: Bool, decisionHandler: @escaping (Int) -> Void
+    ) {
+        decisionHandler(1)
+    }
+}
+
 /// The per-Space `WKWebExtensionController` registry (M7, ADR 011).
 ///
 /// One controller per Space, each with its own persistent on-disk storage keyed
@@ -39,6 +60,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// Docked side-panel pages, keyed "space|slug". Kept while the panel is
     /// open; closing releases them.
     private var sidePanelViews: [String: WKWebView] = [:]
+    private var sidePanelDelegates: [String: ExtensionPanelMediaDelegate] = [:]
 
     /// Context error observations, keyed by "space|slug".
     private var errorWatchers: [String: NSObjectProtocol] = [:]
@@ -874,14 +896,19 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             configuration: configuration
         )
         web.allowsBackForwardNavigationGestures = true
+        let media = ExtensionPanelMediaDelegate()
+        web.uiDelegate = media
+        sidePanelDelegates[key] = media
         sidePanelViews[key] = web
         web.load(URLRequest(url: url))
         return web
     }
 
     public func closeSidePanel(slug: String, in space: Space) {
-        sidePanelViews["\(space.id.uuidString)|\(slug)"]?.stopLoading()
-        sidePanelViews["\(space.id.uuidString)|\(slug)"] = nil
+        let key = "\(space.id.uuidString)|\(slug)"
+        sidePanelViews[key]?.stopLoading()
+        sidePanelViews[key] = nil
+        sidePanelDelegates[key] = nil
     }
 
     // MARK: - Externally connectable

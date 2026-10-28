@@ -454,6 +454,10 @@ its service actions are unit-tested.)
 - [x] **M9c:** store page’s disabled Chrome button becomes **Add to Chord**;
       clicking it installs/enables the id read from the tab address
       (automated: `ChromeWebStoreRelayTests`; live click-through manual)
+- [x] **M9d:** extension popups/panels allow `getDisplayMedia` and camera/mic;
+      the Mac picks the screen (live check pending)
+- [ ] **M9d:** `desktopCapture.chooseDesktopMedia` / `tabCapture` bridge
+      (Loom-style recording) still missing
 - [x] **M9b:** Settings › Bookmarks lists/adds/opens/deletes the same store as
       `chrome.bookmarks`
 - [x] **M9b:** `sidePanel.setOptions`/`setPanelBehavior` persist across

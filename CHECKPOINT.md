@@ -4885,3 +4885,17 @@ default because it needs the network and real bundles.
 Chrome id instead of memory, so a panel path, enabled flag and
 `openPanelOnActionClick` survive a relaunch and a worker restart. `getOptions`
 and `getPanelBehavior` read them back; `open` honours `enabled`.
+
+### M9d — extension page media capture (2026-10-28)
+
+Extension pages now answer WebKit's media-capture prompts instead of leaving
+them to a missing `WKUIDelegate`:
+
+- Custom action popups and docked side panels grant camera/microphone requests
+  from the extension's own page.
+- Display capture (`navigator.mediaDevices.getDisplayMedia`) is allowed from
+  those pages too; WebKit still shows the Mac's own screen/window picker, so
+  the Mac remains the consent for what is shared.
+- This is the fallback path Search uses for extensions such as Awesome
+  Screenshot. Chrome's `desktopCapture.chooseDesktopMedia` channel (Loom and
+  friends) is **not** implemented yet, and `tabCapture` still refuses.

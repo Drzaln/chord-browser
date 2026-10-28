@@ -193,6 +193,27 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
 
     func webViewDidClose(_ webView: WKWebView) { close() }
 
+    // An extension's own page may ask for the camera, microphone or screen.
+    // WebKit still shows the Mac's picker for `getDisplayMedia`; this only
+    // allows the request from a page that is the extension's own.
+    func webView(
+        _ webView: WKWebView,
+        decideMediaCapturePermissionsFor origin: WKSecurityOrigin,
+        initiatedBy frame: WKFrameInfo,
+        type: WKMediaCaptureType
+    ) async -> WKPermissionDecision {
+        .grant
+    }
+
+    @objc(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:)
+    func displayCapture(
+        _ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
+        systemAudio: Bool, decisionHandler: @escaping (Int) -> Void
+    ) {
+        // 1: the Mac's screen picker. The Mac asks what to share.
+        decisionHandler(1)
+    }
+
     func webView(
         _ webView: WKWebView,
         createWebViewWith configuration: WKWebViewConfiguration,
