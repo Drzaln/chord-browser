@@ -64,6 +64,18 @@ struct ExtensionNativeTests {
         }
     }
 
+    /// The shim holds what a worker posts on a native port until the browser
+    /// says the port has arrived. Left unanswered and passed to the host, the
+    /// question cost Bitwarden's biometric unlock some ten seconds.
+    @Test func theShimsWordsAreTheBrowsersNotTheHosts() {
+        #expect(ExtensionNative.shimWord(in: ["__chordNative": "here?"]) == .asked)
+        #expect(ExtensionNative.shimWord(in: ["__chordNative": "beat"]) == .other)
+        #expect(ExtensionNative.shimWord(
+            in: ["appId": "x", "message": ["command": "setupEncryption"]]
+        ) == nil)
+        #expect(ExtensionNative.shimWord(in: "here?") == nil)
+    }
+
     @Test func framedNativeMessageRoundTrips() async throws {
         let dir = FileManager.default.temporaryDirectory
             .appending(path: "chord-native-pipe-\(UUID().uuidString)")

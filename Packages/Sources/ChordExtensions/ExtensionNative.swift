@@ -116,15 +116,50 @@ enum ExtensionNative {
             pipe.stop()
             throw error
         }
+        var beating: Timer?
         port.messageHandler = { message, _ in
-            guard let message,
-                  let data = try? JSONSerialization.data(
-                    withJSONObject: message, options: [.fragmentsAllowed]
-                  )
-            else { return }
+            guard let message else { return }
+            // A worker's shim asking whether the port has arrived (see the
+            // shim, after its WebSocket): answered here, never passed on.
+            // Unanswered, the shim held everything the extension posted for
+            // some ten seconds before sending it anyway, so Bitwarden's
+            // biometric unlock waited that long for its Touch ID prompt.
+            if let word = shimWord(in: message) {
+                // The shim's answer to "alive" (below) is only the worker
+                // keeping itself: nothing to say back.
+                guard word == .asked else { return }
+                port.sendMessage(["__chordNative": "here"], completionHandler: nil)
+                // Asked, it is a worker's port, and WebKit unloads a worker
+                // that hasn't posted on a port for two minutes. Chrome keeps
+                // a worker with a port to an app alive; here a word on the
+                // port now and then, heard only by the shim, has the worker
+                // answer on it, which is what WebKit counts.
+                if beating == nil {
+                    beating = Timer.scheduledTimer(withTimeInterval: 25, repeats: true) { timer in
+                        guard !port.isDisconnected else { timer.invalidate(); return }
+                        port.sendMessage(["__chordNative": "alive"], completionHandler: nil)
+                    }
+                }
+                return
+            }
+            guard let data = try? JSONSerialization.data(
+                withJSONObject: message, options: [.fragmentsAllowed]
+            ) else { return }
             try? pipe.write(data)
         }
-        port.disconnectHandler = { _ in pipe.stop() }
+        port.disconnectHandler = { _ in beating?.invalidate(); pipe.stop() }
+    }
+
+    /// What the worker's shim says to the browser on a native port, which
+    /// the host never hears: whether the port has arrived, or its answer to
+    /// the browser's "alive".
+    enum ShimWord { case asked, other }
+
+    static func shimWord(in message: Any) -> ShimWord? {
+        guard let message = message as? [String: Any],
+              let word = message["__chordNative"]
+        else { return nil }
+        return (word as? String) == "here?" ? .asked : .other
     }
 
     /// WebKit does not always call a port's disconnect handler when an
