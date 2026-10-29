@@ -43,7 +43,13 @@ public final class PaneRuntime {
 
     func apply(_ snapshot: PaneSnapshot) {
         isLoading = snapshot.isLoading
-        estimatedProgress = snapshot.estimatedProgress
+        // WebKit reports progress dozens of times a load; the 2 pt bar can't
+        // show a step under 5%, so smaller ones are dropped. The ends always
+        // land, or the bar would stick short of done or of a fresh start.
+        let progress = snapshot.estimatedProgress
+        if progress <= 0 || progress >= 1 || abs(progress - estimatedProgress) >= 0.05 {
+            estimatedProgress = progress
+        }
         canGoBack = snapshot.canGoBack
         canGoForward = snapshot.canGoForward
         currentURL = snapshot.url

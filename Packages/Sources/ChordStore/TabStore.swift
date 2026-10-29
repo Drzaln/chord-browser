@@ -1809,20 +1809,21 @@ extension TabStore: WebEngineDelegate {
               let index = tabs.firstIndex(where: { $0.id == tabID })
         else { return }
 
-        var didChange = false
-        var urlChanged = false
-        tabs[index].updatePane(paneID) { pane in
-            if let url = snapshot.url, url != pane.url {
-                pane.url = url
-                didChange = true
-                urlChanged = true
+        // Compared on a read first: any mutating call through `tabs[index]`
+        // notifies every reader of `tabs` — the whole sidebar — even when the
+        // closure changes nothing, and most snapshots are progress ticks.
+        let current = tabs[index].panes.first { $0.id == paneID }
+        let newURL = snapshot.url.flatMap { $0 != current?.url ? $0 : nil }
+        let newTitle = !snapshot.title.isEmpty && snapshot.title != current?.title
+            ? snapshot.title : nil
+        let urlChanged = current != nil && newURL != nil
+        if current != nil, newURL != nil || newTitle != nil {
+            tabs[index].updatePane(paneID) { pane in
+                if let newURL { pane.url = newURL }
+                if let newTitle { pane.title = newTitle }
             }
-            if !snapshot.title.isEmpty, snapshot.title != pane.title {
-                pane.title = snapshot.title
-                didChange = true
-            }
+            scheduleSave()
         }
-        if didChange { scheduleSave() }
 
         recordVisitIfSettled(
             paneID, snapshot: snapshot, urlChanged: urlChanged, spaceID: tabs[index].spaceID
