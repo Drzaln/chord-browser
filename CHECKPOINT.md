@@ -5030,3 +5030,30 @@ RealExtensionProbeTests --no-parallel` in a throwaway `CFFIXED_USER_HOME`:
   matrix. Bitwarden and 1Password still log their absent native hosts.
 - Live Loom / Awesome Screenshot recording remains the manual gate; automated
   probe only proves install/load/worker/action.
+
+### M9f / perf — Bitwarden end to end, page-script costs (2026-10-29)
+
+Bitwarden now works end to end in Chord: popup at full size (d6147a2), a
+clean start after reinstall (1db2779: uninstall wipes the extension's
+chrome.storage and origin data, as Chrome does), vault passkeys (7d37b38:
+windows.create({type:"popup"}) opens an ExtensionPopoutWindow of its own,
+and the Space window reports its frame), inline menu, Touch ID unlock with
+no delay (cc13ebf: native ports answer the shim's `__chordNative` "here?"
+probe and send a 25 s keep-alive, as Search does), and chrome.privacy
+settings answered as ChromeSettings (1c4be09). Also: the folded sidebar
+hides after an extension popup (0f69145), the Settings sheet sizes to its
+tab row (a7887d3).
+
+Performance, each measured in the app before/after:
+- WebKit's per-request tab lookup (fd78f55): 14-17 µs → ~2.6 µs per call,
+  and it no longer marks every pane as recently used.
+- PasswordFormMonitor (bb1f4ac): Facebook 35.5 scans / 43 ms → 4.3 scans /
+  1.3 ms per 10 s; non-form mutations wait for a ≤2 s trailing scan.
+- YouTube ad tick (65c8f8f): 10-18 ms → 3-6 ms per 10 s.
+- On macOS 27 the password monitor and filler run in a configured content
+  world that sees closed shadow roots and is out of the page's reach
+  (12d6c7f, built by name for the 26-SDK release CI in 0582bf6).
+
+Open follow-ups: lifetime audit epic `dlr` (Space teardown for extensions
+is P1), `1mm.14` (step aside when an extension turns password saving off),
+`4b6` (catch macOS 27-only API names before a tag).

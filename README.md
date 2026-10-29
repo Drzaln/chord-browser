@@ -231,12 +231,13 @@ recorded where it was diagnosed so it is not re-litigated:
   (ADR 012).
 - **No first-party video-ad blocking through content rules** — see above; the
   YouTube case is handled by its own script (ADR 013).
-- **No passkeys.** A plain `WKWebView` reports no platform authenticator, and the
-  native path needs an Associated Domains entitlement per relying-party domain —
-  impossible for sites you do not own. Measured, not assumed.
-- **No password-manager extensions.** Bitwarden's MV3 build dies at startup
-  because Apple's runtime does not implement `chrome.offscreen`; most MV3
-  managers use it. The built-in vault above exists because of this.
+- **No system passkeys.** A plain `WKWebView` reports no platform authenticator,
+  and the native path needs the browser public-key-credential entitlement (a
+  paid Apple membership). Passkeys kept in a password-manager extension's vault
+  do work: Bitwarden registers and signs in with its own.
+- **Password-manager extensions are Bitwarden-verified only.** Bitwarden works
+  end to end (login, autofill and its inline menu, vault passkeys, Touch ID
+  unlock through its desktop app); other managers are untested.
 
 ---
 

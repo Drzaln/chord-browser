@@ -427,9 +427,25 @@ its service actions are unit-tested.)
       automated: `ExtensionWorkerRecoveryTests`)
 - [x] **M9f:** Bitwarden accepts a correct master password, and autofill works
       on Google's sign-in page (verified live 2026-10-27)
-- [ ] **M9f:** Bitwarden passkeys work (blocked: Chord lacks the
-      `com.apple.developer.web-browser.public-key-credential` entitlement and
-      Search's passkey subsystem; Search build has both)
+- [x] **M9f:** Bitwarden vault passkeys work: webauthn.io registers and then
+      authenticates with a passkey Bitwarden keeps, its passkey prompt opening
+      as a small window of its own (verified live 2026-10-29). System passkeys
+      stay blocked on the `com.apple.developer.web-browser.public-key-credential`
+      entitlement (`40q`).
+- [x] **M9f:** Bitwarden's action popup opens at full height, not half
+      (verified live 2026-10-29)
+- [x] **M9f:** After removing and reinstalling Bitwarden its popup loads clean,
+      not a spinner or a black page (verified live 2026-10-29; automated:
+      `removeForgetsWhatItKeptInPersistentSpaces`)
+- [x] **M9f:** Bitwarden's inline icon and menu appear on login fields once
+      enabled in its Autofill settings (verified live 2026-10-29)
+- [x] **M9f:** "Unlock with biometrics" shows Touch ID at once, not after
+      ~5-10 s (verified live 2026-10-29; automated:
+      `theShimsWordsAreTheBrowsersNotTheHosts`)
+- [x] **M9f:** Bitwarden's popup logs no `levelOfControl` error (verified live
+      2026-10-29; automated: `privacySettingsAnswerAsChromeSettings`)
+- [x] A folded sidebar hides again after closing an extension popup
+      (verified live 2026-10-29)
 - [x] **M9d:** `chrome.identity.launchWebAuthFlow` opens a sign-in window from
       the Space's cookies and returns only the extension's
       `https://<id>.chromiumapp.org/…` redirect (automated:

@@ -314,10 +314,9 @@ you told "Never" are listed at the bottom with an **Ask Again** button.
 - **Fill inside an embedded frame**, which is the classic way credentials get
   stolen.
 - **Sync anywhere.** Passwords stay on this Mac, like everything else in Chord.
-- **Replace passkeys.** Chord cannot use passkeys yet: the app is not signed
-  with the browser public-key-credential entitlement and has no browser passkey
-  subsystem. The Search build does both, so this is planned, not impossible — see
-  [Capability summary](#capability-summary).
+- **Replace passkeys.** Chord cannot use the system's passkeys yet: the app is
+  not signed with the browser public-key-credential entitlement. Passkeys kept
+  in Bitwarden's vault do work — see [Capability summary](#capability-summary).
 
 > **A dialog you may see:** after Chord is rebuilt from source, macOS may ask for
 > your **login keychain password** the first time it reads a saved password. That
@@ -674,7 +673,8 @@ Open **Settings** (`Cmd+,`) → **Extensions**:
    extension is loaded but inert**, because WebKit does not auto-grant host
    access. After you allow, open tabs reload so the extension takes effect.
 4. The **trash** button uninstalls an extension: it's unloaded from every Space
-   and deleted from the library.
+   and deleted from the library, and what it stored (settings, vault cache,
+   sign-in) is wiped, as in Chrome — reinstalling it starts clean.
 
 The first shim slice covers `chrome.offscreen`, and native-messaging hosts on
 this Mac work when the extension's manifest asks for `nativeMessaging`. A
@@ -724,8 +724,8 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | Camera & microphone, asked once per site and Space        | ✅                                      |
 | Web geolocation (`navigator.geolocation`), asked once per site and Space | ✅ (host `CLLocationManager` shim)   |
 | Saving and filling passwords, with a Keychain-backed vault | ✅                                     |
-| Passkeys                                                  | ❌ not yet — needs browser public-key-credential entitlement + Search’s passkey subsystem (`40q`) |
-| Password-manager extensions (Bitwarden, 1Password)        | ⚠️ Bitwarden login/autofill work; passkeys and other M9 gaps remain |
+| System passkeys                                           | ❌ not yet — needs browser public-key-credential entitlement (`40q`) |
+| Password-manager extensions (Bitwarden, 1Password)        | ✅ Bitwarden: login, autofill + inline menu, vault passkeys, Touch ID unlock via its desktop app; others untested |
 | Web notifications while the page is open                  | ✅ (per-site, per-Space)                |
 | Background Web Push (site closed)                         | ❌ Safari-gated, not available to WKWebView |
 | YouTube / YouTube Music ad skipping (built-in script)     | ✅ best-effort                          |
