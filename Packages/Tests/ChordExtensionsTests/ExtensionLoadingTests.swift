@@ -104,7 +104,7 @@ struct ExtensionLoadingTests {
         let settings = ExtensionSettings.key(identifier: installed.identifier, spaceID: closing.id)
         UserDefaults.standard.set(["value": true], forKey: settings)
         defer { UserDefaults.standard.removeObject(forKey: settings) }
-        weak var controller = host.controllers[closing.id]
+        weak let controller = host.controllers[closing.id]
         #expect(controller != nil)
 
         await host.spaceDidClose(closing)

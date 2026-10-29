@@ -10,7 +10,9 @@ import Testing
 /// remember, apply the same decision on later requests — the same ask-once
 /// behaviour camera/mic and notifications already have, driven through the
 /// WebKit geolocation delegate SPI.
-@Suite("Geolocation site permission")
+// A request that misses a remembered answer waits on a prompt nobody answers,
+// so a race here would hang the run: the limit turns that into a failure.
+@Suite("Geolocation site permission", .timeLimit(.minutes(1)))
 @MainActor
 struct GeolocationPermissionTests {
 
@@ -33,6 +35,22 @@ struct GeolocationPermissionTests {
         return (store, permissions)
     }
 
+    /// The decision is written in a store task behind the resumed request, so
+    /// a later request that should find it has to wait for it first.
+    /// Fails, rather than silently timing out, if the decision never lands.
+    private func waitForDecision(
+        _ permissions: FakeSitePermissions, origin: String, in store: TabStore
+    ) async {
+        let spaceID = try! #require(store.visibleTabs.first?.spaceID)
+        for _ in 0..<1_000 {
+            if await permissions.decision(
+                origin: origin, spaceID: spaceID, kind: .geolocation
+            ) != nil { return }
+            try? await Task.sleep(for: .milliseconds(2))
+        }
+        Issue.record("no geolocation decision was written for \(origin)")
+    }
+
     private func waitForPrompt(_ store: TabStore) async -> SitePermissionPrompt? {
         for _ in 0..<1_000 {
             if let first = store.pendingSitePermissionPrompts.first { return first }
@@ -43,7 +61,7 @@ struct GeolocationPermissionTests {
 
     @Test("First request prompts; granting remembers; a later request auto-grants")
     func askOnceGrant() async {
-        let (store, _) = await makeStore()
+        let (store, permissions) = await makeStore()
         let tab = try! #require(store.visibleTabs.first)
         let prompt = SitePermissionPrompt(
             origin: "https://maps.google.com",
@@ -62,6 +80,7 @@ struct GeolocationPermissionTests {
         store.resolveSitePermission(shownPrompt.id, allow: true)
         let firstGranted = await request.value
         #expect(firstGranted)
+        await waitForDecision(permissions, origin: "https://maps.google.com", in: store)
 
         // Second visit: remembered grant, no prompt.
         let secondGranted = await store.paneRequestedGeolocation(prompt)
@@ -71,7 +90,7 @@ struct GeolocationPermissionTests {
 
     @Test("A remembered denial blocks the site without prompting again")
     func askOnceDeny() async {
-        let (store, _) = await makeStore()
+        let (store, permissions) = await makeStore()
         let tab = try! #require(store.visibleTabs.first)
         let prompt = SitePermissionPrompt(
             origin: "https://maps.google.com",
@@ -84,6 +103,7 @@ struct GeolocationPermissionTests {
         let shown = try! #require(await waitForPrompt(store))
         store.resolveSitePermission(shown.id, allow: false)
         #expect(await request.value == false)
+        await waitForDecision(permissions, origin: "https://maps.google.com", in: store)
 
         let second = await store.paneRequestedGeolocation(prompt)
         #expect(second == false)
@@ -92,7 +112,7 @@ struct GeolocationPermissionTests {
 
     @Test("The state query reports the remembered decision without prompting")
     func stateQueryReflectsDecision() async {
-        let (store, _) = await makeStore()
+        let (store, permissions) = await makeStore()
         let tab = try! #require(store.visibleTabs.first)
         let prompt = SitePermissionPrompt(
             origin: "https://maps.google.com",
@@ -111,6 +131,7 @@ struct GeolocationPermissionTests {
         let shown = try! #require(await waitForPrompt(store))
         store.resolveSitePermission(shown.id, allow: true)
         #expect(await request.value)
+        await waitForDecision(permissions, origin: "https://maps.google.com", in: store)
 
         #expect(
             await store.paneGeolocationPermissionState(

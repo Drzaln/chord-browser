@@ -39,7 +39,9 @@ private func waitForSitePermissionDecision(
 /// and nothing was ever remembered (the reported Meet bug: the same invite link
 /// from Gmail/Calendar opens the panel, and "meet.google.com wants to use your
 /// Camera and Microphone" reappeared every time).
-@Suite("Camera and microphone site permission")
+// A request that misses a remembered answer waits on a prompt nobody answers,
+// so a race here would hang the run: the limit turns that into a failure.
+@Suite("Camera and microphone site permission", .timeLimit(.minutes(1)))
 @MainActor
 struct MediaCapturePermissionTests {
 
@@ -113,7 +115,7 @@ struct MediaCapturePermissionTests {
 
     @Test("A remembered denial blocks the site without prompting again")
     func askOnceDenies() async {
-        let (store, _) = await makeStore()
+        let (store, permissions) = await makeStore()
         let tab = try! #require(store.visibleTabs.first)
         let prompt = SitePermissionPrompt(
             origin: "https://meet.google.com",
@@ -126,6 +128,14 @@ struct MediaCapturePermissionTests {
         let shown = try! #require(await waitForPrompt(store))
         store.resolveSitePermission(shown.id, allow: false)
         #expect(await request.value == false)
+        // Written in a store task behind the answer: without this wait the next
+        // request could miss it, prompt again, and wait for ever (x4b).
+        #expect(
+            await waitForDecision(
+                permissions, origin: "https://meet.google.com",
+                spaceID: TabBuilder.defaultSpaceID, kind: .microphone
+            ) == .denied
+        )
 
         #expect(await store.paneRequestedMediaCapture(prompt) == false)
         #expect(store.pendingSitePermissionPrompts.isEmpty)
@@ -133,7 +143,7 @@ struct MediaCapturePermissionTests {
 }
 
 /// The same ask-once behaviour for a pane that is in no `Tab`.
-@Suite("Site permission for a pane in no tab")
+@Suite("Site permission for a pane in no tab", .timeLimit(.minutes(1)))
 @MainActor
 struct PanelSitePermissionTests {
 
@@ -197,10 +207,12 @@ struct PanelSitePermissionTests {
         store.resolveSitePermission(shown.id, allow: true)
         #expect(await request.value)
 
+        // The microphone row is written after the camera's, so waiting on it
+        // means both have landed before the next request reads them.
         #expect(
             await waitForDecision(
                 permissions, origin: "https://meet.google.com",
-                spaceID: TabBuilder.defaultSpaceID, kind: .camera
+                spaceID: TabBuilder.defaultSpaceID, kind: .microphone
             ) == .granted
         )
 
@@ -219,7 +231,7 @@ struct PanelSitePermissionTests {
 
     @Test("The state queries answer a panel pane from the same remembered decision")
     func panelPaneStateQueries() async {
-        let (store, _) = await makeStore()
+        let (store, permissions) = await makeStore()
         let pane = makePanelPane(store)
 
         #expect(
@@ -238,6 +250,12 @@ struct PanelSitePermissionTests {
         let shown = try! #require(await waitForPrompt(store))
         store.resolveSitePermission(shown.id, allow: true)
         #expect(await request.value)
+        #expect(
+            await waitForDecision(
+                permissions, origin: "https://meet.google.com",
+                spaceID: TabBuilder.defaultSpaceID, kind: .notification
+            ) == .granted
+        )
 
         #expect(
             await store.paneNotificationPermissionState(
