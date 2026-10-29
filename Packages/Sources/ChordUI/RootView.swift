@@ -77,6 +77,15 @@ public struct RootView: View {
         return title.isEmpty ? "Chord" : "Chord — \(title)"
     }
 
+    private func stopMonitors() {
+        swipeMonitor?.stop()
+        swipeMonitor = nil
+        titlebarMonitor?.stop()
+        titlebarMonitor = nil
+        mruMonitor?.stop()
+        mruMonitor = nil
+    }
+
     /// The pane the window is currently showing, when it is screen-sharing —
     /// drives the "you are sharing" banner. WebKit surfaces no screen-capture
     /// signal, so this is observed in-page; see `ScreenShareMonitor`.
@@ -393,6 +402,10 @@ public struct RootView: View {
         // auto-hid) beneath it (non-spec: user-requested).
         .modifier(RenameTabAlert(store: store, targetID: $windowState.renamingTabID))
         .onAppear {
+            // SwiftUI can show this view again without having hidden it, so
+            // whatever the last appearance started is stopped first: two of
+            // each would both act on every event.
+            stopMonitors()
             // No Space-switch swipe in a private window: it is locked to one
             // Space, so there is no neighbour to swipe to, and the gesture would
             // rubber-band against nothing.
@@ -415,12 +428,7 @@ public struct RootView: View {
             mruMonitor = mru
         }
         .onDisappear {
-            swipeMonitor?.stop()
-            swipeMonitor = nil
-            titlebarMonitor?.stop()
-            titlebarMonitor = nil
-            mruMonitor?.stop()
-            mruMonitor = nil
+            stopMonitors()
             // The private Space goes away with the window, so its cached
             // gradient should too. The Store cannot do this — the cache is a UI
             // concern and Store imports no UI.

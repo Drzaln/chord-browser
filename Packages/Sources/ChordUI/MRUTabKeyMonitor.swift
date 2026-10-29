@@ -1,4 +1,5 @@
 import AppKit
+import ChordEngine
 import ChordCore
 import ChordStore
 import SwiftUI
@@ -33,7 +34,9 @@ final class MRUTabKeyMonitor: NSObject {
     /// monitor acts — the other windows' monitors ignore the same events.
     weak var window: NSWindow?
 
-    private var monitor: Any?
+    /// Removes itself when released, so dropping this object without `stop()`
+    /// still takes the app-wide monitor down with it.
+    private var monitor: LocalEventMonitor?
     private var controlDown = false
     /// Fires when Ctrl has been held past the quick-tap threshold; it is what
     /// turns a held Ctrl into the switcher session instead of a one-shot switch.
@@ -48,7 +51,7 @@ final class MRUTabKeyMonitor: NSObject {
 
     func start() {
         guard monitor == nil else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
+        monitor = LocalEventMonitor(matching: [.flagsChanged, .keyDown]) { [weak self] event in
             guard let self else { return event }
             return self.handle(event) ? nil : event
         }
@@ -59,7 +62,6 @@ final class MRUTabKeyMonitor: NSObject {
     }
 
     func stop() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         holdTask?.cancel()
         holdTask = nil

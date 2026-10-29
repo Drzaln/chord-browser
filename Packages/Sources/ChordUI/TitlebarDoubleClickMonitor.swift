@@ -1,4 +1,5 @@
 import AppKit
+import ChordEngine
 
 /// Restores double-click-to-zoom on the top strip of the window.
 ///
@@ -13,7 +14,9 @@ import AppKit
 /// Dragging the window by the top already works; only the double-click was lost.
 @MainActor
 final class TitlebarDoubleClickMonitor {
-    private var monitor: Any?
+    /// Removes itself when released, so dropping this object without `stop()`
+    /// still takes the app-wide monitor down with it.
+    private var monitor: LocalEventMonitor?
 
     /// The main window. A double-click in a floating panel is not a zoom.
     weak var window: NSWindow?
@@ -28,14 +31,13 @@ final class TitlebarDoubleClickMonitor {
 
     func start() {
         guard monitor == nil else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+        monitor = LocalEventMonitor(matching: .leftMouseDown) { [weak self] event in
             guard let self, self.handle(event) else { return event }
             return nil  // consumed: the double-click zooms rather than reaching the page
         }
     }
 
     func stop() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
     }
 

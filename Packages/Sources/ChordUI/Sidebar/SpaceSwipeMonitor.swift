@@ -1,4 +1,5 @@
 import AppKit
+import ChordEngine
 import ChordCore
 import ChordStore
 import SwiftUI
@@ -23,7 +24,9 @@ final class SpaceSwipeMonitor {
     /// The window this monitor's swipes belong to. A swipe is a gesture on one
     /// window, so it must not move another window's Space.
     private let windowState: WindowState
-    private var monitor: Any?
+    /// Removes itself when released, so dropping this object without `stop()`
+    /// still takes the app-wide monitor down with it.
+    private var monitor: LocalEventMonitor?
 
     /// True between a horizontal `.began` and its `.ended`. While false, every
     /// event passes through untouched.
@@ -51,14 +54,13 @@ final class SpaceSwipeMonitor {
 
     func start() {
         guard monitor == nil else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+        monitor = LocalEventMonitor(matching: .scrollWheel) { [weak self] event in
             guard let self else { return event }
             return self.handle(event) ? nil : event
         }
     }
 
     func stop() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
     }
 

@@ -61,7 +61,9 @@ final class BackSwipeMonitor {
     }
 
     private var session: Session?
-    private var monitor: Any?
+    /// Removes itself when released, so dropping this object without `stop()`
+    /// still takes the app-wide monitor down with it.
+    private var monitor: LocalEventMonitor?
     /// A committed swipe whose page-scroll answer had not arrived by `.ended`;
     /// fired once the answer says the page had no horizontal scroll to consume.
     private var pendingClose: ChordWebView?
@@ -72,7 +74,7 @@ final class BackSwipeMonitor {
 
     func start() {
         guard monitor == nil else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+        monitor = LocalEventMonitor(matching: .scrollWheel) { [weak self] event in
             self?.handle(event)
             // Observe, never consume: the native back/forward gesture needs
             // every event, including the ones this monitor acts on.
@@ -81,7 +83,6 @@ final class BackSwipeMonitor {
     }
 
     func stop() {
-        if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         session = nil
         pendingClose = nil
