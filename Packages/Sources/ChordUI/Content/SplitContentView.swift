@@ -114,8 +114,9 @@ private struct PaneCard: View {
 
             if let surface = store.surface(for: pane, in: tab) {
                 // Keyed by pane, so resizing or reordering swaps surfaces rather
-                // than reconfiguring one in place.
-                surface.id(pane.id)
+                // than reconfiguring one in place. A background tab's is
+                // hidden, so WebKit throttles it like a background tab.
+                surface.parked(isParked).id(pane.id)
             }
         }
         .overlay {

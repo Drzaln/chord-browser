@@ -994,7 +994,7 @@ public final class WebKitEngine: WebEngine {
     /// and the Settings prefill can never advertise different versions.
     static let safariUserAgentSuffix = UserAgentPreference.safariVersionToken
 
-    private static let configurationTemplate: WKWebViewConfiguration = {
+    static let configurationTemplate: WKWebViewConfiguration = {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.defaultWebpagePreferences.allowsContentJavaScript = true
@@ -1010,6 +1010,10 @@ public final class WebKitEngine: WebEngine {
         // ("picture-in-picture")` returns without error but never floats the
         // video. See the PiP discussion in the architecture skill.
         config.preferences.setValue(true, forKey: "allowsPictureInPictureMediaPlayback")
+        // A parked (hidden) tab is throttled, never suspended: background music
+        // has to advance to its next track and a chat tab has to keep its
+        // socket, both of which need the page's JavaScript to keep running.
+        config.preferences.inactiveSchedulingPolicy = .throttle
         // The user script and message handler are installed per view, not here:
         // copy() shares this controller between every copy.
         return config
@@ -1300,7 +1304,10 @@ public final class WebKitEngine: WebEngine {
         // hands back a blank image and the render is pure waste. The switcher's
         // candidates are all background tabs, which is why captures come only
         // from the on-show path (`refreshThumbnail`), not from the switcher.
-        guard let live = pool.peek(paneID), live.webView.window != nil else { return }
+        // A parked tab's view is hidden, which snapshots blank the same way.
+        guard let live = pool.peek(paneID), live.webView.window != nil,
+            !live.webView.isHiddenOrHasHiddenAncestor
+        else { return }
 
         let config = WKSnapshotConfiguration()
         // Render the page at the card's display width (176 pt at 2×), so the

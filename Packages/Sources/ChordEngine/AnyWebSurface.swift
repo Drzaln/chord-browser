@@ -9,6 +9,10 @@ import SwiftUI
 public struct AnyWebSurface: View, Identifiable, Equatable {
     public let id: UUID
     private let container: NSView
+    /// A background tab's surface: still mounted, so its size and SPA state
+    /// survive, but hidden, so WebKit treats the page as not visible and
+    /// throttles it (`visibilityState` "hidden", clamped timers, no rAF).
+    private var isParked = false
 
     init(id: UUID, container: NSView) {
         self.id = id
@@ -19,7 +23,14 @@ public struct AnyWebSurface: View, Identifiable, Equatable {
     /// its lifetime, so comparing views would add main-actor isolation to an
     /// operation SwiftUI wants to run anywhere.
     nonisolated public static func == (lhs: AnyWebSurface, rhs: AnyWebSurface) -> Bool {
-        lhs.id == rhs.id
+        lhs.id == rhs.id && lhs.isParked == rhs.isParked
+    }
+
+    /// This surface as a background tab's (`true`) or an on-screen one's.
+    public func parked(_ parked: Bool) -> AnyWebSurface {
+        var copy = self
+        copy.isParked = parked
+        return copy
     }
 
     /// A surface backed by an empty view, so fakes can satisfy `WebEngine`
@@ -30,18 +41,29 @@ public struct AnyWebSurface: View, Identifiable, Equatable {
     }
 
     public var body: some View {
-        WebSurfaceRepresentable(container: container)
+        WebSurfaceRepresentable(container: container, isParked: isParked)
             .id(id)
     }
 }
 
 /// Hands SwiftUI the *same* container view every update. Rebuilding it would
 /// tear down and reload the page on unrelated state changes.
+///
+/// Parking is `isHidden`, not a detach: hiding keeps the frame and the
+/// superview, so there is no 0×0 rejoin and its resize, and WebKit still hears
+/// it (`viewDidHide`) and stops treating the page as visible.
 private struct WebSurfaceRepresentable: NSViewRepresentable {
     let container: NSView
+    let isParked: Bool
 
-    func makeNSView(context: Context) -> NSView { container }
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func makeNSView(context: Context) -> NSView {
+        container.isHidden = isParked
+        return container
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if nsView.isHidden != isParked { nsView.isHidden = isParked }
+    }
 }
 
 /// Clips web content to the inset card's rounded corners.
