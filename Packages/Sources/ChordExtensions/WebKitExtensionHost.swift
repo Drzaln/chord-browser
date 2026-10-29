@@ -409,6 +409,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // manifest (and Chord's shim) asks for it. Chrome grants this at
         // install; the per-host allow-list is enforced in ExtensionNative.
         context.setPermissionStatus(.grantedExplicitly, for: .nativeMessaging)
+        // DNR with host access, its own sign-in address, and the fence that
+        // keeps other extensions' pages and files out of <all_urls>.
+        ExtensionGrants.applyAtLoad(to: context, identifier: installed.identifier)
 
         // Before load: WebKit can create the background synchronously inside
         // it, and the callback must already have somewhere to land.
@@ -701,7 +704,8 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         let context = loaded.context
         // What the manifest asks for (host_permissions + content-script matches).
         // Nothing to do if it wants no hosts, or already has what it needs.
-        let patterns = Array(context.webExtension.allRequestedMatchPatterns)
+        let patterns = context.webExtension.allRequestedMatchPatterns
+            .filter { !ExtensionGrants.withheld($0) }
         guard !patterns.isEmpty, !context.hasAccessToAllHosts else { return }
 
         enqueuePermission(
@@ -712,6 +716,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             for pattern in patterns {
                 context.setPermissionStatus(.grantedExplicitly, for: pattern)
             }
+            ExtensionGrants.fence(context)
             if let repo = self.permissionsRepository {
                 let records = patterns.map {
                     GrantedPermissionRecord(
@@ -733,6 +738,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // sites at once.
         let pattern = WKWebExtension.MatchPattern.allHostsAndSchemes()
         context.setPermissionStatus(granted ? .grantedExplicitly : .deniedExplicitly, for: pattern)
+        if granted { ExtensionGrants.fence(context) }
         guard let repo = permissionsRepository else { return }
         if granted {
             let record = GrantedPermissionRecord(
@@ -1645,11 +1651,21 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
             completionHandler([], nil)
             return
         }
+        // Extension pages and files are never on offer, whatever was asked.
+        let offered = matchPatterns.filter { !ExtensionGrants.withheld($0) }
+        guard !offered.isEmpty else {
+            completionHandler([], nil)
+            return
+        }
         enqueuePermission(
             spaceID: spaceID, slug: slug, kind: .matchPattern,
-            values: matchPatterns.map(\.string),
+            values: offered.map(\.string),
             displayName: context.webExtension.displayName
-        ) { allow in completionHandler(allow ? matchPatterns : [], nil) }
+        ) { allow in
+            completionHandler(allow ? offered : [], nil)
+            // A grant of <all_urls> takes other extensions' pages with it.
+            if allow { ExtensionGrants.fence(context) }
+        }
     }
 }
 
