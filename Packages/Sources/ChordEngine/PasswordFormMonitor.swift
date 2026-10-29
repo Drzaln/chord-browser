@@ -152,8 +152,13 @@ enum PasswordFormMonitor {
 
         var ignoredTypes = ['hidden', 'submit', 'button', 'checkbox', 'radio', 'image', 'file'];
 
+        // The inputs the last report saw, so a change around them is noticed
+        // without rescanning the page for every unrelated mutation.
+        var tracked = [];
+
         function describe() {
             var elements = collectInputs(document, []);
+            tracked = elements;
             var fields = [];
             for (var i = 0; i < elements.length; i++) {
                 var el = elements[i];
@@ -246,17 +251,70 @@ enum PasswordFormMonitor {
         }, true);
 
         var pending = null;
+        var lastScan = 0;
         function scheduleReport() {
             if (pending) { return; }
             pending = setTimeout(function () {
                 pending = null;
+                lastScan = Date.now();
                 report();
             }, 150);
         }
 
+        // Whether `node` is `ancestor` or inside it, across shadow roots.
+        function within(ancestor, node) {
+            for (var n = node; n; n = n.parentNode || n.host) {
+                if (n === ancestor) { return true; }
+            }
+            return false;
+        }
+
+        function bringsInputs(node) {
+            return node.nodeType === 1 && (node.tagName === 'INPUT'
+                || (node.querySelector && node.querySelector('input') !== null));
+        }
+
+        // Whether a batch of mutations could change what the page reports:
+        // an input added or removed, an input's own attributes, or a change
+        // on something holding a field already seen (a parent unhiding it).
+        // Everything else — progress bars, animations, feeds — cannot, and a
+        // full scan of every element and shadow root for each of those cost
+        // busy pages several scans a second, for good.
+        function relevant(records) {
+            for (var i = 0; i < records.length; i++) {
+                var record = records[i];
+                if (record.type === 'childList') {
+                    var lists = [record.addedNodes, record.removedNodes];
+                    for (var l = 0; l < 2; l++) {
+                        for (var j = 0; j < lists[l].length; j++) {
+                            if (bringsInputs(lists[l][j])) { return true; }
+                        }
+                    }
+                } else {
+                    var target = record.target;
+                    if (target.tagName === 'INPUT') { return true; }
+                    for (var k = 0; k < tracked.length; k++) {
+                        if (within(target, tracked[k])) { return true; }
+                    }
+                }
+            }
+            return false;
+        }
+
         // The login form usually does not exist yet at document start — every
-        // site in the corpus renders it client-side.
-        var observer = new MutationObserver(scheduleReport);
+        // site in the corpus renders it client-side. A relevant change is
+        // looked at within 150 ms. Any other change still earns a look within
+        // a couple of seconds, never sooner: the observer cannot see inside
+        // shadow roots, where some logins (Reddit's) render after load.
+        var later = null;
+        var observer = new MutationObserver(function (records) {
+            if (relevant(records)) { scheduleReport(); return; }
+            if (later || pending) { return; }
+            later = setTimeout(function () {
+                later = null;
+                scheduleReport();
+            }, Math.max(150, 2000 - (Date.now() - lastScan)));
+        });
         function observe() {
             observer.observe(document.documentElement || document, {
                 childList: true, subtree: true, attributes: true,

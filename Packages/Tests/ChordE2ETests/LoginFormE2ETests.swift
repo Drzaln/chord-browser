@@ -80,6 +80,38 @@ struct LoginFormE2ETests {
     )
 
     /// Waits for the pane to report a login, then hands back what it said.
+    private static let revealedLogin = TestHTTPServer.Route.page(
+        path: "/revealed",
+        title: "Revealed",
+        body: """
+            <style>.closed { display: none; }</style>
+            <div id="panel" class="closed">
+              <input name="email" type="email" autocomplete="username">
+              <input name="password" type="password" autocomplete="current-password">
+            </div>
+            <script>
+              setTimeout(() => document.getElementById('panel').className = '', 400);
+            </script>
+            """
+    )
+
+    private static let lateShadowLogin = TestHTTPServer.Route.page(
+        path: "/late-shadow",
+        title: "Late shadow",
+        body: """
+            <div id="mount"></div>
+            <script>
+              setTimeout(() => {
+                const host = document.createElement('div');
+                document.getElementById('mount').appendChild(host);
+                host.attachShadow({ mode: 'open' }).innerHTML =
+                  '<input name="username" type="text" autocomplete="username">' +
+                  '<input name="password" type="password" autocomplete="current-password">';
+              }, 400);
+            </script>
+            """
+    )
+
     private func analysis(
         _ harness: E2EHarness, path: String
     ) async -> LoginFormAnalysis? {
@@ -147,6 +179,43 @@ struct LoginFormE2ETests {
             harness.store.runtime(for: paneID).loginForm?.passwordFieldID != nil
         }
         #expect(found, "the MutationObserver must catch a form rendered after load")
+    }
+
+    @Test("A form a parent unhides is noticed at once, not on the slow path")
+    func noticesUnhiddenForm() async throws {
+        let harness = try await E2EHarness.make(routes: [Self.revealedLogin])
+        defer { Task { await harness.tearDown() } }
+        await harness.store.restore()
+
+        guard await harness.openAndLoad(await harness.server.url("/revealed")),
+            let paneID = harness.store.selectedTab?.focusedPaneID
+        else { Issue.record("page did not load"); return }
+
+        // The panel's class changes 400 ms after load. That is a change on
+        // the fields' ancestor, so it is looked at within 150 ms; the
+        // couple-of-seconds path for unrelated changes would miss this bound.
+        let found = await harness.wait(timeout: .milliseconds(1200)) {
+            harness.store.runtime(for: paneID).loginForm?.passwordFieldID != nil
+        }
+        #expect(found, "a class change around a tracked field must trigger a report")
+    }
+
+    @Test("A shadow-DOM login rendered after load is still noticed")
+    func noticesLateShadowForm() async throws {
+        let harness = try await E2EHarness.make(routes: [Self.lateShadowLogin])
+        defer { Task { await harness.tearDown() } }
+        await harness.store.restore()
+
+        guard await harness.openAndLoad(await harness.server.url("/late-shadow")),
+            let paneID = harness.store.selectedTab?.focusedPaneID
+        else { Issue.record("page did not load"); return }
+
+        // The observer cannot see inside the shadow root, and the host it
+        // can see brings no input of its own: only the fallback look finds it.
+        let found = await harness.wait {
+            harness.store.runtime(for: paneID).loginForm?.passwordFieldID != nil
+        }
+        #expect(found, "a login attached inside a shadow root after load must be found")
     }
 
     @Test("A page with no login reports that it has none")
