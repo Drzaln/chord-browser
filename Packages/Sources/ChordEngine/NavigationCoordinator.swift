@@ -189,7 +189,10 @@ extension NavigationCoordinator: WKNavigationDelegate {
             return (.cancel, preferences)
         }
 
+        // A local file has no server to send a User-Agent to, and re-issuing
+        // it as a plain request would drop its file read access.
         guard navigationAction.targetFrame?.isMainFrame == true,
+            navigationAction.request.url?.isFileURL != true,
             let engine,
             engine.applyUserAgent(to: webView, for: navigationAction.request.url)
         else { return (.allow, preferences) }

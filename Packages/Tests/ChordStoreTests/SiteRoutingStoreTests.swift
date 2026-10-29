@@ -166,4 +166,23 @@ struct SiteRoutingStoreTests {
         #expect(stored.first?.pattern == "figma.com")
         #expect(stored.first?.spaceID == spaceID)
     }
+
+    @Test("A local file from Finder opens as a selected tab in the active Space")
+    func fileOpensAsATab() async {
+        let (store, personalID, workID) = await storeWithWorkSpace()
+        // A rule never claims a file: it matches hosts, and a file has none.
+        #expect(store.setRouteRule(pattern: "figma.com", spaceID: workID))
+        var peeked: URL?
+        store.littleChordPresenter = { peeked = $0 }
+        let file = URL(fileURLWithPath: "/tmp/page/index.html")
+
+        let tabID = store.openFileExternally(file)
+
+        #expect(peeked == nil, "a document is not a glance")
+        #expect(store.activeSpaceID == personalID)
+        #expect(store.selectedTabID == tabID)
+        let tab = store.tabs.first { $0.id == tabID }
+        #expect(tab?.spaceID == personalID)
+        #expect(tab?.panes.first?.url == file)
+    }
 }

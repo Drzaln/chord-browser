@@ -307,7 +307,7 @@ public final class WebKitEngine: WebEngine {
         if let state {
             live.restore(interactionState: state)
         } else {
-            webView.load(URLRequest(url: pane.url))
+            webView.loadPage(pane.url)
         }
         lastKnownURL[pane.id] = pane.url
 
@@ -1253,7 +1253,7 @@ public final class WebKitEngine: WebEngine {
     public func load(_ url: URL, in paneID: UUID) {
         guard let live = pool.view(for: paneID) else { return }
         lastKnownURL[paneID] = url
-        live.webView.load(URLRequest(url: url))
+        live.webView.loadPage(url)
     }
 
     /// Stands the offline easter-egg page in for a load that failed with no
@@ -1274,7 +1274,7 @@ public final class WebKitEngine: WebEngine {
         if live.webView.url?.scheme == OfflineGamePage.scheme,
             let target = lastKnownURL[paneID]
         {
-            live.webView.load(URLRequest(url: target))
+            live.webView.loadPage(target)
             return
         }
         live.webView.reload()
@@ -1566,7 +1566,7 @@ public final class WebKitEngine: WebEngine {
         if let state = live.interactionState ?? interactionStates[paneID] {
             live.restore(interactionState: state)
         } else if let url = lastKnownURL[paneID] {
-            live.webView.load(URLRequest(url: url))
+            live.webView.loadPage(url)
         }
 
         delegate?.paneContentProcessDidTerminate(paneID)

@@ -112,6 +112,15 @@ extension TabStore {
         newTab(url: url, in: window)
     }
 
+    /// A local file handed over by macOS (a `.html` double-clicked in Finder,
+    /// or "Open With"). It opens as a new, selected tab in the focused window's
+    /// active Space: a file is a document to read, not a glance, so no Little
+    /// Chord, and routing rules match hosts, which a file has none of.
+    @discardableResult
+    public func openFileExternally(_ url: URL) -> UUID {
+        newTab(url: url, in: focusedNonPrivateWindow)
+    }
+
     /// Opens a Cmd-clicked / `target=_blank` link, honouring a routing rule. A
     /// routed tab is appended to the target Space *without* switching the
     /// window: the gesture means "save this for later", so the reading position

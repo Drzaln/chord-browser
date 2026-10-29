@@ -1,5 +1,6 @@
 import ChordCore
 import ChordStore
+import AppKit
 import SwiftUI
 
 /// The "General" section of the settings sheet (non-spec: user-requested): the
@@ -38,6 +39,8 @@ struct GeneralSettings: View {
     @State private var newReferrerPolicy: ReferrerPolicy = .strip
     @State private var referrerError = false
 
+    @State private var defaultBrowser = DefaultBrowserModel(control: WorkspaceDefaultBrowser())
+
     private enum NewTabKind: String, CaseIterable, Identifiable {
         case blank, searchEngine, custom
         var id: String { rawValue }
@@ -52,6 +55,8 @@ struct GeneralSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
+            defaultBrowserSection
+            Divider()
             searchEngineSection
             Divider()
             newTabSection
@@ -71,6 +76,32 @@ struct GeneralSettings: View {
             // rendered and simply unreachable.
         }
         .onAppear(perform: syncFromStore)
+        .onAppear { defaultBrowser.refresh() }
+        // The default may have been changed in System Settings meanwhile.
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+        ) { _ in defaultBrowser.refresh() }
+    }
+
+    // MARK: - Default browser
+
+    @ViewBuilder
+    private var defaultBrowserSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Default Browser").font(.system(size: 13, weight: .semibold))
+            if defaultBrowser.isDefault {
+                Label("Chord is your default browser.", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            } else {
+                Text("Chord is not your default browser. Links from other apps open elsewhere.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Make Default") {
+                    Task { await defaultBrowser.makeDefault() }
+                }
+                .disabled(defaultBrowser.isAsking)
+            }
+        }
     }
 
     // MARK: - Search engine

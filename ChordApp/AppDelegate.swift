@@ -2,6 +2,7 @@ import AppKit
 import ChordStore
 import ChordUI
 import os
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -176,9 +177,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///
     /// The panel is deliberately *not* a tab: most links from other apps are a
     /// glance, and promoting is one keystroke away.
+    ///
+    /// A local web page (a `.html` from Finder) is a document, so it opens as a
+    /// tab of its own instead.
     func application(_ application: NSApplication, open urls: [URL]) {
+        guard let store = launch.store else { return }
+        for file in urls where Self.isWebPageFile(file) {
+            store.openFileExternally(file)
+        }
+
         let webLinks = urls.filter { $0.scheme == "http" || $0.scheme == "https" }
-        guard let url = webLinks.first, let store = launch.store else { return }
+        guard let url = webLinks.first else { return }
 
         if webLinks.count > 1 {
             // Several at once is a "open all of these" gesture, not a peek. They
@@ -191,6 +200,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The store, not this delegate, decides whether the link opens in Little
         // Chord or in the Space a routing rule names (ADR 023).
         store.openExternally(url)
+    }
+
+    /// The file types Info.plist claims; anything else handed over is dropped.
+    private static func isWebPageFile(_ url: URL) -> Bool {
+        guard url.isFileURL,
+            let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType
+        else { return false }
+        // No `UTType.xhtml` constant exists; the identifier is the one Info.plist uses.
+        let xhtml = UTType("public.xhtml")
+        return type.conforms(to: .html) || xhtml.map { type.conforms(to: $0) } == true
     }
 
     /// The Little Chord panel can be the only window there is (4.6), so the app

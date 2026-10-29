@@ -162,6 +162,19 @@ trying to reach. You can also open the game any time by typing
 
 Open **Settings** with `Cmd+,` and pick **General** to choose:
 
+- **Default browser** — shows whether Chord is your default browser. If it
+  isn't, **Make Default** asks macOS to switch; macOS shows its own "Use
+  Chord / Keep …" confirmation, and the row shows whatever you chose. You can
+  also pick Chord in **System Settings → Desktop & Dock → Default web
+  browser**; the row picks that up the next time Chord comes to the front.
+  Links from other apps then open in Little Chord (or the Space a routing rule
+  names). Local `.html` files open in Chord too, from **Open With → Chord** or
+  by double-clicking once you've set Chord as their app: each opens as a new
+  tab, with the CSS and images beside it.
+
+  *Troubleshooting:* if macOS keeps picking an old copy of Chord (a stale
+  development build, say), re-register the one in Applications:
+  `/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/Chord.app`
 - **Search engine** — Google, DuckDuckGo, Bing, Brave Search, or a **custom**
   provider (paste a query URL with `%s` where the query goes, e.g.
   `https://example.com/search?q=%s`). This is where the address bar and command
