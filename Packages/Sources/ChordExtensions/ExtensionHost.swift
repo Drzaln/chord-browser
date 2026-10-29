@@ -50,6 +50,12 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// it is unloaded everywhere.
     func forgetData(identifier: String, in spaces: [Space]) async
 
+    /// Finishes wipes a previous run started but didn't complete (a quit or
+    /// crash mid-wipe, or a wipe that failed), so the next install of that id
+    /// doesn't inherit the old data. Call at launch, before anything loads.
+    /// A wipe for a Space not in `spaces` is dropped: the Space is gone.
+    func forgetLeftOver(in spaces: [Space]) async
+
     /// A Space is gone for good: deleted, or a private window closed. Unloads
     /// every extension in it and drops its controller and data store, so its
     /// workers, native hosts and in-memory private data go with it. Call
@@ -168,5 +174,6 @@ public extension ExtensionHost {
     func sidePanelView(slug: String, url: URL, in space: Space) -> NSView? { nil }
     func closeSidePanel(slug: String, in space: Space) {}
     func forgetData(identifier: String, in spaces: [Space]) async {}
+    func forgetLeftOver(in spaces: [Space]) async {}
     func spaceDidClose(_ space: Space) async {}
 }

@@ -257,6 +257,9 @@ public final class ExtensionsService {
     /// background workers (and native hosts like Bitwarden's desktop_proxy) for
     /// Spaces the user may not open all session.
     public func restoreEnabled(spaces: [Space], active: [Space]) async {
+        // A wipe the last run didn't finish goes first, so nothing loads over
+        // a removed extension's old data.
+        await host.forgetLeftOver(in: spaces.filter { !$0.isPrivate })
         for space in active where spaces.contains(where: { $0.id == space.id }) {
             await ensureLoaded(space: space)
         }

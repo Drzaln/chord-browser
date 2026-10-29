@@ -13,8 +13,12 @@ private final class FakeHost: ExtensionHost {
     var loaded: [(slug: String, space: UUID)] = []
     var unloaded: [(slug: String, space: UUID)] = []
     var failSlugs: Set<String> = []
+    /// "leftover" and "load:<slug>", in call order.
+    var calls: [String] = []
+    func forgetLeftOver(in spaces: [Space]) async { calls.append("leftover") }
 
     func load(_ installed: InstalledExtension, in space: Space) async throws -> LoadedExtension {
+        calls.append("load:\(installed.slug)")
         if failSlugs.contains(installed.slug) {
             throw ExtensionLoadError.unsupportedManifestVersion(2)
         }
@@ -327,5 +331,16 @@ struct ExtensionsServiceTests {
         await #expect(throws: ExtensionsServiceError.self) {
             try await service.enable(slug: "nope", in: p)
         }
+    }
+
+    @Test func launchFinishesLeftOverWipesBeforeAnythingLoads() async throws {
+        let (service, host, enablement, cleanup) = makeService(installed: ["ublock"])
+        defer { cleanup() }
+        let s = space()
+        try await enablement.setEnabled(true, slug: "ublock", spaceID: s.id)
+
+        await service.restoreEnabled(spaces: [s], active: [s])
+
+        #expect(host.calls == ["leftover", "load:ublock"])
     }
 }

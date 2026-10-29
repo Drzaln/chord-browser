@@ -324,6 +324,12 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     public func load(_ installed: InstalledExtension, in space: Space) async throws
         -> LoadedExtension
     {
+        // Installed again right after a remove: the old data has to be gone
+        // before this context can see it. The wipe's stand-in context shares
+        // the id, so the two must never be loaded together either.
+        if let wipe = forgetting["\(space.id)|\(installed.identifier)"] {
+            await wipe.value
+        }
         // Loading a slug that is already live is a reload: unload the old
         // context first, and tell its pages their ports belong to a retired
         // context (899/worker recovery). Without this, WebKit can end up with
@@ -1064,19 +1070,75 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         Log.extensions.notice("cleared extension workers in space \(space.id)")
     }
 
-    public func forgetData(identifier: String, in spaces: [Space]) async {
-        for space in spaces {
-            loadedOnce.remove("\(space.id)|\(identifier)")
-            UserDefaults.standard.removeObject(
-                forKey: ExtensionSettings.key(identifier: identifier, spaceID: space.id)
-            )
-            workersChanged(in: space.id)
-            prepare(space)
-            guard let controller = controllers[space.id] else { continue }
-            if await forgetData(of: identifier, in: controller) {
-                Log.extensions.notice("cleared data of \(identifier) in space \(space.id)")
-            }
+    /// Wipes not yet known to have finished, as "<space id>|<extension id>",
+    /// so one cut short by a quit or crash, or one that failed, is retried at
+    /// the next launch (`forgetLeftOver`). Ported from Search.
+    static let forgettingKey = "chord.extensions.forgetting"
+
+    /// Wipes running now, by the same key, so a load of that id in that Space
+    /// waits for its old data to be gone first.
+    private var forgetting: [String: Task<Void, Never>] = [:]
+
+    private static func forgettingEntries() -> [String] {
+        UserDefaults.standard.stringArray(forKey: forgettingKey) ?? []
+    }
+
+    private static func setForgettingEntries(_ entries: [String]) {
+        if entries.isEmpty {
+            UserDefaults.standard.removeObject(forKey: forgettingKey)
+        } else {
+            UserDefaults.standard.set(entries, forKey: forgettingKey)
         }
+    }
+
+    public func forgetData(identifier: String, in spaces: [Space]) async {
+        // Nothing of a private Space persists, so there is nothing to retry.
+        for space in spaces where !space.isPrivate {
+            let entry = "\(space.id)|\(identifier)"
+            // Recorded before anything is touched: a crash from here on still
+            // leaves the wipe to finish next launch.
+            var entries = Self.forgettingEntries()
+            if !entries.contains(entry) {
+                entries.append(entry)
+                Self.setForgettingEntries(entries)
+            }
+            let wipe = Task { [weak self] in
+                guard let self else { return }
+                if await self.wipe(identifier: identifier, in: space) {
+                    Self.setForgettingEntries(Self.forgettingEntries().filter { $0 != entry })
+                }
+            }
+            forgetting[entry] = wipe
+            await wipe.value
+            forgetting[entry] = nil
+        }
+    }
+
+    public func forgetLeftOver(in spaces: [Space]) async {
+        let byID = Dictionary(spaces.map { ($0.id.uuidString, $0) }, uniquingKeysWith: { a, _ in a })
+        for entry in Self.forgettingEntries() {
+            let parts = entry.split(separator: "|", maxSplits: 1).map(String.init)
+            guard parts.count == 2, let space = byID[parts[0]], !space.isPrivate else {
+                Self.setForgettingEntries(Self.forgettingEntries().filter { $0 != entry })
+                continue
+            }
+            Log.extensions.notice("retrying the wipe of \(parts[1]) in space \(space.id)")
+            await forgetData(identifier: parts[1], in: [space])
+        }
+    }
+
+    /// One Space's wipe. Whether all of it was cleared.
+    private func wipe(identifier: String, in space: Space) async -> Bool {
+        loadedOnce.remove("\(space.id)|\(identifier)")
+        UserDefaults.standard.removeObject(
+            forKey: ExtensionSettings.key(identifier: identifier, spaceID: space.id)
+        )
+        workersChanged(in: space.id)
+        prepare(space)
+        guard let controller = controllers[space.id] else { return false }
+        guard await forgetData(of: identifier, in: controller) else { return false }
+        Log.extensions.notice("cleared data of \(identifier) in space \(space.id)")
+        return true
     }
 
     /// Its chrome.storage, which WebKit keeps by id, and what its pages kept
