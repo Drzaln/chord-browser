@@ -204,6 +204,8 @@ public final class WebKitEngine: WebEngine {
         // cookies in memory for the life of the process. The early return used
         // to sit above this line.
         dataStores.forget(spaceID: space.id)
+        workerRecoveryAttachers[space.id] = nil
+        captureAttachers[space.id] = nil
         guard !space.isPrivate else { return }  // nothing on disk to reclaim
         try await dataStores.removePersistentStore(dataStoreID: space.dataStoreID)
     }

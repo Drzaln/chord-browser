@@ -92,6 +92,33 @@ struct ExtensionLoadingTests {
         #expect(fires == 2)  // and again when it goes away
     }
 
+    @Test("A closed Space unloads its extensions and lets its controller go")
+    func spaceDidCloseTearsDownOnlyThatSpace() async throws {
+        let host = WebKitExtensionHost()
+        let (installed, cleanup) = try installedExtension(slug: "test-mv3", manifest: Self.mv3)
+        defer { cleanup() }
+        let closing = Space(name: "Private", sortIndex: 0, isPrivate: true)
+        let staying = space()
+        try await host.load(installed, in: closing)
+        try await host.load(installed, in: staying)
+        let settings = ExtensionSettings.key(identifier: installed.identifier, spaceID: closing.id)
+        UserDefaults.standard.set(["value": true], forKey: settings)
+        defer { UserDefaults.standard.removeObject(forKey: settings) }
+        weak var controller = host.controllers[closing.id]
+        #expect(controller != nil)
+
+        await host.spaceDidClose(closing)
+
+        #expect(!host.preparedSpaceIDs.contains(closing.id))
+        #expect(host.loadedExtensions(in: closing).isEmpty)
+        #expect(host.context(forSlug: "test-mv3", in: closing) == nil)
+        #expect(UserDefaults.standard.object(forKey: settings) == nil)
+        #expect(controller == nil, "nothing else holds the closed Space's controller")
+        // Per-Space: the other Space is untouched.
+        #expect(host.preparedSpaceIDs.contains(staying.id))
+        #expect(host.loadedExtensions(in: staying).map(\.slug) == ["test-mv3"])
+    }
+
     @Test func rejectsAnMV2Extension() async throws {
         let host = WebKitExtensionHost()
         let (installed, cleanup) = try installedExtension(slug: "test-mv2", manifest: Self.mv2)

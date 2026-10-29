@@ -472,6 +472,38 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         }
     }
 
+    public func spaceDidClose(_ space: Space) async {
+        for slug in (loadedContexts[space.id] ?? [:]).keys.sorted() {
+            try? unload(slug: slug, in: space)
+        }
+        for popout in popouts[space.id] ?? [] { popout.close() }
+        for (id, pending) in pendingPermissions where pending.spaceID == space.id {
+            resolvePermission(id: id, allow: false)
+        }
+        if let controller = controllers[space.id] {
+            controllerSpace[ObjectIdentifier(controller)] = nil
+        }
+        loadedContexts[space.id] = nil
+        tabAdapters[space.id] = nil
+        windowAdapters[space.id] = nil
+        actionAnchors[space.id] = nil
+        popouts[space.id] = nil
+        clearedWorkers.remove(space.id)
+        loadedOnce = loadedOnce.filter { !$0.hasPrefix("\(space.id)|") }
+        spaces[space.id] = nil
+        dataStores[space.id] = nil
+        // Gone for good, so what it remembered across launches goes too.
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: Self.workersKey(space.id))
+        let settings = ExtensionSettings.key(identifier: "", spaceID: space.id)
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(settings) {
+            defaults.removeObject(forKey: key)
+        }
+        // Last, after everything that unloads through it.
+        controllers[space.id] = nil
+        Log.extensions.notice("closed extension space \(space.id)")
+    }
+
     public func loadedExtensions(in space: Space) -> [LoadedExtension] {
         (loadedContexts[space.id] ?? [:]).values
             .map(\.descriptor)

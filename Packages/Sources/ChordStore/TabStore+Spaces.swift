@@ -166,6 +166,9 @@ extension TabStore {
         // one, the same rule `adoptOrphanedTabs` uses for a tab.
         reconcileWindows(excluding: window)
 
+        // First: WebKit won't remove a data store the Space's extension
+        // controller still holds.
+        await extensionHost?.spaceDidClose(space)
         do {
             try await engine.removeData(for: space)
         } catch {

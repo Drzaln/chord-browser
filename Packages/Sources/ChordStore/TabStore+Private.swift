@@ -141,7 +141,9 @@ extension TabStore {
         for window in windows { window.blankSpaceIDs.remove(spaceID) }
         pendingCredentialSpaces = pendingCredentialSpaces.filter { $0.value != spaceID }
 
-        Task { [engine] in
+        Task { [engine, extensionHost] in
+            // Extensions first, so their workers and in-memory store go too.
+            await extensionHost?.spaceDidClose(space)
             // For a private Space this reclaims nothing from disk — there is
             // nothing there — but it drops the cached `.nonPersistent()` store,
             // which is what actually ends the session in memory.

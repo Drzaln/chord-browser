@@ -29,6 +29,13 @@ private final class RecordingExtensionHost: ExtensionHost {
     }
     func extensionTabDidMove(_ tabID: UUID, from oldIndex: Int, inSpace spaceID: UUID) {}
 
+    var closedSpaces: [UUID] = []
+    var onSpaceDidClose: ((Space) -> Void)?
+    func spaceDidClose(_ space: Space) async {
+        closedSpaces.append(space.id)
+        onSpaceDidClose?(space)
+    }
+
     // Unused by these tests.
     var preparedSpaceIDs: Set<UUID> { [] }
     func prepare(_ space: Space) -> ExtensionControllerHandle {
@@ -63,6 +70,48 @@ struct ExtensionModelTests {
         let host = RecordingExtensionHost()
         store.extensionHost = host
         return (store, host)
+    }
+
+    @Test("Deleting a Space closes its extensions before its data goes")
+    func deleteSpaceClosesItsExtensions() async {
+        let engine = FakeWebEngine()
+        let store = TabStore(engine: engine, repository: FakeTabRepository(), clock: FixedClock())
+        await store.restore()
+        let host = RecordingExtensionHost()
+        store.extensionHost = host
+        let doomed = store.addSpace(in: store.primaryWindow)
+        var dataGoneFirst: Bool?
+        host.onSpaceDidClose = { dataGoneFirst = engine.removedDataForSpaces.contains($0.id) }
+
+        await store.deleteSpace(doomed.id, in: store.primaryWindow)
+
+        #expect(host.closedSpaces == [doomed.id])
+        #expect(dataGoneFirst == false, "the controller lets go of the store first")
+        #expect(engine.removedDataForSpaces.contains(doomed.id))
+    }
+
+    @Test("Closing a private window closes its Space's extensions")
+    func privateWindowClosesItsExtensions() async {
+        let engine = FakeWebEngine()
+        let store = TabStore(engine: engine, repository: FakeTabRepository(), clock: FixedClock())
+        await store.restore()
+        let host = RecordingExtensionHost()
+        store.extensionHost = host
+        _ = store.claimWindow()
+        store.markNextWindowPrivate()
+        let window = store.claimWindow()
+        let spaceID = try! #require(window.privateSpaceID)
+        var dataGoneFirst: Bool?
+        host.onSpaceDidClose = { dataGoneFirst = engine.removedDataForSpaces.contains($0.id) }
+
+        store.unregister(window)
+        for _ in 0..<50 where !engine.removedDataForSpaces.contains(spaceID) {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(host.closedSpaces == [spaceID])
+        #expect(dataGoneFirst == false)
+        #expect(engine.removedDataForSpaces.contains(spaceID))
     }
 
     @Test func newTabFiresOpenThenActivate() async {

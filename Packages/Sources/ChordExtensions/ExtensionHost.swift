@@ -50,6 +50,13 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// it is unloaded everywhere.
     func forgetData(identifier: String, in spaces: [Space]) async
 
+    /// A Space is gone for good: deleted, or a private window closed. Unloads
+    /// every extension in it and drops its controller and data store, so its
+    /// workers, native hosts and in-memory private data go with it. Call
+    /// before the engine removes the Space's website data: WebKit won't
+    /// remove a store the controller still holds.
+    func spaceDidClose(_ space: Space) async
+
     // MARK: - Toolbar actions (7.5a)
 
     /// The default toolbar-action snapshot for every extension loaded in a
@@ -161,4 +168,5 @@ public extension ExtensionHost {
     func sidePanelView(slug: String, url: URL, in space: Space) -> NSView? { nil }
     func closeSidePanel(slug: String, in space: Space) {}
     func forgetData(identifier: String, in spaces: [Space]) async {}
+    func spaceDidClose(_ space: Space) async {}
 }
