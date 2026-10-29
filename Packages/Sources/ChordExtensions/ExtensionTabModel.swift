@@ -71,6 +71,12 @@ public protocol ExtensionTabModel: AnyObject {
     func extensionActiveTab(inSpace spaceID: UUID) -> ExtensionTabSnapshot?
     func extensionTab(_ tabID: UUID) -> ExtensionTabSnapshot?
 
+    /// The tab's focused pane, and nothing else. WebKit asks every tab for
+    /// its web view on every network request of every page (to find the
+    /// request's tab for webRequest), so this must stay cheap: no snapshot,
+    /// no Space sort, no index.
+    func extensionFocusedPaneID(_ tabID: UUID) -> UUID?
+
     /// Create a tab for `chrome.tabs.create`, in the Space's window. A nil
     /// result means the browser could not make one.
     func extensionCreateTab(
@@ -93,6 +99,13 @@ public protocol ExtensionTabModel: AnyObject {
 public extension ExtensionTabModel {
     func extensionMoveTab(_ tabID: UUID, to index: Int, inSpace spaceID: UUID) {}
     func extensionMoveTab(_ tabID: UUID, toSpace spaceID: UUID, at index: Int) {}
+}
+
+public extension ExtensionTabModel {
+    /// Test doubles get it from their snapshot.
+    func extensionFocusedPaneID(_ tabID: UUID) -> UUID? {
+        extensionTab(tabID)?.focusedPaneID
+    }
 }
 
 public extension ExtensionTabModel {

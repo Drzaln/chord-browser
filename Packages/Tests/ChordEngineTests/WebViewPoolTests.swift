@@ -113,6 +113,31 @@ struct WebViewPoolTests {
         #expect(engine.interactionState(for: paneID) == nil)
     }
 
+    @Test("An extension finding a tab's web view does not count as using it")
+    func extensionLookupDoesNotTouch() {
+        let engine = WebKitEngine(
+            configuration: EngineConfiguration(
+                liveViewCapacity: 2,
+                faviconCacheDirectory: URL(fileURLWithPath: "/tmp/engine-tests")
+            )
+        )
+        let space = Space(name: "Personal", sortIndex: 0)
+        let (a, b, c) = (
+            Pane(url: URL(string: "about:blank")!),
+            Pane(url: URL(string: "about:blank")!),
+            Pane(url: URL(string: "about:blank")!)
+        )
+        _ = engine.surface(for: a, in: space)
+        _ = engine.surface(for: b, in: space)
+        // WebKit asks every tab for its view on every network request; that
+        // must not keep a background page "recent".
+        for _ in 0..<50 { #expect(engine.paneWebView(a.id) != nil) }
+        _ = engine.surface(for: c, in: space)
+
+        #expect(engine.paneWebView(a.id) == nil)
+        #expect(engine.paneWebView(b.id) != nil)
+    }
+
     @Test("Refreshing externally-connectable scripts keeps one store handler")
     func refreshExternallyConnectableDoesNotReAddTheStoreHandler() {
         let engine = WebKitEngine(

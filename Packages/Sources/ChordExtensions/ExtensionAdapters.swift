@@ -98,7 +98,10 @@ final class ExtensionTabAdapter: NSObject, WKWebExtensionTab {
     }
 
     func webView(for context: WKWebExtensionContext) -> WKWebView? {
-        guard let paneID = snapshot?.focusedPaneID else { return nil }
+        // WebKit asks every tab this on every network request (see
+        // ExtensionTabModel.extensionFocusedPaneID): the pane alone, not a
+        // snapshot.
+        guard let paneID = host?.tabModel?.extensionFocusedPaneID(tabID) else { return nil }
         return host?.paneWebViewProvider?.paneWebView(paneID)
     }
 
@@ -132,3 +135,4 @@ final class ExtensionTabAdapter: NSObject, WKWebExtensionTab {
         completionHandler(nil)
     }
 }
+

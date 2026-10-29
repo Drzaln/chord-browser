@@ -34,6 +34,10 @@ extension PaneWebViewProviding {
 
 extension WebKitEngine: PaneWebViewProviding {
     public func paneWebView(_ paneID: UUID) -> WKWebView? {
-        pool.view(for: paneID)?.webView
+        // A peek, not a use: WebKit asks every tab for its view on every
+        // network request (finding the request's tab for webRequest), and
+        // `view(for:)` marks the pane as just used — every open page stayed
+        // "recent", so the pool's least-recently-used eviction chose blind.
+        pool.peek(paneID)?.webView
     }
 }

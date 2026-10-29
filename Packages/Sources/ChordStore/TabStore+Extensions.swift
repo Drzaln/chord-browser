@@ -25,6 +25,10 @@ extension TabStore: ExtensionTabModel {
         return snapshot(of: tab, index: index)
     }
 
+    public func extensionFocusedPaneID(_ tabID: UUID) -> UUID? {
+        tabs.first { $0.id == tabID }?.focusedPaneID
+    }
+
     public func extensionTab(_ tabID: UUID) -> ExtensionTabSnapshot? {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return nil }
         let index = tabsInSpace(tab.spaceID).firstIndex { $0.id == tabID } ?? 0
