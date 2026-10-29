@@ -560,6 +560,19 @@ enum ExtensionShimBroker {
             return ["fontId": "", "levelOfControl": "not_controllable"]
         case _ where api.hasPrefix("fontSettings.set") || api.hasPrefix("fontSettings.clear"):
             return nil
+        case _ where api.hasPrefix("setting."):
+            // chrome.privacy (and any other ChromeSetting): only an extension
+            // that asked for the family a setting's name starts with may read
+            // or change it, as in Chrome.
+            let name = api.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
+            let family = String(name.prefix { $0 != "." })
+            guard !family.isEmpty, declared(family, in: context) else {
+                throw Unsupported(what: "The extension never asked for “\(family)”")
+            }
+            return ExtensionSettings.answer(
+                api, args.first as? [String: Any] ?? [:],
+                identifier: context.uniqueIdentifier, spaceID: spaceID
+            )
         case "idle.queryState":
             return "active"
         case "idle.getAutoLockDelay":
@@ -802,4 +815,56 @@ enum ExtensionShimFiles {
         return path
     }
 
+}
+
+/// chrome.privacy's settings: what each extension set, per Space, kept across
+/// launches as Chrome keeps it. Ported from Search.
+///
+/// A get always answers a ChromeSetting, `{ value, levelOfControl }`, never
+/// nothing: Bitwarden's popup reads `levelOfControl` off the answer to
+/// `passwordSavingEnabled.get`, and threw on every open while it was missing.
+enum ExtensionSettings {
+    static func key(identifier: String, spaceID: UUID) -> String {
+        "chord.extensions.settings.\(spaceID).\(identifier)"
+    }
+
+    static func answer(
+        _ api: String, _ details: [String: Any], identifier: String, spaceID: UUID
+    ) -> Any? {
+        let parts = api.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return nil }
+        let name = parts[1]
+        let key = key(identifier: identifier, spaceID: spaceID)
+        var mine = UserDefaults.standard.dictionary(forKey: key) ?? [:]
+        switch parts[0] {
+        case "setting.set":
+            mine[name] = details["value"]
+        case "setting.clear":
+            mine[name] = nil
+        default:
+            let value = mine[name] ?? defaultValue(name)
+            return [
+                "value": value ?? NSNull(),
+                "levelOfControl": mine[name] != nil
+                    ? "controlled_by_this_extension" : "controllable_by_this_extension",
+            ]
+        }
+        if mine.isEmpty {
+            UserDefaults.standard.removeObject(forKey: key)
+        } else {
+            UserDefaults.standard.set(mine, forKey: key)
+        }
+        return nil
+    }
+
+    /// Chrome's own defaults, the privacy-preserving ones off.
+    private static func defaultValue(_ name: String) -> Any? {
+        switch name {
+        case "privacy.network.webRTCIPHandlingPolicy": return "default"
+        case "privacy.websites.doNotTrackEnabled", "privacy.websites.adMeasurementEnabled",
+             "privacy.websites.fledgeEnabled", "privacy.websites.topicsEnabled",
+             "privacy.services.safeBrowsingExtendedReportingEnabled": return false
+        default: return true
+        }
+    }
 }

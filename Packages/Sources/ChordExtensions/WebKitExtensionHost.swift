@@ -999,6 +999,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     public func forgetData(identifier: String, in spaces: [Space]) async {
         for space in spaces {
             loadedOnce.remove("\(space.id)|\(identifier)")
+            UserDefaults.standard.removeObject(
+                forKey: ExtensionSettings.key(identifier: identifier, spaceID: space.id)
+            )
             workersChanged(in: space.id)
             prepare(space)
             guard let controller = controllers[space.id] else { continue }

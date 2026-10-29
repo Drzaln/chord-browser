@@ -186,6 +186,65 @@ struct ExtensionShimBrokerTests {
         #expect(ExtensionShims.asksForNative(in: asked, context: askedContext))
     }
 
+    /// Bitwarden's popup reads `levelOfControl` off the answer to
+    /// `chrome.privacy.services.passwordSavingEnabled.get`, and threw on every
+    /// open while there was no answer at all.
+    @Test func privacySettingsAnswerAsChromeSettings() async throws {
+        WKWebExtension.MatchPattern.registerCustomURLScheme("chrome-extension")
+        let dir = FileManager.default.temporaryDirectory
+            .appending(path: "chord-privacy-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try """
+            { "manifest_version": 3, "name": "Privacy", "version": "1.0",
+              "optional_permissions": ["privacy"] }
+            """.write(to: dir.appending(path: "manifest.json"), atomically: true, encoding: .utf8)
+        let context = WKWebExtensionContext(for: try await WKWebExtension(resourceBaseURL: dir))
+        context.uniqueIdentifier = UUID().uuidString
+        let (space, other) = (UUID(), UUID())
+        defer {
+            for id in [space, other] {
+                UserDefaults.standard.removeObject(
+                    forKey: ExtensionSettings.key(identifier: context.uniqueIdentifier, spaceID: id)
+                )
+            }
+        }
+        let name = "privacy.services.passwordSavingEnabled"
+        func call(_ verb: String, _ details: [String: Any] = [:], in id: UUID) async throws -> Any? {
+            let reply = try await ExtensionShimBroker.answer(
+                ["api": "setting.\(verb):\(name)", "args": [details]],
+                context: context, spaceID: id
+            )
+            return (reply as? [String: Any])?["value"]
+        }
+
+        let fresh = try await call("get", in: space) as? [String: Any]
+        #expect(fresh?["value"] as? Bool == true)
+        #expect(fresh?["levelOfControl"] as? String == "controllable_by_this_extension")
+
+        _ = try await call("set", ["value": false], in: space)
+        let set = try await call("get", in: space) as? [String: Any]
+        #expect(set?["value"] as? Bool == false)
+        #expect(set?["levelOfControl"] as? String == "controlled_by_this_extension")
+        // Each Space keeps its own.
+        let elsewhere = try await call("get", in: other) as? [String: Any]
+        #expect(elsewhere?["value"] as? Bool == true)
+
+        _ = try await call("clear", in: space)
+        let cleared = try await call("get", in: space) as? [String: Any]
+        #expect(cleared?["levelOfControl"] as? String == "controllable_by_this_extension")
+    }
+
+    @Test func privacySettingsNeedTheirPermission() async throws {
+        let context = try await context()
+        let reply = try await ExtensionShimBroker.answer(
+            ["api": "setting.get:privacy.services.passwordSavingEnabled", "args": [[:]]],
+            context: context, spaceID: UUID()
+        )
+        let error = (reply as? [String: Any])?["error"] as? String
+        #expect(error?.contains("privacy") == true)
+    }
+
     @Test func offscreenRequiresAnExtensionPage() async throws {
         let context = try await context()
         let reply = try await ExtensionShimBroker.answer(
