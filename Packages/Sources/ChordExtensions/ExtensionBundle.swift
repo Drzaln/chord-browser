@@ -77,6 +77,13 @@ public enum ExtensionBundle {
     /// The name a person should see. Many store bundles carry
     /// `"__MSG_extName__"` and keep the real name in `_locales`; leaving the
     /// placeholder in the manager is worse than showing the slug.
+    /// Whether the manifest refuses private browsing (`"incognito":
+    /// "not_allowed"`), which Chrome honours whatever the user allowed. WebKit
+    /// doesn't read that key, so Chord does.
+    public static func refusesPrivate(at folder: URL) -> Bool {
+        ((try? manifest(at: folder))?["incognito"] as? String) == "not_allowed"
+    }
+
     public static func displayName(at folder: URL) -> String? {
         guard let manifest = try? manifest(at: folder) else { return nil }
         guard let raw = manifest["name"] as? String else { return nil }

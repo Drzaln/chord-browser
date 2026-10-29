@@ -685,7 +685,12 @@ Open **Settings** (`Cmd+,`) → **Extensions**:
    `youtube.com` for a YouTube tweaker). Click **Allow** — **without this the
    extension is loaded but inert**, because WebKit does not auto-grant host
    access. After you allow, open tabs reload so the extension takes effect.
-4. The **trash** button uninstalls an extension: it's unloaded from every Space
+4. **Private windows run no extensions until you allow them.** Tick **Allow in
+   private windows** under an extension (or flip its switch in a private
+   window's Settings) and it runs in every private window, without anything of
+   the window being kept. An extension whose manifest refuses private browsing
+   can't be allowed.
+5. The **trash** button uninstalls an extension: it's unloaded from every Space
    and deleted from the library, and what it stored (settings, vault cache,
    sign-in) is wiped, as in Chrome — reinstalling it starts clean.
 

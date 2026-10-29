@@ -411,7 +411,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         context.setPermissionStatus(.grantedExplicitly, for: .nativeMessaging)
         // DNR with host access, its own sign-in address, and the fence that
         // keeps other extensions' pages and files out of <all_urls>.
-        ExtensionGrants.applyAtLoad(to: context, identifier: installed.identifier)
+        ExtensionGrants.applyAtLoad(
+            to: context, identifier: installed.identifier, inPrivateSpace: space.isPrivate
+        )
 
         // Before load: WebKit can create the background synchronously inside
         // it, and the callback must already have somewhere to land.

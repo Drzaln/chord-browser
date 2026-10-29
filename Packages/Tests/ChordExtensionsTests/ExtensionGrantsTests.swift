@@ -17,14 +17,15 @@ struct ExtensionGrantsTests {
     }
 
     private func load(
-        _ manifest: String, identifier: String = "abcdefghijklmnopabcdefghijklmnop"
+        _ manifest: String, identifier: String = "abcdefghijklmnopabcdefghijklmnop",
+        inPrivateSpace: Bool = false
     ) async throws -> (WebKitExtensionHost, Space, WKWebExtensionContext, () -> Void) {
         let dir = FileManager.default.temporaryDirectory
             .appending(path: "ext-grants-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try manifest.write(to: dir.appending(path: "manifest.json"), atomically: true, encoding: .utf8)
         let host = WebKitExtensionHost()
-        let space = Space(name: "Work", sortIndex: 0)
+        let space = Space(name: "Work", sortIndex: 0, isPrivate: inPrivateSpace)
         let installed = InstalledExtension(slug: "grants", identifier: identifier, resourceURL: dir)
         try await host.load(installed, in: space)
         let context = try #require(host.context(forSlug: "grants", in: space))
@@ -98,5 +99,23 @@ struct ExtensionGrantsTests {
         #expect(ExtensionGrants.withheld(try pattern("file:///*")))
         #expect(!ExtensionGrants.withheld(try pattern("https://example.com/*")))
         #expect(!ExtensionGrants.withheld(try pattern("<all_urls>")))
+    }
+
+    @Test("In a private Space an extension sees private pages, unless its manifest refuses")
+    func privateDataAccess() async throws {
+        let plain = #"{ "manifest_version": 3, "name": "P", "version": "1" }"#
+        let refusing = #"{ "manifest_version": 3, "name": "R", "version": "1", "incognito": "not_allowed" }"#
+
+        let (_, _, regular, c1) = try await load(plain)
+        defer { c1() }
+        #expect(!regular.hasAccessToPrivateData)
+
+        let (_, _, inPrivate, c2) = try await load(plain, inPrivateSpace: true)
+        defer { c2() }
+        #expect(inPrivate.hasAccessToPrivateData)
+
+        let (_, _, refused, c3) = try await load(refusing, inPrivateSpace: true)
+        defer { c3() }
+        #expect(!refused.hasAccessToPrivateData)
     }
 }

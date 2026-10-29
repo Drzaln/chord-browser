@@ -75,7 +75,9 @@ private actor FakeEnablement: ExtensionEnablementRepository {
 struct ExtensionsServiceTests {
     /// A temp Extensions dir seeded with a dummy `.zip` per slug, so the real
     /// installer lists them. The fake host never reads the file.
-    private func makeService(installed slugs: [String])
+    /// `refusingPrivate` slugs get a prepared tree whose manifest says
+    /// `"incognito": "not_allowed"`.
+    private func makeService(installed slugs: [String], refusingPrivate: [String] = [])
         -> (ExtensionsService, FakeHost, FakeEnablement, cleanup: () -> Void)
     {
         let dir = FileManager.default.temporaryDirectory.appending(path: "extsvc-\(UUID().uuidString)")
@@ -83,11 +85,19 @@ struct ExtensionsServiceTests {
         for slug in slugs {
             try? Data([0x50, 0x4B, 0x03, 0x04]).write(to: dir.appending(path: "\(slug).zip"))
         }
+        for slug in refusingPrivate {
+            let prepared = dir.appending(path: "\(slug).prepared")
+            try? FileManager.default.createDirectory(at: prepared, withIntermediateDirectories: true)
+            try? #"{ "manifest_version": 3, "name": "No", "version": "1", "incognito": "not_allowed" }"#
+                .write(to: prepared.appending(path: "manifest.json"), atomically: true, encoding: .utf8)
+            try? ExtensionShims.stampValue(workerGeneration: 0)
+                .write(to: prepared.appending(path: ExtensionShims.stamp), atomically: true, encoding: .utf8)
+        }
         let host = FakeHost()
         let enablement = FakeEnablement()
         let service = ExtensionsService(
             installer: ExtensionInstaller(extensionsDirectory: dir),
-            host: host, enablement: enablement
+            host: host, enablement: enablement, preferences: InMemoryPreferenceStore()
         )
         return (service, host, enablement, { try? FileManager.default.removeItem(at: dir) })
     }
@@ -249,5 +259,73 @@ struct ExtensionsServiceTests {
         await service.ensureLoaded(space: b)
 
         #expect(host.loaded.count == 1)
+    }
+
+    // MARK: - Private windows (Option A: off until allowed, per extension)
+
+    private func privateSpace() -> Space { Space(name: "Private", sortIndex: 9, isPrivate: true) }
+
+    @Test func aPrivateSpaceRunsNoExtensionByDefault() async throws {
+        let (service, host, enablement, cleanup) = makeService(installed: ["ublock"])
+        defer { cleanup() }
+        try await enablement.setEnabled(true, slug: "ublock", spaceID: space().id)
+
+        await service.ensureLoaded(space: privateSpace())
+
+        #expect(host.loaded.isEmpty)
+    }
+
+    @Test func aPrivateSpaceRunsWhatWasAllowed() async throws {
+        let (service, host, _, cleanup) = makeService(installed: ["ublock", "dark"])
+        defer { cleanup() }
+        let p = privateSpace()
+        await service.setAllowedInPrivate(true, slug: "ublock", spaces: [])
+
+        await service.ensureLoaded(space: p)
+
+        #expect(host.loaded.map(\.slug) == ["ublock"])
+        #expect(host.loaded.first?.space == p.id)
+    }
+
+    @Test func allowingLoadsIntoOpenPrivateSpacesAndDisallowingUnloads() async throws {
+        let (service, host, _, cleanup) = makeService(installed: ["ublock"])
+        defer { cleanup() }
+        let p = privateSpace(), regular = space()
+        await service.ensureLoaded(space: p)
+
+        await service.setAllowedInPrivate(true, slug: "ublock", spaces: [regular, p])
+        #expect(host.loaded.map(\.space) == [p.id], "only the private Space")
+
+        await service.setAllowedInPrivate(false, slug: "ublock", spaces: [regular, p])
+        #expect(host.unloaded.map(\.space) == [p.id])
+        #expect(!service.isAllowedInPrivate(slug: "ublock"))
+    }
+
+    @Test func enablingInAPrivateWindowAllowsItAndKeepsNoRecord() async throws {
+        let (service, host, enablement, cleanup) = makeService(installed: ["ublock"])
+        defer { cleanup() }
+        let p = privateSpace()
+        await service.ensureLoaded(space: p)
+
+        try await service.enable(slug: "ublock", in: p)
+        #expect(service.isAllowedInPrivate(slug: "ublock"))
+        #expect(host.loaded.map(\.space) == [p.id])
+        #expect(try await enablement.allEnabled().isEmpty, "a private Space leaves nothing behind")
+
+        try await service.disable(slug: "ublock", in: p)
+        #expect(!service.isAllowedInPrivate(slug: "ublock"))
+    }
+
+    @Test func aManifestThatRefusesPrivateNeverLoadsThere() async throws {
+        let (service, host, _, cleanup) = makeService(installed: ["nope"], refusingPrivate: ["nope"])
+        defer { cleanup() }
+        let p = privateSpace()
+        await service.setAllowedInPrivate(true, slug: "nope", spaces: [])
+
+        await service.ensureLoaded(space: p)
+        #expect(host.loaded.isEmpty)
+        await #expect(throws: ExtensionsServiceError.self) {
+            try await service.enable(slug: "nope", in: p)
+        }
     }
 }

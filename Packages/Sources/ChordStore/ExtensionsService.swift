@@ -5,9 +5,11 @@ import Foundation
 
 public enum ExtensionsServiceError: Error, CustomStringConvertible {
     case notInstalled(String)
+    case refusesPrivate(String)
     public var description: String {
         switch self {
         case .notInstalled(let slug): "no installed extension with slug \(slug)"
+        case .refusesPrivate(let slug): "\(slug) does not run in private windows"
         }
     }
 }
@@ -32,14 +34,60 @@ public final class ExtensionsService {
     /// WebKit-free: a plain human-readable line.
     public var onStoreUpdate: (@MainActor (String) -> Void)?
 
+    /// Where "allowed in private windows" is kept, per extension.
+    private let preferences: any PreferenceStore
+
     public init(
         installer: ExtensionInstaller,
         host: any ExtensionHost,
-        enablement: any ExtensionEnablementRepository
+        enablement: any ExtensionEnablementRepository,
+        preferences: any PreferenceStore = UserDefaults.standard
     ) {
         self.installer = installer
         self.host = host
         self.enablement = enablement
+        self.preferences = preferences
+    }
+
+    // MARK: - Private windows
+
+    private static func privateKey(_ slug: String) -> String {
+        "extensions.private.\(slug)"
+    }
+
+    /// Whether the user let this extension into private windows. Off until they
+    /// do, as in Chrome. A private Space has no enablement records of its own
+    /// (it is gone when its window closes), so this is what it runs.
+    public func isAllowedInPrivate(slug: String) -> Bool {
+        preferences.object(forKey: Self.privateKey(slug)) as? Bool ?? false
+    }
+
+    /// Whether the extension's manifest keeps it out of private windows
+    /// (`"incognito": "not_allowed"`), whatever the user allowed.
+    public func refusesPrivate(_ installed: InstalledExtension) -> Bool {
+        ExtensionBundle.refusesPrivate(at: installed.resourceURL)
+    }
+
+    /// Lets the extension into private windows, or takes it out, including the
+    /// private Spaces open right now.
+    public func setAllowedInPrivate(_ allowed: Bool, slug: String, spaces: [Space]) async {
+        preferences.set(allowed, forKey: Self.privateKey(slug))
+        for space in spaces where space.isPrivate && loadedSpaces.contains(space.id) {
+            let isLoaded = host.loadedExtensions(in: space).contains { $0.slug == slug }
+            if allowed, !isLoaded {
+                await loadIntoPrivate(slug: slug, space: space)
+            } else if !allowed, isLoaded {
+                try? host.unload(slug: slug, in: space)
+            }
+        }
+    }
+
+    private func loadIntoPrivate(slug: String, space: Space) async {
+        guard let found = try? installer.installedExtensions().first(where: { $0.slug == slug }),
+            !refusesPrivate(found)
+        else { return }
+        let installed = installer.prepareIfNeeded(found)
+        _ = try? await host.load(installed, in: space)
     }
 
     public func installedExtensions() throws -> [InstalledExtension] {
@@ -80,6 +128,16 @@ public final class ExtensionsService {
     /// only after the load succeeds, so a bundle that fails to load is not left
     /// marked on.
     public func enable(slug: String, in space: Space) async throws {
+        // A private Space keeps no records: enabling there is allowing the
+        // extension into private windows.
+        if space.isPrivate {
+            guard let found = try installer.installedExtensions().first(where: { $0.slug == slug })
+            else { throw ExtensionsServiceError.notInstalled(slug) }
+            guard !refusesPrivate(found) else { throw ExtensionsServiceError.refusesPrivate(slug) }
+            await setAllowedInPrivate(true, slug: slug, spaces: [space])
+            if !loadedSpaces.contains(space.id) { await loadIntoPrivate(slug: slug, space: space) }
+            return
+        }
         guard let found = try installer.installedExtensions().first(where: { $0.slug == slug })
         else { throw ExtensionsServiceError.notInstalled(slug) }
         let installed = installer.prepareIfNeeded(found)
@@ -93,6 +151,11 @@ public final class ExtensionsService {
     }
 
     public func disable(slug: String, in space: Space) async throws {
+        if space.isPrivate {
+            preferences.set(false, forKey: Self.privateKey(slug))
+            try host.unload(slug: slug, in: space)
+            return
+        }
         try host.unload(slug: slug, in: space)
         try await enablement.setEnabled(false, slug: slug, spaceID: space.id)
     }
@@ -114,6 +177,7 @@ public final class ExtensionsService {
             await host.forgetData(identifier: identifier, in: spaces.filter { !$0.isPrivate })
         }
         try installer.remove(slug: slug)
+        preferences.set(nil, forKey: Self.privateKey(slug))
     }
 
     /// Ask the Chrome Web Store whether any installed store extension has a
@@ -208,7 +272,11 @@ public final class ExtensionsService {
         guard loadedSpaces.insert(space.id).inserted else { return }
         let slugs: [String]
         do {
-            slugs = try await enablement.enabledSlugs(spaceID: space.id)
+            slugs = space.isPrivate
+                ? ((try? installer.installedExtensions()) ?? [])
+                    .filter { isAllowedInPrivate(slug: $0.slug) && !refusesPrivate($0) }
+                    .map(\.slug)
+                : try await enablement.enabledSlugs(spaceID: space.id)
         } catch {
             log.error("could not read enabled extensions: \(String(describing: error))")
             loadedSpaces.remove(space.id)

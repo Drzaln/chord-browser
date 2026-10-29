@@ -11,7 +11,9 @@ enum ExtensionGrants {
     private static let extensionSchemes = ["chrome-extension", "webkit-extension"]
 
     /// Load-time grants, after the declared permissions.
-    static func applyAtLoad(to context: WKWebExtensionContext, identifier: String) {
+    static func applyAtLoad(
+        to context: WKWebExtensionContext, identifier: String, inPrivateSpace: Bool
+    ) {
         let requested = context.webExtension.requestedPermissions
         // Chrome lets "declarativeNetRequest" redirect or change headers on
         // the sites the extension has access to. WebKit does that only with
@@ -39,6 +41,11 @@ enum ExtensionGrants {
             context.setPermissionStatus(.grantedExplicitly, for: own)
         }
         fence(context)
+        // A private Space's pages are private data. The user let the extension
+        // in (it is only loaded there if they did), unless its manifest
+        // refuses, which Chrome honours and WebKit doesn't read.
+        context.hasAccessToPrivateData = inPrivateSpace
+            && (context.webExtension.manifest["incognito"] as? String) != "not_allowed"
     }
 
     /// Extension pages (another extension's, or every one's) and files on this

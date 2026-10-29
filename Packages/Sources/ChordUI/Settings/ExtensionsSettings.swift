@@ -15,6 +15,8 @@ struct ExtensionsSettings: View {
 
     @State private var installed: [InstalledExtension] = []
     @State private var enabledSlugs: Set<String> = []
+    /// Extensions the user let into private windows.
+    @State private var privateSlugs: Set<String> = []
     @State private var importing = false
     @State private var busySlug: String?
     @State private var busyStore = false
@@ -76,7 +78,9 @@ struct ExtensionsSettings: View {
 
             Text(
                 store.activeSpace(in: windowState).map {
-                    "Enabling loads the extension into “\($0.name)”. Each Space enables extensions independently."
+                    $0.isPrivate
+                        ? "In a private window, the switch lets an extension into private windows. Extensions stay out of them until you do."
+                        : "Enabling loads the extension into “\($0.name)”. Each Space enables extensions independently."
                 } ?? "Open a Space to enable extensions."
             )
             .font(.system(size: 11))
@@ -133,6 +137,8 @@ struct ExtensionsSettings: View {
     private func row(for ext: InstalledExtension) -> some View {
         let isEnabled = enabledSlugs.contains(ext.slug)
         let untrusted = !ext.signatureStatus.isTrusted
+        let inPrivateWindow = store.activeSpace(in: windowState)?.isPrivate == true
+        let refusesPrivate = extensions?.refusesPrivate(ext) ?? false
         HStack(spacing: 10) {
             Image(systemName: "puzzlepiece.extension.fill")
                 .foregroundStyle(.secondary)
@@ -145,6 +151,17 @@ struct ExtensionsSettings: View {
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                }
+                if !inPrivateWindow {
+                    Toggle("Allow in private windows", isOn: Binding(
+                        get: { privateSlugs.contains(ext.slug) },
+                        set: { setAllowedInPrivate($0, slug: ext.slug) }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 10))
+                    .controlSize(.mini)
+                    .disabled(refusesPrivate)
+                    .help(refusesPrivate ? "This extension doesn't run in private windows." : "")
                 }
             }
             .help(ext.identifier)
@@ -165,7 +182,12 @@ struct ExtensionsSettings: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.mini)
-                .disabled(store.activeSpace(in: windowState) == nil)
+                .disabled(
+                    store.activeSpace(in: windowState) == nil
+                        || (inPrivateWindow && refusesPrivate)
+                )
+                .help(inPrivateWindow && refusesPrivate
+                    ? "This extension doesn't run in private windows." : "")
 
                 Button(role: .destructive) {
                     remove(slug: ext.slug)
@@ -213,6 +235,7 @@ struct ExtensionsSettings: View {
     private func refresh() {
         guard let extensions else { return }
         installed = (try? extensions.installedExtensions()) ?? []
+        privateSlugs = Set(installed.map(\.slug).filter { extensions.isAllowedInPrivate(slug: $0) })
         if let space = store.activeSpace(in: windowState) {
             enabledSlugs = Set(extensions.enabledExtensions(in: space).map(\.slug))
         } else {
@@ -285,6 +308,14 @@ struct ExtensionsSettings: View {
                 errorMessage = "Could not \(enabled ? "enable" : "disable"): \(error.localizedDescription)"
             }
             busySlug = nil
+            refresh()
+        }
+    }
+
+    private func setAllowedInPrivate(_ allowed: Bool, slug: String) {
+        guard let extensions else { return }
+        Task {
+            await extensions.setAllowedInPrivate(allowed, slug: slug, spaces: store.spaces)
             refresh()
         }
     }
