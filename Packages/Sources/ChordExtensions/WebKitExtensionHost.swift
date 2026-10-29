@@ -297,6 +297,29 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
 
     // MARK: - Loading (7.3)
 
+    /// Re-prepares the shim with the worker generation this load starts at, so
+    /// the new worker doesn't believe it is generation 0 while recovery says
+    /// otherwise. A no-op when the stamp already matches. Off the main actor:
+    /// a large bundle (Grammarly) takes ~450 ms to rewrite. Best-effort, as in
+    /// Search: a failure leaves the old shim, which still works.
+    ///
+    /// The prepared folder is shared by every Space but generations are per
+    /// Space, so the last load wins the stamp. That is safe: the shim takes the
+    /// max of its stamped generation and each one recovery reports back.
+    private func restampShim(of installed: InstalledExtension, in space: Space) async {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(
+            atPath: installed.resourceURL.path, isDirectory: &isDirectory
+        ), isDirectory.boolValue else { return }
+        let generation = workerRecovery.generation(
+            for: ExtensionWorkerRecovery.Key(spaceID: space.id, slug: installed.slug)
+        )
+        let folder = installed.resourceURL
+        try? await Task.detached(priority: .userInitiated) {
+            try ExtensionShims.prepare(folder, workerGeneration: generation)
+        }.value
+    }
+
     @discardableResult
     public func load(_ installed: InstalledExtension, in space: Space) async throws
         -> LoadedExtension
@@ -327,6 +350,8 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             workerRecovery.unregister(key)
             workersChanged(in: space.id)
         }
+
+        await restampShim(of: installed, in: space)
 
         let webExtension: WKWebExtension
         do {

@@ -26,10 +26,30 @@ public enum ExtensionShims {
     /// only from Chrome 149).
     public static let chromeVersion = "156.0.0.0"
 
+    /// What the stamp sidecar holds for a tree prepared with this shim at this
+    /// worker generation. The generation is in it so a revive or reload, which
+    /// bumps the generation, rewrites the shim instead of finding it current.
+    public static func stampValue(workerGeneration: Int) -> String {
+        "\(version)-worker-\(workerGeneration)"
+    }
+
+    /// Whether a tree's stamp is from this shim version, at any generation. A
+    /// generation change only rewrites the shim (`prepare`); it is not a reason
+    /// to re-unpack the bundle from its ZIP.
+    public static func isCurrent(stamp: String?) -> Bool {
+        stamp?.hasPrefix(version + "-worker-") == true
+    }
+
     /// Write the shim into `folder` and wire it into the extension's worker,
     /// content scripts and HTML pages. `fresh` removes only Chord's own
     /// sidecars; a package's copy of those names is never trusted.
-    public static func prepare(_ folder: URL, fresh: Bool = false) throws {
+    ///
+    /// `workerGeneration` is stamped into the shim, which the worker reads to
+    /// tell a fresh background from a restarted one (worker recovery). Ports
+    /// from Search, which re-prepares before every load.
+    public static func prepare(
+        _ folder: URL, fresh: Bool = false, workerGeneration: Int = 0
+    ) throws {
         let fm = FileManager.default
         if fresh {
             for name in [stamp, added] {
@@ -37,7 +57,8 @@ public enum ExtensionShims {
             }
         }
         let stampURL = folder.appendingPathComponent(stamp)
-        if (try? String(contentsOf: stampURL, encoding: .utf8)) == version { return }
+        let stampValue = stampValue(workerGeneration: workerGeneration)
+        if (try? String(contentsOf: stampURL, encoding: .utf8)) == stampValue { return }
 
         let manifestURL = folder.appendingPathComponent("manifest.json")
         guard var manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: manifestURL))
@@ -49,7 +70,9 @@ public enum ExtensionShims {
             .replacingOccurrences(of: "__SEARCH_SCRIPTS__", with: scriptList(in: folder))
             .replacingOccurrences(of: "__SEARCH_CHROME__", with: chromeVersion)
             .replacingOccurrences(of: "__SEARCH_VERBOSE__", with: "false")
-            .replacingOccurrences(of: "__SEARCH_WORKER_GENERATION__", with: "0")
+            .replacingOccurrences(
+                of: "__SEARCH_WORKER_GENERATION__", with: String(workerGeneration)
+            )
         try preparedScript.write(
             to: folder.appendingPathComponent(file), atomically: true, encoding: .utf8
         )
@@ -144,7 +167,7 @@ public enum ExtensionShims {
         ) {
             try? data.write(to: folder.appendingPathComponent(added), options: .atomic)
         }
-        try version.write(to: stampURL, atomically: true, encoding: .utf8)
+        try stampValue.write(to: stampURL, atomically: true, encoding: .utf8)
     }
 
     /// Whether the extension's own manifest asks for native messaging. The

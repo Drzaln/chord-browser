@@ -119,6 +119,26 @@ struct ExtensionLoadingTests {
         #expect(host.loadedExtensions(in: staying).map(\.slug) == ["test-mv3"])
     }
 
+    @Test func aReloadRestampsTheShimWithTheNewWorkerGeneration() async throws {
+        let host = WebKitExtensionHost()
+        let (installed, cleanup) = try installedExtension(slug: "gen", manifest: Self.mv3)
+        defer { cleanup() }
+        let s = space()
+        let shim = installed.resourceURL.appending(path: ExtensionShims.file)
+        let key = ExtensionWorkerRecovery.Key(spaceID: s.id, slug: "gen")
+
+        try await host.load(installed, in: s)
+        let first = host.workerRecovery.generation(for: key)
+        #expect(try String(contentsOf: shim, encoding: .utf8).contains("Number(\"\(first)\")"))
+
+        // A reload retires the old worker, which bumps its generation; the
+        // new worker has to start out knowing that.
+        try await host.load(installed, in: s)
+        let second = host.workerRecovery.generation(for: key)
+        #expect(second > first)
+        #expect(try String(contentsOf: shim, encoding: .utf8).contains("Number(\"\(second)\")"))
+    }
+
     @Test func rejectsAnMV2Extension() async throws {
         let host = WebKitExtensionHost()
         let (installed, cleanup) = try installedExtension(slug: "test-mv2", manifest: Self.mv2)

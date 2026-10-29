@@ -182,12 +182,61 @@ struct ExtensionPreparedBundleTests {
         #expect(try String(
             contentsOf: refreshed.resourceURL.appending(path: ExtensionShims.stamp),
             encoding: .utf8
-        ) == ExtensionShims.version)
+        ) == ExtensionShims.stampValue(workerGeneration: 0))
         let background = try String(
             contentsOf: refreshed.resourceURL.appending(path: "bg.js"), encoding: .utf8
         )
         #expect(!background.contains("globalThis.stale"))
         #expect(background.contains(ExtensionShims.marker))
+    }
+
+    @Test func theWorkerGenerationIsStampedIntoTheShim() throws {
+        let folder = try makeSource(files: [
+            "manifest.json": Self.manifest,
+            "bg.js": "self.addEventListener('install', () => {});\n",
+            "popup.html": "<html><head></head><body>popup</body></html>",
+        ])
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let shimURL = folder.appending(path: ExtensionShims.file)
+        let stampURL = folder.appending(path: ExtensionShims.stamp)
+
+        try ExtensionShims.prepare(folder, fresh: true, workerGeneration: 2)
+        #expect(try String(contentsOf: shimURL, encoding: .utf8).contains(#"Number("2")"#))
+        #expect(try String(contentsOf: stampURL, encoding: .utf8)
+            == ExtensionShims.stampValue(workerGeneration: 2))
+
+        // Same generation: nothing to do, so a marker left in the shim stays.
+        try "// untouched".write(to: shimURL, atomically: true, encoding: .utf8)
+        try ExtensionShims.prepare(folder, workerGeneration: 2)
+        #expect(try String(contentsOf: shimURL, encoding: .utf8) == "// untouched")
+
+        // A revive bumped it: the shim is rewritten, and the worker still
+        // imports it exactly once.
+        try ExtensionShims.prepare(folder, workerGeneration: 3)
+        #expect(try String(contentsOf: shimURL, encoding: .utf8).contains(#"Number("3")"#))
+        let worker = try String(contentsOf: folder.appending(path: "bg.js"), encoding: .utf8)
+        #expect(worker.components(separatedBy: ExtensionShims.marker).count == 2)
+    }
+
+    @Test func aGenerationChangeDoesNotReunpackTheBundle() throws {
+        let source = try makeSource(files: [
+            "manifest.json": Self.manifest,
+            "bg.js": "self.addEventListener('install', () => {});\n",
+            "popup.html": "<html><head></head><body>popup</body></html>",
+        ])
+        defer { try? FileManager.default.removeItem(at: source) }
+        let zipURL = try zip(source)
+        defer { try? FileManager.default.removeItem(at: zipURL) }
+        let (installer, root) = makeInstaller()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let installed = try installer.install(from: zipURL)
+        try ExtensionShims.prepare(installed.resourceURL, workerGeneration: 4)
+        let sentinel = installed.resourceURL.appending(path: "sentinel")
+        try "here".write(to: sentinel, atomically: true, encoding: .utf8)
+
+        _ = installer.prepareIfNeeded(installed)
+
+        #expect(FileManager.default.fileExists(atPath: sentinel.path))
     }
 
     @Test func reinstallReplacesThePreparedTree() throws {

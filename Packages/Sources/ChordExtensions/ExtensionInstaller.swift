@@ -223,7 +223,7 @@ public struct ExtensionInstaller: Sendable {
                 contentsOf: installed.resourceURL.appending(path: ExtensionShims.stamp),
                 encoding: .utf8
             )
-            if stamp == ExtensionShims.version { return installed }
+            if ExtensionShims.isCurrent(stamp: stamp) { return installed }
         }
         let zipURL = resourceURL(forSlug: installed.slug)
         guard let data = try? Data(contentsOf: zipURL) else { return installed }
