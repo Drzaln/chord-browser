@@ -255,6 +255,8 @@ struct ExtensionsSettings: View {
                     try await extensions.enable(slug: installed.slug, in: space)
                 }
                 refresh()
+            } catch ExtensionsServiceError.declined {
+                // Cancelled in the install question.
             } catch {
                 errorMessage = "Could not add from the store: \(error.localizedDescription)"
             }
@@ -269,26 +271,30 @@ struct ExtensionsSettings: View {
             errorMessage = error.localizedDescription
         case .success(let urls):
             guard let url = urls.first else { return }
-            // A file chosen from outside the app is security-scoped; the
-            // installer copies it into the library, so access only needs to
-            // span that copy.
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            do {
-                let installed = try extensions.install(from: url)
-                errorMessage = nil
-                if installed.signatureStatus.isTrusted {
-                    warningMessage = nil
-                } else {
-                    // Warn-but-install: the bundle is in, but its unverified
-                    // provenance is surfaced immediately, not hidden in a row.
-                    warningMessage =
-                        "“\(installed.slug)” is \(Self.warningText(for: installed.signatureStatus))."
-                    + " Install only if you trust the source."
+            Task {
+                // A file chosen from outside the app is security-scoped; the
+                // installer reads it into staging first thing, but the install
+                // question comes in between, so access spans the whole call.
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                do {
+                    let installed = try await extensions.install(from: url)
+                    errorMessage = nil
+                    if installed.signatureStatus.isTrusted {
+                        warningMessage = nil
+                    } else {
+                        // Warn-but-install: the bundle is in, but its unverified
+                        // provenance is surfaced immediately, not hidden in a row.
+                        warningMessage =
+                            "“\(installed.slug)” is \(Self.warningText(for: installed.signatureStatus))."
+                        + " Install only if you trust the source."
+                    }
+                    refresh()
+                } catch ExtensionsServiceError.declined {
+                    // Cancelled in the install question: nothing to report.
+                } catch {
+                    errorMessage = "Could not install: \(error.localizedDescription)"
                 }
-                refresh()
-            } catch {
-                errorMessage = "Could not install: \(error.localizedDescription)"
             }
         }
     }

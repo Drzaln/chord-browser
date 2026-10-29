@@ -418,7 +418,8 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // DNR with host access, its own sign-in address, and the fence that
         // keeps other extensions' pages and files out of <all_urls>.
         ExtensionGrants.applyAtLoad(
-            to: context, identifier: installed.identifier, inPrivateSpace: space.isPrivate
+            to: context, identifier: installed.identifier, inPrivateSpace: space.isPrivate,
+            consented: installed.consentedGrants != nil
         )
 
         // Before load: WebKit can create the background synchronously inside

@@ -6,8 +6,12 @@ import Foundation
 public enum ExtensionsServiceError: Error, CustomStringConvertible {
     case notInstalled(String)
     case refusesPrivate(String)
+    /// The user said no to the install question. Nothing was installed, and
+    /// nothing needs saying.
+    case declined(String)
     public var description: String {
         switch self {
+        case .declined(let name): "\(name) was not added"
         case .notInstalled(let slug): "no installed extension with slug \(slug)"
         case .refusesPrivate(let slug): "\(slug) does not run in private windows"
         }
@@ -104,9 +108,33 @@ public final class ExtensionsService {
         host.actions(in: space)
     }
 
+    /// Asks what an install (or an update that wants more) may do, before
+    /// anything of it is in the library. The app shows a sheet on the browser
+    /// window (`ExtensionConsent.ask`); tests answer directly. Nil installs
+    /// without asking and records no consent, so such an install still asks
+    /// for site access when it is enabled.
+    public var askToInstall: (@MainActor (ExtensionConsentQuestion) async -> Bool)?
+
     @discardableResult
-    public func install(from url: URL) throws -> InstalledExtension {
-        try installer.install(from: url)
+    public func install(from url: URL) async throws -> InstalledExtension {
+        try await admit(installer.stage(
+            data: Data(contentsOf: url), sourceName: url.lastPathComponent, sourceURL: url
+        ))
+    }
+
+    /// Asks, then commits or discards a staged bundle. What it asks for is
+    /// written down as consented, so later updates can be compared to it and
+    /// its sites granted at load (the consent covers them).
+    private func admit(_ staged: ExtensionInstaller.Staged) async throws -> InstalledExtension {
+        guard let askToInstall else { return try installer.commit(staged, consented: nil) }
+        let name = staged.displayName ?? staged.slug
+        let grants = await ExtensionConsent.grants(of: staged.resourceURL)
+        let question = await ExtensionConsent.question(for: staged.resourceURL, name: name)
+        guard await askToInstall(question) else {
+            installer.discard(staged)
+            throw ExtensionsServiceError.declined(name)
+        }
+        return try installer.commit(staged, consented: grants)
     }
 
     /// Download a Chrome Web Store extension, verify its CRX3 signature, and
@@ -115,9 +143,9 @@ public final class ExtensionsService {
     @discardableResult
     public func installFromStore(id: String) async throws -> InstalledExtension {
         let data = try await Crx.fetch(id)
-        let installed = try installer.install(
+        let installed = try await admit(installer.stage(
             data: data, sourceName: "\(id).crx", fromStore: true
-        )
+        ))
         log.notice(
             "installed store extension \(installed.slug) as \(installed.identifier)"
         )
@@ -143,11 +171,14 @@ public final class ExtensionsService {
         let installed = installer.prepareIfNeeded(found)
         try await host.load(installed, in: space)
         try await enablement.setEnabled(true, slug: slug, spaceID: space.id)
-        // A freshly enabled extension has no host access yet — WebKit does not
-        // prompt for a required `host_permissions` extension — so it would sit
-        // inert. Prompt now (user-initiated enable only; restore re-applies
-        // persisted grants without a prompt).
-        host.promptForHostAccess(slug: slug, in: space)
+        // Agreed to at install, its sites were granted as it loaded. One
+        // installed before install consent has no host access yet (WebKit
+        // doesn't prompt for a required `host_permissions` extension), so it
+        // would sit inert: ask now, user-initiated enable only; restore
+        // re-applies persisted grants without a prompt.
+        if installed.consentedGrants == nil {
+            host.promptForHostAccess(slug: slug, in: space)
+        }
     }
 
     public func disable(slug: String, in space: Space) async throws {
@@ -195,9 +226,13 @@ public final class ExtensionsService {
             else { continue }
             do {
                 let data = try await Crx.fetch(item.identifier)
-                let updated = try installer.install(
+                let staged = try installer.stage(
                     data: data, sourceName: "\(item.identifier).crx", fromStore: true
                 )
+                guard let updated = try await admitUpdate(staged, replacing: item) else {
+                    log.notice("kept \(item.slug) at \(current): the update wants more access")
+                    continue
+                }
                 for space in spaces
                 where host.loadedExtensions(in: space).contains(where: {
                     $0.slug == item.slug
@@ -220,6 +255,35 @@ public final class ExtensionsService {
                 )
             }
         }
+    }
+
+    /// An update asks again only when it wants more than was agreed to; told
+    /// no, the old version stays (nil). An install from before install consent
+    /// is compared with what its current version asks for, and stays without a
+    /// consent record unless the user is asked now.
+    func admitUpdate(
+        _ staged: ExtensionInstaller.Staged, replacing item: InstalledExtension
+    ) async throws -> InstalledExtension? {
+        guard let askToInstall else { return try installer.commit(staged, consented: item.consentedGrants) }
+        let grants = await ExtensionConsent.grants(of: staged.resourceURL)
+        let agreed: [String]
+        if let consented = item.consentedGrants {
+            agreed = consented
+        } else {
+            agreed = await ExtensionConsent.grants(of: item.resourceURL)
+        }
+        guard !Set(grants).isSubset(of: agreed) else {
+            return try installer.commit(staged, consented: item.consentedGrants == nil ? nil : grants)
+        }
+        let question = await ExtensionConsent.question(
+            for: staged.resourceURL, name: staged.displayName ?? item.displayName ?? item.slug,
+            updating: true
+        )
+        guard await askToInstall(question) else {
+            installer.discard(staged)
+            return nil
+        }
+        return try installer.commit(staged, consented: grants)
     }
 
     private func newerVersion(for id: String) async -> String? {

@@ -3,17 +3,21 @@ import WebKit
 
 /// What a context is given as it loads, beyond its declared API permissions,
 /// and what it is never given. Ported from Search's `Extensions.load`,
-/// `fence` and `withheld`, minus `grantSites`: Search's install dialog is the
-/// consent for an extension's sites, and Chord asks for host access instead
-/// (BROWSER_SPEC 7.5c) until install consent (1mm.6.5) exists.
+/// `fence`, `withheld` and `grantSites`. Sites are granted only to an
+/// extension the user agreed to at install (the question named them); one
+/// installed before install consent still asks for host access on enable.
 @MainActor
 enum ExtensionGrants {
     private static let extensionSchemes = ["chrome-extension", "webkit-extension"]
 
     /// Load-time grants, after the declared permissions.
     static func applyAtLoad(
-        to context: WKWebExtensionContext, identifier: String, inPrivateSpace: Bool
+        to context: WKWebExtensionContext, identifier: String, inPrivateSpace: Bool,
+        consented: Bool
     ) {
+        // The install question named its sites, so the yes covers them, as
+        // in Chrome. Optional ones are still asked for when it asks.
+        if consented { grantSites(context) }
         let requested = context.webExtension.requestedPermissions
         // Chrome lets "declarativeNetRequest" redirect or change headers on
         // the sites the extension has access to. WebKit does that only with
@@ -56,6 +60,23 @@ enum ExtensionGrants {
     static func withheld(_ pattern: WKWebExtension.MatchPattern) -> Bool {
         guard let scheme = pattern.scheme?.lowercased() else { return false }
         return extensionSchemes.contains(scheme) || scheme == "file"
+    }
+
+    /// The sites its manifest names, never ones that reach extension pages or
+    /// files (`fence` runs after). WebKit copies injected scripts per granted
+    /// pattern, so a pattern a broader one already covers (same scheme and
+    /// path) isn't granted again.
+    static func grantSites(_ context: WKWebExtensionContext) {
+        let patterns = context.webExtension.allRequestedMatchPatterns.filter { !withheld($0) }
+        for pattern in patterns {
+            let covered = patterns.contains { other in
+                other.string != pattern.string && other.scheme == pattern.scheme
+                    && other.path == pattern.path && other.matches(pattern)
+                    && (!pattern.matches(other) || other.string < pattern.string)
+            }
+            guard !covered else { continue }
+            context.setPermissionStatus(.grantedExplicitly, for: pattern)
+        }
     }
 
     /// Refuses extension pages and files outright. With chrome-extension

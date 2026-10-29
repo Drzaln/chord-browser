@@ -214,6 +214,8 @@ public struct AppEnvironment {
                 await extensionsService.updateStoreExtensions(in: store.spaces)
             }
         }
+        // Every install path asks first, as a sheet on the browser window.
+        extensionsService.askToInstall = { await ExtensionConsent.ask($0) }
         // The rest load the first time a window shows their Space.
         store.onSpaceActivated = { space in
             await extensionsService.ensureLoaded(space: space)

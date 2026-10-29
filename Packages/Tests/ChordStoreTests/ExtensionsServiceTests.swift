@@ -343,4 +343,115 @@ struct ExtensionsServiceTests {
 
         #expect(host.calls == ["leftover", "load:ublock"])
     }
+
+    // MARK: - Install consent (1mm.6.5)
+
+    /// A real ZIP of a manifest, as a file, for `install(from:)`.
+    private func bundle(_ manifest: String) throws -> URL {
+        let src = FileManager.default.temporaryDirectory.appending(path: "svc-src-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: src, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: src) }
+        try manifest.write(to: src.appending(path: "manifest.json"), atomically: true, encoding: .utf8)
+        let out = FileManager.default.temporaryDirectory.appending(path: "tidy-\(UUID().uuidString).zip")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        process.arguments = ["-q", "-r", out.path, "."]
+        process.currentDirectoryURL = src
+        try process.run()
+        process.waitUntilExit()
+        return out
+    }
+
+    private static let tidy = """
+        { "manifest_version": 3, "name": "Tidy", "version": "1.0",
+          "permissions": ["storage"], "host_permissions": ["https://example.com/*"] }
+        """
+    private static let tidyWantsMore = """
+        { "manifest_version": 3, "name": "Tidy", "version": "2.0",
+          "permissions": ["storage", "tabs"], "host_permissions": ["https://example.com/*"] }
+        """
+
+    @Test func installAsksFirstAndRecordsWhatWasAgreed() async throws {
+        let (service, _, _, cleanup) = makeService(installed: [])
+        defer { cleanup() }
+        let file = try bundle(Self.tidy)
+        defer { try? FileManager.default.removeItem(at: file) }
+        var asked: [ExtensionConsentQuestion] = []
+        service.askToInstall = { asked.append($0); return true }
+
+        let installed = try await service.install(from: file)
+
+        #expect(asked.map(\.name) == ["Tidy"])
+        #expect(asked.first?.updating == false)
+        #expect(installed.consentedGrants?.contains("site:https://example.com/*") == true)
+        #expect(try service.installedExtensions().count == 1)
+    }
+
+    @Test func cancellingTheInstallLeavesNothing() async throws {
+        let (service, _, _, cleanup) = makeService(installed: [])
+        defer { cleanup() }
+        let file = try bundle(Self.tidy)
+        defer { try? FileManager.default.removeItem(at: file) }
+        service.askToInstall = { _ in false }
+
+        await #expect(throws: ExtensionsServiceError.self) {
+            try await service.install(from: file)
+        }
+        #expect(try service.installedExtensions().isEmpty)
+    }
+
+    @Test func anAgreedInstallIsNotAskedForSiteAccessOnEnable() async throws {
+        let (service, host, _, cleanup) = makeService(installed: [])
+        defer { cleanup() }
+        let file = try bundle(Self.tidy)
+        defer { try? FileManager.default.removeItem(at: file) }
+        service.askToInstall = { _ in true }
+        let installed = try await service.install(from: file)
+
+        try await service.enable(slug: installed.slug, in: space())
+
+        #expect(host.hostAccessPrompts.isEmpty, "the install question covered its sites")
+    }
+
+    @Test func anInstallNobodyWasAskedAboutStillAsksForSiteAccess() async throws {
+        let (service, host, _, cleanup) = makeService(installed: ["legacy"])
+        defer { cleanup() }
+
+        try await service.enable(slug: "legacy", in: space())
+
+        #expect(host.hostAccessPrompts.count == 1)
+    }
+
+    @Test func anUpdateAsksOnlyWhenItWantsMoreAndRefusalKeepsTheOldVersion() async throws {
+        let (service, _, _, cleanup) = makeService(installed: [])
+        defer { cleanup() }
+        let first = try bundle(Self.tidy)
+        defer { try? FileManager.default.removeItem(at: first) }
+        var asked: [ExtensionConsentQuestion] = []
+        var answer = true
+        service.askToInstall = { asked.append($0); return answer }
+        let installed = try await service.install(from: first)
+        let installer = ExtensionInstaller(
+            extensionsDirectory: installed.resourceURL.deletingLastPathComponent()
+        )
+        asked = []
+
+        // The same asks: no question.
+        let same = try installer.stage(
+            data: Data(contentsOf: first), sourceName: "\(installed.slug).zip"
+        )
+        #expect(try await service.admitUpdate(same, replacing: installed) != nil)
+        #expect(asked.isEmpty)
+
+        // More: asked, as an update; no keeps 1.0.
+        let moreFile = try bundle(Self.tidyWantsMore)
+        defer { try? FileManager.default.removeItem(at: moreFile) }
+        answer = false
+        let more = try installer.stage(
+            data: Data(contentsOf: moreFile), sourceName: "\(installed.slug).zip"
+        )
+        #expect(try await service.admitUpdate(more, replacing: installed) == nil)
+        #expect(asked.map(\.updating) == [true])
+        #expect(try service.installedExtensions().first?.version == "1.0")
+    }
 }

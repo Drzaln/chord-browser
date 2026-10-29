@@ -680,11 +680,15 @@ Open **Settings** (`Cmd+,`) → **Extensions**:
 2. Each installed extension shows a row with an **Enabled** switch — turning it on
    loads the extension into the **active Space** (extensions are per-Space, so
    enable it in each Space where you want it).
-3. **Grant host access when prompted.** On enable, a sheet lists the sites the
-   extension wants to read and change (e.g. all sites for an ad blocker, just
-   `youtube.com` for a YouTube tweaker). Click **Allow** — **without this the
-   extension is loaded but inert**, because WebKit does not auto-grant host
-   access. After you allow, open tabs reload so the extension takes effect.
+3. **Chord asks before it adds anything.** Adding an extension, from the store,
+   the Web Store's **Add to Chord** button or a file, first shows a sheet on the
+   window naming what it will be able to do (the sites it reads and changes,
+   your tabs, history…). **Add Extension** installs it, and its sites are then
+   granted in every Space you enable it in, as in Chrome; **Cancel** leaves
+   nothing behind. An update that asks for more asks again, and **Don't
+   Update** keeps the version you have. Sites an extension asks for later are
+   still asked about one by one. (An extension installed before Chord asked at
+   install shows the site-access sheet when you enable it instead.)
 4. **Private windows run no extensions until you allow them.** Tick **Allow in
    private windows** under an extension (or flip its switch in a private
    window's Settings) and it runs in every private window, without anything of

@@ -27,6 +27,11 @@ public struct InstalledExtension: Sendable, Equatable, Identifiable {
     /// `.unsigned` when nothing is recorded — the honest default for a bundle
     /// installed before signing checks existed, or a plain ZIP.
     public let signatureStatus: ExtensionSignatureStatus
+    /// What the user agreed it may do when they installed it (or last let an
+    /// update grow it), as `ExtensionConsent.grants` lists it. Nil for an
+    /// install nobody was asked about (from before install consent), which
+    /// still asks for site access when enabled.
+    public let consentedGrants: [String]?
 
     public init(
         slug: String,
@@ -35,7 +40,8 @@ public struct InstalledExtension: Sendable, Equatable, Identifiable {
         version: String? = nil,
         fromStore: Bool = false,
         resourceURL: URL,
-        signatureStatus: ExtensionSignatureStatus = .unsigned
+        signatureStatus: ExtensionSignatureStatus = .unsigned,
+        consentedGrants: [String]? = nil
     ) {
         self.slug = slug
         self.identifier = identifier ?? slug
@@ -44,6 +50,7 @@ public struct InstalledExtension: Sendable, Equatable, Identifiable {
         self.fromStore = fromStore
         self.resourceURL = resourceURL
         self.signatureStatus = signatureStatus
+        self.consentedGrants = consentedGrants
     }
 }
 
@@ -87,7 +94,37 @@ public struct ExtensionInstaller: Sendable {
         data: Data, sourceName: String, sourceURL: URL? = nil,
         fromStore: Bool = false
     ) throws -> InstalledExtension {
-        let zip = try ExtensionArchive.zipPayload(from: data)
+        try commit(
+            stage(data: data, sourceName: sourceName, sourceURL: sourceURL, fromStore: fromStore),
+            consented: nil
+        )
+    }
+
+    /// A bundle verified, unpacked and prepared, but not yet in the library:
+    /// what the user is asked about before installing (or updating) it. Either
+    /// `commit` it or `discard` it; until then nothing of it is in the
+    /// library.
+    public struct Staged: Sendable {
+        public let slug: String
+        public let identifier: String
+        public let displayName: String?
+        public let version: String?
+        public let fromStore: Bool
+        public let signatureStatus: ExtensionSignatureStatus
+        /// The prepared folder in staging, or the staged ZIP when the bundle
+        /// didn't unpack. What `WKWebExtension` reads to say what it asks for.
+        public let resourceURL: URL
+        let folder: URL
+        let zip: URL
+        let prepared: URL?
+    }
+
+    /// Reads, verifies and prepares a bundle in a staging folder inside the
+    /// library directory (one volume, so `commit` is a move).
+    public func stage(
+        data: Data, sourceName: String, sourceURL: URL? = nil, fromStore: Bool = false
+    ) throws -> Staged {
+        let zipData = try ExtensionArchive.zipPayload(from: data)
         // Pinned signer keys: none yet — no extension store exists. The
         // verifier's set is empty, so the outcome is `.verified` (valid
         // signature, unvouched signer) or a warning state.
@@ -96,25 +133,26 @@ public struct ExtensionInstaller: Sendable {
         let slug = Self.slug(for: URL(fileURLWithPath: sourceName))
         let fm = FileManager.default
         try fm.createDirectory(at: extensionsDirectory, withIntermediateDirectories: true)
-        let destination = resourceURL(forSlug: slug)
-        // The raw ZIP lands first: even if preparation fails, the library has
-        // the exact signed bytes for a later retry or a manual inspection.
-        try zip.write(to: destination, options: .atomic)
-
-        let staging = extensionsDirectory.appending(
+        let folder = extensionsDirectory.appending(
             path: ".staging-\(UUID().uuidString)", directoryHint: .isDirectory
         )
-        defer { try? fm.removeItem(at: staging) }
-        try fm.createDirectory(at: staging, withIntermediateDirectories: true)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let zip = folder.appending(path: "bundle.zip")
+        do {
+            try zipData.write(to: zip, options: .atomic)
+        } catch {
+            try? fm.removeItem(at: folder)
+            throw error
+        }
 
         var identifier = ExtensionSignatureVerifier.extensionIdentifier(in: data)
         var displayName: String?
         var version: String?
-        var preparedURL: URL?
+        var prepared: URL?
 
-        let extracted = staging.appending(path: "prepared", directoryHint: .isDirectory)
+        let extracted = folder.appending(path: "prepared", directoryHint: .isDirectory)
         do {
-            try ExtensionBundle.extract(zip, to: extracted)
+            try ExtensionBundle.extract(zipData, to: extracted)
             let manifest = try ExtensionBundle.manifest(at: extracted)
             displayName = ExtensionBundle.displayName(at: extracted)
             version = manifest["version"] as? String
@@ -125,42 +163,79 @@ public struct ExtensionInstaller: Sendable {
                 )
             }
             try ExtensionShims.prepare(extracted, fresh: true)
-            let target = self.preparedURL(forSlug: slug)
-            try ExtensionFiles.replace(extracted, at: target)
-            preparedURL = target
+            prepared = extracted
         } catch {
             // Keep the library usable for the UI and let WebKit produce the
-            // real load error. Remove any previous prepared tree so a broken
-            // reinstall cannot keep serving the old bundle.
-            try? fm.removeItem(at: self.preparedURL(forSlug: slug))
+            // real load error.
             Log.extensions.error(
                 "could not prepare \(slug): \(String(describing: error))"
             )
         }
+        return Staged(
+            slug: slug, identifier: identifier ?? slug, displayName: displayName,
+            version: version, fromStore: fromStore, signatureStatus: signatureStatus,
+            resourceURL: prepared ?? zip, folder: folder, zip: zip, prepared: prepared
+        )
+    }
 
-        try signatureStatus.rawValue.write(
+    /// Leaves nothing of a staged bundle behind: the user said no.
+    public func discard(_ staged: Staged) {
+        try? FileManager.default.removeItem(at: staged.folder)
+    }
+
+    /// Moves a staged bundle into the library, over any earlier copy of the
+    /// slug. `consented` is what the user agreed it may do (`ExtensionConsent.
+    /// grants`), recorded so an update that asks for more is asked about
+    /// again; nil when nobody was asked.
+    @discardableResult
+    public func commit(_ staged: Staged, consented: [String]?) throws -> InstalledExtension {
+        let fm = FileManager.default
+        defer { try? fm.removeItem(at: staged.folder) }
+        let slug = staged.slug
+        let destination = resourceURL(forSlug: slug)
+        // The raw ZIP lands first: even if preparation failed, the library has
+        // the exact signed bytes for a later retry or a manual inspection.
+        try Data(contentsOf: staged.zip).write(to: destination, options: .atomic)
+
+        var preparedURL: URL?
+        if let prepared = staged.prepared {
+            let target = self.preparedURL(forSlug: slug)
+            try ExtensionFiles.replace(prepared, at: target)
+            preparedURL = target
+        } else {
+            // A broken reinstall must not keep serving the old bundle.
+            try? fm.removeItem(at: self.preparedURL(forSlug: slug))
+        }
+
+        try staged.signatureStatus.rawValue.write(
             to: verificationURL(forSlug: slug), atomically: true, encoding: .utf8
         )
-        try (identifier ?? slug).write(
+        try staged.identifier.write(
             to: identityURL(forSlug: slug), atomically: true, encoding: .utf8
         )
-        if fromStore {
+        if staged.fromStore {
             try "1".write(to: storeURL(forSlug: slug), atomically: true, encoding: .utf8)
         } else {
             try? fm.removeItem(at: storeURL(forSlug: slug))
         }
+        if let consented, let data = try? JSONSerialization.data(withJSONObject: consented.sorted()) {
+            try data.write(to: consentURL(forSlug: slug), options: .atomic)
+        } else {
+            try? fm.removeItem(at: consentURL(forSlug: slug))
+        }
 
         Log.extensions.notice(
-            "installed extension \(slug) as \(identifier ?? slug) (signature: \(signatureStatus.rawValue))"
+            "installed extension \(slug) as \(staged.identifier) (signature: \(staged.signatureStatus.rawValue))"
         )
         return InstalledExtension(
             slug: slug,
-            identifier: identifier,
-            displayName: displayName,
-            version: version,
-            fromStore: fromStore,
+            identifier: staged.identifier,
+            displayName: staged.displayName,
+            version: staged.version,
+            fromStore: staged.fromStore,
             resourceURL: preparedURL ?? destination,
-            signatureStatus: signatureStatus
+            signatureStatus: staged.signatureStatus,
+            consentedGrants: consented
         )
     }
 
@@ -202,7 +277,8 @@ public struct ExtensionInstaller: Sendable {
                         atPath: storeURL(forSlug: slug).path
                     ),
                     resourceURL: hasPrepared ? prepared : entry,
-                    signatureStatus: verificationStatus(forSlug: slug)
+                    signatureStatus: verificationStatus(forSlug: slug),
+                    consentedGrants: consent(forSlug: slug)
                 )
             }
             .sorted { $0.slug < $1.slug }
@@ -251,7 +327,8 @@ public struct ExtensionInstaller: Sendable {
                 version: manifest["version"] as? String,
                 fromStore: installed.fromStore,
                 resourceURL: preparedURL(forSlug: installed.slug),
-                signatureStatus: installed.signatureStatus
+                signatureStatus: installed.signatureStatus,
+                consentedGrants: installed.consentedGrants
             )
         } catch {
             Log.extensions.error(
@@ -272,6 +349,7 @@ public struct ExtensionInstaller: Sendable {
         try? fm.removeItem(at: verificationURL(forSlug: slug))
         try? fm.removeItem(at: identityURL(forSlug: slug))
         try? fm.removeItem(at: storeURL(forSlug: slug))
+        try? fm.removeItem(at: consentURL(forSlug: slug))
         Log.extensions.notice("removed extension \(slug)")
     }
 
@@ -297,6 +375,16 @@ public struct ExtensionInstaller: Sendable {
 
     private func storeURL(forSlug slug: String) -> URL {
         extensionsDirectory.appending(path: "\(slug).store")
+    }
+
+    /// What the user agreed it may do, as a JSON array of grants.
+    private func consentURL(forSlug slug: String) -> URL {
+        extensionsDirectory.appending(path: "\(slug).consent.json")
+    }
+
+    private func consent(forSlug slug: String) -> [String]? {
+        guard let data = try? Data(contentsOf: consentURL(forSlug: slug)) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String]
     }
 
     private func verificationStatus(forSlug slug: String) -> ExtensionSignatureStatus {

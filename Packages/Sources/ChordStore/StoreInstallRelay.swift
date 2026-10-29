@@ -32,6 +32,8 @@ final class StoreInstallRelay: ChromeStoreRelayDelegate {
                 window?.showToast(
                     "Added \(installed.displayName ?? id)", icon: "puzzlepiece.extension"
                 )
+            } catch ExtensionsServiceError.declined {
+                window?.dismissToast()
             } catch {
                 window?.showToast(
                     "Could not add extension: \(error.localizedDescription)",
