@@ -48,13 +48,25 @@ enum PasswordFormMonitor {
     /// Before 27 there is no such world, and the page's is kept.
     @MainActor
     static let world: WKContentWorld = {
-        if #available(macOS 27.0, *) {
-            let configuration = WKContentWorld.Configuration()
-            configuration.allowAccessingClosedShadowRoots = true
-            return WKContentWorld(configuration: configuration)
-        }
+        if #available(macOS 27.0, *), let world = closedRootsWorld() { return world }
         return .page
     }()
+
+    /// `WKContentWorld.Configuration` is macOS 27 and absent from the macOS 26
+    /// SDK the release CI builds against, so it is built by name, as
+    /// `applyReferrer` sets `overrideReferrer`. Nil where the runtime has no
+    /// such world.
+    @MainActor
+    private static func closedRootsWorld() -> WKContentWorld? {
+        guard let type = NSClassFromString("WKContentWorldConfiguration") as? NSObject.Type
+        else { return nil }
+        let configuration = type.init()
+        configuration.setValue(true, forKey: "allowAccessingClosedShadowRoots")
+        let make = NSSelectorFromString("worldWithConfiguration:")
+        guard WKContentWorld.responds(to: make) else { return nil }
+        return WKContentWorld.perform(make, with: configuration)?
+            .takeUnretainedValue() as? WKContentWorld
+    }
 
     @MainActor
     static func makeUserScript() -> WKUserScript {
