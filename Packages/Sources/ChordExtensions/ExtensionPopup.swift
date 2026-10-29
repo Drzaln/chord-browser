@@ -33,6 +33,13 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     var isUp: Bool { popover?.isShown == true }
     var view: WKWebView? { web }
 
+    /// The page this extension's popup shows in that Space, while it is up.
+    /// The same id in another Space is another extension's popup.
+    func openURL(for identifier: String, spaceID: UUID) -> URL? {
+        guard isUp, extensionID == identifier, page?.spaceID == spaceID else { return nil }
+        return web?.url
+    }
+
     func show(
         _ url: URL, for context: WKWebExtensionContext, from anchor: NSView?,
         host: WebKitExtensionHost, spaceID: UUID

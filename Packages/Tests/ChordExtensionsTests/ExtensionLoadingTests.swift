@@ -139,6 +139,26 @@ struct ExtensionLoadingTests {
         #expect(try String(contentsOf: shim, encoding: .utf8).contains("Number(\"\(second)\")"))
     }
 
+    @Test func aReviveKeepsTheSameContextAndForgetsTheWorkerCache() async throws {
+        let host = WebKitExtensionHost()
+        let (installed, cleanup) = try installedExtension(slug: "revive", manifest: Self.mv3)
+        defer { cleanup() }
+        let s = space()
+        try await host.load(installed, in: s)
+        let context = try #require(host.context(forSlug: "revive", in: s))
+        let workersKey = "chord.extensions.workers.\(s.id.uuidString)"
+        UserDefaults.standard.set("cleared", forKey: workersKey)
+        defer { UserDefaults.standard.removeObject(forKey: workersKey) }
+
+        host.reviveForShim(context)
+
+        // Same context, so its pages keep their API objects, and loaded again.
+        #expect(host.context(forSlug: "revive", in: s) === context)
+        #expect(context.isLoaded)
+        // The next launch clears the Space's stale worker registrations.
+        #expect(UserDefaults.standard.object(forKey: workersKey) == nil)
+    }
+
     @Test func rejectsAnMV2Extension() async throws {
         let host = WebKitExtensionHost()
         let (installed, cleanup) = try installedExtension(slug: "test-mv2", manifest: Self.mv2)

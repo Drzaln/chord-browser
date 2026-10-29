@@ -670,10 +670,10 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             ?? loaded.context.action(for: nil)
         if action?.presentsPopup == true,
            let url = action?.popupWebView?.url ?? popupURL(for: loaded.context) {
-            let own = actionAnchors[space.id]?[slug]?.view
-            let anchor = (own?.window != nil ? own : nil)
-                ?? actionAnchors[space.id]?[Self.managerAnchorSlug]?.view
-            showPopup(url, for: loaded.context, from: anchor, spaceID: space.id)
+            showPopup(
+                url, for: loaded.context, from: actionAnchor(slug: slug, spaceID: space.id),
+                spaceID: space.id
+            )
             return
         }
         loaded.context.performAction(for: adapter)
@@ -1326,6 +1326,11 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
               Date().timeIntervalSince(revived[key] ?? .distantPast) > 60
         else { return }
         revived[key] = Date()
+        // Unloading closes its popup. Taken down under the user, it comes back
+        // on the revived context (ported from Search).
+        let popup = ExtensionPopup.shared.openURL(
+            for: context.uniqueIdentifier, spaceID: spaceID
+        )
         do {
             try controller.unload(context)
             // Same context, so the generation stays: pages keep their API
@@ -1337,10 +1342,23 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             )
             try controller.load(context)
             watchErrors(context, spaceID: spaceID, slug: slug)
+            // The next launch clears its stale worker registrations.
+            workersChanged(in: spaceID)
             Log.extensions.notice(
                 "revived extension \(slug) in space \(spaceID) after its worker failed"
             )
             onActionsChanged?()
+            if let popup {
+                Task { [weak self] in
+                    guard let self, self.loadedContexts[spaceID]?[slug]?.context === context,
+                        context.isLoaded
+                    else { return }
+                    self.showPopup(
+                        popup, for: context, from: self.actionAnchor(slug: slug, spaceID: spaceID),
+                        spaceID: spaceID
+                    )
+                }
+            }
         } catch {
             loadedContexts[spaceID]?[slug] = nil
             onActionsChanged?()
@@ -1646,6 +1664,14 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
     /// `onClose` is set only after `show`: `show` first closes any popup
     /// already up, which fires `onClose` — set before, it was used up at once,
     /// "closed" never reached the window, and a folded sidebar stayed out.
+    /// Where an extension's popup hangs from: its own toolbar button when it is
+    /// on screen, else the extensions menu's button.
+    private func actionAnchor(slug: String, spaceID: UUID) -> NSView? {
+        let own = actionAnchors[spaceID]?[slug]?.view
+        return (own?.window != nil ? own : nil)
+            ?? actionAnchors[spaceID]?[Self.managerAnchorSlug]?.view
+    }
+
     private func showPopup(
         _ url: URL, for context: WKWebExtensionContext, from anchor: NSView?,
         spaceID: UUID
