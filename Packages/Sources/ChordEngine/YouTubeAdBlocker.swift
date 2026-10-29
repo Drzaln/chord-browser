@@ -124,8 +124,17 @@ enum YouTubeAdBlocker {
             try { video.muted = true; } catch (e) {}
         }
 
+        // The tick runs four times a second for as long as the page is open,
+        // so it must not scan the page each time: the player is kept until it
+        // leaves the document, and the videos come from the live collection
+        // WebKit keeps current, rather than a fresh querySelectorAll.
+        var player = null;
+        var allVideos = document.getElementsByTagName('video');
+
         function tick() {
-            var player = document.querySelector('.html5-video-player');
+            if (!player || !player.isConnected) {
+                player = document.querySelector('.html5-video-player');
+            }
             if (!player) { return; }
 
             // Ads also light up the overlay slot on some player versions even
@@ -140,7 +149,7 @@ enum YouTubeAdBlocker {
             // background video that the ad is not. Never early-return after
             // clicking skip — a disabled/custom button swallows the click, so
             // the seek/blast below must still run as the fallback.
-            var videos = document.querySelectorAll('video');
+            var videos = allVideos;
 
             if (!adShowing) {
                 for (var i = 0; i < videos.length; i++) { restoreRate(videos[i]); }

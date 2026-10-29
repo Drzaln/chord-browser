@@ -50,4 +50,45 @@ struct YouTubeAdBlockerTests {
         #expect(source.contains("dismantleEnforcementWall"))
         #expect(source.contains("MutationObserver"))
     }
+
+    /// The tick keeps the player it found rather than querying for it four
+    /// times a second, so a player YouTube swaps out must be looked up again:
+    /// a stale one still carrying `ad-showing` would run real content at 10x.
+    @Test("A replaced player is read afresh, in a real page")
+    func followsAReplacedPlayer() async throws {
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController.addUserScript(YouTubeAdBlocker.makeUserScript())
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.loadHTMLString(
+            """
+            <div id="p1" class="html5-video-player ad-showing"><video id="v1"></video></div>
+            """,
+            baseURL: URL(string: "https://www.youtube.com/")
+        )
+        #expect(try await eventually(webView, "document.getElementById('v1')?.playbackRate === 10"))
+
+        _ = try await webView.evaluateJavaScript("""
+            document.getElementById('p1').remove();
+            document.body.insertAdjacentHTML('beforeend',
+                '<div id="p2" class="html5-video-player"><video id="v2"></video></div>');
+            true
+            """)
+        // Several ticks' worth: content must stay at its own rate.
+        try await Task.sleep(for: .milliseconds(800))
+        #expect(try await webView.evaluateJavaScript(
+            "document.getElementById('v2').playbackRate") as? Double == 1)
+
+        // And the new player's own ad is still caught.
+        _ = try await webView.evaluateJavaScript(
+            "document.getElementById('p2').classList.add('ad-showing'); true")
+        #expect(try await eventually(webView, "document.getElementById('v2').playbackRate === 10"))
+    }
+
+    private func eventually(_ webView: WKWebView, _ condition: String) async throws -> Bool {
+        for _ in 0..<60 {
+            if try await webView.evaluateJavaScript("!!(\(condition))") as? Bool == true { return true }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        return false
+    }
 }
