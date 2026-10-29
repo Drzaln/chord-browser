@@ -37,13 +37,33 @@ enum PasswordFormMonitor {
         let password: String
     }
 
+    /// The world the monitor and `LoginFormFiller` share: the fields are
+    /// tagged with an expando, and expandos are per world.
+    ///
+    /// From macOS 27 it is a world of Chord's own that sees closed shadow
+    /// roots as open ones, so a login a site keeps behind one is still found,
+    /// and that the page cannot reach: a page could otherwise read the
+    /// password as it is filled, by replacing the value setter the filler
+    /// calls, or post a login report or submission of its own invention.
+    /// Before 27 there is no such world, and the page's is kept.
+    @MainActor
+    static let world: WKContentWorld = {
+        if #available(macOS 27.0, *) {
+            let configuration = WKContentWorld.Configuration()
+            configuration.allowAccessingClosedShadowRoots = true
+            return WKContentWorld(configuration: configuration)
+        }
+        return .page
+    }()
+
     @MainActor
     static func makeUserScript() -> WKUserScript {
         WKUserScript(
             source: source,
             injectionTime: .atDocumentStart,
             // Rule 3: main frame only. Never fill inside an iframe.
-            forMainFrameOnly: true
+            forMainFrameOnly: true,
+            in: world
         )
     }
 

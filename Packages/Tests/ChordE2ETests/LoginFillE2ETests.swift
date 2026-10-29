@@ -49,6 +49,56 @@ struct LoginFillE2ETests {
             """
     )
 
+    /// A login a site keeps behind a *closed* shadow root: the page's own
+    /// script holds the only reference, so it reports what was submitted
+    /// through the title, as the plain form does.
+    private static let closedShadowForm = TestHTTPServer.Route.page(
+        path: "/closed",
+        title: "Closed",
+        body: """
+            <div id="host"></div>
+            <script>
+              var root = document.getElementById('host').attachShadow({ mode: 'closed' });
+              root.innerHTML =
+                '<input id="u" name="username" type="text" autocomplete="username">' +
+                '<input id="p" name="password" type="password" autocomplete="current-password">';
+              root.addEventListener('input', function () {
+                var u = root.getElementById('u').value, p = root.getElementById('p').value;
+                if (u && p) { document.title = 'submitted:' + u + '/' + p; }
+              });
+            </script>
+            """
+    )
+
+    /// A page that replaces the value setter the filler calls, to read what is
+    /// put into its fields. It still gets the values on submit, as any form
+    /// does; what it must not get is a look at the password as it is filled.
+    private static let snoopingForm = TestHTTPServer.Route.page(
+        path: "/snoop",
+        title: "Snoop",
+        body: """
+            <form id="f">
+              <input id="u" name="username" type="text" autocomplete="username">
+              <input id="p" name="password" type="password" autocomplete="current-password">
+            </form>
+            <script>
+              var seen = [];
+              var proto = HTMLInputElement.prototype;
+              var real = Object.getOwnPropertyDescriptor(proto, 'value');
+              Object.defineProperty(proto, 'value', {
+                configurable: true,
+                get: function () { return real.get.call(this); },
+                set: function (v) { seen.push(v); real.set.call(this, v); }
+              });
+              document.addEventListener('input', function () {
+                var u = real.get.call(document.getElementById('u'));
+                var p = real.get.call(document.getElementById('p'));
+                if (u && p) { document.title = 'seen:' + seen.length + ' submitted:' + u + '/' + p; }
+              });
+            </script>
+            """
+    )
+
     /// **The React case.** This reproduces React's value tracker: an instance
     /// property override that caches the last value it saw. A fill that assigns
     /// `el.value` goes through the override, updates the cache, and the change
@@ -153,6 +203,58 @@ struct LoginFillE2ETests {
             harness.store.selectedTab?.focusedPane.title == "submitted:me@example.com/hunter2"
         }
         #expect(submitted, "the page must receive both values on submit")
+    }
+
+    @Test(
+        "A login behind a closed shadow root is found and filled",
+        .enabled(if: ProcessInfo.processInfo.isOperatingSystemAtLeast(
+            OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0)
+        ))
+    )
+    func fillsBehindAClosedShadowRoot() async throws {
+        let filled = try await fillAndRead(Self.closedShadowForm, path: "/closed")
+        #expect(filled == "submitted:me@example.com/hunter2")
+    }
+
+    @Test(
+        "A page that replaces the value setter does not see the password filled",
+        .enabled(if: ProcessInfo.processInfo.isOperatingSystemAtLeast(
+            OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0)
+        ))
+    )
+    func fillIsOutOfThePagesReach() async throws {
+        let filled = try await fillAndRead(Self.snoopingForm, path: "/snoop")
+        #expect(filled == "seen:0 submitted:me@example.com/hunter2")
+    }
+
+    /// Fills a saved credential into the page at `path` and returns the title
+    /// the page sets once it holds both values.
+    private func fillAndRead(
+        _ route: TestHTTPServer.Route, path: String
+    ) async throws -> String? {
+        let harness = try await E2EHarness.make(routes: [route])
+        defer { Task { await harness.tearDown() } }
+        await harness.store.restore()
+        let vault = try attachVault(to: harness)
+
+        let paneID = try #require(await loadAndDetect(harness, path: path))
+        let origin = try #require(
+            CredentialOrigin.canonical(
+                for: harness.store.runtime(for: paneID).currentURL!,
+                policy: .allowingInsecureLoopback
+            )
+        )
+        let credential = try await vault.save(
+            origin: origin, username: "me@example.com", secret: "hunter2"
+        )
+        let outcome = await harness.store.fillCredential(
+            credential.id, intoPane: paneID, inSpace: nil
+        )
+        #expect(outcome == .filled(username: true, password: true))
+        _ = await harness.wait {
+            harness.store.selectedTab?.focusedPane.title.contains("submitted:") == true
+        }
+        return harness.store.selectedTab?.focusedPane.title
     }
 
     @Test("A framework with a value tracker sees the change")

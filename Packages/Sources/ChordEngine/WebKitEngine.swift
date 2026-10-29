@@ -390,7 +390,10 @@ public final class WebKitEngine: WebEngine {
             controller.add(coordinator, name: SiteOverridePicker.messageName)
             controller.add(coordinator, name: NotificationBridge.showMessageName)
             controller.add(coordinator, name: ScreenShareMonitor.messageName)
-            controller.add(coordinator, name: PasswordFormMonitor.messageName)
+            controller.add(
+                coordinator, contentWorld: PasswordFormMonitor.world,
+                name: PasswordFormMonitor.messageName
+            )
             controller.add(coordinator, name: PictureInPictureMonitor.messageName)
             if developerMode {
                 controller.add(coordinator, name: DRMDiagnosticsMonitor.messageName)
@@ -1069,9 +1072,12 @@ public final class WebKitEngine: WebEngine {
         // Reduce to a String inside the callback: `Any?` is not Sendable, so
         // handing the raw result across the continuation trips strict
         // concurrency — and the script only ever returns JSON text anyway.
+        // In the monitor's world: the handles are its expandos.
         let json: String? = await withCheckedContinuation { continuation in
-            live.webView.evaluateJavaScript(script) { value, _ in
-                continuation.resume(returning: value as? String)
+            live.webView.evaluateJavaScript(
+                script, in: nil, in: PasswordFormMonitor.world
+            ) { result in
+                continuation.resume(returning: try? result.get() as? String)
             }
         }
         let filled = LoginFormFiller.result(from: json)

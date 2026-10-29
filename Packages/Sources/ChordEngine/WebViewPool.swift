@@ -186,7 +186,10 @@ final class LiveWebView {
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: ScreenShareMonitor.messageName)
         webView.configuration.userContentController
-            .removeScriptMessageHandler(forName: PasswordFormMonitor.messageName)
+            .removeScriptMessageHandler(
+                forName: PasswordFormMonitor.messageName,
+                contentWorld: PasswordFormMonitor.world
+            )
         webView.configuration.userContentController
             .removeScriptMessageHandler(forName: PictureInPictureMonitor.messageName)
         webView.configuration.userContentController
