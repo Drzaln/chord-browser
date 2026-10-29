@@ -150,52 +150,39 @@ final class LiveWebView {
     /// Explicit teardown. KVO observations and the delegate wiring are classic
     /// retain-cycle sources, so nothing here is left to deinit ordering.
     func tearDown() {
-        // 0. Release the media pipeline WebKit holds for this view — AVPlayer,
-        // audio buffers, the media daemon session. The JS below pauses the
-        // page's elements, but this is the public API that tells WebKit to
-        // drop the resources behind them; it is safe to call on a view that
-        // has no media.
+        // Release the media pipeline WebKit holds for this view (AVPlayer,
+        // audio buffers, the media daemon session). Safe on a view with no
+        // media. The script then empties the page's own elements, so their
+        // buffers go now rather than when the document does.
         webView.closeAllMediaPresentations(completionHandler: nil)
-
-        // 1. Force WebKit's media daemon to stop immediately
         webView.evaluateJavaScript("""
             document.querySelectorAll('video, audio').forEach(media => {
                 media.pause();
                 media.removeAttribute('src');
-                media.load(); // Forces the buffer to flush
+                media.load();
             });
         """)
-        
-        // 2. Navigate away to destroy the active document context
-        webView.load(URLRequest(url: URL(string: "about:blank")!))
-        
-        // 3. Your existing retain-cycle cleanup
+
+        // Unhooked before the navigation below, so the about:blank it starts
+        // reaches no snapshot, delegate or handler of the pane that is going.
         observations.forEach { $0.invalidate() }
         observations.removeAll()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
-        
-        // A script message handler retains its receiver until removed, which is
-        // one of the two classic leak sources named in 6.7.
-        webView.configuration.userContentController
-            .removeScriptMessageHandler(forName: MediaActivityMonitor.messageName)
-        webView.configuration.userContentController
-            .removeScriptMessageHandler(forName: ContextLinkMonitor.messageName)
-        webView.configuration.userContentController
-            .removeScriptMessageHandler(forName: ContextImageMonitor.messageName)
-        webView.configuration.userContentController
-            .removeScriptMessageHandler(forName: ScreenShareMonitor.messageName)
-        webView.configuration.userContentController
-            .removeScriptMessageHandler(
-                forName: PasswordFormMonitor.messageName,
-                contentWorld: PasswordFormMonitor.world
-            )
-        webView.configuration.userContentController
-            .removeScriptMessageHandler(forName: PictureInPictureMonitor.messageName)
-        webView.configuration.userContentController
-            .removeScriptMessageHandler(forName: DRMDiagnosticsMonitor.messageName)
 
+        // A script message handler retains its receiver until removed (6.7).
+        // Every view has its own controller, so all of them go, in every
+        // world: a list by name had to be kept in step with each new handler,
+        // and wasn't.
+        let controller = webView.configuration.userContentController
+        controller.removeAllScriptMessageHandlers()
+        controller.removeAllUserScripts()
+
+        // Last, and after stopLoading rather than before it: stopping cancels
+        // a provisional navigation, so the old order left the page running
+        // until the view itself went, for as long as anything still held it.
         webView.stopLoading()
+        webView.load(URLRequest(url: URL(string: "about:blank")!))
         container.removeContent()
     }
 

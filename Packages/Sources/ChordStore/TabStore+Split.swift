@@ -136,9 +136,8 @@ extension TabStore {
 
         // The web view goes before the model does — it belongs to this pane and
         // nothing will reclaim it once the pane is gone. The model pane is
-        // captured *first*: tearing the view down navigates it to `about:blank`
-        // (`tearDown`), whose KVO snapshot would otherwise overwrite this
-        // pane's URL before the reopen could record it.
+        // captured *first*, so the reopen records what the user saw whatever
+        // the teardown does to the view (it ends on `about:blank`).
         let removedPosition = tabs[index].panes.firstIndex { $0.id == paneID }
         guard let removedPosition else { return }
         let closedPane = tabs[index].panes[removedPosition]
