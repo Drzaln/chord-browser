@@ -26,6 +26,9 @@ public struct SettingsView: View {
         case updates = "Updates"
         var id: String { rawValue }
     }
+    /// The tab row's own width, measured, so the sheet fits it.
+    @State private var pickerWidth: CGFloat = 0
+
     private var section: Binding<Section> {
         Binding(
             get: { Section(rawValue: windowState.settingsSection) ?? .general },
@@ -60,6 +63,12 @@ public struct SettingsView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            // Its natural width, not the sheet's: measured below so the sheet
+            // grows with the labels instead of clipping them at both edges.
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
+                pickerWidth = $0
+            }
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
 
@@ -93,8 +102,10 @@ public struct SettingsView: View {
                 }
             }
         }
-        // Wide enough for all six segmented labels ("Privacy & Data" is the
-        // longest) so the control does not overflow and clip at the edges.
-        .frame(width: 720, height: 480)
+        // As wide as the tab row needs, never narrower than the sections were
+        // laid out for. Sized from the row alone: the sections' text would
+        // ask for one long line each. A fixed 720 clipped General and Updates
+        // once a seventh tab, Bookmarks, was added.
+        .frame(width: max(720, pickerWidth + 40), height: 480)
     }
 }
