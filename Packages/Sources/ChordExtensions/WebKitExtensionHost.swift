@@ -92,6 +92,9 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// (Space, Chrome id) pairs loaded at least once this run, for the shim's
     /// `onInstalled` reason: WebKit says "install" again on every reload.
     private var loadedOnce: Set<String> = []
+    /// `windows.create({ type: "popup" })` windows of extensions' own pages,
+    /// per Space. Each has a window id of its own (see ExtensionPopoutWindow).
+    private var popouts: [UUID: [ExtensionPopoutWindow]] = [:]
 
     /// Store-side data APIs for the full Chrome shim (M9). WebKit-free at this
     /// seam: the host passes only an id and a Space.
@@ -235,6 +238,14 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         return adapter
     }
 
+    /// The app window showing a Space, for the frame its extensions see: one
+    /// its toolbar buttons sit in, else the main window.
+    func appWindow(forSpace spaceID: UUID) -> NSWindow? {
+        actionAnchors[spaceID]?.values.lazy.compactMap { $0.view?.window }.first
+            ?? NSApp.mainWindow
+            ?? NSApp.windows.first { $0.isVisible && $0.canBecomeMain }
+    }
+
     func isSpacePrivate(_ spaceID: UUID) -> Bool {
         spaces[spaceID]?.isPrivate ?? false
     }
@@ -295,6 +306,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // context (899/worker recovery). Without this, WebKit can end up with
         // two contexts for one origin.
         if let previous = loadedContexts[space.id]?[installed.slug] {
+            closePopouts(of: previous.context, in: space.id)
             try? controllers[space.id]?.unload(previous.context)
             loadedContexts[space.id]?[installed.slug] = nil
             ExtensionOffscreen.close(
@@ -427,6 +439,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             NotificationCenter.default.removeObserver(watcher)
         }
         revived[key] = nil
+        closePopouts(of: loaded.context, in: space.id)
         var unloadError: Error?
         if let controller = controllers[space.id] {
             do {
@@ -1266,13 +1279,14 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         _ controller: WKWebExtensionController, openWindowsFor context: WKWebExtensionContext
     ) -> [any WKWebExtensionWindow] {
         guard let spaceID = controllerSpace[ObjectIdentifier(controller)] else { return [] }
-        return [windowAdapter(forSpace: spaceID)]
+        return [windowAdapter(forSpace: spaceID)] + (popouts[spaceID] ?? [])
     }
 
     public func webExtensionController(
         _ controller: WKWebExtensionController, focusedWindowFor context: WKWebExtensionContext
     ) -> (any WKWebExtensionWindow)? {
         guard let spaceID = controllerSpace[ObjectIdentifier(controller)] else { return nil }
+        if let key = popouts[spaceID]?.first(where: \.isKey) { return key }
         return windowAdapter(forSpace: spaceID)
     }
 
@@ -1366,6 +1380,9 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         openNewWindowUsing configuration: WKWebExtension.WindowConfiguration,
         for context: WKWebExtensionContext
     ) async throws -> (any WKWebExtensionWindow)? {
+        Log.extensions.debug(
+            "windows.create from \(context.uniqueIdentifier): type \(configuration.windowType.rawValue), \(configuration.tabURLs.map(\.absoluteString)), \(configuration.tabs.count) tabs"
+        )
         guard let spaceID = locate(context)?.spaceID, let model = tabModel else {
             return nil
         }
@@ -1377,6 +1394,12 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
                 domain: "Chord", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Private windows can't be opened by extensions."]
             )
+        }
+
+        if let popout = openPopout(
+            configuration, for: context, controller: controller, spaceID: spaceID
+        ) {
+            return popout
         }
 
         // Chord's WebExtension "window" is a Space (ADR 011), so a requested
@@ -1449,6 +1472,41 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         action.closePopup()
         showPopup(url, for: context, from: anchor, spaceID: spaceID)
         completionHandler(nil)
+    }
+
+    /// A popup-type window of the extension's own page, as its own small
+    /// window with its own id, as Chrome and Search make it (see
+    /// ExtensionPopoutWindow). Nil for anything else — tabs to move in, a
+    /// normal window, a website — which keeps opening as tabs in the Space.
+    fileprivate func openPopout(
+        _ configuration: WKWebExtension.WindowConfiguration,
+        for context: WKWebExtensionContext, controller: WKWebExtensionController,
+        spaceID: UUID
+    ) -> ExtensionPopoutWindow? {
+        guard configuration.windowType == .popup, configuration.tabs.isEmpty,
+              let url = configuration.tabURLs.first, configuration.tabURLs.count == 1,
+              url.scheme?.lowercased() == context.baseURL.scheme?.lowercased(),
+              url.host()?.lowercased() == context.baseURL.host()?.lowercased()
+        else { return nil }
+        guard let popout = ExtensionPopoutWindow(
+            url: url, frame: configuration.frame, context: context,
+            controller: controller, host: self, spaceID: spaceID,
+            focused: configuration.shouldBeFocused
+        ) else { return nil }
+        popout.onClosed = { [weak self] closed in
+            self?.popouts[closed.spaceID]?.removeAll { $0 === closed }
+        }
+        popouts[spaceID, default: []].append(popout)
+        Log.extensions.notice("opened popup window \(url.absoluteString)")
+        return popout
+    }
+
+    /// An extension's popup windows go with it, as in Search: unloaded, its
+    /// pages would be left talking to a context that is gone.
+    private func closePopouts(of context: WKWebExtensionContext, in spaceID: UUID) {
+        for popout in popouts[spaceID] ?? [] where popout.context === context {
+            popout.close()
+        }
     }
 
     /// Shows an extension's popup and tells the window it is up, then down.

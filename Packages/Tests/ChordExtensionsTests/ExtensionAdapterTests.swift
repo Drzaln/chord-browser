@@ -222,6 +222,79 @@ struct ExtensionAdapterTests {
         #expect(model.created.map(\.0.absoluteString) == ["https://example.com/window-probe"])
         #expect(model.created.first?.1 == space.id)
     }
+
+    /// Bitwarden's passkey prompt: a popup window of its own page, whose id it
+    /// keeps, and whose `windows.onRemoved` ends the passkey session. As a tab
+    /// with the Space's id, the session ended at once ("not allowed").
+    @Test func aPopupOfItsOwnPageIsAWindowOfItsOwn() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "chord-popout-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try """
+            {
+              "manifest_version": 3,
+              "name": "Popout Probe",
+              "version": "1.0",
+              "background": { "service_worker": "bg.js" },
+              "permissions": ["tabs"]
+            }
+            """.write(
+                to: folder.appending(path: "manifest.json"), atomically: true, encoding: .utf8
+            )
+        try "<!doctype html><title>prompt</title>".write(
+            to: folder.appending(path: "prompt.html"), atomically: true, encoding: .utf8
+        )
+        // Reports through tabs.create, which the fake model records.
+        try """
+            const say = (what) => chrome.tabs.create({ url: "https://example.com/" + what });
+            (async () => {
+              const space = await chrome.windows.getCurrent();
+              const popout = await chrome.windows.create({
+                url: chrome.runtime.getURL("prompt.html"), type: "popup", focused: false,
+                width: 380, height: 570
+              });
+              say("own-id-" + (popout.id !== space.id) + "-type-" + popout.type);
+              chrome.windows.onRemoved.addListener((id) => say("removed-" + (id === popout.id)));
+              await chrome.windows.remove(popout.id);
+            })().catch((e) => say("error-" + encodeURIComponent(e.message)));
+            """.write(to: folder.appending(path: "bg.js"), atomically: true, encoding: .utf8)
+        try ExtensionShims.prepare(folder, fresh: true)
+
+        let host = WebKitExtensionHost()
+        let model = FakeTabModel()
+        host.tabModel = model
+        let space = Space(name: "Probe", sortIndex: 0)
+        _ = try await host.load(
+            InstalledExtension(
+                slug: "popout-probe",
+                identifier: String(repeating: "c", count: 32),
+                resourceURL: folder
+            ),
+            in: space
+        )
+        for _ in 0..<50 where model.created.count < 2 {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        #expect(model.created.map(\.0.absoluteString) == [
+            "https://example.com/own-id-true-type-popup",
+            "https://example.com/removed-true",
+        ])
+    }
+
+    @Test func aPopupFrameStaysUsable() {
+        let unset = CGRect(x: CGFloat.nan, y: .nan, width: .nan, height: .nan)
+        let centred = ExtensionPopoutWindow.frame(asked: unset)
+        let finite = [centred.minX, centred.minY, centred.width, centred.height]
+            .allSatisfy { $0.isFinite }
+        #expect(finite)
+        #expect(centred.width > 0 && centred.width <= 380)
+        #expect(centred.height > 0 && centred.height <= 600)
+
+        let main = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let asked = CGRect(x: main.minX + 40, y: main.minY + 40, width: 380, height: 570)
+        #expect(ExtensionPopoutWindow.frame(asked: asked) == asked)
+    }
 }
 
 @MainActor

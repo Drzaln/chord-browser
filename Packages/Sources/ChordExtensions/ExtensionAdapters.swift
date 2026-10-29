@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import WebKit
 
@@ -36,6 +37,25 @@ final class ExtensionWindowAdapter: NSObject, WKWebExtensionWindow {
 
     func isPrivate(for context: WKWebExtensionContext) -> Bool {
         host?.isSpacePrivate(spaceID) ?? false
+    }
+
+    // An extension places its own windows from these: Bitwarden puts its
+    // passkey window at the browser window's right, from `windows.get`'s
+    // left/top/width. Unanswered, they came back undefined, its arithmetic
+    // gave NaN, WebKit refused that `windows.create`, and every passkey
+    // request failed as "not allowed". Search answers them too.
+    func frame(for context: WKWebExtensionContext) -> CGRect {
+        host?.appWindow(forSpace: spaceID)?.frame ?? .null
+    }
+
+    func screenFrame(for context: WKWebExtensionContext) -> CGRect {
+        host?.appWindow(forSpace: spaceID)?.screen?.frame ?? NSScreen.main?.frame ?? .null
+    }
+
+    func windowState(for context: WKWebExtensionContext) -> WKWebExtension.WindowState {
+        guard let window = host?.appWindow(forSpace: spaceID) else { return .normal }
+        if window.isMiniaturized { return .minimized }
+        return window.styleMask.contains(.fullScreen) ? .fullscreen : .normal
     }
 }
 
