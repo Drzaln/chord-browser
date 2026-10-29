@@ -524,7 +524,7 @@ public final class TabStore {
     /// its URL changes) and cleared once the settled title is written. Lets
     /// history recording survive the title and `isLoading` arriving in separate
     /// snapshots. See `recordVisitIfSettled`.
-    @ObservationIgnored private var pendingHistoryURL: [UUID: URL] = [:]
+    @ObservationIgnored var pendingHistoryURL: [UUID: URL] = [:]
     @ObservationIgnored var runtimes: [UUID: PaneRuntime] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
@@ -1125,23 +1125,15 @@ public final class TabStore {
             if recentlyClosed.count > Self.recentlyClosedLimit { recentlyClosed.removeFirst() }
         }
 
-        for pane in tabs[index].panes {
-            engine.evict(paneID: pane.id)
-            // The tab is gone for good, so its engine-side state must not
-            // linger: interaction state, last-known URL, mute, sleep timer.
-            engine.forget(paneID: pane.id)
-            runtimes[pane.id] = nil
-        }
+        // The tab is gone for good, so its engine-side state must not linger:
+        // interaction state, last-known URL, mute, sleep timer.
+        discardPanes(tabs[index].panes.map(\.id))
         // If a Ctrl+Tab session is on screen, a closed tab must not linger in
         // its cached list (e.g. it was closed from the sidebar mid-hold).
         window.mruTabIDs.removeAll { $0 == tabID }
         // Nor in the selection history: it is gone, so a later close must not
         // try to return to it.
         window.selectionHistory.removeAll { $0 == tabID }
-        // The tab and its panes are gone for good, so its sleep timer must not
-        // fire later into nothing.
-        cancelSleepTimer(tabID)
-        forgetStateResolution(forPanes: tabs[index].panes.map(\.id))
         let closedSpaceID = tabs[index].spaceID
         // Position of the closed tab within its own section — favourites grid,
         // Pinned list, or loose tabs. `visibleTabs` sorts every section by one
@@ -1564,6 +1556,33 @@ public final class TabStore {
 
     /// Cancels the tab's sleep timer, if one is armed (non-spec:
     /// user-requested).
+    /// Everything panes leave behind when they go for good. Every path that
+    /// removes a pane comes through here, so their cleanup can't drift apart.
+    /// A caller that wants the interaction state captures it first: closing a
+    /// pane does, and a private session must not.
+    func discardPanes(_ paneIDs: [UUID]) {
+        for paneID in paneIDs {
+            // Straight to the engine: the tab-level cancel goes through
+            // `runtime(for:)`, which would re-create the runtime dropped below.
+            engine.cancelSleepTimer(paneID: paneID)
+            engine.evict(paneID: paneID)
+            engine.forget(paneID: paneID)
+            runtimes[paneID] = nil
+            pendingHistoryURL[paneID] = nil
+        }
+        forgetStateResolution(forPanes: paneIDs)
+    }
+
+    /// Removes tabs for good, as the sweep, deleting a Space and ending a
+    /// private session do: panes discarded, tabs dropped, then each Space's
+    /// extensions told, so they get tabs.onRemoved as for a tab closed by hand.
+    func removeTabsForGood(_ doomed: [Tab]) {
+        for tab in doomed { discardPanes(tab.panes.map(\.id)) }
+        let ids = Set(doomed.map(\.id))
+        tabs.removeAll { ids.contains($0.id) }
+        for tab in doomed { extensionHost?.extensionTabDidClose(tab.id, inSpace: tab.spaceID) }
+    }
+
     public func cancelSleepTimer(_ tabID: UUID) {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
         for pane in tab.panes {

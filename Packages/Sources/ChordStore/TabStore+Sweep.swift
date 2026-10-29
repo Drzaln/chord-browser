@@ -75,14 +75,7 @@ extension TabStore {
             return
         }
 
-        for tab in closing {
-            for pane in tab.panes {
-                engine.evict(paneID: pane.id)
-                engine.forget(paneID: pane.id)
-                runtimes[pane.id] = nil
-            }
-        }
-        tabs.removeAll { doomed.contains($0.id) }
+        removeTabsForGood(closing)
 
         Log.store.notice("swept \(closing.count) idle tab(s)")
 

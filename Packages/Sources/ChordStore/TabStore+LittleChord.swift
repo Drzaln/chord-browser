@@ -67,9 +67,6 @@ extension TabStore {
     /// swipe-to-close callback arrives in, where the store has the id but not
     /// the `Pane` object (the app layer owns the panel).
     public func discardLittleChord(paneID: UUID) {
-        engine.evict(paneID: paneID)
-        engine.forget(paneID: paneID)
-        runtimes[paneID] = nil
-        forgetStateResolution(forPanes: [paneID])
+        discardPanes([paneID])
     }
 }

@@ -114,6 +114,90 @@ struct ExtensionModelTests {
         #expect(engine.removedDataForSpaces.contains(spaceID))
     }
 
+    /// Two idle loose tabs in a fresh store, then a new selected one, so a
+    /// sweep takes exactly the first two. Each idle pane has a load in flight.
+    private func storeWithIdleTabs() async -> (TabStore, RecordingExtensionHost, [Tab]) {
+        let stale = Date(timeIntervalSince1970: 1_700_000_000)
+        let store = TabStore(
+            engine: FakeWebEngine(),
+            repository: FakeTabRepository(stored: [
+                TabBuilder().url("https://a.example").lastAccessed(stale).build(),
+                TabBuilder().url("https://b.example").lastAccessed(stale).build(),
+            ]),
+            clock: FixedClock(now: stale.addingTimeInterval(3_600))
+        )
+        await store.restore()
+        let host = RecordingExtensionHost()
+        store.extensionHost = host
+        let idle = store.tabs
+        store.newTab(url: URL(string: "https://fresh.example")!)
+        for tab in idle {
+            store.paneDidUpdate(
+                tab.focusedPaneID,
+                snapshot: PaneSnapshot(url: tab.focusedPane.url, isLoading: true)
+            )
+            store.stateResolution[tab.focusedPaneID] = .resolved
+            store.openedPaneIDs.insert(tab.focusedPaneID)
+        }
+        return (store, host, idle)
+    }
+
+    /// Nothing a removed pane had is left behind in the store.
+    private func expectForgotten(_ tabs: [Tab], in store: TabStore) {
+        for paneID in tabs.flatMap({ $0.panes.map(\.id) }) {
+            #expect(store.runtimes[paneID] == nil)
+            #expect(store.pendingHistoryURL[paneID] == nil)
+            #expect(store.stateResolution[paneID] == nil)
+            #expect(!store.openedPaneIDs.contains(paneID))
+        }
+    }
+
+    @Test("Swept tabs reach extensions as closed, and leave nothing behind")
+    func sweepTellsExtensions() async {
+        let (store, host, idle) = await storeWithIdleTabs()
+        store.idleWindow = .after(60)
+
+        await store.sweepNow()
+
+        #expect(!store.tabs.contains { tab in idle.contains { $0.id == tab.id } })
+        for tab in idle {
+            #expect(host.closed.contains { $0.0 == tab.id && $0.1 == tab.spaceID })
+        }
+        expectForgotten(idle, in: store)
+    }
+
+    @Test("A deleted Space's tabs reach extensions as closed, and leave nothing behind")
+    func deleteSpaceTellsExtensions() async {
+        let (store, host, idle) = await storeWithIdleTabs()
+        let doomed = store.addSpace(in: store.primaryWindow)
+        // Rehomed in place: what's under test is the delete, not the move.
+        for tab in idle {
+            if let index = store.tabs.firstIndex(where: { $0.id == tab.id }) {
+                store.tabs[index].spaceID = doomed.id
+            }
+        }
+        // The new Space opened with a blank tab of its own; it goes too.
+        let moved = store.tabs.filter { $0.spaceID == doomed.id }
+        #expect(moved.count == idle.count + 1)
+
+        await store.deleteSpace(doomed.id, in: store.primaryWindow)
+
+        for tab in moved {
+            #expect(host.closed.contains { $0.0 == tab.id && $0.1 == doomed.id })
+        }
+        expectForgotten(moved, in: store)
+    }
+
+    @Test("Closing a tab leaves no runtime behind")
+    func closeTabForgetsItsRuntime() async {
+        let (store, _, idle) = await storeWithIdleTabs()
+        let tab = idle[0]
+
+        store.closeTab(tab.id)
+
+        expectForgotten([tab], in: store)
+    }
+
     @Test func newTabFiresOpenThenActivate() async {
         let (store, host) = await makeStore()
         let spaceID = store.activeSpaceID!

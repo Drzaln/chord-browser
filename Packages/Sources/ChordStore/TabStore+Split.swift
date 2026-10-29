@@ -144,9 +144,7 @@ extension TabStore {
         let closedPane = tabs[index].panes[removedPosition]
 
         captureInteractionState(for: paneID)
-        engine.evict(paneID: paneID)
-        engine.forget(paneID: paneID)
-        runtimes[paneID] = nil
+        discardPanes([paneID])
 
         tabs[index].panes.remove(at: removedPosition)
 

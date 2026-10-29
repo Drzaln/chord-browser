@@ -119,22 +119,10 @@ extension TabStore {
         else { return }
         let space = spaces[index]
 
-        for tab in tabs where tab.spaceID == spaceID {
-            // The tab is gone for good, so its sleep timer must not fire later
-            // into nothing.
-            cancelSleepTimer(tab.id)
-            for pane in tab.panes {
-                // Discarding what `evict` returns is the point: capturing
-                // interaction state here is precisely what must not happen.
-                engine.evict(paneID: pane.id)
-                // And no engine-side state may outlive the session either.
-                engine.forget(paneID: pane.id)
-                runtimes[pane.id] = nil
-            }
-            extensionHost?.extensionTabDidClose(tab.id, inSpace: spaceID)
-        }
-
-        tabs.removeAll { $0.spaceID == spaceID }
+        // No interaction state is captured on the way out: that is precisely
+        // what must not happen, and no engine-side state may outlive the
+        // session either.
+        removeTabsForGood(tabs.filter { $0.spaceID == spaceID })
         folders.removeAll { $0.spaceID == spaceID }
         spaces.remove(at: index)
         lastSelectedTabBySpace[spaceID] = nil

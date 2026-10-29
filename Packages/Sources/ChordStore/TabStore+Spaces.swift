@@ -139,14 +139,7 @@ extension TabStore {
 
         let space = spaces[index]
 
-        for tab in tabs where tab.spaceID == spaceID {
-            for pane in tab.panes {
-                engine.evict(paneID: pane.id)
-                engine.forget(paneID: pane.id)
-                runtimes[pane.id] = nil
-            }
-        }
-        tabs.removeAll { $0.spaceID == spaceID }
+        removeTabsForGood(tabs.filter { $0.spaceID == spaceID })
         // The DB cascades folder rows on space delete; keep the in-memory list in
         // step so the sidebar does not show a folder from a Space that is gone.
         folders.removeAll { $0.spaceID == spaceID }
