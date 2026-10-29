@@ -191,7 +191,7 @@ struct ExtensionsServiceTests {
         // An enabled record for a Space that no longer exists is skipped.
         try await enablement.setEnabled(true, slug: "ublock", spaceID: UUID())
 
-        await service.restoreEnabled(spaces: [s])
+        await service.restoreEnabled(spaces: [s], active: [s])
         #expect(host.loaded.map(\.slug).sorted() == ["dark", "ublock"])
         #expect(host.loaded.allSatisfy { $0.space == s.id })
     }
@@ -203,7 +203,51 @@ struct ExtensionsServiceTests {
         let s = space()
         try await enablement.setEnabled(true, slug: "gone", spaceID: s.id)
 
-        await service.restoreEnabled(spaces: [s])
+        await service.restoreEnabled(spaces: [s], active: [s])
         #expect(host.loaded.isEmpty)  // skipped, no crash
+    }
+
+    @Test func restoreLoadsOnlyTheSpacesOnScreen() async throws {
+        let (service, host, enablement, cleanup) = makeService(installed: ["ublock", "dark"])
+        defer { cleanup() }
+        let a = space(), b = space(), c = space()
+        for s in [a, b, c] {
+            try await enablement.setEnabled(true, slug: "ublock", spaceID: s.id)
+            try await enablement.setEnabled(true, slug: "dark", spaceID: s.id)
+        }
+
+        await service.restoreEnabled(spaces: [a, b, c], active: [a])
+
+        #expect(host.loaded.count == 2)
+        #expect(host.loaded.allSatisfy { $0.space == a.id })
+    }
+
+    @Test func firstShowOfASpaceLoadsItOnce() async throws {
+        let (service, host, enablement, cleanup) = makeService(installed: ["ublock", "dark"])
+        defer { cleanup() }
+        let a = space(), b = space()
+        for s in [a, b] {
+            try await enablement.setEnabled(true, slug: "ublock", spaceID: s.id)
+            try await enablement.setEnabled(true, slug: "dark", spaceID: s.id)
+        }
+        await service.restoreEnabled(spaces: [a, b], active: [a])
+
+        await service.ensureLoaded(space: b)
+        await service.ensureLoaded(space: b)
+        await service.ensureLoaded(space: a)
+
+        #expect(host.loaded.filter { $0.space == b.id }.map(\.slug).sorted() == ["dark", "ublock"])
+        #expect(host.loaded.count == 4, "no Space loads twice")
+    }
+
+    @Test func extensionEnabledBeforeItsSpaceLoadsIsNotLoadedAgain() async throws {
+        let (service, host, _, cleanup) = makeService(installed: ["ublock"])
+        defer { cleanup() }
+        let b = space()
+        try await service.enable(slug: "ublock", in: b)
+
+        await service.ensureLoaded(space: b)
+
+        #expect(host.loaded.count == 1)
     }
 }

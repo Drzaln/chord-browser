@@ -35,7 +35,16 @@ public final class WindowState {
     ///
     /// Not persisted — which Space a window was in is window *layout*, and
     /// `restore()` picks the first Space until layout persistence exists.
-    public internal(set) var activeSpaceID: UUID?
+    public internal(set) var activeSpaceID: UUID? {
+        didSet {
+            if activeSpaceID != oldValue { activeSpaceDidChange?(activeSpaceID) }
+        }
+    }
+
+    /// Told when this window moves to another Space, whichever of the many
+    /// paths moved it. The store sets it, to load that Space's extensions the
+    /// first time anyone looks at it.
+    @ObservationIgnored var activeSpaceDidChange: (@MainActor (UUID?) -> Void)?
 
     /// The tab this window is showing, which is only ever one of its active
     /// Space's tabs.

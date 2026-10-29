@@ -19,7 +19,8 @@ public enum ExtensionsServiceError: Error, CustomStringConvertible {
 /// WebKit-free at its surface — it deals in slugs, `Space`s, `InstalledExtension`
 /// and `LoadedExtension` — so it lives in `ChordStore` and needs no WebKit
 /// import. Enable is load + persist; disable is unload + persist; and on launch
-/// `restoreEnabled` re-loads whatever was on before the last quit.
+/// `restoreEnabled` re-loads whatever was on before the last quit in the Spaces
+/// on screen, and `ensureLoaded` the rest when a window first shows them.
 @MainActor
 public final class ExtensionsService {
     private let installer: ExtensionInstaller
@@ -181,43 +182,64 @@ public final class ExtensionsService {
         return version
     }
 
-    /// Re-loads every enabled extension after the store has restored its Spaces.
-    /// Best-effort: a bundle that was uninstalled on disk, or a Space that no
-    /// longer exists, is skipped and logged rather than failing the launch.
-    public func restoreEnabled(spaces: [Space]) async {
-        let records: [ExtensionEnablementRecord]
+    /// The Spaces whose enabled extensions have been loaded (or are loading)
+    /// this session. A Space no window has shown is not in here, and has started
+    /// no extension workers.
+    private var loadedSpaces: Set<UUID> = []
+
+    /// Re-loads the enabled extensions of the Spaces on screen once the store has
+    /// restored its Spaces. The others wait for `ensureLoaded(space:)`, when a
+    /// window first shows them: N Spaces × M extensions would otherwise be N×M
+    /// background workers (and native hosts like Bitwarden's desktop_proxy) for
+    /// Spaces the user may not open all session.
+    public func restoreEnabled(spaces: [Space], active: [Space]) async {
+        for space in active where spaces.contains(where: { $0.id == space.id }) {
+            await ensureLoaded(space: space)
+        }
+    }
+
+    /// Loads the Space's enabled extensions, once per session. Best-effort: a
+    /// bundle that was uninstalled on disk is skipped and logged rather than
+    /// failing the switch. A store update that landed while the Space was not
+    /// loaded is picked up here, since the library is read now.
+    public func ensureLoaded(space: Space) async {
+        // Marked before the first await, so a second switch to the Space while
+        // this one is still loading doesn't start its workers twice.
+        guard loadedSpaces.insert(space.id).inserted else { return }
+        let slugs: [String]
         do {
-            records = try await enablement.allEnabled()
+            slugs = try await enablement.enabledSlugs(spaceID: space.id)
         } catch {
             log.error("could not read enabled extensions: \(String(describing: error))")
+            loadedSpaces.remove(space.id)
             return
         }
+        guard !slugs.isEmpty else { return }
         let installedBySlug = Dictionary(
             ((try? installer.installedExtensions()) ?? []).map { ($0.slug, $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        let spacesByID = Dictionary(spaces.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
-        for record in records.sorted(by: {
-            ($0.spaceID.uuidString, $0.slug) < ($1.spaceID.uuidString, $1.slug)
-        }) {
-            guard let space = spacesByID[record.spaceID] else { continue }
-            guard let found = installedBySlug[record.slug] else {
-                log.notice("enabled extension \(record.slug) is no longer installed")
+        for slug in slugs.sorted() {
+            guard let found = installedBySlug[slug] else {
+                log.notice("enabled extension \(slug) is no longer installed")
                 continue
             }
+            // Enabled from Settings while this was still waiting: already on.
+            guard !host.loadedExtensions(in: space).contains(where: { $0.slug == slug })
+            else { continue }
             let installed = installer.prepareIfNeeded(found)
             do {
                 let loaded = try await host.load(installed, in: space)
                 // WebKit fails some workers when several extensions start at
-                // once. A short gap between background workers is cheap at
-                // launch and avoids a dead extension until the next reload.
+                // once. A short gap between background workers is cheap and
+                // avoids a dead extension until the next reload.
                 if loaded.hasBackgroundContent {
                     try? await Task.sleep(for: .milliseconds(400))
                 }
             } catch {
                 log.error(
-                    "failed to restore \(record.slug): \(String(describing: error))"
+                    "failed to restore \(slug): \(String(describing: error))"
                 )
             }
         }

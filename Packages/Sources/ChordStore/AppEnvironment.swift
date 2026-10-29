@@ -207,10 +207,16 @@ public struct AppEnvironment {
         // restored. `restore()` invokes this at its end.
         store.afterRestore = { [weak store] in
             guard let store else { return }
-            await extensionsService.restoreEnabled(spaces: store.spaces)
+            await extensionsService.restoreEnabled(
+                spaces: store.spaces, active: store.activeSpaces
+            )
             Task {
                 await extensionsService.updateStoreExtensions(in: store.spaces)
             }
+        }
+        // The rest load the first time a window shows their Space.
+        store.onSpaceActivated = { space in
+            await extensionsService.ensureLoaded(space: space)
         }
         extensionsService.onStoreUpdate = { [weak store] message in
             store?.focusedWindow.showToast(message, icon: "puzzlepiece.extension")

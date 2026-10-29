@@ -156,6 +156,9 @@ public final class TabStore {
         guard window !== primaryWindow else { return }
         guard !secondaryWindows.contains(where: { $0.value === window }) else { return }
         secondaryWindows.append(WeakWindow(window))
+        observeActiveSpace(of: window)
+        // It may already be looking at a Space (a restored window layout).
+        spaceBecameActive(window.activeSpaceID)
     }
 
     /// Drops a closed window, and compacts any that were deallocated.
@@ -754,6 +757,34 @@ public final class TabStore {
     /// the restored Spaces to exist first.
     @ObservationIgnored public var afterRestore: (@MainActor () async -> Void)?
 
+    /// Runs when a window shows a Space, after `restore()` has finished (the
+    /// Spaces on screen at launch are `afterRestore`'s to load). `AppEnvironment`
+    /// loads the Space's extensions here, so a Space nobody opens this session
+    /// starts no extension workers. Called on every switch; the callee keeps
+    /// it idempotent.
+    @ObservationIgnored public var onSpaceActivated: (@MainActor (Space) async -> Void)?
+
+    /// The Spaces some window is showing now.
+    public var activeSpaces: [Space] {
+        let ids = Set(windows.compactMap(\.activeSpaceID))
+        return spaces.filter { ids.contains($0.id) }
+    }
+
+    /// Off until `restore()` hands over to `afterRestore`, which loads the
+    /// Spaces on screen then; switches during restore itself are not news.
+    @ObservationIgnored private var reportsSpaceActivation = false
+
+    func spaceBecameActive(_ id: UUID?) {
+        guard reportsSpaceActivation, let id, let space = spaces.first(where: { $0.id == id }),
+            let onSpaceActivated
+        else { return }
+        Task { await onSpaceActivated(space) }
+    }
+
+    func observeActiveSpace(of window: WindowState) {
+        window.activeSpaceDidChange = { [weak self] id in self?.spaceBecameActive(id) }
+    }
+
     /// Opens a URL in the Little Chord floating panel. Injected by the app layer,
     /// which owns the panel; `nil` (and inert) until then. Used by the link
     /// context-menu action "Open in Little Chord" (non-spec: user-requested).
@@ -830,6 +861,7 @@ public final class TabStore {
         self.windowLayoutRepository = windowLayoutRepository
         self.clock = clock
         self.engine.delegate = self
+        observeActiveSpace(of: self.primaryWindow)
         // Apply the persisted UA policy up front — the properties' `didSet` does
         // not fire for their initial values, so the engine would otherwise start
         // on the default with no per-domain rules.
@@ -935,6 +967,7 @@ public final class TabStore {
         startSweep()
 
         // Extensions load after the Spaces they belong to exist (7.4).
+        reportsSpaceActivation = true
         await afterRestore?()
     }
 
