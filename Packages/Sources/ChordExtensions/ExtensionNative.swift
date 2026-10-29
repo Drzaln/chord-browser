@@ -135,9 +135,14 @@ enum ExtensionNative {
                 // port now and then, heard only by the shim, has the worker
                 // answer on it, which is what WebKit counts.
                 if beating == nil {
+                    // Scheduled from the port's handler, on the main run loop.
                     beating = Timer.scheduledTimer(withTimeInterval: 25, repeats: true) { timer in
-                        guard !port.isDisconnected else { timer.invalidate(); return }
-                        port.sendMessage(["__chordNative": "alive"], completionHandler: nil)
+                        let gone = MainActor.assumeIsolated {
+                            if port.isDisconnected { return true }
+                            port.sendMessage(["__chordNative": "alive"], completionHandler: nil)
+                            return false
+                        }
+                        if gone { timer.invalidate() }
                     }
                 }
                 return
