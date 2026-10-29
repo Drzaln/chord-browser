@@ -313,6 +313,8 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
                 identifier: previous.installed.identifier, spaceID: space.id
             )
             capture.purge(previous.installed.identifier)
+            ExtensionSocket.endConnections(of: previous.context)
+            ExtensionNative.stopOrphans()
             let key = ExtensionWorkerRecovery.Key(
                 spaceID: space.id, slug: installed.slug
             )
@@ -461,6 +463,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         ExtensionOffscreen.close(identifier: loaded.installed.identifier, spaceID: space.id)
         capture.purge(loaded.installed.identifier)
         closeSidePanel(slug: slug, in: space)
+        ExtensionSocket.endConnections(of: loaded.context)
         ExtensionNative.stopOrphans()
         Log.extensions.notice(
             "unloaded extension \(slug) in space \(space.id)"
@@ -1373,7 +1376,7 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         // ExtensionSocket). It is not a Mac native host and needs no
         // nativeMessaging permission.
         if port.applicationIdentifier == ExtensionSocket.name {
-            ExtensionSocket.connect(port, from: context.uniqueIdentifier)
+            ExtensionSocket.connect(port, from: context)
             return
         }
         guard let applicationIdentifier = port.applicationIdentifier else { return }

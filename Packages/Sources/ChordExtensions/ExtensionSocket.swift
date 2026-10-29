@@ -19,15 +19,54 @@ enum ExtensionSocket {
     private static let session = URLSession(
         configuration: .default, delegate: nil, delegateQueue: .main
     )
-    private static var open: [ObjectIdentifier: Connection] = [:]
+    /// Every socket that is up, by the context that opened it, held until it
+    /// ends. By context rather than by extension id: the same extension in
+    /// another Space has the same id and keeps its own sockets.
+    private struct Live {
+        let context: ObjectIdentifier
+        let isOrphan: () -> Bool
+        let end: () -> Void
+    }
+    private static var open: [ObjectIdentifier: Live] = [:]
 
-    static func connect(_ port: WKWebExtension.MessagePort, from extensionID: String) {
+    static var openCount: Int { open.count }
+
+    static func connect(_ port: WKWebExtension.MessagePort, from context: WKWebExtensionContext) {
+        endOrphans()
         let connection = Connection(
-            port: port, origin: "chrome-extension://\(extensionID)"
+            port: port, origin: "chrome-extension://\(context.uniqueIdentifier)"
         )
         let key = ObjectIdentifier(connection)
-        open[key] = connection
-        connection.onEnd = { open[key] = nil }
+        keep(key, context: ObjectIdentifier(context),
+             isOrphan: { [weak connection] in connection?.isOrphan ?? true },
+             end: { [weak connection] in connection?.end(tellingPort: true) })
+        connection.onEnd = { forget(key) }
+    }
+
+    static func keep(
+        _ key: ObjectIdentifier, context: ObjectIdentifier,
+        isOrphan: @escaping () -> Bool, end: @escaping () -> Void
+    ) {
+        open[key] = Live(context: context, isOrphan: isOrphan, end: end)
+    }
+
+    static func forget(_ key: ObjectIdentifier) { open[key] = nil }
+
+    /// Ends what a context left open. WebKit doesn't always call a port's
+    /// disconnect handler when it unloads an extension, so without this its
+    /// sockets would stay connected to their servers for the life of the app.
+    static func endConnections(of context: WKWebExtensionContext) {
+        endConnections(of: ObjectIdentifier(context))
+    }
+
+    static func endConnections(of context: ObjectIdentifier) {
+        for (_, live) in open where live.context == context { live.end() }
+    }
+
+    /// Ends sockets whose port is gone, as ExtensionNative.stopOrphans does for
+    /// native hosts. Run on every new connection.
+    static func endOrphans() {
+        for (_, live) in open where live.isOrphan() { live.end() }
     }
 
     @MainActor
@@ -37,6 +76,7 @@ enum ExtensionSocket {
         private var task: URLSessionWebSocketTask?
         private var ended = false
         var onEnd: (() -> Void)?
+        var isOrphan: Bool { port.isDisconnected }
 
         init(port: WKWebExtension.MessagePort, origin: String) {
             self.port = port
@@ -128,7 +168,7 @@ enum ExtensionSocket {
             end(tellingPort: true)
         }
 
-        private func end(tellingPort: Bool) {
+        func end(tellingPort: Bool) {
             guard !ended else { return }
             ended = true
             task?.cancel(with: .goingAway, reason: nil)
