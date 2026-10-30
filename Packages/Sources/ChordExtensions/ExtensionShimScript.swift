@@ -319,6 +319,24 @@ enum ExtensionShimScript {
           }, true);
         }
       }
+      // WebKit unloads a worker after 30 s with nothing on a port, and the
+      // next event starts it in a new web process; an alarm every minute
+      // (Bitwarden signed out) cost a process launch a minute. The browser
+      // decides from how soon this worker started again whether to hold it
+      // (ExtensionKeepAlive.swift). Held, the shim answers its "alive" on the
+      // port, which is what WebKit counts. Listened to before the port
+      // listeners below are wrapped, which hide these words from extensions.
+      if (worker && runtime && typeof runtime.connectNative === "function") {
+        try {
+          const held = runtime.connectNative("chord.keepalive");
+          // Kept reachable: a port only its own listener refers to can be
+          // collected, and with it the hold.
+          Object.defineProperty(root, "__chordKeepAlive", { value: held });
+          held.onMessage.addListener((m) => {
+            if (m && m.__chordNative === "alive") { try { held.postMessage({ __chordNative: "beat" }); } catch (e) {} }
+          });
+        } catch (e) {}
+      }
       // WebKit runs an extension's worker on its web process's main thread,
       // and a worker's WebSocket waits there for the main thread to set up
       // its channel — for itself, for ever: the worker and every page of the

@@ -478,6 +478,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             NotificationCenter.default.removeObserver(watcher)
         }
         revived[key] = nil
+        ExtensionKeepAlive.forget(Self.keepAliveKey(space.id, loaded.context.uniqueIdentifier))
         closePopouts(of: loaded.context, in: space.id)
         var unloadError: Error?
         if let controller = controllers[space.id] {
@@ -1481,6 +1482,10 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         )
     }
 
+    static func keepAliveKey(_ spaceID: UUID, _ identifier: String) -> String {
+        "\(spaceID)|\(identifier)"
+    }
+
     public func webExtensionController(
         _ controller: WKWebExtensionController,
         connectUsing port: WKWebExtension.MessagePort,
@@ -1490,6 +1495,20 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         // host and has nothing to keep.
         if port.applicationIdentifier == nil
             || port.applicationIdentifier == ExtensionShims.application {
+            return
+        }
+        // Every worker asks as it starts; held only when it keeps being woken
+        // (see ExtensionKeepAlive).
+        if port.applicationIdentifier == ExtensionKeepAlive.name {
+            guard let (spaceID, _) = locate(context) else {
+                port.disconnect()
+                return
+            }
+            let pinger = KeepAlivePinger(context)
+            ExtensionKeepAlive.connect(
+                port, key: Self.keepAliveKey(spaceID, context.uniqueIdentifier),
+                ping: { await pinger.ping() }
+            )
             return
         }
         // A worker's WebSocket is made by the browser, not by WebKit (see
@@ -1780,6 +1799,30 @@ extension WebKitExtensionHost: NSPopoverDelegate {
         visiblePopover = nil
         visiblePopoverWindow = nil
         onPopupVisibilityChanged?(window, false)
+    }
+}
+
+/// Pings a held worker from a hidden page of its own extension (see
+/// ExtensionKeepAlive): the shim answers `__chordPing` itself, and the
+/// extension never sees it.
+@MainActor
+private final class KeepAlivePinger {
+    private weak var context: WKWebExtensionContext?
+    private var page: BlankExtensionPage?
+
+    init(_ context: WKWebExtensionContext) { self.context = context }
+
+    func ping() async {
+        if page == nil {
+            guard let context, let configuration = context.webViewConfiguration else { return }
+            let made = BlankExtensionPage(configuration)
+            guard await made.load(at: context.baseURL) else { return }
+            page = made
+        }
+        _ = try? await page?.web.callAsyncJavaScript(
+            "try { await chrome.runtime.sendMessage({ __chordPing: true }); } catch (e) {}",
+            contentWorld: .page
+        )
     }
 }
 

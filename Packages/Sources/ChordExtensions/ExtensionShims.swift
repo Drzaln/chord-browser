@@ -30,14 +30,23 @@ public enum ExtensionShims {
     /// worker generation. The generation is in it so a revive or reload, which
     /// bumps the generation, rewrites the shim instead of finding it current.
     public static func stampValue(workerGeneration: Int) -> String {
-        "\(version)-worker-\(workerGeneration)"
+        "\(version).\(fingerprint)-worker-\(workerGeneration)"
     }
+
+    /// The script's own fingerprint, in the stamp so that any change to the
+    /// shim reaches every installed extension at its next load. `version`
+    /// alone stayed "2" through every shim change since it was added, so an
+    /// installed extension kept the shim it was installed with (c1k.9).
+    static let fingerprint: String = {
+        SHA256.hash(data: Data(ExtensionShimScript.javascript.utf8))
+            .prefix(6).map { String(format: "%02x", $0) }.joined()
+    }()
 
     /// Whether a tree's stamp is from this shim version, at any generation. A
     /// generation change only rewrites the shim (`prepare`); it is not a reason
     /// to re-unpack the bundle from its ZIP.
     public static func isCurrent(stamp: String?) -> Bool {
-        stamp?.hasPrefix(version + "-worker-") == true
+        stamp?.hasPrefix("\(version).\(fingerprint)-worker-") == true
     }
 
     /// Write the shim into `folder` and wire it into the extension's worker,
