@@ -57,11 +57,16 @@ public struct SQLiteTabRepository: TabRepository, SpaceRepository, FolderReposit
         }
     }
 
+    /// Differential, never delete-all: extension enablement and grants, site
+    /// permissions and folders cascade from a Space row, and a credential's
+    /// last-used Space is nulled with it, so deleting a Space that still
+    /// exists wipes them all. Only Spaces no longer in the list are deleted.
     public func saveSpaces(_ spaces: [Space]) async throws {
         try await database.writer.write { db in
-            try SpaceRow.deleteAll(db)
+            let kept = spaces.map(\.id.uuidString)
+            try SpaceRow.filter(!kept.contains(Column("id"))).deleteAll(db)
             for space in spaces {
-                try SpaceMapping.row(for: space).insert(db)
+                try SpaceMapping.row(for: space).upsert(db)
             }
         }
     }
