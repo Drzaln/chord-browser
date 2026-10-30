@@ -851,6 +851,11 @@ enum ExtensionSettings {
         "chord.extensions.settings.\(spaceID).\(identifier)"
     }
 
+    /// What the extension set for `name` in the Space, nil if it set nothing.
+    static func stored(_ name: String, identifier: String, spaceID: UUID) -> Any? {
+        UserDefaults.standard.dictionary(forKey: key(identifier: identifier, spaceID: spaceID))?[name]
+    }
+
     static func answer(
         _ api: String, _ details: [String: Any], identifier: String, spaceID: UUID
     ) -> Any? {

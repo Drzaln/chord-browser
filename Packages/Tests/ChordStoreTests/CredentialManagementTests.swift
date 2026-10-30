@@ -99,6 +99,42 @@ struct CredentialManagementTests {
         #expect(store.pendingCredentialSave?.username == "second@example.com")
     }
 
+    // MARK: - An extension takes over (1mm.14)
+
+    @Test("A Space whose password manager took over gets no save offer; others still do")
+    func extensionTakesOverSaving() async throws {
+        let repository = FakeTabRepository()
+        let store = TabStore(
+            engine: FakeWebEngine(), repository: repository,
+            spaceRepository: repository, clock: FixedClock()
+        )
+        store.vault = CredentialVault(
+            repository: SQLiteCredentialRepository(database: try ChordDatabase.inMemory()),
+            secrets: MemorySecrets()
+        )
+        await store.restore()
+        let home = store.spaces[0]
+        store.addSpace(name: "Work")
+        let work = try #require(store.spaces.first { $0.name == "Work" })
+        store.passwordSavingTakenBy = { $0.id == work.id ? "Bitwarden" : nil }
+        let window = store.primaryWindow
+
+        store.newTab(url: URL(string: "https://example.com")!, in: window)
+        let workPane = try #require(store.selectedTab(in: window)?.focusedPaneID)
+        await store.handleSubmittedLogin(
+            origin: "https://example.com", username: "me", password: "pw", paneID: workPane
+        )
+        #expect(store.pendingCredentialSave == nil)
+
+        store.selectSpace(home.id)
+        store.newTab(url: URL(string: "https://example.com")!, in: window)
+        let homePane = try #require(store.selectedTab(in: window)?.focusedPaneID)
+        await store.handleSubmittedLogin(
+            origin: "https://example.com", username: "me", password: "pw", paneID: homePane
+        )
+        #expect(store.pendingCredentialSave?.username == "me")
+    }
+
     // MARK: - Reveal
 
     @Test("Revealing a password requires authentication")

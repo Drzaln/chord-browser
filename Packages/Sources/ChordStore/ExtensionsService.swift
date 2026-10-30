@@ -102,6 +102,14 @@ public final class ExtensionsService {
         host.loadedExtensions(in: space)
     }
 
+    /// The extension enabled in the Space that took over saving passwords, by
+    /// name, or nil while Chord should offer to save as usual.
+    public func passwordSavingTakenBy(in space: Space) -> String? {
+        host.loadedExtensions(in: space)
+            .first { host.turnedOffPasswordSaving(identifier: $0.identifier, in: space) }
+            .map { $0.displayName ?? $0.slug }
+    }
+
     /// The default toolbar-action snapshots for the extensions loaded in a Space
     /// (7.5a), sorted by slug. WebKit-free values the sidebar header renders.
     public func actions(in space: Space) -> [ExtensionActionSnapshot] {

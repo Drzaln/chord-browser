@@ -63,6 +63,11 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// remove a store the controller still holds.
     func spaceDidClose(_ space: Space) async
 
+    /// Whether the extension set `privacy.services.passwordSavingEnabled` to
+    /// false in the Space: a password manager asking the browser to stop
+    /// offering to save, as Bitwarden's "overriding autofill" banner does.
+    func turnedOffPasswordSaving(identifier: String, in space: Space) -> Bool
+
     // MARK: - Toolbar actions (7.5a)
 
     /// The default toolbar-action snapshot for every extension loaded in a
@@ -176,4 +181,5 @@ public extension ExtensionHost {
     func forgetData(identifier: String, in spaces: [Space]) async {}
     func forgetLeftOver(in spaces: [Space]) async {}
     func spaceDidClose(_ space: Space) async {}
+    func turnedOffPasswordSaving(identifier: String, in space: Space) -> Bool { false }
 }

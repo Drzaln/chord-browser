@@ -8,10 +8,11 @@ extension TabStore {
 
     /// A page submitted a login. Decide whether to offer to save it.
     ///
-    /// Says nothing, on purpose, in three cases: the site is silenced
-    /// (`credentialNeverSave`), there is no vault, or the exact same password is
-    /// already stored for that login. The last one is what stops the bar
-    /// appearing every single time you sign in to a site you already saved.
+    /// Says nothing, on purpose, when an extension took over saving in the
+    /// Space, the site is silenced (`credentialNeverSave`), there is no vault,
+    /// or the exact same password is already stored for that login. The last
+    /// one is what stops the bar appearing every single time you sign in to a
+    /// site you already saved.
     func handleSubmittedLogin(
         origin: String, username: String, password: String, paneID: UUID
     ) async {
@@ -20,6 +21,14 @@ extension TabStore {
         // private sign-in must not prime the save bar a normal window shows
         // later. Filling is deliberately untouched — see `fillCredential`.
         guard !isPrivate(paneID: paneID) else { return }
+
+        // A password manager extension asked to save them itself, as in Chrome.
+        if let spaceID = spaceID(forPane: paneID),
+            let space = spaces.first(where: { $0.id == spaceID }),
+            passwordSavingTakenBy?(space) != nil
+        {
+            return
+        }
 
         // A multi-step login submits the username on one page and the password
         // on the next (Google, Mixpanel). Remember the first half so the second

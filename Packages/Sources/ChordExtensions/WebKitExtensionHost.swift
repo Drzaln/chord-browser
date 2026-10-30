@@ -1128,6 +1128,12 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         }
     }
 
+    public func turnedOffPasswordSaving(identifier: String, in space: Space) -> Bool {
+        let name = "privacy.services.passwordSavingEnabled"
+        return ExtensionSettings.stored(name, identifier: identifier, spaceID: space.id) as? Bool
+            == false
+    }
+
     /// One Space's wipe. Whether all of it was cleared.
     private func wipe(identifier: String, in space: Space) async -> Bool {
         loadedOnce.remove("\(space.id)|\(identifier)")

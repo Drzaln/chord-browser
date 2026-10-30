@@ -302,6 +302,9 @@ password?* with **Save**, **Not Now**, and **Never**. "Not Now" declines this on
 time; **"Never" is remembered** and that site stops asking. Signing in again with
 the *same* password says nothing at all — you are only asked when something is
 new or changed, and a changed password offers **Update** rather than Save.
+When a password-manager extension takes over saving in a Space (Bitwarden's
+"browser password manager is overriding autofill" banner asks for this), Chord
+stops offering to save in that Space; other Spaces still ask.
 
 **Filling.** On a page with a saved login, a small **key** appears in the sidebar
 next to the reload button. Click it to fill. With more than one account saved for

@@ -764,6 +764,10 @@ public final class TabStore {
     /// it idempotent.
     @ObservationIgnored public var onSpaceActivated: (@MainActor (Space) async -> Void)?
 
+    /// The extension that took over saving passwords in a Space, by name, or
+    /// nil. While one has, the Space gets no save offer (1mm.14).
+    @ObservationIgnored public var passwordSavingTakenBy: (@MainActor (Space) -> String?)?
+
     /// The Spaces some window is showing now.
     public var activeSpaces: [Space] {
         let ids = Set(windows.compactMap(\.activeSpaceID))

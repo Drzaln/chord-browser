@@ -16,6 +16,11 @@ private final class FakeHost: ExtensionHost {
     /// "leftover" and "load:<slug>", in call order.
     var calls: [String] = []
     func forgetLeftOver(in spaces: [Space]) async { calls.append("leftover") }
+    /// "<identifier>|<spaceID>" that set passwordSavingEnabled false.
+    var turnedOffSaving: Set<String> = []
+    func turnedOffPasswordSaving(identifier: String, in space: Space) -> Bool {
+        turnedOffSaving.contains("\(identifier)|\(space.id)")
+    }
 
     func load(_ installed: InstalledExtension, in space: Space) async throws -> LoadedExtension {
         calls.append("load:\(installed.slug)")
@@ -116,6 +121,21 @@ struct ExtensionsServiceTests {
         try await service.enable(slug: "ublock", in: s)
         #expect(host.loaded.map(\.slug) == ["ublock"])
         #expect(try await enablement.enabledSlugs(spaceID: s.id) == ["ublock"])
+    }
+
+    @Test func passwordSavingIsTakenByTheExtensionThatTurnedItOff() async throws {
+        let (service, host, _, cleanup) = makeService(installed: ["bitwarden", "ublock"])
+        defer { cleanup() }
+        let work = space()
+        let home = space()
+        try await service.enable(slug: "bitwarden", in: work)
+        try await service.enable(slug: "ublock", in: work)
+        try await service.enable(slug: "bitwarden", in: home)
+        #expect(service.passwordSavingTakenBy(in: work) == nil)
+
+        host.turnedOffSaving = ["bitwarden|\(work.id)"]
+        #expect(service.passwordSavingTakenBy(in: work) == "bitwarden")
+        #expect(service.passwordSavingTakenBy(in: home) == nil)
     }
 
     @Test func enableOfUnknownThrowsAndDoesNotPersist() async throws {

@@ -1,3 +1,4 @@
+import ChordCore
 import Foundation
 import Testing
 import WebKit
@@ -229,10 +230,16 @@ struct ExtensionShimBrokerTests {
         // Each Space keeps its own.
         let elsewhere = try await call("get", in: other) as? [String: Any]
         #expect(elsewhere?["value"] as? Bool == true)
+        // The host reads it back, so Chord stops offering to save there only.
+        let host = WebKitExtensionHost()
+        let id = context.uniqueIdentifier
+        #expect(host.turnedOffPasswordSaving(identifier: id, in: Space(id: space, name: "A", sortIndex: 0)))
+        #expect(!host.turnedOffPasswordSaving(identifier: id, in: Space(id: other, name: "B", sortIndex: 1)))
 
         _ = try await call("clear", in: space)
         let cleared = try await call("get", in: space) as? [String: Any]
         #expect(cleared?["levelOfControl"] as? String == "controllable_by_this_extension")
+        #expect(!host.turnedOffPasswordSaving(identifier: id, in: Space(id: space, name: "A", sortIndex: 0)))
     }
 
     @Test func privacySettingsNeedTheirPermission() async throws {

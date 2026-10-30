@@ -220,6 +220,7 @@ public struct AppEnvironment {
         store.onSpaceActivated = { space in
             await extensionsService.ensureLoaded(space: space)
         }
+        store.passwordSavingTakenBy = { extensionsService.passwordSavingTakenBy(in: $0) }
         extensionsService.onStoreUpdate = { [weak store] message in
             store?.focusedWindow.showToast(message, icon: "puzzlepiece.extension")
         }
