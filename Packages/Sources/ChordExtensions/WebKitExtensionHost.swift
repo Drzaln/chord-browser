@@ -1749,11 +1749,23 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
             completionHandler([], nil)
             return
         }
+        // Asked about a page, the answer covers its site (1mm.16): granting
+        // the exact URL, query and all, asked again on the next video.
+        let sites = ExtensionGrants.sitePatterns(for: urls)
+        guard !sites.isEmpty else {
+            completionHandler([], nil)
+            return
+        }
         enqueuePermission(
-            spaceID: spaceID, slug: slug, kind: .url,
-            values: urls.map(\.absoluteString),
+            spaceID: spaceID, slug: slug, kind: .matchPattern,
+            values: sites.map(\.string),
             displayName: context.webExtension.displayName
-        ) { allow in completionHandler(allow ? urls : [], nil) }
+        ) { allow in
+            if allow {
+                for site in sites { context.setPermissionStatus(.grantedExplicitly, for: site) }
+            }
+            completionHandler(allow ? urls : [], nil)
+        }
     }
 
     public func webExtensionController(

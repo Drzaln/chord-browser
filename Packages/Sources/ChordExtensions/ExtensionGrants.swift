@@ -62,6 +62,20 @@ enum ExtensionGrants {
         return extensionSchemes.contains(scheme) || scheme == "file"
     }
 
+    /// The sites a page-access question is about, one pattern each
+    /// (`https://www.youtube.com/*`). Chrome and Safari ask per site: a yes
+    /// for one video is a yes for the next. URLs with no host, or that reach
+    /// extension pages or files, give none.
+    static func sitePatterns(for urls: Set<URL>) -> [WKWebExtension.MatchPattern] {
+        let sites = Set(urls.compactMap { url -> String? in
+            guard let scheme = url.scheme?.lowercased(), let host = url.host(), !host.isEmpty
+            else { return nil }
+            return "\(scheme)://\(host.lowercased())/*"
+        })
+        return sites.sorted().compactMap { try? WKWebExtension.MatchPattern(string: $0) }
+            .filter { !withheld($0) }
+    }
+
     /// The sites its manifest names, never ones that reach extension pages or
     /// files (`fence` runs after). WebKit copies injected scripts per granted
     /// pattern, so a pattern a broader one already covers (same scheme and

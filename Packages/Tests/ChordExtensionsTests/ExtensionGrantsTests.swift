@@ -118,4 +118,43 @@ struct ExtensionGrantsTests {
         defer { c3() }
         #expect(!refused.hasAccessToPrivateData)
     }
+
+    @Test("Allowing an extension on one page allows its site, not just that URL (1mm.16)")
+    func pageAllowCoversSite() async throws {
+        let (host, _, context, cleanup) = try await load("""
+            { "manifest_version": 3, "name": "Page", "version": "1",
+              "optional_host_permissions": ["<all_urls>"] }
+            """)
+        defer { cleanup() }
+        var asked: [PermissionRequest] = []
+        host.onPermissionRequest = { asked.append($0) }
+        let controller = try #require(context.webExtensionController)
+        let video = try #require(URL(string: "https://www.youtube.com/watch?v=one"))
+        var answered: Set<URL>?
+        host.webExtensionController(
+            controller, promptForPermissionToAccess: [video], in: nil, for: context
+        ) { urls, _ in answered = urls }
+
+        let request = try #require(asked.first)
+        #expect(request.kind == .matchPattern)
+        #expect(request.items == ["https://www.youtube.com/*"])
+        host.resolvePermission(id: request.id, allow: true)
+
+        #expect(answered == [video])
+        let next = try #require(URL(string: "https://www.youtube.com/watch?v=two"))
+        #expect(granted(context.permissionStatus(for: next)))
+        let elsewhere = try #require(URL(string: "https://www.reddit.com/"))
+        #expect(!granted(context.permissionStatus(for: elsewhere)))
+    }
+
+    @Test("A page question about a file or another extension's page offers no site")
+    func pageAllowSkipsWithheld() {
+        let urls: Set<URL> = [
+            URL(string: "file:///Users/me/a.html")!,
+            URL(string: "chrome-extension://abc/page.html")!,
+            URL(string: "https://Example.com/a?b=c")!,
+            URL(string: "https://example.com/d")!,
+        ]
+        #expect(ExtensionGrants.sitePatterns(for: urls).map(\.string) == ["https://example.com/*"])
+    }
 }
