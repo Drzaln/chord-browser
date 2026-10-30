@@ -61,6 +61,7 @@ extension NavigationCoordinator: WKNavigationDelegate {
         retriedTransientLoads.removeAll()
         guard let paneID = paneID(for: webView) else { return }
         engine?.publishSnapshot(for: paneID)
+        engine?.noteFirstPaint(paneID)
         engine?.fetchFavicon(for: paneID)
         // A reload built a fresh JS context, so re-assert mute if this pane is
         // muted (non-spec: user-requested).

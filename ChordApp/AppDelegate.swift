@@ -43,6 +43,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }()
 
     override init() {
+        // c1k.1: start of the cold-start-to-first-paint measure
+        // (scripts/perf-baseline.sh startup).
+        Self.log.notice("perf launch")
         let state = Self.signposter.beginInterval("launch")
         do {
             launch = .ready(try AppEnvironment.live())

@@ -1408,6 +1408,12 @@ public final class TabStore {
     public func select(_ tabID: UUID, in window: WindowState) {
         guard let tab = tabs.first(where: { $0.id == tabID }) else { return }
         let outgoing = window.selectedTabID
+        // c1k.1: a tab switch, start to the next main-loop turn, when the new
+        // tab's surface is on screen (scripts/perf-baseline.sh switch).
+        if outgoing != tabID {
+            Log.store.notice("perf tab-switch-start \(tabID)")
+            DispatchQueue.main.async { Log.store.notice("perf tab-switch-end \(tabID)") }
+        }
 
         // A tab is on screen in at most one window — one web view, one superview.
         // Selecting one another window holds *moves* it here; that window is given

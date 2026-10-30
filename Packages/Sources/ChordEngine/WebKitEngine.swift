@@ -1626,6 +1626,17 @@ public final class WebKitEngine: WebEngine {
         pool.paneID(matching: webView)
     }
 
+    /// Whether any pane has finished a load since launch; see `noteFirstPaint`.
+    private static var hasPainted = false
+
+    /// c1k.1: the end of the cold-start measure, logged once per launch for the
+    /// first pane that finishes loading (scripts/perf-baseline.sh startup).
+    func noteFirstPaint(_ paneID: UUID) {
+        guard !Self.hasPainted else { return }
+        Self.hasPainted = true
+        Log.engine.notice("perf first-paint \(paneID)")
+    }
+
     func publishSnapshot(for paneID: UUID) {
         guard let live = pool.view(for: paneID) else { return }
         live.refreshSnapshot()
