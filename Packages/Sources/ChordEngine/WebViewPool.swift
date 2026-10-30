@@ -11,8 +11,13 @@ import WebKit
 @MainActor
 final class LiveWebView {
     let paneID: UUID
-    let webView: WKWebView
+    /// Swapped, inside the same container, when the pane moves between the web
+    /// and an extension's pages: each needs its own configuration.
+    private(set) var webView: WKWebView
     let container: WebSurfaceContainerView
+    /// The extension whose pages this view shows (its URL host), nil for the web.
+    private(set) var extensionHost: String?
+    private var onChange: (@MainActor (UUID, PaneSnapshot) -> Void)?
 
     private(set) var snapshot = PaneSnapshot()
     private var observations: [NSKeyValueObservation] = []
@@ -44,9 +49,10 @@ final class LiveWebView {
         didSet { refreshSnapshot() }
     }
 
-    init(paneID: UUID, webView: WKWebView, cornerRadius: CGFloat) {
+    init(paneID: UUID, webView: WKWebView, cornerRadius: CGFloat, extensionHost: String? = nil) {
         self.paneID = paneID
         self.webView = webView
+        self.extensionHost = extensionHost
         self.container = WebSurfaceContainerView(cornerRadius: cornerRadius)
         container.install(webView)
     }
@@ -55,6 +61,7 @@ final class LiveWebView {
     ///   property moves. Held strongly by the observations, so the owner must
     ///   pass a closure that captures the engine weakly.
     func startObserving(onChange: @escaping @MainActor (UUID, PaneSnapshot) -> Void) {
+        self.onChange = onChange
         func observe<Value>(_ keyPath: KeyPath<WKWebView, Value>) {
             let observation = webView.observe(keyPath, options: [.new]) { [weak self] _, _ in
                 MainActor.assumeIsolated {
@@ -147,9 +154,25 @@ final class LiveWebView {
         webView.interactionState = data
     }
 
+    /// Puts `replacement` in the container in place of the current view, which
+    /// is torn down, and observes it with the same callback. The caller loads it.
+    func replaceWebView(with replacement: WKWebView, extensionHost: String?) {
+        retire()
+        webView = replacement
+        self.extensionHost = extensionHost
+        container.install(replacement)
+        if let onChange { startObserving(onChange: onChange) }
+    }
+
     /// Explicit teardown. KVO observations and the delegate wiring are classic
     /// retain-cycle sources, so nothing here is left to deinit ordering.
     func tearDown() {
+        retire()
+        container.removeContent()
+    }
+
+    /// Unhooks and stops the current web view.
+    private func retire() {
         // Release the media pipeline WebKit holds for this view (AVPlayer,
         // audio buffers, the media daemon session). Safe on a view with no
         // media. The script then empties the page's own elements, so their
@@ -174,16 +197,19 @@ final class LiveWebView {
         // Every view has its own controller, so all of them go, in every
         // world: a list by name had to be kept in step with each new handler,
         // and wasn't.
-        let controller = webView.configuration.userContentController
-        controller.removeAllScriptMessageHandlers()
-        controller.removeAllUserScripts()
+        // An extension page's controller is the extension's, shared with its
+        // other pages (popup, side panel): those keep their handlers.
+        if extensionHost == nil {
+            let controller = webView.configuration.userContentController
+            controller.removeAllScriptMessageHandlers()
+            controller.removeAllUserScripts()
+        }
 
         // Last, and after stopLoading rather than before it: stopping cancels
         // a provisional navigation, so the old order left the page running
         // until the view itself went, for as long as anything still held it.
         webView.stopLoading()
         webView.load(URLRequest(url: URL(string: "about:blank")!))
-        container.removeContent()
     }
 
     deinit {

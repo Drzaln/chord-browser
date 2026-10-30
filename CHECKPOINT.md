@@ -5057,3 +5057,36 @@ Performance, each measured in the app before/after:
 Open follow-ups: lifetime audit epic `dlr` (Space teardown for extensions
 is P1), `1mm.14` (step aside when an extension turns password saving off),
 `4b6` (catch macOS 27-only API names before a tag).
+
+### M9d — extension pages in tabs, DNR redirect and return (2026-10-30)
+
+A tab could not show an extension's page at all: WebKit serves
+`chrome-extension://` main frames only to a view built from that extension's
+own `webViewConfiguration`, and an engine tab's view (Space template +
+`webExtensionController`) got `-1008`. That was the "blank side-panel
+fallback tabs", every options page opened as a tab, and every
+declarativeNetRequest redirect to an extension file (Norma's blocked-site
+page) — the rule fired, the tab stayed blank.
+
+- **View swap.** `LiveWebView.replaceWebView` puts a new view in the same
+  container (the UI's surface is unchanged) and re-observes it. The engine
+  builds a pane on an extension URL from the context's configuration
+  (`extensionPageView`), and `load` / the navigation policy move a pane
+  between the two kinds (`needsNewView` / `moveToNewView`). History stays
+  with the old view, as in Search. Tearing down an extension view leaves its
+  user-content controller alone: it is the extension's, shared with its
+  popup and panel.
+- **Who may open one.** A site's navigation to an extension page passes
+  `ExtensionPageAccess.allows` (Search's `ExtensionRedirectPolicy`): the file
+  must be in `web_accessible_resources` for that site, unreadable
+  declarations refuse. Unlike Search, http sites pass too — WebKit's DNR
+  redirect arrives as a plain navigation from the site
+  (`_isContentExtensionRedirect` is false), so a rule can't be told apart
+  from the page. A fresh tab's source is the URL it was asked to load.
+  `ruleTarget` puts back the `#`/`?` WebKit escapes into an extensionPath.
+  Back to the web is always allowed (the page's "continue anyway").
+- **Tests.** `ExtensionDNRRedirectTests` (real engine + host): static rule
+  redirect lands with its fragment, same container, page returns to the
+  site in a web view; a tab opened on an options page shows it; an
+  unexposed site is refused. Both positive tests fail without the swap.
+  `ExtensionPageAccessTests` pins the policy.

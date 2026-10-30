@@ -131,6 +131,9 @@ public final class WebKitEngine: WebEngine {
     /// which is handed the Space at `surface(for:in:)`, keeps the answer. A
     /// revived pane re-records it; `forget` drops it.
     private var paneSpaces: [UUID: UUID] = [:]
+    /// The Space each live pane was built for, so a pane can rebuild its view
+    /// when it moves between the web and an extension's pages.
+    private var paneSpaceValues: [UUID: Space] = [:]
 
     /// The URL of the most recently right-clicked link per pane, fed by
     /// `ContextLinkMonitor` and read when "Open in Little Chord" is chosen.
@@ -281,14 +284,17 @@ public final class WebKitEngine: WebEngine {
         // after its tab moved between Spaces) always answers with the Space whose
         // data store its view is actually using.
         paneSpaces[pane.id] = space.id
+        paneSpaceValues[pane.id] = space
 
-        let webView = makeWebView(for: space)
+        let page = extensionPageView(for: pane.url, in: space)
+        let webView = page?.webView ?? makeWebView(for: space)
         // The UA is resolved against the page this pane is on, not globally
         // (§9.6): a per-domain rule has to be in place before the first request.
         applyUserAgent(to: webView, for: pane.url)
         let live = LiveWebView(
             paneID: pane.id, webView: webView,
-            cornerRadius: paneCornerRadii[pane.id] ?? configuration.cornerRadius
+            cornerRadius: paneCornerRadii[pane.id] ?? configuration.cornerRadius,
+            extensionHost: page?.host
         )
         live.startObserving { [weak self] paneID, snapshot in
             self?.handleSnapshot(snapshot, for: paneID)
@@ -315,6 +321,75 @@ public final class WebKitEngine: WebEngine {
             "created web view for pane \(pane.id), \(self.pool.count) live"
         )
         return live
+    }
+
+    // MARK: - Extension pages in tabs
+
+    /// A view for one of the Space's extensions' pages, or nil when `url` is
+    /// not a page of an extension loaded there. WebKit serves an extension's
+    /// page only to a view built from that extension's own configuration: in a
+    /// tab's, an options page or a declarativeNetRequest redirect fails to
+    /// load (-1008) and the tab stays blank.
+    private func extensionPageView(
+        for url: URL?, in space: Space
+    ) -> (webView: WKWebView, host: String)? {
+        guard let url, let context = extensionContext(for: url, in: space),
+            let configuration = context.webViewConfiguration,
+            let host = url.host?.lowercased()
+        else { return nil }
+        let webView = ChordWebView(frame: .zero, configuration: configuration)
+        configure(webView)
+        return (webView, host)
+    }
+
+    private func extensionContext(for url: URL, in space: Space) -> WKWebExtensionContext? {
+        guard ExtensionPageAccess.isExtensionPage(url),
+            let handle = extensionControllerProvider?.extensionControllerHandle(for: space)
+        else { return nil }
+        return handle.controller.extensionContext(for: url)
+    }
+
+    /// Whether going to `url` needs the pane's view rebuilt: from the web (or
+    /// another extension) to an extension's page, or from one back to the web.
+    func needsNewView(paneID: UUID, for url: URL) -> Bool {
+        guard let live = pool.peek(paneID), url.scheme?.lowercased() != "about" else {
+            return false
+        }
+        if ExtensionPageAccess.isExtensionPage(url) {
+            return url.host?.lowercased() != live.extensionHost
+        }
+        return live.extensionHost != nil
+    }
+
+    /// Whether a page in the pane may send it to `url`. Back to the web is
+    /// always allowed; to an extension's page only when its manifest exposes
+    /// the file to `source`, the site asking.
+    func mayOpen(_ url: URL, from source: URL?, paneID: UUID) -> Bool {
+        guard ExtensionPageAccess.isExtensionPage(url) else { return true }
+        guard let space = paneSpaceValues[paneID],
+            let context = extensionContext(for: url, in: space),
+            let source = source ?? lastKnownURL[paneID]
+        else { return false }
+        return ExtensionPageAccess.allows(
+            target: ExtensionPageAccess.ruleTarget(url), source: source,
+            manifest: context.webExtension.manifest
+        )
+    }
+
+    /// Rebuilds the pane's view for `url` and loads it there, in the same
+    /// container, so the UI keeps its surface. History stays with the old view.
+    func moveToNewView(paneID: UUID, url: URL) {
+        guard let live = pool.peek(paneID), let space = paneSpaceValues[paneID] else { return }
+        let target = ExtensionPageAccess.isExtensionPage(url)
+            ? ExtensionPageAccess.ruleTarget(url) : url
+        let page = extensionPageView(for: target, in: space)
+        if ExtensionPageAccess.isExtensionPage(target), page == nil { return }
+        let webView = page?.webView ?? makeWebView(for: space)
+        applyUserAgent(to: webView, for: target)
+        live.replaceWebView(with: webView, extensionHost: page?.host)
+        lastKnownURL[paneID] = target
+        webView.loadPage(target)
+        Log.engine.debug("pane \(paneID) moved to a new view for \(target.scheme ?? "")")
     }
 
     private func makeWebView(for space: Space) -> WKWebView {
@@ -1256,6 +1331,10 @@ public final class WebKitEngine: WebEngine {
 
     public func load(_ url: URL, in paneID: UUID) {
         guard let live = pool.view(for: paneID) else { return }
+        if needsNewView(paneID: paneID, for: url) {
+            moveToNewView(paneID: paneID, url: url)
+            return
+        }
         lastKnownURL[paneID] = url
         live.webView.loadPage(url)
     }
@@ -1511,6 +1590,7 @@ public final class WebKitEngine: WebEngine {
         interactionStateOrder.removeAll { $0 == paneID }
         lastKnownURL.removeValue(forKey: paneID)
         paneSpaces.removeValue(forKey: paneID)
+        paneSpaceValues.removeValue(forKey: paneID)
         contextLinkURL.removeValue(forKey: paneID)
         contextImageURL.removeValue(forKey: paneID)
         mutedPanes.remove(paneID)

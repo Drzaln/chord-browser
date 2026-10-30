@@ -175,6 +175,27 @@ extension NavigationCoordinator: WKNavigationDelegate {
             engine?.applyReferrer(to: preferences, for: navigationAction.request.url)
         }
 
+        // Between the web and an extension's pages the pane needs a new view
+        // (see `WebKitEngine.extensionPageView`): a link or redirect to an
+        // extension's page, a declarativeNetRequest redirect among them, or
+        // that page sending the tab back to a site. Swapped on the next turn,
+        // outside WebKit's policy callback.
+        if navigationAction.targetFrame?.isMainFrame == true,
+            let url = navigationAction.request.url,
+            let engine, let paneID = paneID(for: webView),
+            engine.needsNewView(paneID: paneID, for: url)
+        {
+            let source = navigationAction.sourceFrame.request.url
+            let site = ["http", "https"].contains(source?.scheme?.lowercased() ?? "")
+                ? source : nil
+            if engine.mayOpen(url, from: site, paneID: paneID) {
+                Task { @MainActor [weak engine] in
+                    engine?.moveToNewView(paneID: paneID, url: url)
+                }
+            }
+            return (.cancel, preferences)
+        }
+
         // A plain left-click on a link in a favourite/pinned tab is a Peek
         // (non-spec: user-requested): the store lifts the navigation into the
         // floating panel instead of letting the click move the protected page.
