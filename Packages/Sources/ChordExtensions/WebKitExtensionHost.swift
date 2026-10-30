@@ -1437,6 +1437,12 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // extension's worker again: the first page a tab loaded left Bitwarden's
         // popup loading for ever. Search does the same.
         views.applicationNameForUserAgent = UserAgentPreference.safariVersionToken
+        // Throttled, never suspended, as the tabs are. A held worker's process
+        // was suspended after each ping (ExtensionKeepAlive), and on suspending
+        // WebKit hides a page's content until its next frame, which the
+        // worker's page, having no window, never draws: the UI process ran a
+        // display link at the screen's rate until the next ping (c1k.10).
+        views.preferences.inactiveSchedulingPolicy = .throttle
         capture.attach(views.userContentController)
         configuration.webViewConfiguration = views
         return configuration
@@ -1857,21 +1863,24 @@ extension WebKitExtensionHost: NSPopoverDelegate {
 /// Pings a held worker from a hidden page of its own extension (see
 /// ExtensionKeepAlive): the shim answers `__chordPing` itself, and the
 /// extension never sees it.
+///
+/// The page is made for each ping and closed after it (c1k.10). Kept between
+/// pings, its process was suspended after each one, and on suspending WebKit
+/// hides a page's content until its next frame, which a page with no window
+/// never draws: the UI process ran a display link at the screen's rate for
+/// each such page until the next ping, ~120 wakeups a second apiece.
 @MainActor
 private final class KeepAlivePinger {
     private weak var context: WKWebExtensionContext?
-    private var page: BlankExtensionPage?
 
     init(_ context: WKWebExtensionContext) { self.context = context }
 
     func ping() async {
-        if page == nil {
-            guard let context, let configuration = context.webViewConfiguration else { return }
-            let made = BlankExtensionPage(configuration)
-            guard await made.load(at: context.baseURL) else { return }
-            page = made
-        }
-        _ = try? await page?.web.callAsyncJavaScript(
+        guard let context, let configuration = context.webViewConfiguration else { return }
+        // Closed as it goes out of scope.
+        let page = BlankExtensionPage(configuration)
+        guard await page.load(at: context.baseURL) else { return }
+        _ = try? await page.web.callAsyncJavaScript(
             "try { await chrome.runtime.sendMessage({ __chordPing: true }); } catch (e) {}",
             contentWorld: .page
         )
