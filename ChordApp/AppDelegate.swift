@@ -62,20 +62,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func attachOcclusionObserver() {
         guard let store = launch.store else { return }
 
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.didChangeOcclusionStateNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            // Delivered on the main queue. The notification itself is not
-            // Sendable, so occlusion is recomputed from the app's windows
-            // instead — which is the question we actually care about: is *any*
-            // window visible?
-            MainActor.assumeIsolated {
-                let anyVisible = NSApp.windows.contains {
-                    $0.occlusionState.contains(.visible)
+        // A minimized window can go on reporting itself visible, and a
+        // miniaturize doesn't always come with an occlusion change, so Chord
+        // kept running as if in front while in the Dock (c1k.10).
+        for name in [
+            NSWindow.didChangeOcclusionStateNotification,
+            NSWindow.didMiniaturizeNotification,
+            NSWindow.didDeminiaturizeNotification,
+        ] {
+            NotificationCenter.default.addObserver(
+                forName: name, object: nil, queue: .main
+            ) { _ in
+                // Delivered on the main queue. The notification itself is not
+                // Sendable, so occlusion is recomputed from the app's windows
+                // instead — which is the question we actually care about: is
+                // *any* window visible?
+                MainActor.assumeIsolated {
+                    let anyVisible = NSApp.windows.contains {
+                        $0.isVisible && !$0.isMiniaturized
+                            && $0.occlusionState.contains(.visible)
+                    }
+                    if store.isOccluded == anyVisible {
+                        Self.log.notice("occluded: \(!anyVisible)")
+                    }
+                    store.setOccluded(!anyVisible)
                 }
-                store.setOccluded(!anyVisible)
             }
         }
     }

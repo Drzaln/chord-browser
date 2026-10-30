@@ -502,7 +502,7 @@ public final class TabStore {
 
     @ObservationIgnored private var hasRestored = false
     @ObservationIgnored var sweepTask: Task<Void, Never>?
-    @ObservationIgnored var isOccluded = false
+    @ObservationIgnored public internal(set) var isOccluded = false
 
     /// Refreshed when the command bar opens, so keystrokes never hit the disk.
     @ObservationIgnored var cachedHistory: [HistoryEntry] = []
