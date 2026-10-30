@@ -21,6 +21,10 @@ struct ChordApp: App {
                 commandBar: appDelegate.commandBar
             )
             .onAppear { appDelegate.attachOcclusionObserver() }
+            // A link from another app goes to AppDelegate (Little Chord or a
+            // routed Space). Without this, SwiftUI also opened a new window
+            // for every link it was handed (63d); an open window takes it.
+            .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
