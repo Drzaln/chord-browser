@@ -510,20 +510,31 @@ public final class WebKitEngine: WebEngine {
     /// and add the set back. Handlers are registered separately and are
     /// unaffected. A fresh install only takes effect on the next navigation,
     /// which is exactly the contract the overrides editor states.
+    /// The page-world scripts every frame gets at document start, as one
+    /// (c1k.3): each frame of an ad-heavy page parsed and ran ten separate
+    /// scripts. Each keeps its own try, so one that throws doesn't stop the
+    /// rest. The text never changes, so WebKit's compiled-code cache holds.
+    static let everyFrameSource: String = [
+        MediaActivityMonitor.makeUserScript(),
+        ContextLinkMonitor.makeUserScript(),
+        ContextImageMonitor.makeUserScript(),
+        AudioMuteController.makeUserScript(),
+        SleepTimerController.makeUserScript(),
+        NotificationBridge.makeUserScript(),
+        ScreenShareMonitor.makeUserScript(),
+        YouTubeAdBlocker.makeUserScript(),
+        GeolocationBridge.makeUserScript(),
+        PictureInPictureMonitor.makeUserScript(),
+    ].map { "try {\n\($0.source)\n} catch (e) {}" }.joined(separator: "\n")
+
     private func installUserScripts(on controller: WKUserContentController) {
         controller.removeAllUserScripts()
-        controller.addUserScript(MediaActivityMonitor.makeUserScript())
-        controller.addUserScript(ContextLinkMonitor.makeUserScript())
-        controller.addUserScript(ContextImageMonitor.makeUserScript())
-        controller.addUserScript(AudioMuteController.makeUserScript())
-        controller.addUserScript(SleepTimerController.makeUserScript())
-        controller.addUserScript(NotificationBridge.makeUserScript())
-        controller.addUserScript(ScreenShareMonitor.makeUserScript())
-        controller.addUserScript(YouTubeAdBlocker.makeUserScript())
+        controller.addUserScript(WKUserScript(
+            source: Self.everyFrameSource, injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        ))
         controller.addUserScript(ChromeWebStoreRelay.makeUserScript())
         controller.addUserScript(PasswordFormMonitor.makeUserScript())
-        controller.addUserScript(GeolocationBridge.makeUserScript())
-        controller.addUserScript(PictureInPictureMonitor.makeUserScript())
         // The DRM error-capture script is only useful to the Diagnostics panel,
         // which requires developer mode — so it is only installed (and its
         // handler registered) when developer mode is on. Skipping it by default
