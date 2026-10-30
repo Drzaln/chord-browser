@@ -1376,13 +1376,14 @@ enum ExtensionShimScript {
           Color: { GREY: "grey", BLUE: "blue", RED: "red", YELLOW: "yellow", GREEN: "green",
             PINK: "pink", PURPLE: "purple", CYAN: "cyan", ORANGE: "orange" } });
       // Groups change in Search's hands, where no event reaches the
-      // extension: while it listens, they are asked for every few seconds
-      // and what changed is told as Chrome tells it — and at once after the
-      // extension changes one itself.
+      // extension: while it listens, the browser says when folders change
+      // (ExtensionEvents.swift), they are asked for once, and what changed
+      // is told as Chrome tells it — and at once after the extension changes
+      // one itself. No clock: a poll woke every listening worker for ever.
       let groupsChanged = () => {};
       if (chrome.tabGroups && chrome.tabGroups.onCreated && chrome.tabGroups.onCreated.listeners) {
         const groups = chrome.tabGroups, told = ["onCreated", "onRemoved", "onUpdated"];
-        let known = null, timer = null;
+        let known = null, events = null;
         // What an update changes; the order of the keys is the browser's.
         const shape = (g) => JSON.stringify([g.title, g.collapsed, g.color]);
         const tell = (name, group) => {
@@ -1406,9 +1407,12 @@ enum ExtensionShimScript {
           const add = groups[name].addListener;
           groups[name].addListener = (f) => {
             add(f);
-            if (timer) return;
+            if (events) return;
             groupsChanged();
-            timer = setInterval(groupsChanged, 3000);
+            try {
+              events = runtime.connectNative("chord.events");
+              events.onMessage.addListener((m) => { if (m && m.chordEvent === "tabGroups") groupsChanged(); });
+            } catch (e) { events = true; }
           };
         }
         put(groups, "update", (id, props, callback) => {
@@ -1458,21 +1462,10 @@ enum ExtensionShimScript {
       define("idle", ["queryState", "getAutoLockDelay"], [],
         { IdleState: { ACTIVE: "active", IDLE: "idle", LOCKED: "locked" } });
       if (chrome.idle && !chrome.idle.onStateChanged) {
-        // Asked every so often while anyone listens, the way Chrome
-        // notices on its own.
-        const changed = event(), add = changed.addListener;
-        let every = 60, state = "active", timer = null;
-        changed.addListener = (f) => {
-          add(f);
-          if (timer) return;
-          timer = setInterval(() => native("idle.queryState", [every]).then((now) => {
-            if (now === state) return;
-            state = now;
-            for (const g of changed.listeners) try { g(now); } catch (e) { setTimeout(() => { throw e; }); }
-          }).catch(() => {}), 15000);
-        };
-        put(chrome.idle, "onStateChanged", changed);
-        put(chrome.idle, "setDetectionInterval", (seconds) => { every = Math.max(15, Number(seconds) || 60); });
+        // The browser always answers "active" (ExtensionShims), so the
+        // event never fires; asking every 15 s only woke the worker (c1k.5).
+        put(chrome.idle, "onStateChanged", event());
+        put(chrome.idle, "setDetectionInterval", () => {});
       }
       define("power", ["requestKeepAwake", "releaseKeepAwake", "reportActivity"]);
       define("browsingData",

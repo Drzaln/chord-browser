@@ -11,7 +11,7 @@ import WebKit
 ///
 /// Three moves, all page-side:
 ///
-/// 1. **Video ads.** A poll watches the player's `ad-showing` state. When an ad
+/// 1. **Video ads.** The player's `ad-showing` state is watched. When an ad
 ///    is up it clicks the Skip button if one exists, and always blasts the
 ///    playback rate so the ad drains in a fraction of a second — even
 ///    "unskippable" ads, because the ad and the content share one `<video>`
@@ -124,18 +124,43 @@ enum YouTubeAdBlocker {
             try { video.muted = true; } catch (e) {}
         }
 
-        // The tick runs four times a second for as long as the page is open,
-        // so it must not scan the page each time: the player is kept until it
-        // leaves the document, and the videos come from the live collection
-        // WebKit keeps current, rather than a fresh querySelectorAll.
+        // The tick runs on events, not a clock (c1k.5): the player's class
+        // changing (`ad-showing` on or off), and a video loading, playing or
+        // changing rate. Only while an ad is up does it run four times a
+        // second, to keep re-asserting the rate; a slow tick backs up missed
+        // events. It must not scan the page each time: the player is kept
+        // until it leaves the document, and the videos come from the live
+        // collection WebKit keeps current, rather than a fresh querySelectorAll.
         var player = null;
+        var watched = null;
+        var fast = null;
         var allVideos = document.getElementsByTagName('video');
+        var classWatch = window.MutationObserver
+            ? new MutationObserver(function () { tick(); }) : null;
 
-        function tick() {
+        function findPlayer() {
             if (!player || !player.isConnected) {
                 player = document.querySelector('.html5-video-player');
             }
-            if (!player) { return; }
+            if (player && player !== watched && classWatch) {
+                classWatch.disconnect();
+                classWatch.observe(player, { attributes: true, attributeFilter: ['class'] });
+                watched = player;
+            }
+            return player;
+        }
+
+        function pace(adShowing) {
+            if (adShowing && !fast) {
+                fast = setInterval(tick, 250);
+            } else if (!adShowing && fast) {
+                clearInterval(fast);
+                fast = null;
+            }
+        }
+
+        function tick() {
+            if (!findPlayer()) { pace(false); return; }
 
             // Ads also light up the overlay slot on some player versions even
             // when `ad-showing` is not set; treat either as "an ad is up".
@@ -150,6 +175,7 @@ enum YouTubeAdBlocker {
             // clicking skip — a disabled/custom button swallows the click, so
             // the seek/blast below must still run as the fallback.
             var videos = allVideos;
+            pace(adShowing);
 
             if (!adShowing) {
                 for (var i = 0; i < videos.length; i++) { restoreRate(videos[i]); }
@@ -253,7 +279,11 @@ enum YouTubeAdBlocker {
         }
 
         function installWallWatch() {
-            var check = function () { dismantleEnforcementWall(); };
+            var check = function () {
+                dismantleEnforcementWall();
+                // A player YouTube swaps in gets its class watched.
+                if (!watched || !watched.isConnected) { tick(); }
+            };
             check();
             document.addEventListener('DOMContentLoaded', check);
             if (window.MutationObserver) {
@@ -264,7 +294,12 @@ enum YouTubeAdBlocker {
         }
         installWallWatch();
 
-        setInterval(tick, 250);
+        // Media events don't bubble; capture on document sees them all.
+        ['loadedmetadata', 'playing', 'ratechange'].forEach(function (name) {
+            document.addEventListener(name, tick, true);
+        });
+        tick();
+        setInterval(tick, 2000);
     })();
     """
 }

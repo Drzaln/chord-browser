@@ -28,6 +28,8 @@ private final class RecordingExtensionHost: ExtensionHost {
         closed.append((tabID, spaceID))
     }
     func extensionTabDidMove(_ tabID: UUID, from oldIndex: Int, inSpace spaceID: UUID) {}
+    var groupChanges = 0
+    func extensionGroupsDidChange() { groupChanges += 1 }
 
     var closedSpaces: [UUID] = []
     var onSpaceDidClose: ((Space) -> Void)?
@@ -70,6 +72,17 @@ struct ExtensionModelTests {
         let host = RecordingExtensionHost()
         store.extensionHost = host
         return (store, host)
+    }
+
+    /// c1k.5: workers hear about tab groups instead of asking every 3 s.
+    @Test("Adding, renaming, collapsing or deleting a folder tells the extensions")
+    func folderChangesReachExtensions() async throws {
+        let (store, host) = await makeStore()
+        let id = try #require(store.addFolder(name: "Work"))
+        store.renameFolder(id, to: "Play")
+        store.toggleFolderCollapsed(id)
+        store.deleteFolder(id)
+        #expect(host.groupChanges == 4)
     }
 
     @Test("Deleting a Space closes its extensions before its data goes")

@@ -78,6 +78,7 @@ extension TabStore {
     // MARK: - Persistence
 
     func persistFolders() {
+        extensionHost?.extensionGroupsDidChange()
         let snapshot = folders
         Task { [folderRepository] in
             do {

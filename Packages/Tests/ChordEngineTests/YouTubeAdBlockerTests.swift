@@ -84,6 +84,44 @@ struct YouTubeAdBlockerTests {
         #expect(try await eventually(webView, "document.getElementById('v2').playbackRate === 10"))
     }
 
+    /// c1k.5: the tick ran four times a second on every YouTube page, ad or
+    /// no ad. Now it follows the player's class and media events, with a
+    /// slow backup tick.
+    @Test("With no ad the tick barely runs; an ad still gets the rate at once")
+    func tickFollowsEvents() async throws {
+        let configuration = WKWebViewConfiguration()
+        // Counts ticks: each one asks the player for the ad overlay.
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: """
+                window.__ticks = 0;
+                var q = Element.prototype.querySelector;
+                Element.prototype.querySelector = function (s) {
+                    if (s === '.ytp-ad-player-overlay') { window.__ticks++; }
+                    return q.call(this, s);
+                };
+                """,
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+        configuration.userContentController.addUserScript(YouTubeAdBlocker.makeUserScript())
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.loadHTMLString(
+            #"<div id="p" class="html5-video-player"><video id="v"></video></div>"#,
+            baseURL: URL(string: "https://www.youtube.com/")
+        )
+        #expect(try await eventually(webView, "document.getElementById('p')"))
+        _ = try await webView.evaluateJavaScript("window.__ticks = 0; true")
+        try await Task.sleep(for: .seconds(2.2))
+        let idle = try await webView.evaluateJavaScript("window.__ticks") as? Int ?? 99
+        // Was ~9 at four a second; the backup tick allows one or two.
+        #expect(idle <= 2)
+
+        let started = Date()
+        _ = try await webView.evaluateJavaScript(
+            "document.getElementById('p').classList.add('ad-showing'); true")
+        #expect(try await eventually(webView, "document.getElementById('v').playbackRate === 10"))
+        #expect(Date().timeIntervalSince(started) < 0.3)
+    }
+
     private func eventually(_ webView: WKWebView, _ condition: String) async throws -> Bool {
         for _ in 0..<60 {
             if try await webView.evaluateJavaScript("!!(\(condition))") as? Bool == true { return true }

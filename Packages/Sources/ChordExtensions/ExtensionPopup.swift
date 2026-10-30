@@ -26,6 +26,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     private var sizing: Timer?
     private var shown = false
     private var ticks = 0
+    private var watching = false
     /// Called when the popup goes away, for the host's sidebar-hold signal.
     var onClose: (() -> Void)?
     private static var lastSize: [String: NSSize] = [:]
@@ -172,7 +173,10 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     }
 
     /// From the page's first load: sized, then followed as it grows — a
-    /// list filled in by a reply from the worker — for as long as it's open.
+    /// list filled in by a reply from the worker — for as long as it's open:
+    /// four times a second for two seconds, then whenever its layout changes
+    /// (`watch`). A clock for as long as it was open cost 600 measures in ten
+    /// minutes (c1k.5).
     private func follow() {
         guard sizing == nil else { return }
         if !shown { firstMeasure() }
@@ -203,6 +207,45 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     })
     """
 
+    /// Resolves at the page's next change of size or content, a moment
+    /// after it settles. Its first ResizeObserver call is the observing
+    /// itself, not a change.
+    static let nextChange = """
+    return await new Promise((done) => {
+      const d = document.documentElement;
+      let first = true, timer = null, ro = null, mo = null;
+      const fire = () => {
+        if (timer) return;
+        timer = setTimeout(() => { ro && ro.disconnect(); mo && mo.disconnect(); done(true); }, 100);
+      };
+      ro = new ResizeObserver(() => { if (first) { first = false; return; } fire(); });
+      ro.observe(d);
+      if (document.body) ro.observe(document.body);
+      mo = new MutationObserver(fire);
+      mo.observe(d, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+    });
+    """
+
+    /// Waits for the page to change, measures, and waits again, until the
+    /// popup closes (its page goes, and the wait with it).
+    private func watch() {
+        guard let web else { return }
+        watching = true
+        web.callAsyncJavaScript(Self.nextChange, arguments: [:], in: nil, in: .page) { [weak self] result in
+            MainActor.assumeIsolated {
+                guard let self, web === self.web else { return }
+                // A new page in the popup drops the wait; its load follows
+                // it again.
+                guard case .success = result else {
+                    self.watching = false
+                    return
+                }
+                self.reachOut()
+                self.watch()
+            }
+        }
+    }
+
     /// Measured again as the page builds itself, the way Chrome measures on
     /// each layout: for its first two seconds the popup follows it either
     /// way, after that it only grows — so a page that settles doesn't set it
@@ -210,28 +253,33 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     private func grow() {
         guard shown, let web, let popover else { return }
         ticks += 1
-        if ticks <= 8 {
-            web.evaluateJavaScript("(\(Self.preferred))()") { [weak self] value, _ in
-                MainActor.assumeIsolated {
-                    guard let self, let pair = value as? [Double], pair.count == 2 else { return }
-                    let wanted = NSSize(width: pair[0], height: pair[1])
-                    let now = popover.contentSize
-                    if abs(wanted.width - now.width) > 2 || abs(wanted.height - now.height) > 2 {
-                        self.apply(wanted)
-                    }
-                }
-            }
+        if ticks > 8 {
+            sizing?.invalidate()
+            sizing = nil
+            reachOut()
+            if !watching { watch() }
             return
         }
-        // After its first two seconds, once a second is enough to follow it;
-        // only growth is taken, so a settled page cannot shrink and grow back.
-        if ticks > 24, ticks % 4 != 0 { return }
+        web.evaluateJavaScript("(\(Self.preferred))()") { [weak self] value, _ in
+            MainActor.assumeIsolated {
+                guard let self, let pair = value as? [Double], pair.count == 2 else { return }
+                let wanted = NSSize(width: pair[0], height: pair[1])
+                let now = popover.contentSize
+                if abs(wanted.width - now.width) > 2 || abs(wanted.height - now.height) > 2 {
+                    self.apply(wanted)
+                }
+            }
+        }
+    }
+
+    /// After its first two seconds only growth is taken, so a page that
+    /// settles cannot shrink and grow back.
+    private func reachOut() {
+        guard shown, let web, let popover else { return }
         web.evaluateJavaScript("[\(Self.reach)('width'), \(Self.reach)('height')]") { [weak self] value, _ in
             MainActor.assumeIsolated {
                 guard let self, let pair = value as? [Double], pair.count == 2 else { return }
                 let now = popover.contentSize
-                // After the first two seconds only growth is taken, so a
-                // page that settles cannot shrink and grow back.
                 let wanted = NSSize(
                     width: min(800, max(now.width, pair[0].rounded(.up))),
                     height: min(600, max(now.height, pair[1].rounded(.up)))
@@ -260,6 +308,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
         button = nil
         shown = false
         ticks = 0
+        watching = false
         let closed = onClose
         onClose = nil
         closed?()

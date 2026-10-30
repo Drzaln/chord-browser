@@ -267,6 +267,10 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         )
     }
 
+    public func extensionGroupsDidChange() {
+        ExtensionEvents.post("tabGroups")
+    }
+
     public func extensionTabDidClose(_ tabID: UUID, inSpace spaceID: UUID) {
         guard let controller = controllers[spaceID] else {
             tabAdapters[spaceID]?[tabID] = nil
@@ -1514,6 +1518,10 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         // A worker's WebSocket is made by the browser, not by WebKit (see
         // ExtensionSocket). It is not a Mac native host and needs no
         // nativeMessaging permission.
+        if port.applicationIdentifier == ExtensionEvents.name {
+            ExtensionEvents.connect(port)
+            return
+        }
         if port.applicationIdentifier == ExtensionSocket.name {
             ExtensionSocket.connect(port, from: context)
             return
