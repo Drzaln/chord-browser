@@ -1646,6 +1646,18 @@ public final class WebKitEngine: WebEngine {
         guard !Self.hasPainted else { return }
         Self.hasPainted = true
         Log.engine.notice("perf first-paint \(paneID)")
+        let waiting = Self.paintWaiters
+        Self.paintWaiters = []
+        for waiter in waiting { waiter.resume() }
+    }
+
+    private static var paintWaiters: [CheckedContinuation<Void, Never>] = []
+
+    /// Returns once some pane has finished its first load since launch (c1k.7:
+    /// extensions wait for it, rather than compete with the first page).
+    public func whenFirstPaint() async {
+        guard !Self.hasPainted else { return }
+        await withCheckedContinuation { Self.paintWaiters.append($0) }
     }
 
     func publishSnapshot(for paneID: UUID) {

@@ -205,12 +205,21 @@ public struct AppEnvironment {
         )
         // Re-load enabled extensions once the Spaces they belong to have been
         // restored. `restore()` invokes this at its end.
+        //
+        // Not before the first page paints (c1k.7): workers started with the
+        // first tab and took its CPU. A Space shown in the meantime still
+        // loads its own (onSpaceActivated). Store updates are network work
+        // and re-installs nothing needs at launch, so they wait 30 s more.
+        // A page that lists a loaded extension (externally_connectable) gets
+        // `chrome` from its next navigation, as when one loads later.
         store.afterRestore = { [weak store] in
-            guard let store else { return }
-            await extensionsService.restoreEnabled(
-                spaces: store.spaces, active: store.activeSpaces
-            )
-            Task {
+            Task(priority: .utility) { [weak store] in
+                await LaunchDeferral.first(engine.whenFirstPaint, orAfter: .seconds(1.5))
+                guard let store else { return }
+                await extensionsService.restoreEnabled(
+                    spaces: store.spaces, active: store.activeSpaces
+                )
+                try? await Task.sleep(for: .seconds(30))
                 await extensionsService.updateStoreExtensions(in: store.spaces)
             }
         }
