@@ -2040,6 +2040,15 @@ enum ExtensionShimScript {
           r.action.redirect = { extensionPath: "/" + redirect.url.slice(base.length) };
         }
         const c = r.condition;
+        // A redirect with both a regular expression and sites goes to every
+        // address in WebKit, not only those sites (webkit.org/b/298199).
+        // uBlock Origin Lite's strict-block rules are these: it leaves them
+        // out on Safari, but its Chrome build, which Chord runs, sent every
+        // page to its "blocked" page, which a new tab can't open (e3x).
+        if (r.action && r.action.type === "redirect" && c && c.regexFilter && Array.isArray(c.requestDomains)) {
+          try { native("debug.error", ["declarativeNetRequest: redirect rule " + r.id + " left out — WebKit would redirect every site, not only its requestDomains"]).catch(() => {}); } catch (x) {}
+          return null;
+        }
         if (c && Array.isArray(c.resourceTypes)) {
           c.resourceTypes = c.resourceTypes.filter((t) => !unknownTypes.has(t));
           if (!c.resourceTypes.length) return null;

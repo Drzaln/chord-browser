@@ -45,6 +45,38 @@ struct ExtensionDNRTransformTests {
         return (web, dir)
     }
 
+    @Test("A redirect narrowed to sites by a regex is left out: WebKit would send every site (e3x)")
+    func regexRedirectForSitesIsLeftOut() async throws {
+        let (web, dir) = try await extensionPage()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        _ = try await web.callAsyncJavaScript(
+            """
+            return await chrome.declarativeNetRequest.updateSessionRules({
+              addRules: [{
+                id: 2, priority: 1,
+                action: { type: "redirect", redirect: { regexSubstitution: "/strictblock.html#\\\\0" } },
+                condition: { regexFilter: "^https?://.*", requestDomains: ["ads.example"],
+                             resourceTypes: ["main_frame"] }
+              }, {
+                id: 3, priority: 1,
+                action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
+                condition: { urlFilter: "||ads.example^", requestDomains: ["ads.example"],
+                             resourceTypes: ["main_frame"] }
+              }]
+            });
+            """,
+            arguments: [:], in: nil, contentWorld: .page
+        )
+        let rules = try await web.callAsyncJavaScript(
+            "return await chrome.declarativeNetRequest.getSessionRules();",
+            arguments: [:], in: nil, contentWorld: .page
+        ) as? [[String: Any]] ?? []
+        let ids = Set(rules.compactMap { $0["id"] as? Int })
+        #expect(!ids.contains(2))
+        #expect(ids.contains(3))
+    }
+
     @Test func redirectsToExtensionFilesBecomeExtensionPaths() async throws {
         let (web, dir) = try await extensionPage()
         defer { try? FileManager.default.removeItem(at: dir) }
