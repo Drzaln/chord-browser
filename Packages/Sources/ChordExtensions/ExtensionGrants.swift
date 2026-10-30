@@ -3,9 +3,8 @@ import WebKit
 
 /// What a context is given as it loads, beyond its declared API permissions,
 /// and what it is never given. Ported from Search's `Extensions.load`,
-/// `fence`, `withheld` and `grantSites`. Sites are granted only to an
-/// extension the user agreed to at install (the question named them); one
-/// installed before install consent still asks for host access on enable.
+/// `fence`, `withheld` and `grantSites`. An installed extension gets the sites
+/// its manifest names, in every Space, as in Chrome: the install was the yes.
 @MainActor
 enum ExtensionGrants {
     private static let extensionSchemes = ["chrome-extension", "webkit-extension"]

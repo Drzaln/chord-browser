@@ -36,7 +36,7 @@ extension TabStore: ExtensionTabModel {
     }
 
     /// Reloads every live pane of every tab in a Space. Called after an
-    /// extension is granted host access on enable, so its content scripts inject
+    /// extension is granted host access, so its content scripts inject
     /// into pages that are already open. `engine.reload` is a no-op for a pane
     /// with no live view, so unopened tabs cost nothing and pick the extension up
     /// on their first load.

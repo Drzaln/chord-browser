@@ -424,10 +424,14 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         // install; the per-host allow-list is enforced in ExtensionNative.
         context.setPermissionStatus(.grantedExplicitly, for: .nativeMessaging)
         // DNR with host access, its own sign-in address, and the fence that
-        // keeps other extensions' pages and files out of <all_urls>.
+        // keeps other extensions' pages and files out of <all_urls>. Its
+        // manifest sites too, in every Space, as in Chrome: installing it was
+        // the yes — the install question for new ones, the user's own choice
+        // for ones added before Chord asked. A sheet per Space, or per page
+        // when a grant went missing, asked again what was already answered.
         ExtensionGrants.applyAtLoad(
             to: context, identifier: installed.identifier, inPrivateSpace: space.isPrivate,
-            consented: installed.consentedGrants != nil
+            consented: true
         )
 
         // Before load: WebKit can create the background synchronously inside

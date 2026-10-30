@@ -172,16 +172,15 @@ struct ExtensionsServiceTests {
         #expect(try await enablement.enabledSlugs(spaceID: s.id).isEmpty)
     }
 
-    @Test func enablePromptsForHostAccess() async throws {
+    @Test func enableDoesNotAskForHostAccess() async throws {
         let (service, host, _, cleanup) = makeService(installed: ["ublock"])
         defer { cleanup() }
         let s = space()
 
         try await service.enable(slug: "ublock", in: s)
 
-        // Enable prompts for host access (WebKit does not auto-prompt); restore
-        // must not (it re-applies persisted grants silently).
-        #expect(host.hostAccessPrompts.map(\.slug) == ["ublock"])
+        // Installing it was the yes; its sites come with it in every Space.
+        #expect(host.hostAccessPrompts.isEmpty)
     }
 
     @Test func removeUnloadsFromAllSpacesAndDeletesFromDisk() async throws {
@@ -433,13 +432,13 @@ struct ExtensionsServiceTests {
         #expect(host.hostAccessPrompts.isEmpty, "the install question covered its sites")
     }
 
-    @Test func anInstallNobodyWasAskedAboutStillAsksForSiteAccess() async throws {
+    @Test func anInstallFromBeforeTheQuestionIsNotAskedEither() async throws {
         let (service, host, _, cleanup) = makeService(installed: ["legacy"])
         defer { cleanup() }
 
         try await service.enable(slug: "legacy", in: space())
 
-        #expect(host.hostAccessPrompts.count == 1)
+        #expect(host.hostAccessPrompts.isEmpty)
     }
 
     @Test func anUpdateAsksOnlyWhenItWantsMoreAndRefusalKeepsTheOldVersion() async throws {

@@ -84,8 +84,8 @@ struct ExtensionGrantsTests {
         #expect(denied.isSuperset(of: [
             "chrome-extension://*/*", "webkit-extension://*/*", "file:///*", "file://*/*",
         ]))
-        // And <all_urls> is held as what it means for websites.
-        #expect(context.grantedPermissionMatchPatterns.keys.map(\.string) == ["*://*/*"])
+        // And what <all_urls> means for websites is held, whatever else is.
+        #expect(context.grantedPermissionMatchPatterns.keys.map(\.string).contains("*://*/*"))
         #expect(!granted(context.permissionStatus(for: URL(string: "chrome-extension://other/page.html")!)))
         #expect(!granted(context.permissionStatus(for: URL(string: "file:///Users/me/secret.txt")!)))
     }

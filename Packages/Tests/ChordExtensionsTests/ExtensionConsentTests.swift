@@ -103,7 +103,7 @@ struct ExtensionConsentTests {
         #expect(!question.wants.contains("Talk to apps on this Mac"))
     }
 
-    @Test("Agreed at install, its manifest sites are granted as it loads; not otherwise")
+    @Test("Its manifest sites are granted as it loads, asked at install or added before")
     func consentedSitesAreGranted() async throws {
         let dir = try folder(["manifest.json": Self.manifest])
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -122,6 +122,7 @@ struct ExtensionConsentTests {
         let notAsked = WebKitExtensionHost()
         try await notAsked.load(InstalledExtension(slug: "tidy", resourceURL: dir), in: space)
         let legacy = try #require(notAsked.context(forSlug: "tidy", in: space))
-        #expect(legacy.permissionStatus(for: page) != .grantedExplicitly)
+        #expect(legacy.permissionStatus(for: page) == .grantedExplicitly)
+        #expect(legacy.permissionStatus(for: other) != .grantedExplicitly)
     }
 }

@@ -179,14 +179,8 @@ public final class ExtensionsService {
         let installed = installer.prepareIfNeeded(found)
         try await host.load(installed, in: space)
         try await enablement.setEnabled(true, slug: slug, spaceID: space.id)
-        // Agreed to at install, its sites were granted as it loaded. One
-        // installed before install consent has no host access yet (WebKit
-        // doesn't prompt for a required `host_permissions` extension), so it
-        // would sit inert: ask now, user-initiated enable only; restore
-        // re-applies persisted grants without a prompt.
-        if installed.consentedGrants == nil {
-            host.promptForHostAccess(slug: slug, in: space)
-        }
+        // Its manifest sites were granted as it loaded, in this Space as in
+        // any other (Chrome-style: installing it was the yes). Nothing to ask.
     }
 
     public func disable(slug: String, in space: Space) async throws {

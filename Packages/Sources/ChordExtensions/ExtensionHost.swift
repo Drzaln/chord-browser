@@ -136,7 +136,7 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
 
     // MARK: - Host access (7.5d)
 
-    /// Fired on the main actor after the user grants host access on enable, so
+    /// Fired on the main actor after the user grants host access, so
     /// the app can reload that Space's tabs (content scripts only inject on a
     /// fresh load). Set by `AppEnvironment`.
     var onHostAccessChanged: (@MainActor (_ spaceID: UUID) -> Void)? { get set }
