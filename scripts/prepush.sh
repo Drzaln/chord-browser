@@ -53,6 +53,19 @@ if [[ "${CHORD_REAL_EXTENSIONS:-0}" == "1" ]]; then
         --package-path Packages --filter RealExtensionProbeTests --no-parallel
 fi
 
+# Launch to first paint against its budget (docs/perf/BUDGETS.md). Opt-in:
+# launch timing is noisy on a shared machine. Needs a Release build.
+STARTUP_BUDGET_MS=2545  # 2213 ms baseline (2026-10-30) × 1.15
+if [[ "${CHORD_PERF:-0}" == "1" ]]; then
+    echo "==> Startup against its budget"
+    median=$(scripts/perf-baseline.sh startup | sed -n 's/^startup median ms: //p')
+    echo "startup median ${median} ms, budget ${STARTUP_BUDGET_MS} ms"
+    if ! awk -v m="$median" -v b="$STARTUP_BUDGET_MS" 'BEGIN { exit !(m != "" && m != "n/a" && m <= b) }'; then
+        echo "startup over the perf budget: see docs/perf/BUDGETS.md" >&2
+        exit 1
+    fi
+fi
+
 echo "==> Building app"
 # Not piped straight into grep: `set -e` takes the *pipeline's* status, which is
 # grep's, and `|| true` swallowed even that — so a failed app build still

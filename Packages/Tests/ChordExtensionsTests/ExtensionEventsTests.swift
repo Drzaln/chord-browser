@@ -61,3 +61,13 @@ struct ExtensionEventsTests {
         return { _ = host; try? FileManager.default.removeItem(at: dir) }
     }
 }
+
+/// c1k.8: the shim runs in every extension page and worker.
+@Suite("Perf budget: extension shim")
+struct ShimPerfBudgetTests {
+    @Test("The shim sets no repeating timer")
+    func noIntervals() {
+        let found = ExtensionShimScript.javascript.components(separatedBy: "setInterval(").count - 1
+        #expect(found == 0, "the shim has \(found) setInterval: over the perf budget, see docs/perf/BUDGETS.md")
+    }
+}

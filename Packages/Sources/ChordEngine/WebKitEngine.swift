@@ -440,7 +440,7 @@ public final class WebKitEngine: WebEngine {
     /// does *not* deep-copy this object, so sharing the template's controller
     /// means adding the same handler name twice — which throws
     /// NSInvalidArgumentException and takes the app down on the second tab.
-    private func makeContentController(
+    func makeContentController(
         workerRecovery: ((WKUserContentController) -> Void)? = nil,
         capture: ((WKUserContentController) -> Void)? = nil
     ) -> WKUserContentController {
