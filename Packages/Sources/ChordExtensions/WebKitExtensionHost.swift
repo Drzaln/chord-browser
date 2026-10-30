@@ -147,6 +147,10 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         let respond: (_ allow: Bool) -> Void
     }
     private var pendingPermissions: [UUID: PendingPermission] = [:]
+    /// Page-access questions up now, each with everyone waiting on it.
+    private var waitingOnAccess: [String: [(Bool) -> Void]] = [:]
+    /// Page-access questions answered Don't Allow this session.
+    private var refusedAccess: Set<String> = []
     /// Permission requests for APIs Chord answers itself (history, bookmarks,
     /// downloads, …). They use the same UI sheet but do not go to WebKit's
     /// permission table.
@@ -1757,22 +1761,46 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
             completionHandler([], nil)
             return
         }
+        // Granted since the question was raised (an earlier sheet's Allow).
+        if urls.allSatisfy({ context.permissionStatus(for: $0) == .grantedExplicitly
+            || context.permissionStatus(for: $0) == .grantedImplicitly }) {
+            completionHandler(urls, nil)
+            return
+        }
         // Asked about a page, the answer covers its site (1mm.16): granting
-        // the exact URL, query and all, asked again on the next video.
-        let sites = ExtensionGrants.sitePatterns(for: urls)
-        guard !sites.isEmpty else {
+        // the exact URL, query and all, asked again on the next video. One
+        // whose manifest asks for every site is asked once, for every site,
+        // rather than once per site it meets.
+        let offered = ExtensionGrants.accessToOffer(for: urls, wanted: context.webExtension)
+        guard !offered.isEmpty else {
             completionHandler([], nil)
             return
         }
+        let key = "\(spaceID)|\(slug)|" + offered.map(\.string).joined(separator: " ")
+        // Don't Allow holds for the session; asking again at once only
+        // stacked the same sheet.
+        if refusedAccess.contains(key) {
+            completionHandler([], nil)
+            return
+        }
+        // The same question already up: answered with it, not a sheet more.
+        if waitingOnAccess[key] != nil {
+            waitingOnAccess[key]?.append { allow in completionHandler(allow ? urls : [], nil) }
+            return
+        }
+        waitingOnAccess[key] = [{ allow in completionHandler(allow ? urls : [], nil) }]
         enqueuePermission(
             spaceID: spaceID, slug: slug, kind: .matchPattern,
-            values: sites.map(\.string),
+            values: offered.map(\.string),
             displayName: context.webExtension.displayName
-        ) { allow in
+        ) { [weak self] allow in
             if allow {
-                for site in sites { context.setPermissionStatus(.grantedExplicitly, for: site) }
+                for pattern in offered { context.setPermissionStatus(.grantedExplicitly, for: pattern) }
+                ExtensionGrants.fence(context)
+            } else {
+                self?.refusedAccess.insert(key)
             }
-            completionHandler(allow ? urls : [], nil)
+            for answer in self?.waitingOnAccess.removeValue(forKey: key) ?? [] { answer(allow) }
         }
     }
 

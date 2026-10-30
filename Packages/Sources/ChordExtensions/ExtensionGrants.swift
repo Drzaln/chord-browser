@@ -76,6 +76,23 @@ enum ExtensionGrants {
             .filter { !withheld($0) }
     }
 
+    /// What a page-access question offers: every site, for an extension whose
+    /// manifest asks for all of them (Bitwarden, uBlock), as Chrome grants at
+    /// install; otherwise the sites the pages are on.
+    static func accessToOffer(
+        for urls: Set<URL>, wanted webExtension: WKWebExtension
+    ) -> [WKWebExtension.MatchPattern] {
+        let wanted = webExtension.allRequestedMatchPatterns
+            .union(webExtension.optionalPermissionMatchPatterns)
+        let wantsEverySite = wanted.contains {
+            !withheld($0) && ($0.matchesAllHosts || $0.matchesAllURLs)
+        }
+        if wantsEverySite, let web = try? WKWebExtension.MatchPattern(string: "*://*/*") {
+            return [web]
+        }
+        return sitePatterns(for: urls)
+    }
+
     /// The sites its manifest names, never ones that reach extension pages or
     /// files (`fence` runs after). WebKit copies injected scripts per granted
     /// pattern, so a pattern a broader one already covers (same scheme and

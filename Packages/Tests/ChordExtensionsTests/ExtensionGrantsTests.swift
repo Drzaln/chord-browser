@@ -123,7 +123,7 @@ struct ExtensionGrantsTests {
     func pageAllowCoversSite() async throws {
         let (host, _, context, cleanup) = try await load("""
             { "manifest_version": 3, "name": "Page", "version": "1",
-              "optional_host_permissions": ["<all_urls>"] }
+              "optional_host_permissions": ["https://*.youtube.com/*", "https://www.reddit.com/*"] }
             """)
         defer { cleanup() }
         var asked: [PermissionRequest] = []
@@ -156,5 +156,53 @@ struct ExtensionGrantsTests {
             URL(string: "https://example.com/d")!,
         ]
         #expect(ExtensionGrants.sitePatterns(for: urls).map(\.string) == ["https://example.com/*"])
+    }
+
+    @Test("One that wants every site is asked once, for every site; repeats wait on that sheet")
+    func everySiteAskedOnce() async throws {
+        let (host, _, context, cleanup) = try await load("""
+            { "manifest_version": 3, "name": "All", "version": "1",
+              "optional_host_permissions": ["<all_urls>"] }
+            """)
+        defer { cleanup() }
+        var asked: [PermissionRequest] = []
+        host.onPermissionRequest = { asked.append($0) }
+        let controller = try #require(context.webExtensionController)
+        var answers: [Set<URL>] = []
+        for page in ["https://www.google.com/", "https://github.com/", "https://example.com/"] {
+            let url = try #require(URL(string: page))
+            host.webExtensionController(
+                controller, promptForPermissionToAccess: [url], in: nil, for: context
+            ) { urls, _ in answers.append(urls) }
+        }
+        #expect(asked.count == 1)
+        #expect(asked.first?.items == ["*://*/*"])
+        host.resolvePermission(id: try #require(asked.first).id, allow: true)
+        #expect(answers.count == 3 && answers.allSatisfy { $0.count == 1 })
+        #expect(granted(context.permissionStatus(for: URL(string: "https://www.reddit.com/")!)))
+    }
+
+    @Test("Don't Allow holds for the session: the same question isn't put again")
+    func refusalHolds() async throws {
+        let (host, _, context, cleanup) = try await load("""
+            { "manifest_version": 3, "name": "Page", "version": "1",
+              "optional_host_permissions": ["https://*.youtube.com/*"] }
+            """)
+        defer { cleanup() }
+        var asked: [PermissionRequest] = []
+        host.onPermissionRequest = { asked.append($0) }
+        let controller = try #require(context.webExtensionController)
+        let video = try #require(URL(string: "https://www.youtube.com/watch?v=one"))
+        host.webExtensionController(
+            controller, promptForPermissionToAccess: [video], in: nil, for: context
+        ) { _, _ in }
+        host.resolvePermission(id: try #require(asked.first).id, allow: false)
+
+        var again: Set<URL>?
+        host.webExtensionController(
+            controller, promptForPermissionToAccess: [video], in: nil, for: context
+        ) { urls, _ in again = urls }
+        #expect(asked.count == 1)
+        #expect(again == [])
     }
 }
