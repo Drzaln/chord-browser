@@ -150,8 +150,13 @@ final class LiveWebView {
         webView.interactionState as? Data
     }
 
-    func restore(interactionState data: Data) {
+    /// Whether the state had a page to show. One saved before a page's first
+    /// load committed is an empty history, and restoring it leaves the tab
+    /// blank on every launch (e3x): the caller loads the pane's URL instead.
+    @discardableResult
+    func restore(interactionState data: Data) -> Bool {
         webView.interactionState = data
+        return webView.backForwardList.currentItem != nil
     }
 
     /// Puts `replacement` in the container in place of the current view, which

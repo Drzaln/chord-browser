@@ -87,6 +87,30 @@ struct WebViewPoolTests {
         #expect(pool.paneID(matching: WKWebView(frame: .zero)) == nil)
     }
 
+    @Test("A state with no page in its history is not taken as restored (e3x)")
+    func emptyHistoryIsNotRestored() throws {
+        // What a pane saves when its first load never committed.
+        let empty = try #require(WKWebView(frame: .zero).interactionState as? Data)
+        #expect(makeLive(UUID()).restore(interactionState: empty) == false)
+    }
+
+    @Test("A state with a page in its history is restored")
+    func pageHistoryIsRestored() async throws {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("restore-\(UUID().uuidString).html")
+        try Data("<p>hi</p>".utf8).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        // A real load: loadHTMLString leaves no history item to restore.
+        let source = WKWebView(frame: .zero)
+        let delegate = FinishWaiter()
+        source.navigationDelegate = delegate
+        source.loadFileURL(file, allowingReadAccessTo: file)
+        await delegate.finished()
+        let state = try #require(source.interactionState as? Data)
+
+        #expect(makeLive(UUID()).restore(interactionState: state))
+    }
+
     @Test("The interaction-state cache is LRU-capped and counts forgets")
     func interactionStateCacheCapsAndForgets() {
         let engine = WebKitEngine(
@@ -264,5 +288,22 @@ struct PaneSnapshotTests {
         let id = UUID()
         #expect(AnyWebSurface.empty(id: id) == AnyWebSurface.empty(id: id))
         #expect(AnyWebSurface.empty(id: id) != AnyWebSurface.empty(id: UUID()))
+    }
+}
+
+@MainActor
+private final class FinishWaiter: NSObject, WKNavigationDelegate {
+    private var done = false
+    private var waiter: CheckedContinuation<Void, Never>?
+
+    func finished() async {
+        if done { return }
+        await withCheckedContinuation { waiter = $0 }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        done = true
+        waiter?.resume()
+        waiter = nil
     }
 }

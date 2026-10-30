@@ -310,11 +310,8 @@ public final class WebKitEngine: WebEngine {
         // Prefer restoring over reloading: interactionState brings back scroll
         // position and back/forward history, and costs no network (6.2).
         let state = pane.interactionState ?? interactionStates[pane.id]
-        if let state {
-            live.restore(interactionState: state)
-        } else {
-            webView.loadPage(pane.url)
-        }
+        let restored = state.map { live.restore(interactionState: $0) } ?? false
+        if !restored { webView.loadPage(pane.url) }
         lastKnownURL[pane.id] = pane.url
 
         Log.engine.debug(
@@ -1684,9 +1681,9 @@ public final class WebKitEngine: WebEngine {
         // rebuilt page starts from "not floating".
         clearPictureInPicture(paneID)
 
-        if let state = live.interactionState ?? interactionStates[paneID] {
-            live.restore(interactionState: state)
-        } else if let url = lastKnownURL[paneID] {
+        let state = live.interactionState ?? interactionStates[paneID]
+        let restored = state.map { live.restore(interactionState: $0) } ?? false
+        if !restored, let url = lastKnownURL[paneID] {
             live.webView.loadPage(url)
         }
 
