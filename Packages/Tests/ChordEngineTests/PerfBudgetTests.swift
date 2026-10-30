@@ -29,6 +29,13 @@ struct PerfBudgetTests {
         #expect(bytes <= PerfBudget.userScriptBytes, "\(bytes) bytes of scripts: \(PerfBudget.failure)")
     }
 
+    @Test("A hidden tab's timers spread further apart the longer it stays hidden, as in Safari")
+    func hiddenTimerThrottlingIncreases() {
+        let preferences = WebKitEngine.configurationTemplate.preferences
+        #expect(preferences.value(forKey: "hiddenPageDOMTimerThrottlingAutoIncreases") as? Bool == true)
+        #expect(preferences.value(forKey: "hiddenPageDOMTimerThrottlingEnabled") as? Bool == true)
+    }
+
     @Test("Page scripts set no repeating timer beyond the reviewed ones")
     func reviewedIntervalsOnly() {
         let scripts: [(String, String)] = [

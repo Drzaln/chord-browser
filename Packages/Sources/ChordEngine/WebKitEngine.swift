@@ -1097,6 +1097,16 @@ public final class WebKitEngine: WebEngine {
         // has to advance to its next track and a chat tab has to keep its
         // socket, both of which need the page's JavaScript to keep running.
         config.preferences.inactiveSchedulingPolicy = .throttle
+        // As in Safari, the longer a page stays hidden, the further apart its
+        // timers fire, so a background page that polls costs ever less. WebKit
+        // leaves this off for apps; a paused YouTube tab in a hidden window
+        // took 10-16 ms/s of CPU without it (c1k.11). Private, so by name and
+        // only where this WebKit has it.
+        if config.preferences.responds(
+            to: NSSelectorFromString("_setHiddenPageDOMTimerThrottlingAutoIncreases:")
+        ) {
+            config.preferences.setValue(true, forKey: "hiddenPageDOMTimerThrottlingAutoIncreases")
+        }
         // The user script and message handler are installed per view, not here:
         // copy() shares this controller between every copy.
         return config
