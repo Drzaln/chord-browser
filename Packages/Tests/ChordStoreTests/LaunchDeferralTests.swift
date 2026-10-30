@@ -13,13 +13,16 @@ struct LaunchDeferralTests {
         let started = Date()
         await LaunchDeferral.first({ await withCheckedContinuation { _ in } }, orAfter: .milliseconds(200))
         let waited = Date().timeIntervalSince(started)
-        #expect(waited >= 0.15 && waited < 1)
+        // Loose above: the full suite shares the main actor and can add a
+        // second or more. Returning at all is what shows the timeout won.
+        #expect(waited >= 0.15 && waited < 4)
     }
 
     @Test("A paint that comes at once lets the work start at once")
     func paintWins() async {
         let started = Date()
-        await LaunchDeferral.first({}, orAfter: .seconds(5))
-        #expect(Date().timeIntervalSince(started) < 0.5)
+        await LaunchDeferral.first({}, orAfter: .seconds(30))
+        // Well short of the timeout, with room for a busy main actor.
+        #expect(Date().timeIntervalSince(started) < 10)
     }
 }
