@@ -69,6 +69,8 @@ struct GeneralSettings: View {
             Divider()
             gestureSection
             Divider()
+            backgroundTabsSection
+            Divider()
             developerSection
             // No trailing `Spacer` here. Inside the sheet's `ScrollView` a
             // greedy spacer absorbs the overflow instead of letting it scroll,
@@ -595,6 +597,29 @@ struct GeneralSettings: View {
                 isOn: Binding(
                     get: { store.swipeToCloseEnabled },
                     set: { store.swipeToCloseEnabled = $0 }
+                )
+            )
+            .toggleStyle(.checkbox)
+        }
+    }
+
+    @ViewBuilder
+    private var backgroundTabsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Background Tabs").font(.system(size: 13, weight: .semibold))
+            Text(
+                "Tabs you can't see stop running a few minutes after they are hidden, "
+                    + "as in Safari, and cost no battery. Music keeps playing. Turn this "
+                    + "off if a hidden tab must stay live, like a chat app's notifications."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Toggle(
+                "Suspend tabs you can't see",
+                isOn: Binding(
+                    get: { store.suspendsBackgroundTabs },
+                    set: { store.suspendsBackgroundTabs = $0 }
                 )
             )
             .toggleStyle(.checkbox)

@@ -114,4 +114,20 @@ struct PreferencesTests {
 
         #expect(defaults.object(forKey: "prefs.swipeToCloseEnabled") as? Bool == false)
     }
+
+    @Test("Suspending background tabs defaults on, and turning it off persists and reaches the engine")
+    func suspendsBackgroundTabsDefaultsOnAndPushes() async {
+        let engine = FakeWebEngine()
+        let store = TabStore(
+            engine: engine, repository: FakeTabRepository(stored: []), clock: FixedClock()
+        )
+        #expect(store.suspendsBackgroundTabs, "a fresh profile suspends, as Safari does")
+
+        let defaults = InMemoryPreferenceStore()
+        store.preferenceStore = defaults
+        store.suspendsBackgroundTabs = false
+
+        #expect(!engine.suspendsBackgroundTabs, "turning it off reaches the engine")
+        #expect(defaults.object(forKey: "prefs.suspendBackgroundTabs") as? Bool == false)
+    }
 }

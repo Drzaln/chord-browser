@@ -403,6 +403,10 @@ public protocol WebEngine: AnyObject {
     /// a rightward swipe on a pane with no history simply does nothing.
     func setSwipeToCloseEnabled(_ enabled: Bool)
 
+    /// Whether tabs nobody can see are suspended (Safari's way) or kept
+    /// running throttled (c1k.11). Applies to live views and later ones.
+    func setSuspendsBackgroundTabs(_ enabled: Bool)
+
     /// Fills a credential into the fields the page reported (V4 of the password
     /// vault).
     ///
@@ -550,6 +554,7 @@ extension WebEngine {
     /// Defaults so test doubles and any non-WebKit engine need not implement
     /// the dev-mode and zoom plumbing; only `WebKitEngine` gives real behaviour.
     public func setDeveloperMode(_ enabled: Bool) {}
+    public func setSuspendsBackgroundTabs(_ enabled: Bool) {}
     public func setPageZoom(_ factor: Double) {}
     /// Default so test doubles and any non-WebKit engine need not implement the
     /// referrer plumbing; only `WebKitEngine` gives real behaviour.

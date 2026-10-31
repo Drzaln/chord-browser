@@ -162,6 +162,12 @@ public final class FakeWebEngine: WebEngine {
         swipeToCloseEnabled = enabled
     }
 
+    /// The background-tab policy the store last pushed (c1k.11).
+    public private(set) var suspendsBackgroundTabs = true
+    public func setSuspendsBackgroundTabs(_ enabled: Bool) {
+        suspendsBackgroundTabs = enabled
+    }
+
     /// The developer-mode flag the store last pushed (non-spec: user-requested).
     public private(set) var developerMode = false
     public func setDeveloperMode(_ enabled: Bool) {

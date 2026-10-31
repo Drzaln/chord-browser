@@ -372,6 +372,22 @@ public final class TabStore {
         engine.setSwipeToCloseEnabled(swipeToCloseEnabled)
     }
 
+    /// Whether tabs nobody can see are suspended, as in Safari, or kept
+    /// running throttled so they can go on playing, syncing and notifying
+    /// (c1k.11). A paused YouTube tab in a hidden window cost ~11 ms/s of CPU
+    /// running and nothing suspended. Defaults to on; a page playing audio is
+    /// kept running either way.
+    public var suspendsBackgroundTabs: Bool = Preferences.loadSuspendsBackgroundTabs() {
+        didSet {
+            Preferences.save(suspendsBackgroundTabs: suspendsBackgroundTabs, to: preferenceStore)
+            pushSuspendsBackgroundTabs()
+        }
+    }
+
+    func pushSuspendsBackgroundTabs() {
+        engine.setSuspendsBackgroundTabs(suspendsBackgroundTabs)
+    }
+
     /// Whether developer mode is on (non-spec: user-requested). When on, the
     /// engine sets `developerExtrasEnabled`, which is what makes the Web
     /// Inspector ("Inspect Element" + the detached inspector window) and the DRM
@@ -882,6 +898,7 @@ public final class TabStore {
         // Same for the swipe-to-close flag: the engine starts with the monitor
         // running and must be told if the user turned the feature off.
         self.pushSwipeToCloseEnabled()
+        self.pushSuspendsBackgroundTabs()
         // Same for developer mode and page zoom: the engine starts with both
         // off/default and must be told what the user chose.
         self.pushDeveloperMode()

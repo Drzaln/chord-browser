@@ -201,6 +201,29 @@ struct WebViewPoolTests {
         #expect(engine.pool.view(for: pane.id)?.container.layer?.cornerRadius == 10)
     }
 
+    @Test("Background tabs are suspended or throttled as chosen, live and later views alike (c1k.11)")
+    func backgroundTabPolicy() {
+        let engine = WebKitEngine(
+            configuration: EngineConfiguration(
+                faviconCacheDirectory: URL(fileURLWithPath: "/tmp/engine-tests")
+            )
+        )
+        let space = Space(name: "Personal", sortIndex: 0)
+        let first = Pane(url: URL(string: "about:blank")!)
+        _ = engine.surface(for: first, in: space)
+        let policy = { (pane: Pane) in
+            engine.pool.view(for: pane.id)?.webView.configuration.preferences.inactiveSchedulingPolicy
+        }
+        #expect(policy(first) == .suspend)
+
+        engine.setSuspendsBackgroundTabs(false)
+        #expect(policy(first) == .throttle)
+
+        let second = Pane(url: URL(string: "about:blank")!)
+        _ = engine.surface(for: second, in: space)
+        #expect(policy(second) == .throttle)
+    }
+
     @Test("A radius set before the view exists is remembered for when it is built")
     func contentCornerRadiusRememberedForLazyPane() {
         let engine = WebKitEngine(

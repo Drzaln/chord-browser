@@ -52,6 +52,8 @@ public final class WebKitEngine: WebEngine {
     /// "Inspect Element" menu and the detached inspector exist at all. Defaults
     /// off; the store pushes the persisted value on launch.
     private var developerMode = false
+    /// See `setSuspendsBackgroundTabs`; the store pushes the user's choice.
+    private var suspendsBackgroundTabs = true
 
     /// The global full-page zoom factor (non-spec: user-requested), applied to
     /// every web view via `pageZoom`. Mirrors the persisted preference.
@@ -586,6 +588,8 @@ public final class WebKitEngine: WebEngine {
         // below. When off, WebKit ships no "Inspect Element" menu and the
         // inspector cannot open — the release-build gate.
         webView.configuration.preferences.setValue(developerMode, forKey: "developerExtrasEnabled")
+        webView.configuration.preferences.inactiveSchedulingPolicy =
+            Self.inactivePolicy(suspending: suspendsBackgroundTabs)
         // Full-page zoom, applied at creation so a fresh view never needs a
         // retroactive push.
         webView.pageZoom = pageZoomFactor
@@ -852,6 +856,23 @@ public final class WebKitEngine: WebEngine {
     /// is created, so a just-flipped live view may need a reload to show the
     /// context-menu item — which is why the setting is usually set before
     /// browsing, not mid-session.
+    /// Suspended, a hidden tab costs nothing, as in Safari; throttled, its
+    /// scripts keep running slowly, so a chat tab keeps its socket and can
+    /// still notify. WebKit keeps a page that is playing audio running under
+    /// either (c1k.11). Live views are re-stamped; later ones get it in
+    /// `configure`.
+    public func setSuspendsBackgroundTabs(_ enabled: Bool) {
+        suspendsBackgroundTabs = enabled
+        for live in pool.liveViews {
+            live.webView.configuration.preferences.inactiveSchedulingPolicy =
+                Self.inactivePolicy(suspending: enabled)
+        }
+    }
+
+    static func inactivePolicy(suspending: Bool) -> WKPreferences.InactiveSchedulingPolicy {
+        suspending ? .suspend : .throttle
+    }
+
     public func setDeveloperMode(_ enabled: Bool) {
         developerMode = enabled
         for live in pool.liveViews {
@@ -1093,9 +1114,8 @@ public final class WebKitEngine: WebEngine {
         // ("picture-in-picture")` returns without error but never floats the
         // video. See the PiP discussion in the architecture skill.
         config.preferences.setValue(true, forKey: "allowsPictureInPictureMediaPlayback")
-        // A parked (hidden) tab is throttled, never suspended: background music
-        // has to advance to its next track and a chat tab has to keep its
-        // socket, both of which need the page's JavaScript to keep running.
+        // Throttled until `configure` applies the user's choice
+        // (`setSuspendsBackgroundTabs`, c1k.11).
         config.preferences.inactiveSchedulingPolicy = .throttle
         // As in Safari, the longer a page stays hidden, the further apart its
         // timers fire, so a background page that polls costs ever less. WebKit

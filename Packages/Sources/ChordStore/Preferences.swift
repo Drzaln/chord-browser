@@ -23,6 +23,7 @@ enum Preferences {
     private static let littleChordPanelWidthKey = "prefs.littleArcPanelWidth"
     private static let littleChordPanelHeightKey = "prefs.littleArcPanelHeight"
     private static let swipeToCloseEnabledKey = "prefs.swipeToCloseEnabled"
+    private static let suspendsBackgroundTabsKey = "prefs.suspendBackgroundTabs"
     private static let developerModeKey = "prefs.developerMode"
     private static let pageZoomKey = "prefs.pageZoom"
     private static let routeRulesKey = "prefs.routeRules"
@@ -220,6 +221,23 @@ enum Preferences {
         swipeToCloseEnabled enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         defaults.set(enabled, forKey: swipeToCloseEnabledKey)
+    }
+
+    // MARK: - Background tabs
+
+    /// Whether a tab nobody can see is suspended once WebKit lets it, as in
+    /// Safari, rather than kept running throttled (c1k.11). Defaults to on.
+    static func loadSuspendsBackgroundTabs(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Bool {
+        defaults.object(forKey: suspendsBackgroundTabsKey) as? Bool ?? true
+    }
+
+    static func save(
+        suspendsBackgroundTabs enabled: Bool,
+        to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(enabled, forKey: suspendsBackgroundTabsKey)
     }
 
     // MARK: - Developer mode
