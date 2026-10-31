@@ -1864,23 +1864,27 @@ extension WebKitExtensionHost: NSPopoverDelegate {
 /// ExtensionKeepAlive): the shim answers `__chordPing` itself, and the
 /// extension never sees it.
 ///
-/// The page is made for each ping and closed after it (c1k.10). Kept between
-/// pings, its process was suspended after each one, and on suspending WebKit
-/// hides a page's content until its next frame, which a page with no window
-/// never draws: the UI process ran a display link at the screen's rate for
-/// each such page until the next ping, ~120 wakeups a second apiece.
+/// One page for the whole hold. Made for each ping instead, every ping
+/// started a web process that lived ~17 s, the churn c1k.9 set out to stop
+/// (most of a hidden window's energy). Kept, it no longer costs the UI a
+/// display link: extension pages are throttled, not suspended (see the
+/// controller's configuration), so WebKit never hides its content waiting
+/// for a frame a page with no window doesn't draw (c1k.10).
 @MainActor
 private final class KeepAlivePinger {
     private weak var context: WKWebExtensionContext?
+    private var page: BlankExtensionPage?
 
     init(_ context: WKWebExtensionContext) { self.context = context }
 
     func ping() async {
-        guard let context, let configuration = context.webViewConfiguration else { return }
-        // Closed as it goes out of scope.
-        let page = BlankExtensionPage(configuration)
-        guard await page.load(at: context.baseURL) else { return }
-        _ = try? await page.web.callAsyncJavaScript(
+        if page == nil {
+            guard let context, let configuration = context.webViewConfiguration else { return }
+            let made = BlankExtensionPage(configuration)
+            guard await made.load(at: context.baseURL) else { return }
+            page = made
+        }
+        _ = try? await page?.web.callAsyncJavaScript(
             "try { await chrome.runtime.sendMessage({ __chordPing: true }); } catch (e) {}",
             contentWorld: .page
         )
