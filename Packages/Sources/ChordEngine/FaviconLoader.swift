@@ -86,24 +86,8 @@ actor FaviconLoader {
         return "\(scheme)://\(host)"
     }
 
-    private static func downsample(_ data: Data) -> Data? {
-        guard let image = NSImage(data: data) else { return nil }
-
-        let target = NSImage(size: displaySize)
-        target.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        image.draw(
-            in: NSRect(origin: .zero, size: displaySize),
-            from: .zero,
-            operation: .copy,
-            fraction: 1.0
-        )
-        target.unlockFocus()
-
-        guard let tiff = target.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff)
-        else { return nil }
-        return bitmap.representation(using: .png, properties: [:])
+    static func downsample(_ data: Data) -> Data? {
+        ImageDownsampler.png(from: data, pixelSize: displaySize)
     }
 }
 

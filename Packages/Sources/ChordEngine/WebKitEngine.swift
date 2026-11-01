@@ -1494,25 +1494,11 @@ public final class WebKitEngine: WebEngine {
     /// instead of the favicon tile fallback, which is worse.
     private static func thumbnailPNG(from image: NSImage) -> Data? {
         guard let rep = NSBitmapImageRep(data: image.tiffRepresentation ?? Data()),
-              hasVisibleContent(rep)
+              hasVisibleContent(rep),
+              let cgImage = rep.cgImage
         else { return nil }
-
-        let size = CGSize(width: 352, height: 220)
-        let target = NSImage(size: size)
-        target.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        image.draw(
-            in: NSRect(origin: .zero, size: size),
-            from: .zero,
-            operation: .copy,
-            fraction: 1.0
-        )
-        target.unlockFocus()
-
-        guard let tiff = target.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff)
-        else { return nil }
-        return bitmap.representation(using: .png, properties: [:])
+        // On the CPU, as favicons are (c1k.12).
+        return ImageDownsampler.png(from: cgImage, pixelSize: CGSize(width: 352, height: 220))
     }
 
     /// True when the capture shows real page content rather than a blank
