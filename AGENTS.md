@@ -232,5 +232,8 @@ for every agent (Claude, Codex, opencode).
    the active profile allows).
 
 The GitHub workflow (`v*` tag push) builds `Chord.zip` and publishes the
-GitHub Release — the self-updater's source (ADR 021). Verify the workflow run
-after pushing if you can.
+GitHub Release — the self-updater's source (ADR 021). Don't poll the GitHub
+API to watch it (rate-limited); report the push and let the user check.
+`ci.yml` also builds every push to main against the macOS 26 SDK — the
+release runner's SDK, older than a dev Mac's — and prepush runs
+`scripts/check-sdk-availability.py` for the same reason.

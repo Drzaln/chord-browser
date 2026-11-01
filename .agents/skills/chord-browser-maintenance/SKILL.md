@@ -14,18 +14,29 @@ Practical procedures for keeping the Chord Browser healthy. Use this skill when 
 Run this whenever you pick up the project after time away:
 
 ```bash
-# 1. Build all packages + run all tests + build the app (warnings = errors)
+# 1. SDK check + build all packages + run all tests + build the app (warnings = errors)
 ./scripts/prepush.sh
 
-# 2. Verify test count hasn't regressed (expect 512+)
-swift test --package-path Packages 2>&1 | tail -5
+# 2. Verify test count hasn't regressed (expect 1036+, 2026-11-01)
+swift test --package-path Packages 2>&1 | grep "Test run with"
 
-# 3. Check current schema version (should be v14)
+# 3. Check current schema version (should be v15)
 sqlite3 ~/Library/Application\ Support/Chord/chord.sqlite \
   "SELECT * FROM grdb_migrations ORDER BY identifier;"
 ```
 
 If `prepush.sh` fails, fix before doing anything else. The project must compile at every commit.
+
+**The macOS 26 SDK rule.** Dev Macs build with Xcode 27; the release runner
+(`release.yml`) and `ci.yml` build on `macos-26` against the macOS 26 SDK.
+`#available` only guards at run time, so a macOS 27 SDK-only API breaks the
+release build. Reach such API by name (KVC / `NSClassFromString` / `perform`,
+as `WebKitEngine.applyReferrer` does). `scripts/check-sdk-availability.py`
+(prepush's first step) flags these names; `ci.yml` builds every push to main.
+Private WebKit API is reached by name too (e.g. `_displayCaptureState`).
+
+**Don't poll the GitHub API** to watch a release or CI run after pushing
+(rate-limited, unauthenticated). Report the push; the user checks the build.
 
 ---
 
@@ -174,6 +185,17 @@ These **cannot** be tested by `swift test` (runs unsandboxed). Must verify again
 ./scripts/soak.sh run
 ./scripts/soak.sh restore
 ```
+
+Energy against Safari (the c1k method, `docs/perf/BASELINE-*.md`,
+`docs/perf/TABSET.md`): `scripts/perf-baseline.sh` drives the tab set;
+powermetrics needs the user's password. Without it, count the UI process's
+interrupt wakeups (`proc_pid_rusage`) and per-pid CPU from `ps`, and filter to
+Chord's processes (Safari's WebKit processes look the same). Watch for a
+**display-link spin**: hundreds of UI wakeups/s while idle means a suspended
+page is holding a `RemoteLayerTreeDrawingAreaProxy` display link (c1k.13);
+confirm with lldb on `RemoteLayerTreeDrawingAreaProxyMac::didRefreshDisplay`.
+Speedometer 3.1: open `https://browserbench.org/Speedometer3.1/?startAutomatically`
+with `open -a Chord.app <url>`, relaunch per run, 3 runs, median.
 
 Budgets (Apple Silicon, 20 tabs, 3 Spaces, 5 live):
 
@@ -388,6 +410,13 @@ How to read it:
 - Isolate with controls before blaming the platform: a minimal MV3 extension with
   a service worker should load **clean**; one that throws at top level reproduces
   code 6. That is how Bitwarden was pinned to `chrome.offscreen` (see CHECKPOINT).
+
+### An extension stops working with no visible error
+
+Settings → Extensions shows "N script errors" under an extension whose
+scripts threw (WebKit error code 7, Safari 27 runtime); the log has each new
+message once (`Log.extensions`). Line numbers are the extension's own (the
+shim's prepended lines are subtracted).
 
 ### Extension not working
 

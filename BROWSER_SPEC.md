@@ -615,6 +615,24 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   and `⌘R`, via `WebKitEngine.reload` — retry the real site. Typing
   `chord-offline://no-internet` opens it directly. Non-spec, user-requested.
 
+- **Perf against Safari, and background tabs** (2026-10-29 → 2026-11-01, the
+  c1k epic; numbers in `docs/perf/`) — hidden tabs get WebKit's hidden-page
+  timer throttling with auto-increase; extension workers woken on a cycle are
+  held (`ExtensionKeepAlive`) and the hold renewed while still woken, rather
+  than a web process launched per wake; extensions load after the first
+  paint; perf budgets are asserted in tests. Settings → General → **Suspend
+  tabs you can't see** chooses `inactiveSchedulingPolicy` `.suspend` (on) or
+  `.none` (off, the default): `.throttle` is never used because macOS 27
+  suspends those pages too, and a suspended page can leave the UI running a
+  display link (a WebKit bug; repro and report in
+  `docs/perf/webkit-display-link/`). Non-spec, user-requested.
+- **Extension follow-ups** (2026-10-31 → 2026-11-01) — a recording pill names
+  the extension capturing the screen/camera/microphone, with Stop; offscreen
+  AUDIO_PLAYBACK documents sit in a never-shown window so WebKit plays their
+  media; script errors (WebKit's code 7) show in Settings → Extensions with a
+  Copy button; an extension page a site may not open shows a page saying so;
+  cross-origin-isolated pages load.
+
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
 software-only in a general `WKWebView`: macOS reserves the hardware decode path
 for Safari, so `mediaCapabilities.decodingInfo().powerEfficient` reports false for

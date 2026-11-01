@@ -89,10 +89,18 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   unpacked copy for Chord's compatibility shim, and the full Search-derived
   Chrome API shim (offscreen, bookmarks, history, downloads, folders-as-tab-
   groups, side-panel fallback, scripting, native messaging, extension screen
-  recording through `desktopCapture`, and more). The
+  recording through `desktopCapture` with a recording pill and Stop, sounds
+  from offscreen documents, and more). Script errors an extension throws
+  show under it in Settings. The
   Store links and ids can be installed from Settings through the public CRX
   endpoint; the store page's own Add button is still a later slice. Extension
   gaps are tracked as M9 in CHECKPOINT.md.
+- **Background tabs and battery** — hidden tabs keep running by default
+  (Settings → General → Background Tabs can suspend them, as Safari does,
+  but on macOS 27 a suspended tab can keep the window drawing; see
+  `docs/perf/`). Hidden tabs' timers slow down the longer they stay hidden,
+  extension workers woken on a cycle are held instead of relaunched, and
+  Speedometer 3.1 scores on par with Safari (51.9 against 47.9, macOS 27.2).
 - **History** (`Cmd+Y`) — a searchable, **per-Space** window of visited pages
   grouped by day, with per-entry and multi-select delete, open-in-new-tab, and
   clear. Each Space keeps its own history, matching its isolated data store.
