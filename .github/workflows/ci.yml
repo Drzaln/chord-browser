@@ -1,0 +1,63 @@
+name: CI
+
+# Builds every push to main and every pull request the way release.yml builds a
+# tag: on a macos-26 runner, against the newest stable Xcode's SDK (macOS 26),
+# unsigned. Dev Macs build with Xcode 27, where an API that only the macOS 27
+# SDK declares compiles fine behind `#available`; the release runner cannot
+# compile it at all (4b6). This catches that at the push, not at the tag.
+# scripts/check-sdk-availability.py is the same check, run locally by prepush.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos-26-sdk:
+    runs-on: macos-26
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          # The same pick as release.yml: newest Xcode, no betas.
+          XCODE="$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1 || true)"
+          if [[ -n "$XCODE" ]]; then
+            sudo xcode-select -s "$XCODE/Contents/Developer"
+          fi
+          xcodebuild -version
+          xcodebuild -version -sdk macosx
+
+      - name: Build Release (unsigned)
+        run: |
+          set -uo pipefail
+          xcodebuild -project Chord.xcodeproj -scheme Chord -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath .build-ci \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
+            build > xcodebuild.log 2>&1
+          status=$?
+          if [[ $status -ne 0 ]]; then
+            echo "::group::xcodebuild errors"
+            grep -E "error:" xcodebuild.log | head -50
+            echo "::endgroup::"
+            tail -n 60 xcodebuild.log
+          fi
+          exit $status
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild.log
+          path: xcodebuild.log

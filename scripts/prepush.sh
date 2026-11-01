@@ -5,6 +5,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+echo "==> Checking for macOS 27 SDK-only API names"
+# The release runner builds against the macOS 26 SDK (4b6); .github/workflows/
+# ci.yml is the full check, this one runs before the push.
+python3 scripts/check-sdk-availability.py
+
 echo "==> Building packages"
 swift build --package-path Packages -Xswiftc -warnings-as-errors
 
