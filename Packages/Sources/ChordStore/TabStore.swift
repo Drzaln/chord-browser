@@ -373,7 +373,7 @@ public final class TabStore {
     }
 
     /// Whether tabs nobody can see are suspended, as in Safari, or kept
-    /// running throttled so they can go on playing, syncing and notifying
+    /// running so they can go on playing, syncing and notifying
     /// (c1k.11). A paused YouTube tab in a hidden window cost ~11 ms/s of CPU
     /// running and nothing suspended. Defaults to on; a page playing audio is
     /// kept running either way.

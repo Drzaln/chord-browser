@@ -201,7 +201,7 @@ struct WebViewPoolTests {
         #expect(engine.pool.view(for: pane.id)?.container.layer?.cornerRadius == 10)
     }
 
-    @Test("Background tabs are suspended or throttled as chosen, live and later views alike (c1k.11)")
+    @Test("Background tabs are suspended or kept running as chosen, live and later views alike (c1k.11)")
     func backgroundTabPolicy() {
         let engine = WebKitEngine(
             configuration: EngineConfiguration(
@@ -216,12 +216,13 @@ struct WebViewPoolTests {
         }
         #expect(policy(first) == .suspend)
 
+        // Not .throttle: WebKit suspends those too.
         engine.setSuspendsBackgroundTabs(false)
-        #expect(policy(first) == .throttle)
+        #expect(policy(first) == WKPreferences.InactiveSchedulingPolicy.none)
 
         let second = Pane(url: URL(string: "about:blank")!)
         _ = engine.surface(for: second, in: space)
-        #expect(policy(second) == .throttle)
+        #expect(policy(second) == WKPreferences.InactiveSchedulingPolicy.none)
     }
 
     @Test("A radius set before the view exists is remembered for when it is built")

@@ -898,11 +898,17 @@ public final class WebKitEngine: WebEngine {
     /// is created, so a just-flipped live view may need a reload to show the
     /// context-menu item — which is why the setting is usually set before
     /// browsing, not mid-session.
-    /// Suspended, a hidden tab costs nothing, as in Safari; throttled, its
-    /// scripts keep running slowly, so a chat tab keeps its socket and can
-    /// still notify. WebKit keeps a page that is playing audio running under
-    /// either (c1k.11). Live views are re-stamped; later ones get it in
-    /// `configure`.
+    /// Suspended, a hidden tab costs nothing, as in Safari; kept running, its
+    /// scripts go on (WebKit still spaces a hidden page's timers out), so a
+    /// chat tab keeps its socket and can still notify. WebKit keeps a page
+    /// that is playing audio running under either (c1k.11).
+    ///
+    /// Off is `.none`, not `.throttle`: on macOS 27 WebKit suspends a
+    /// `.throttle` page's process too, a few minutes after it is hidden or the
+    /// first time its window changes state, which is exactly what off is for
+    /// not doing. Measured on the tab set: no suspensions in 15 minutes with
+    /// `.none`, every parked tab suspended with `.throttle`. Live views are
+    /// re-stamped; later ones get it in `configure`.
     public func setSuspendsBackgroundTabs(_ enabled: Bool) {
         suspendsBackgroundTabs = enabled
         for live in pool.liveViews {
@@ -912,7 +918,7 @@ public final class WebKitEngine: WebEngine {
     }
 
     static func inactivePolicy(suspending: Bool) -> WKPreferences.InactiveSchedulingPolicy {
-        suspending ? .suspend : .throttle
+        suspending ? .suspend : .none
     }
 
     public func setDeveloperMode(_ enabled: Bool) {
