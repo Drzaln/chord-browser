@@ -214,14 +214,19 @@ struct WebViewPoolTests {
         let policy = { (pane: Pane) in
             engine.pool.view(for: pane.id)?.webView.configuration.preferences.inactiveSchedulingPolicy
         }
-        #expect(policy(first) == .suspend)
-
-        // Not .throttle: WebKit suspends those too.
-        engine.setSuspendsBackgroundTabs(false)
+        // Kept running until told otherwise (c1k.13), and not .throttle:
+        // WebKit suspends those too.
         #expect(policy(first) == WKPreferences.InactiveSchedulingPolicy.none)
+
+        engine.setSuspendsBackgroundTabs(true)
+        #expect(policy(first) == .suspend)
 
         let second = Pane(url: URL(string: "about:blank")!)
         _ = engine.surface(for: second, in: space)
+        #expect(policy(second) == .suspend)
+
+        engine.setSuspendsBackgroundTabs(false)
+        #expect(policy(first) == WKPreferences.InactiveSchedulingPolicy.none)
         #expect(policy(second) == WKPreferences.InactiveSchedulingPolicy.none)
     }
 

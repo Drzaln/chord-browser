@@ -53,7 +53,7 @@ public final class WebKitEngine: WebEngine {
     /// off; the store pushes the persisted value on launch.
     private var developerMode = false
     /// See `setSuspendsBackgroundTabs`; the store pushes the user's choice.
-    private var suspendsBackgroundTabs = true
+    private var suspendsBackgroundTabs = false
 
     /// The global full-page zoom factor (non-spec: user-requested), applied to
     /// every web view via `pageZoom`. Mirrors the persisted preference.

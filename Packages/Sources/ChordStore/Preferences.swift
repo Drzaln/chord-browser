@@ -226,11 +226,13 @@ enum Preferences {
     // MARK: - Background tabs
 
     /// Whether a tab nobody can see is suspended once WebKit lets it, as in
-    /// Safari, rather than kept running throttled (c1k.11). Defaults to on.
+    /// Safari, rather than kept running (c1k.11). Defaults to off: on macOS
+    /// 27 a suspended tab can leave the window running a display link
+    /// (c1k.13), which costs more than the tabs it saves.
     static func loadSuspendsBackgroundTabs(
         _ defaults: any PreferenceStore = UserDefaults.standard
     ) -> Bool {
-        defaults.object(forKey: suspendsBackgroundTabsKey) as? Bool ?? true
+        defaults.object(forKey: suspendsBackgroundTabsKey) as? Bool ?? false
     }
 
     static func save(

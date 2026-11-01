@@ -375,8 +375,11 @@ public final class TabStore {
     /// Whether tabs nobody can see are suspended, as in Safari, or kept
     /// running so they can go on playing, syncing and notifying
     /// (c1k.11). A paused YouTube tab in a hidden window cost ~11 ms/s of CPU
-    /// running and nothing suspended. Defaults to on; a page playing audio is
-    /// kept running either way.
+    /// running and nothing suspended, but on macOS 27 any wake of a suspended
+    /// tab can leave the window's process running a display link: 580-860
+    /// wakeups/s with seven parked tabs, against 12-15 with none suspended
+    /// (c1k.13). Defaults to off until WebKit fixes that; a page playing
+    /// audio is kept running either way.
     public var suspendsBackgroundTabs: Bool = Preferences.loadSuspendsBackgroundTabs() {
         didSet {
             Preferences.save(suspendsBackgroundTabs: suspendsBackgroundTabs, to: preferenceStore)

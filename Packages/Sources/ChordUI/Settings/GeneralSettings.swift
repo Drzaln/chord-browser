@@ -608,9 +608,10 @@ struct GeneralSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Background Tabs").font(.system(size: 13, weight: .semibold))
             Text(
-                "Tabs you can't see stop running a few minutes after they are hidden, "
-                    + "as in Safari, and cost no battery. Music keeps playing. Turn this "
-                    + "off if a hidden tab must stay live, like a chat app's notifications."
+                "On, tabs you can't see stop running a few minutes after they are hidden, "
+                    + "as in Safari. Music keeps playing. Off by default: on this macOS a "
+                    + "suspended tab can keep the window drawing, which costs more battery "
+                    + "than the tabs save."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)

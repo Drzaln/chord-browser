@@ -163,7 +163,7 @@ public final class FakeWebEngine: WebEngine {
     }
 
     /// The background-tab policy the store last pushed (c1k.11).
-    public private(set) var suspendsBackgroundTabs = true
+    public private(set) var suspendsBackgroundTabs = false
     public func setSuspendsBackgroundTabs(_ enabled: Bool) {
         suspendsBackgroundTabs = enabled
     }
