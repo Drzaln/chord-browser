@@ -98,6 +98,11 @@ public final class ExtensionsService {
         try installer.installedExtensions()
     }
 
+    /// What the extension's scripts threw or rejected in the Space (9ba).
+    public func scriptErrors(slug: String, in space: Space) -> [ExtensionScriptError] {
+        host.scriptErrors(slug: slug, in: space)
+    }
+
     public func enabledExtensions(in space: Space) -> [LoadedExtension] {
         host.loadedExtensions(in: space)
     }

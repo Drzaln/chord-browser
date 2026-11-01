@@ -176,6 +176,10 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// builds without a panel return nil and the Store falls back to a tab.
     func sidePanelView(slug: String, url: URL, in space: Space) -> NSView?
     func closeSidePanel(slug: String, in space: Space)
+
+    /// Uncaught exceptions and unhandled rejections the extension's scripts
+    /// have reported since it loaded in the Space, distinct, oldest first (9ba).
+    func scriptErrors(slug: String, in space: Space) -> [ExtensionScriptError]
 }
 
 public extension ExtensionHost {
@@ -186,4 +190,5 @@ public extension ExtensionHost {
     func forgetLeftOver(in spaces: [Space]) async {}
     func spaceDidClose(_ space: Space) async {}
     func turnedOffPasswordSaving(identifier: String, in space: Space) -> Bool { false }
+    func scriptErrors(slug: String, in space: Space) -> [ExtensionScriptError] { [] }
 }

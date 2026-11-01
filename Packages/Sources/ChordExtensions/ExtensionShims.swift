@@ -262,6 +262,23 @@ public enum ExtensionShims {
         return path
     }
 
+    /// The prepared worker's file name and how many lines the shim adds in
+    /// front of the extension's own code, so a script error's line can be told
+    /// in the extension's terms (9ba). Nil for a module worker, which imports
+    /// the shim instead of starting with it.
+    nonisolated static func workerShimLines(in folder: URL) -> (file: String, lines: Int)? {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent("manifest.json")),
+              let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let worker = (manifest["background"] as? [String: Any])?["service_worker"] as? String,
+              let url = inside(worker, of: folder),
+              let source = try? String(contentsOf: url, encoding: .utf8),
+              source.hasPrefix(marker),
+              let end = source.range(of: ender + "\n")
+        else { return nil }
+        let lines = source[..<end.upperBound].reduce(0) { $1 == "\n" ? $0 + 1 : $0 }
+        return (url.lastPathComponent, lines)
+    }
+
     nonisolated private static func removingShim(from source: String) -> String {
         var text = source
         if text.hasPrefix(marker), let end = text.range(of: ender) {

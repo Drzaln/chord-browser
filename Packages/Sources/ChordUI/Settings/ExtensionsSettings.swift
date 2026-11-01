@@ -26,6 +26,9 @@ struct ExtensionsSettings: View {
     /// An unverified extension whose enable toggle was flipped, awaiting a
     /// confirm. Warn-but-install: installs proceed, enables are confirmed.
     @State private var pendingEnableSlug: String?
+    /// What each enabled extension's scripts threw in this Space (9ba).
+    @State private var scriptErrors: [String: [ExtensionScriptError]] = [:]
+    @State private var errorsShownFor: String?
 
     /// `.crx`/`.xpi` are not registered UTTypes; a dynamic type from the
     /// extension still lets the panel show those files, with a ZIP fallback.
@@ -172,6 +175,10 @@ struct ExtensionsSettings: View {
             }
             Spacer()
 
+            if let errors = scriptErrors[ext.slug], !errors.isEmpty {
+                scriptErrorsButton(errors, slug: ext.slug)
+            }
+
             if busySlug == ext.slug {
                 ProgressView().controlSize(.small)
             } else {
@@ -201,6 +208,60 @@ struct ExtensionsSettings: View {
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
         .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
+    }
+
+    /// The extension's script errors, behind a count: what to look at when an
+    /// extension silently stops working.
+    private func scriptErrorsButton(_ errors: [ExtensionScriptError], slug: String) -> some View {
+        Button {
+            refresh()
+            errorsShownFor = slug
+        } label: {
+            Label(
+                errors.count == 1 ? "1 script error" : "\(errors.count) script errors",
+                systemImage: "exclamationmark.bubble"
+            )
+            .font(.system(size: 10))
+            .foregroundStyle(.orange)
+        }
+        .buttonStyle(.borderless)
+        .help("Exceptions and rejections in this extension's scripts since it loaded")
+        .popover(isPresented: Binding(
+            get: { errorsShownFor == slug },
+            set: { if !$0 { errorsShownFor = nil } }
+        )) {
+            let shown = scriptErrors[slug] ?? errors
+            VStack(alignment: .leading, spacing: 8) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(shown) { error in
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text(error.message)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
+                                if error.count > 1 {
+                                    Text("×\(error.count)")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 240)
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(
+                        shown.map(\.message).joined(separator: "\n"), forType: .string
+                    )
+                }
+                .controlSize(.small)
+            }
+            .padding(12)
+            .frame(width: 420)
+        }
     }
 
     /// Routes an enable flip: a trusted extension enables directly, an
@@ -238,8 +299,12 @@ struct ExtensionsSettings: View {
         privateSlugs = Set(installed.map(\.slug).filter { extensions.isAllowedInPrivate(slug: $0) })
         if let space = store.activeSpace(in: windowState) {
             enabledSlugs = Set(extensions.enabledExtensions(in: space).map(\.slug))
+            scriptErrors = Dictionary(uniqueKeysWithValues: enabledSlugs.map {
+                ($0, extensions.scriptErrors(slug: $0, in: space))
+            })
         } else {
             enabledSlugs = []
+            scriptErrors = [:]
         }
     }
 

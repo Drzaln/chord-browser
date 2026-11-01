@@ -76,6 +76,10 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
 
     /// Context error observations, keyed by "space|slug".
     private var errorWatchers: [String: NSObjectProtocol] = [:]
+    /// Script errors each extension has reported, keyed "space|slug" (9ba).
+    private var scriptErrorLog = ExtensionScriptErrorLog()
+    /// The worker file and its shim's length, keyed "space|slug", read once.
+    private var workerShimLines: [String: (file: String, lines: Int)?] = [:]
     /// Last automatic revival, so a worker that can never start is not put
     /// through an unload/load loop once a second.
     private var revived: [String: Date] = [:]
@@ -360,6 +364,8 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             ) {
                 NotificationCenter.default.removeObserver(watcher)
             }
+            scriptErrorLog.forget(watchKey(spaceID: space.id, slug: installed.slug))
+            workerShimLines[watchKey(spaceID: space.id, slug: installed.slug)] = nil
             workerRecovery.restarted(key, replacingContext: true)
             workerRecovery.unregister(key)
             workersChanged(in: space.id)
@@ -490,6 +496,8 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
             NotificationCenter.default.removeObserver(watcher)
         }
         revived[key] = nil
+        scriptErrorLog.forget(key)
+        workerShimLines[key] = nil
         ExtensionKeepAlive.forget(Self.keepAliveKey(space.id, loaded.context.uniqueIdentifier))
         closePopouts(of: loaded.context, in: space.id)
         var unloadError: Error?
@@ -1320,6 +1328,7 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
                 guard let self, let context,
                       self.loadedContexts[spaceID]?[slug]?.context === context
                 else { return }
+                self.recordScriptErrors(context.errors, spaceID: spaceID, slug: slug)
                 let failed = context.errors.contains { error in
                     let e = error as NSError
                     return e.domain == WKWebExtensionContext.errorDomain
@@ -1334,6 +1343,39 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
                 }
             }
         }
+    }
+
+    /// An exception or rejection in the extension's scripts (9ba). Each
+    /// distinct message is logged once; the list is the extensions settings'.
+    private func recordScriptErrors(_ errors: [any Error], spaceID: UUID, slug: String) {
+        let key = watchKey(spaceID: spaceID, slug: slug)
+        if workerShimLines[key] == nil,
+           let folder = loadedContexts[spaceID]?[slug]?.installed.resourceURL {
+            workerShimLines[key] = .some(ExtensionShims.workerShimLines(in: folder))
+        }
+        let shim = workerShimLines[key] ?? nil
+        let messages = errors.compactMap { error -> String? in
+            let error = error as NSError
+            guard error.domain == WKWebExtensionContext.errorDomain,
+                  error.code == Self.scriptErrorCode
+            else { return nil }
+            return ExtensionScriptErrorLog.withShimRemoved(
+                from: error.localizedDescription,
+                workerFile: shim?.file, offset: shim?.lines ?? 0
+            )
+        }
+        for message in scriptErrorLog.record(messages, key: key) {
+            Log.extensions.error("extension \(slug) script error: \(message)")
+        }
+    }
+
+    /// The code WebKit's Safari 27 runtime gives an uncaught exception or an
+    /// unhandled rejection in an extension script. Not in the SDK's enum
+    /// (which stops at 6); probed on macOS 27.2.
+    static let scriptErrorCode = 7
+
+    public func scriptErrors(slug: String, in space: Space) -> [ExtensionScriptError] {
+        scriptErrorLog.errors(for: watchKey(spaceID: space.id, slug: slug))
     }
 
     private func revive(
