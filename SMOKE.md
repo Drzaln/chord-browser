@@ -1627,3 +1627,15 @@ release reports "up to date".
 - [ ] Speedometer 3.1 (`?startAutomatically`) runs and scores (≈52 on the
       2026-11-01 Mac).
 
+## Sidebar top and bottom rows, Arc layout (2026-11-01, 1.21.0)
+
+- [ ] Top row: traffic lights, hide-sidebar button right after them, back /
+      forward / reload at the right; reload becomes stop while loading.
+- [ ] Address field full width below with air above it; empty shows the glass
+      and "Search or Enter URL…"; click opens the command bar.
+- [ ] Pointing at the field shows extension buttons at its end; a popup or the
+      manage panel keeps them; an extension's own shortcut still opens its popup.
+- [ ] Bottom row: Downloads (always there; fills while downloading; empty list
+      says "No downloads"), Spaces centred, scrolling with many Spaces, + at right.
+- [ ] Private window: Downloads at the end of the "Private window" heading.
+

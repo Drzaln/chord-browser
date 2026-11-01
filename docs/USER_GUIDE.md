@@ -12,8 +12,13 @@ plainly.
 ## The basics
 
 Chord opens with **one window**, and `Cmd+N` gives you another (see
-[Windows](#windows)). The sidebar on the left holds the Space switcher,
-the tab list, navigation controls, and any extension action buttons. Web content
+[Windows](#windows)). The sidebar on the left is laid out like Arc's: the top
+row has the window buttons, a **hide sidebar** button, and back / forward /
+reload; under it a full-width **address field** (click it, or `Cmd+L`); then
+favourites, pinned tabs and the tab list; and at the bottom **Downloads**, the
+Space switcher (centred, scrolling sideways when you have many Spaces) and
+**+** for a new Space. Extension buttons appear at the end of the address
+field when you point at it. Web content
 sits in an inset card to the right. The sidebar and the frame around the card are
 **frosted glass** — translucent `.ultraThinMaterial` tinted by the active Space's
 color, blurring your desktop behind the window (the web page itself stays opaque).
@@ -24,7 +29,7 @@ sidebar or leave fullscreen and the border comes back.
 - **Address / search:** press `Cmd+L` (or `Cmd+T`) to open the command bar, type
   a URL or a search query, and press Enter. Anything that isn't a recognisable
   URL is sent to **Google** as a search.
-- **Back / forward:** `Cmd+[` and `Cmd+]`, or the chevrons in the sidebar.
+- **Back / forward:** `Cmd+[` and `Cmd+]`, or the arrows in the sidebar's top row.
 - **Reload:** `Cmd+R`. While a page is loading the reload button becomes a stop
   button, and a thin progress bar runs under the address bar — or, when the
   sidebar is collapsed, along the top edge of the page.
@@ -556,7 +561,8 @@ links, Little Chord is the external-link arrival.
 ## Downloads
 
 Downloads are handled natively via `WKDownload`, with a progress UI. Files land
-in your Downloads folder.
+in your Downloads folder. The **Downloads** button is always at the bottom-left
+of the sidebar; it fills in while something is downloading, and opens the list.
 
 > Per the app's safety posture, be deliberate about downloading and running files
 > from untrusted sources.

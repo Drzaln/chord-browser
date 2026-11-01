@@ -5120,3 +5120,16 @@ The perf epic (c1k) against Safari, plus extension follow-ups. Numbers in
   macOS 27 SDK-only names.
 - Speedometer 3.1 medians on macOS 27.2: Chord 51.9, Safari 47.9.
 
+## Sidebar: Arc's top and bottom rows (2026-11-01, 1.21.0)
+
+`SidebarView.header` is the title-bar row: `collapseButton` after the traffic
+lights (`Metrics.trafficLightsWidth` 72), `NavigationButtons` (back / forward /
+reload, arrow symbols) trailing. `NavigationBar` is now only the address row:
+a 34 pt (`Metrics.addressFieldHeight`) rounded field, `CredentialFillButton`,
+and `ExtensionActionsBar` shown on hover / popup / manage panel
+(`onPanelShown`); while it is away a `PopoverAnchorView` registers the
+manager anchor, and `presentActionPopup` falls back to `actionAnchor(slug:)`
+so extension-opened popups still have an anchor. `SpaceSwitcher` is the bottom
+row: `DownloadsButton` (always shown) | centred scrolling Spaces | +. The rest
+of the Search-style redesign (epic l9y) waits for the user's Figma wireframe.
+
