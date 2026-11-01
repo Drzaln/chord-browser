@@ -15,6 +15,12 @@ import WebKit
 /// from one of the extension's own pages, see the host), which restarts
 /// WebKit's idle clock; traffic on the port alone does not. Any other
 /// worker's port is closed at once and it unloads as before.
+///
+/// A hold is renewed while the worker is still being woken: the shim says
+/// "woke" on the port when an alarm or a message (not Chord's ping) reaches
+/// it. Let go after one hold, Bitwarden started again within a minute, and
+/// its start calls into every tab, waking every suspended tab process
+/// (c1k.14).
 @MainActor
 enum ExtensionKeepAlive {
     static let name = ExtensionShims.application + ".keepalive"
@@ -29,6 +35,8 @@ enum ExtensionKeepAlive {
 
     /// When each worker last started or was let go, by "<space>|<extension>".
     private static var lastAwake: [String: Date] = [:]
+    /// When each held worker last said an event reached it.
+    private static var lastWoken: [String: Date] = [:]
     /// The hold on each held worker; the token tells a hold from a later one.
     private static var held: [String: (token: UUID, task: Task<Void, Never>)] = [:]
 
@@ -36,6 +44,18 @@ enum ExtensionKeepAlive {
     static func shouldHold(_ key: String, now: Date = Date()) -> Bool {
         defer { lastAwake[key] = now }
         guard held[key] == nil, let last = lastAwake[key] else { return false }
+        return now.timeIntervalSince(last) < window
+    }
+
+    /// The shim says an event reached the held worker.
+    static func noteWoken(_ key: String, now: Date = Date()) {
+        lastWoken[key] = now
+    }
+
+    /// Whether a hold ending now goes on: the worker was woken within
+    /// `window`, so let go it would only start again.
+    static func shouldRenew(_ key: String, now: Date = Date()) -> Bool {
+        guard let last = lastWoken[key] else { return false }
         return now.timeIntervalSince(last) < window
     }
 
@@ -50,19 +70,30 @@ enum ExtensionKeepAlive {
             return
         }
         Log.extensions.notice("holding worker \(key): woken again within \(Int(window)) s")
-        // The shim's "beat" answers are the point, and nothing to act on.
-        port.messageHandler = { _, _ in }
+        lastWoken[key] = nil
+        // The shim's "beat" answers are the point, and nothing to act on;
+        // "woke" says the worker still has a reason to be running.
+        port.messageHandler = { message, _ in
+            guard (message as? [String: Any])?["__chordNative"] as? String == "woke" else { return }
+            MainActor.assumeIsolated { noteWoken(key) }
+        }
         let token = UUID()
         let task = Task { @MainActor in
-            let until = Date().addingTimeInterval(hold)
-            while Date() < until {
+            let start = Date()
+            var until = start.addingTimeInterval(hold)
+            while !Task.isCancelled, !port.isDisconnected {
+                if Date() >= until {
+                    guard shouldRenew(key) else { break }
+                    Log.extensions.notice("holding worker \(key) again: still being woken")
+                    until = Date().addingTimeInterval(hold)
+                }
                 try? await Task.sleep(for: .seconds(beat))
                 if Task.isCancelled || port.isDisconnected { break }
                 await ping()
             }
             let closed = port.isDisconnected
             Log.extensions.notice(
-                "let go of worker \(key) after \(Int(Date().timeIntervalSince(until) + hold)) s\(closed ? ", its port closed" : "")"
+                "let go of worker \(key) after \(Int(Date().timeIntervalSince(start))) s\(closed ? ", its port closed" : "")"
             )
             release(key, token: token)
             if !closed { port.disconnect() }
@@ -85,6 +116,7 @@ enum ExtensionKeepAlive {
     static func forget(_ key: String) {
         held.removeValue(forKey: key)?.task.cancel()
         lastAwake[key] = nil
+        lastWoken[key] = nil
     }
 
     static func isHolding(_ key: String) -> Bool { held[key] != nil }
@@ -94,5 +126,6 @@ enum ExtensionKeepAlive {
         for hold in held.values { hold.task.cancel() }
         held = [:]
         lastAwake = [:]
+        lastWoken = [:]
     }
 }

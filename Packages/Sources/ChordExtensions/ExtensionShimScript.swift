@@ -335,6 +335,19 @@ enum ExtensionShimScript {
           held.onMessage.addListener((m) => {
             if (m && m.__chordNative === "alive") { try { held.postMessage({ __chordNative: "beat" }); } catch (e) {} }
           });
+          // An alarm or a message reaching the worker (not the browser's
+          // ping) says it is still being woken, and the browser renews the
+          // hold rather than let it go to start again (c1k.14). Said at most
+          // once a half-minute.
+          let saidWoke = 0;
+          Object.defineProperty(root, "__chordKeepAliveWoke", { value: () => {
+            const now = Date.now();
+            if (now - saidWoke < 30000) return;
+            saidWoke = now;
+            try { held.postMessage({ __chordNative: "woke" }); } catch (e) {}
+          } });
+          const alarms = root.chrome && root.chrome.alarms;
+          if (alarms && alarms.onAlarm) alarms.onAlarm.addListener(() => root.__chordKeepAliveWoke());
         } catch (e) {}
       }
       // WebKit runs an extension's worker on its web process's main thread,
@@ -717,6 +730,7 @@ enum ExtensionShimScript {
             if (background) { sendResponse("pong"); return; }
             return true;
           }
+          if (background && root.__chordKeepAliveWoke) root.__chordKeepAliveWoke();
           // Search's own envelopes come from this extension only: another
           // extension (onMessageExternal) could otherwise speak as one of its
           // user scripts, or as a frame of its own.
