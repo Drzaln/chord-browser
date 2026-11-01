@@ -48,4 +48,15 @@ struct ExtensionPageAccessTests {
         let plain = URL(string: base + "/b.html?u=1")!
         #expect(ExtensionPageAccess.ruleTarget(plain) == plain)
     }
+
+    /// cta: a refused page says what was refused rather than leaving the tab
+    /// blank, and nothing in the address or name can turn into markup.
+    @Test func aRefusedPageNamesTheExtensionAndTheAddress() {
+        let url = URL(string: base + "/blocked.html?u=%3Cscript%3E")!
+        let html = WebKitEngine.refusedExtensionPageHTML(extensionName: "Block <b>&</b> Co", url: url)
+        #expect(html.contains("“Block &lt;b&gt;&amp;&lt;/b&gt; Co”"))
+        #expect(html.contains(base + "/blocked.html"))
+        #expect(!html.contains("<b>"))
+        #expect(WebKitEngine.refusedExtensionPageHTML(extensionName: nil, url: url).contains("An extension has a page"))
+    }
 }

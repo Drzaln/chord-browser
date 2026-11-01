@@ -155,7 +155,13 @@ struct ExtensionDNRRedirectTests {
             "location.href = 'chrome-extension://\(fixture.id)/landing.html'; 0"
         )
         try await Task.sleep(for: .milliseconds(500))
-        #expect(engine.pool.peek(pane.id)?.webView.url == fixture.allowed)
         #expect(engine.pool.peek(pane.id)?.extensionHost == nil)
+        // The tab says what was refused rather than going quiet (cta), as
+        // Chrome's blocked page does.
+        let text = try await engine.pool.peek(pane.id)?.webView.evaluateJavaScript(
+            "document.body ? document.body.innerText : ''"
+        ) as? String
+        #expect(text?.contains("can’t be opened here") == true, "\(text ?? "nil")")
+        #expect(text?.contains("chrome-extension://\(fixture.id)/landing.html") == true)
     }
 }

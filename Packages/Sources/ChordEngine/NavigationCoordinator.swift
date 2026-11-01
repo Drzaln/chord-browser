@@ -193,6 +193,10 @@ extension NavigationCoordinator: WKNavigationDelegate {
                 Task { @MainActor [weak engine] in
                     engine?.moveToNewView(paneID: paneID, url: url)
                 }
+            } else if ExtensionPageAccess.isExtensionPage(url) {
+                Task { @MainActor [weak engine] in
+                    engine?.showRefusedExtensionPage(paneID: paneID, url: url)
+                }
             }
             return (.cancel, preferences)
         }

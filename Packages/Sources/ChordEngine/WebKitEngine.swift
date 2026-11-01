@@ -375,6 +375,48 @@ public final class WebKitEngine: WebEngine {
         )
     }
 
+    /// Shows why the pane did not go to an extension's page it was sent to
+    /// (`mayOpen` said no) instead of leaving the old document, often a new
+    /// tab's empty one, with nothing to explain it (cta). Chrome shows its
+    /// ERR_BLOCKED_BY_CLIENT page in the same place.
+    func showRefusedExtensionPage(paneID: UUID, url: URL) {
+        guard let live = pool.peek(paneID) else { return }
+        let name = paneSpaceValues[paneID]
+            .flatMap { extensionContext(for: url, in: $0) }?
+            .webExtension.displayName
+        live.webView.loadHTMLString(
+            Self.refusedExtensionPageHTML(extensionName: name, url: url), baseURL: nil
+        )
+        Log.engine.notice("pane \(paneID) refused an extension page it is not allowed to open")
+    }
+
+    nonisolated static func refusedExtensionPageHTML(extensionName: String?, url: URL) -> String {
+        func escaped(_ text: String) -> String {
+            text.replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+                .replacingOccurrences(of: "\"", with: "&quot;")
+        }
+        let who = extensionName.map { "“\(escaped($0))”" } ?? "An extension"
+        return """
+            <!doctype html><meta charset="utf-8"><title>Page blocked</title>
+            <meta name="color-scheme" content="light dark">
+            <style>
+            body { font: 13px -apple-system, sans-serif; margin: 0; display: grid;
+                   place-items: center; min-height: 100vh; color: CanvasText; background: Canvas; }
+            main { max-width: 460px; padding: 24px; }
+            h1 { font-size: 17px; margin: 0 0 8px; }
+            p { color: GrayText; line-height: 1.45; margin: 0 0 8px; }
+            code { font: 11px ui-monospace, monospace; word-break: break-all; }
+            </style>
+            <main>
+            <h1>This page can’t be opened here</h1>
+            <p>\(who) has a page at this address, but the page that sent you here isn’t allowed to open it.</p>
+            <p><code>\(escaped(url.absoluteString))</code></p>
+            </main>
+            """
+    }
+
     /// Rebuilds the pane's view for `url` and loads it there, in the same
     /// container, so the UI keeps its surface. History stays with the old view.
     func moveToNewView(paneID: UUID, url: URL) {
