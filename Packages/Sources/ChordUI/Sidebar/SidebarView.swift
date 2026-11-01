@@ -47,7 +47,7 @@ struct SidebarView: View {
             header
 
             NavigationBar(
-                store: store, windowState: windowState, downloads: downloads,
+                store: store, windowState: windowState,
                 openCommandBar: openCommandBar, extensionHost: extensionHost
             )
             .padding(.horizontal, 10)
@@ -87,7 +87,7 @@ struct SidebarView: View {
             if windowState.isPrivate {
                 privateFooter
             } else {
-                SpaceSwitcher(store: store, windowState: windowState)
+                SpaceSwitcher(store: store, windowState: windowState, downloads: downloads)
             }
         }
         .frame(width: windowState.sidebarWidth)
@@ -492,6 +492,8 @@ struct SidebarView: View {
                     .font(.system(size: 11, weight: .medium))
                 Text("Private window")
                     .font(.system(size: 12, weight: .semibold))
+                Spacer(minLength: 0)
+                DownloadsButton(downloads: downloads, windowState: windowState)
             }
             Text(
                 "Nothing here is written to disk — no history, no saved tabs, no cookies. "

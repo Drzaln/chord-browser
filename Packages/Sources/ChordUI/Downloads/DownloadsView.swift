@@ -14,19 +14,26 @@ struct DownloadsButton: View {
     /// and close the popover (see `WindowState.isSidebarHeldOpen`).
     @Bindable var windowState: WindowState
 
+    /// At the leading end of the sidebar's bottom bar, always there (as Arc
+    /// keeps its own), so the Space switcher beside it stays centred.
     var body: some View {
-        if downloads.hasDownloads {
-            Button {
-                windowState.isDownloadsPopoverOpen.toggle()
-            } label: {
-                Image(systemName: downloads.activeCount > 0
-                    ? "arrow.down.circle.fill"
-                    : "arrow.down.circle")
-            }
-            .help("Downloads")
-            .popover(isPresented: $windowState.isDownloadsPopoverOpen, arrowEdge: .bottom) {
-                DownloadsList(downloads: downloads)
-            }
+        Button {
+            windowState.isDownloadsPopoverOpen.toggle()
+        } label: {
+            Image(systemName: downloads.activeCount > 0
+                ? "arrow.down.circle.fill"
+                : "arrow.down.circle")
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(downloads.activeCount > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+        .hoverHighlight(opacity: 0.12)
+        .help("Downloads")
+        .accessibilityLabel("Downloads")
+        .popover(isPresented: $windowState.isDownloadsPopoverOpen, arrowEdge: .top) {
+            DownloadsList(downloads: downloads)
         }
     }
 }
@@ -42,6 +49,14 @@ struct DownloadsList: View {
                 .padding(.vertical, 8)
 
             Divider()
+
+            if !downloads.hasDownloads {
+                Text("No downloads")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            }
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {

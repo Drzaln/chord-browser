@@ -4,9 +4,9 @@ import ChordStore
 import SwiftUI
 
 /// The address field, in Arc's arrangement: a full-width rounded field under
-/// the title-bar row, with the page's own buttons (saved login, downloads,
-/// extension actions) at its trailing end. Back, forward and reload sit in the
-/// title-bar row instead (`NavigationButtons`).
+/// the title-bar row, with the page's own buttons (saved login, extension
+/// actions) at its trailing end. Back, forward and reload sit in the
+/// title-bar row instead (`NavigationButtons`); downloads in the bottom bar.
 ///
 /// Observes the focused pane's `PaneRuntime` rather than the whole store, so a
 /// loading progress tick redraws this bar and nothing else (6.4).
@@ -14,7 +14,6 @@ struct NavigationBar: View {
     @Bindable var store: TabStore
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
-    @Bindable var downloads: DownloadsStore
     /// Opens the command bar pre-filled with the current URL, like Cmd+L.
     var openCommandBar: (CommandBarMode, String?) -> Void = { _, _ in }
     /// The extension host; its toolbar actions sit at the field's end, as
@@ -45,8 +44,6 @@ struct NavigationBar: View {
                 // Only rendered when this page has a login and something is
                 // saved for it (V6 of the password vault).
                 CredentialFillButton(store: store, windowState: windowState)
-
-                DownloadsButton(downloads: downloads, windowState: windowState)
 
                 // Under the pointer only (and while a popup or the manage
                 // panel is open), as in Arc: shown always they left a narrow

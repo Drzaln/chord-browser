@@ -2,28 +2,38 @@ import ChordCore
 import ChordStore
 import SwiftUI
 
-/// The Space strip on the sidebar's bottom bar.
+/// The sidebar's bottom bar: downloads at the leading end, the Spaces
+/// centred between, scrolling sideways when there are more than fit, and the
+/// new-Space button at the trailing end.
 struct SpaceSwitcher: View {
     @Bindable var store: TabStore
     /// The Edit/Delete Space items drive this window's sheets.
     @Bindable var windowState: WindowState
+    @Bindable var downloads: DownloadsStore
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 6) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    // `visibleSpaces`: a private window's throwaway Space belongs to that
-                    // window alone and must not appear in anyone else's switcher.
-                    ForEach(store.visibleSpaces.sorted { $0.sortIndex < $1.sortIndex }) { space in
-                        spaceButton(space)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-            }
+            DownloadsButton(downloads: downloads, windowState: windowState)
 
-            Spacer(minLength: 0)
+            // Centred while the Spaces fit, scrolling once they don't: the
+            // row is at least the strip's width, so a short row sits in its
+            // middle and a long one starts at its leading edge and scrolls.
+            GeometryReader { strip in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        // `visibleSpaces`: a private window's throwaway Space belongs to that
+                        // window alone and must not appear in anyone else's switcher.
+                        ForEach(store.visibleSpaces.sorted { $0.sortIndex < $1.sortIndex }) { space in
+                            spaceButton(space)
+                        }
+                    }
+                    .frame(minWidth: strip.size.width, alignment: .center)
+                    .frame(height: strip.size.height)
+                }
+            }
+            .frame(height: 24)
 
             Button {
                 store.addSpace(in: windowState)
