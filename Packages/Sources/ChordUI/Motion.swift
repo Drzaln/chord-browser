@@ -49,6 +49,12 @@ public enum Metrics {
     /// Only the sidebar needs it — the lights sit over the sidebar alone, so
     /// reserving it window-wide leaves a dead band above the web content.
     public static let titlebarInset: CGFloat = 28
+    /// The sidebar's address field, Arc's height.
+    public static let addressFieldHeight: CGFloat = 34
+    /// Where the title-bar row's own buttons start: clear of the traffic
+    /// lights (AppKit places them from the window's leading edge) with the
+    /// gap Arc leaves before its sidebar button.
+    public static let trafficLightsWidth: CGFloat = 72
     public static let faviconSize: CGFloat = 16
     /// Split view (4.5).
     public static let splitDividerWidth: CGFloat = 6

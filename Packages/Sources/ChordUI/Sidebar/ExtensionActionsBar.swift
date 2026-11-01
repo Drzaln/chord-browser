@@ -16,6 +16,10 @@ struct ExtensionActionsBar: View {
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
     let host: any ExtensionHost
+    /// Told when the manage panel opens and closes, so a parent that shows
+    /// this row only under the pointer keeps it (and the panel's anchor) while
+    /// the panel is up.
+    var onPanelShown: (Bool) -> Void = { _ in }
 
     var body: some View {
         // Reading the change token here makes an action update (badge, icon,
@@ -65,6 +69,7 @@ struct ExtensionActionsBar: View {
             // SwiftUI can keep the button created for one extension while its
             // icon updates to another, so the Loom icon opened Bitwarden.
             .id((actions.map(\.id) + ["loaded:\(loaded.count)"]).joined(separator: "|"))
+            .onChange(of: showingPanel) { _, shown in onPanelShown(shown) }
         }
     }
 }
@@ -130,7 +135,7 @@ private struct ExtensionActionButton: View {
 
 /// A minimal AppKit view whose only job is to be a popover anchor. It reports
 /// itself to the host on creation and update; the host holds it weakly.
-private struct PopoverAnchorView: NSViewRepresentable {
+struct PopoverAnchorView: NSViewRepresentable {
     let register: (NSView?) -> Void
 
     func makeNSView(context: Context) -> NSView {

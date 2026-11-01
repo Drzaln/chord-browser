@@ -48,9 +48,11 @@ struct SidebarView: View {
 
             NavigationBar(
                 store: store, windowState: windowState, downloads: downloads,
-                tint: spaceTint, openCommandBar: openCommandBar
+                openCommandBar: openCommandBar, extensionHost: extensionHost
             )
             .padding(.horizontal, 10)
+            // Arc's air between the traffic lights and the field.
+            .padding(.top, 10)
             .padding(.bottom, 8)
 
             spaceScopedSections
@@ -358,20 +360,17 @@ struct SidebarView: View {
         }
     }
 
-    /// Clears the traffic lights, and carries the collapse control beside them
-    /// the way the rest of the platform does.
+    /// The title-bar row, in Arc's arrangement: the traffic lights, the
+    /// collapse control right after them, and back / forward / reload at the
+    /// trailing end.
     private var header: some View {
         HStack(spacing: 0) {
-            Spacer(minLength: 0)
-            if let extensionHost {
-                ExtensionActionsBar(
-                    store: store, windowState: windowState, host: extensionHost
-                )
-                    .padding(.trailing, 4)
-            }
             collapseButton
+            Spacer(minLength: 0)
+            NavigationButtons(store: store, windowState: windowState)
         }
         .frame(height: Metrics.titlebarInset)
+        .padding(.leading, Metrics.trafficLightsWidth)
         .padding(.trailing, 8)
     }
 

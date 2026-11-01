@@ -1,8 +1,12 @@
 import ChordCore
+import ChordExtensions
 import ChordStore
 import SwiftUI
 
-/// Back / forward / reload and the address field.
+/// The address field, in Arc's arrangement: a full-width rounded field under
+/// the title-bar row, with the page's own buttons (saved login, downloads,
+/// extension actions) at its trailing end. Back, forward and reload sit in the
+/// title-bar row instead (`NavigationButtons`).
 ///
 /// Observes the focused pane's `PaneRuntime` rather than the whole store, so a
 /// loading progress tick redraws this bar and nothing else (6.4).
@@ -11,15 +15,16 @@ struct NavigationBar: View {
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
     @Bindable var downloads: DownloadsStore
-    /// The active Space's colour, tinting the address button to match the tabs
-    /// (item 4).
-    var tint: Color = .accentColor
     /// Opens the command bar pre-filled with the current URL, like Cmd+L.
     var openCommandBar: (CommandBarMode, String?) -> Void = { _, _ in }
+    /// The extension host; its toolbar actions sit at the field's end, as
+    /// Arc keeps extension buttons in its address field.
+    var extensionHost: (any ExtensionHost)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isHoveringAddress = false
+    @State private var isExtensionsPanelOpen = false
 
     private var runtime: PaneRuntime? {
         store.selectedTab(in: windowState).map { store.runtime(for: $0.focusedPaneID) }
@@ -34,32 +39,53 @@ struct NavigationBar: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                button("chevron.left", label: "Back", enabled: runtime?.canGoBack ?? false) {
-                    store.goBack(in: windowState)
-                }
-                .keyboardShortcut("[", modifiers: .command)
-
-                button(
-                    "chevron.right", label: "Forward", enabled: runtime?.canGoForward ?? false
-                ) {
-                    store.goForward(in: windowState)
-                }
-                .keyboardShortcut("]", modifiers: .command)
-
-                if runtime?.isLoading == true {
-                    button("xmark", label: "Stop", enabled: true) { store.stopLoading(in: windowState) }
-                } else {
-                    button("arrow.clockwise", label: "Reload", enabled: true) { store.reload(in: windowState) }
-                }
-
-                DownloadsButton(downloads: downloads, windowState: windowState)
+            HStack(spacing: 2) {
+                addressField
 
                 // Only rendered when this page has a login and something is
                 // saved for it (V6 of the password vault).
                 CredentialFillButton(store: store, windowState: windowState)
 
-                addressField
+                DownloadsButton(downloads: downloads, windowState: windowState)
+
+                // Under the pointer only (and while a popup or the manage
+                // panel is open), as in Arc: shown always they left a narrow
+                // sidebar's field room for a few letters of the address.
+                if let extensionHost {
+                    if isHoveringAddress || isExtensionsPanelOpen
+                        || windowState.isExtensionPopupOpen {
+                        ExtensionActionsBar(
+                            store: store, windowState: windowState, host: extensionHost,
+                            onPanelShown: { isExtensionsPanelOpen = $0 }
+                        )
+                    } else if let space = store.activeSpace(in: windowState) {
+                        // Something to hang a popup from while the buttons are
+                        // away: an extension can open its own (a shortcut,
+                        // Bitwarden's autofill prompt), and the host falls back
+                        // to this anchor when the extension's button is gone.
+                        PopoverAnchorView { view in
+                            extensionHost.registerActionAnchor(
+                                view, forSlug: WebKitExtensionHost.managerAnchorSlug, in: space
+                            )
+                        }
+                        .frame(width: 1, height: 16)
+                        .id(space.id)
+                    }
+                }
+            }
+            .padding(.trailing, 6)
+            .frame(height: Metrics.addressFieldHeight)
+            .background(
+                // A neutral lift over the Space's tint, as Arc's field: darker
+                // on a light sidebar, lighter on a dark one, a little more
+                // under the pointer so it reads as clickable.
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.primary.opacity(isHoveringAddress ? 0.10 : 0.07))
+            )
+            .onHover { hovering in
+                withAnimation(Motion.respectingReduceMotion(.easeOut(duration: 0.12), reduceMotion: reduceMotion)) {
+                    isHoveringAddress = hovering
+                }
             }
 
             progressBar
@@ -74,25 +100,24 @@ struct NavigationBar: View {
         Button {
             openCommandBar(.currentTab, currentURLString)
         } label: {
-            Text(displayAddress)
-                .font(.system(size: 12))
-                .foregroundStyle(currentURLString.isEmpty ? .secondary : .primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .frame(height: 22)
-                .background(
-                    // Tinted with the Space colour, matching the tabs (item 4).
-                    // Lifts a little under the pointer so the field reads as
-                    // clickable.
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(tint.opacity(isHoveringAddress ? 0.28 : 0.18))
-                )
-                .contentShape(Rectangle())
+            HStack(spacing: 8) {
+                if currentURLString.isEmpty {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                Text(displayAddress)
+                    .font(.system(size: 13))
+                    .foregroundStyle(currentURLString.isEmpty ? .secondary : .primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 12)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover { isHoveringAddress = $0 }
         .help("Edit address")
         .accessibilityLabel("Address: \(displayAddress)")
     }
@@ -101,7 +126,7 @@ struct NavigationBar: View {
     /// the way a modern browser's collapsed address reads — falling back to the
     /// whole string, then a prompt.
     private var displayAddress: String {
-        guard !currentURLString.isEmpty else { return "Search or enter address" }
+        guard !currentURLString.isEmpty else { return "Search or Enter URL…" }
         if let host = URL(string: currentURLString)?.host() {
             return host
         }
@@ -125,18 +150,51 @@ struct NavigationBar: View {
             value: progress
         )
     }
+}
+
+/// Back, forward and reload (stop while loading), at the trailing end of the
+/// title-bar row beside the traffic lights, as Arc places them.
+struct NavigationButtons: View {
+    @Bindable var store: TabStore
+    @Bindable var windowState: WindowState
+
+    private var runtime: PaneRuntime? {
+        store.selectedTab(in: windowState).map { store.runtime(for: $0.focusedPaneID) }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            button("arrow.left", label: "Back", enabled: runtime?.canGoBack ?? false) {
+                store.goBack(in: windowState)
+            }
+            .keyboardShortcut("[", modifiers: .command)
+
+            button("arrow.right", label: "Forward", enabled: runtime?.canGoForward ?? false) {
+                store.goForward(in: windowState)
+            }
+            .keyboardShortcut("]", modifiers: .command)
+
+            if runtime?.isLoading == true {
+                button("xmark", label: "Stop", enabled: true) { store.stopLoading(in: windowState) }
+            } else {
+                button("arrow.clockwise", label: "Reload", enabled: true) { store.reload(in: windowState) }
+            }
+        }
+    }
 
     private func button(
         _ symbol: String, label: String, enabled: Bool, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .medium))
-                .frame(width: 22, height: 22)
+                .font(.system(size: 14, weight: .regular))
+                .frame(width: 28, height: 24)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
         .disabled(!enabled)
-        .opacity(enabled ? 1 : 0.35)
+        .opacity(enabled ? 1 : 0.4)
         .hoverHighlight(opacity: enabled ? 0.12 : 0)
         .accessibilityLabel(label)
     }

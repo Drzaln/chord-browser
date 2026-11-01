@@ -1734,8 +1734,11 @@ extension WebKitExtensionHost: WKWebExtensionControllerDelegate {
         // popup land here. WebKit's own popover is closed and the page is
         // loaded in a view built from the extension's configuration instead:
         // for some extensions WebKit's popup cannot reach the worker.
+        // The extension's own button when it is on screen, else the
+        // extensions menu's anchor: the sidebar shows extension buttons only
+        // under the pointer, and an extension can open its popup itself.
         guard let (spaceID, slug) = locate(context),
-              let anchor = actionAnchors[spaceID]?[slug]?.view,
+              let anchor = actionAnchor(slug: slug, spaceID: spaceID),
               let url = action.popupWebView?.url ?? popupURL(for: context)
         else {
             completionHandler(nil)
