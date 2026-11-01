@@ -1610,3 +1610,20 @@ is manual — check on open, but download and install only on a click.
 replaces the app in `/Applications`, so testing end-to-end here means publishing
 a release — verify by eyeballing that an installed copy newer than the latest
 release reports "up to date".
+
+## Background tabs, extension recording, sounds, script errors (2026-11-01, 1.20.0)
+
+- [ ] Fresh profile: Settings → General → Background Tabs shows **Suspend
+      tabs you can't see** unchecked. Seven tabs, window in front, idle 5 min:
+      no spin (`ps`/Activity Monitor: Chord near idle).
+- [ ] Bitwarden (signed out) in a Space, 25 min: `log stream --predicate
+      'process == "Chord"' | grep worker` shows one "holding worker" then
+      "holding worker … again: still being woken" every 10 min, no "let go".
+- [ ] An extension that records the screen (Loom / Awesome Screenshot): the
+      pill names it at the bottom of the window; **Stop** ends the recording.
+- [ ] An extension with a chime from its offscreen document is heard.
+- [ ] Settings → Extensions: an extension that throws shows "N script
+      errors"; the popover lists them and **Copy** copies them.
+- [ ] Speedometer 3.1 (`?startAutomatically`) runs and scores (≈52 on the
+      2026-11-01 Mac).
+

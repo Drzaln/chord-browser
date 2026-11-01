@@ -5090,3 +5090,33 @@ page) — the rule fired, the tab stayed blank.
   site in a web view; a tab opened on an options page shows it; an
   unexposed site is refused. Both positive tests fail without the swap.
   `ExtensionPageAccessTests` pins the policy.
+
+## Perf and extension fixes since 1.19.0 (2026-10-29 → 2026-11-01, 1.20.0)
+
+The perf epic (c1k) against Safari, plus extension follow-ups. Numbers in
+`docs/perf/BASELINE-2026-10-30.md` and `docs/perf/BASELINE-2026-10-31-c1k11.md`.
+
+- **Background tabs keep running by default.** `inactiveSchedulingPolicy`
+  is `.none` unless Settings → General → "Suspend tabs you can't see" is on
+  (`.suspend`). Not `.throttle`: on macOS 27 WebKit suspends those too. A
+  suspended page can leave the UI running a display link
+  (`WebProcessProxy::sendPrepareToSuspend` → `hideContentUntilPendingUpdate`
+  never completing); minimal repro and report in
+  `docs/perf/webkit-display-link/`, not filed yet (c1k.13).
+- **Worker holds** (`ExtensionKeepAlive`): a worker woken on a cycle is held
+  with an event every 20 s from one hidden page of its own; a hold is renewed
+  while the shim reports "woke" (an alarm or a message reached the worker).
+- **Offscreen AUDIO_PLAYBACK documents** sit in a never-shown
+  `OffscreenWindow`: WebKit doesn't load or play a page's media until its
+  view is in a window. Policy `.none` there, for the display-link reason.
+- **Extension recording pill** (`ExtensionCapture` KVO on capture state,
+  `ExtensionRecordingPill`), **script errors** in Settings
+  (`ExtensionScriptErrorLog`, WebKit error code 7, shim lines subtracted),
+  **refused extension pages** show a page saying so, **favicons/thumbnails**
+  scale on the CPU (`ImageDownsampler`; QuartzCore's GPU path aborted after
+  hours of video), **cross-origin-isolated pages** load (Speedometer).
+- **CI**: `.github/workflows/ci.yml` builds on macos-26 against the macOS 26
+  SDK, and `scripts/check-sdk-availability.py` (first step of prepush) flags
+  macOS 27 SDK-only names.
+- Speedometer 3.1 medians on macOS 27.2: Chord 51.9, Safari 47.9.
+

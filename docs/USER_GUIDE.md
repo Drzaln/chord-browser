@@ -201,6 +201,12 @@ Open **Settings** with `Cmd+,` and pick **General** to choose:
   Chord panel, if that's what you're swiping on. Off by default this is WebKit's
 native behaviour (the swipe just does nothing); toggle it off here any time.
    When a page *does* have history, WebKit's own back-swipe is unchanged.
+- **Background Tabs** — **Suspend tabs you can't see**, off by default. On,
+  tabs you can't see stop running a few minutes after they're hidden, as in
+  Safari (music keeps playing). It's off because on this macOS a suspended
+  tab can keep the window drawing at the screen's rate, which costs more
+  battery than suspending saves. Off, hidden tabs keep running, so a chat
+  app's socket or a sync stays live.
 - **Developer** — **Developer Mode** turns on the browser's development tools,
   off by default even in release builds. Enabling it shows an **Inspect Element**
   item in a page's right-click menu and a **Develop** menu with **Show Web
@@ -733,8 +739,15 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
   window. Chord brings the extension's page on screen and then WebKit shows the
   Mac's own screen/window picker; the Mac remains the consent. Recording a
   **tab** alone is not available on WebKit, so `tabCapture` refuses and
-  extensions that offer a tab option fall back to a screen/window. There is no
-  recording pill yet.
+  extensions that offer a tab option fall back to a screen/window. While an
+  extension records the screen, camera or microphone, a pill at the bottom of
+  the window names it and what it records, with **Stop**.
+- **Sounds** — an extension that plays a sound from its offscreen document
+  (a notification chime, say) is heard.
+- **Script errors** — when an extension's scripts throw, **Settings →
+  Extensions** shows "N script errors" under it; click it for the messages
+  (with the extension's own file and line) and a **Copy** button for its
+  developer. An extension that "just stops working" usually shows why here.
 - **Restore on launch** — extensions you had enabled are re-loaded into their
   Spaces after session restore.
 
@@ -765,7 +778,7 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
 | Find-in-page, print, PDF viewing                          | ✅                                      |
 | Native content blocking (network + cosmetic, `:has()`)    | ✅ (on by default)                      |
 | Extension hosting (buttons, panel, permissions, restore)  | ✅                                      |
-| Extension screen recording (`desktopCapture`, `getDisplayMedia`) | ✅ screen/window, via the Mac picker; no tab capture, no recording pill yet |
+| Extension screen recording (`desktopCapture`, `getDisplayMedia`) | ✅ screen/window, via the Mac picker, recording pill with Stop; no tab capture |
 | In-app extension install / enable / uninstall (Settings)  | ✅                                      |
 | Settings: clear cache / cookies / storage / history       | ✅                                      |
 | Per-site blocking whitelist / disable toggle              | ⚠️ not implemented                      |
