@@ -163,8 +163,8 @@ struct MultiWindowTests {
 
         #expect(windowA.selectedTabID == x.id, "A keeps showing X")
         #expect(
-            windowB.selectedTabID == y.id,
-            "B must not return to X (on screen in A), so it takes the slot neighbour"
+            windowB.selectedTabID == nil,
+            "B must not return to X (on screen in A); with nothing else earlier it goes blank"
         )
         #expect(windowB.selectedTabID != x.id)
     }

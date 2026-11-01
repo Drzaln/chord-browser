@@ -99,15 +99,18 @@ struct TabStoreTests {
         #expect(engine.evictedPanes.contains(victim.panes[0].id))
     }
 
-    @Test("Closing the last tab opens a fresh one")
-    func closingLastTabReopens() async {
+    @Test("Closing the last tab leaves the window blank and offers the command bar")
+    func closingLastTabLeavesBlank() async {
         let (store, _, _) = makeStore()
         await store.restore()
+        var blankCloses = 0
+        store.closeLeftBlankPresenter = { _ in blankCloses += 1 }
 
         store.closeTab(store.tabs[0].id)
 
-        #expect(store.tabs.count == 1)
-        #expect(store.selectedTabID == store.tabs[0].id)
+        #expect(store.tabs.isEmpty, "no fresh tab is opened in its place")
+        #expect(store.selectedTabID == nil)
+        #expect(blankCloses == 1)
     }
 
     @Test("Closing the selected tab returns to the previously active tab")
@@ -165,8 +168,8 @@ struct TabStoreTests {
         #expect(store.selectedTabID == a, "closing D in turn returns to A")
     }
 
-    @Test("Closing the selected tab with no history falls back to the slot neighbour")
-    func closingSelectedWithoutHistoryFallsBackToSlot() async {
+    @Test("Closing the selected tab with no history leaves the window blank, not a slot neighbour")
+    func closingSelectedWithoutHistoryLeavesBlank() async {
         let (store, _, _) = makeStore(stored: [
             TabBuilder().url("https://a.example").build(),
             TabBuilder().url("https://b.example").build(),
@@ -178,9 +181,15 @@ struct TabStoreTests {
         // `select`) leaves no history behind.
         store.primaryWindow.selectedTabID = middle.id
 
+        var blankCloses = 0
+        store.closeLeftBlankPresenter = { _ in blankCloses += 1 }
+
         store.closeTab(middle.id)
 
-        #expect(store.selectedTabID == store.tabs[1].id, "the tab that slid into the slot")
+        #expect(store.selectedTabID == nil, "nothing earlier to return to, so nothing is shown")
+        #expect(store.tabs.count == 2, "the closed tab is removed and no new one opens")
+        #expect(blankCloses == 1, "the command bar is offered")
+        #expect(store.primaryWindow.blankSpaceIDs.contains(middle.spaceID), "the Space is remembered as blank")
     }
 
     @Test("A window.open request becomes a new tab hosting the popup's web view")

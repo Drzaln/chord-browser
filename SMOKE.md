@@ -57,7 +57,10 @@ distribution.
       the blanked Space is still blank (blank Spaces persist per window, 2026-09-17)
 - [ ] A blank Space's command bar is **dismissed** when you switch to a Space
       that shows a tab — it does not linger over the page
-- [ ] Closing the last tab opens a fresh one rather than an empty window
+- [ ] Relaunch and close the restored loose tab (nothing visited before it):
+      the window goes **blank with the command bar offered** — no neighbour is
+      picked and no fresh tab opens; closing the last loose tab does the same
+      (2026-11-02)
 - [ ] Clicking a sidebar row switches tabs; the web view does not reload
 - [ ] Title updates in the sidebar as pages load
 - [x] Favicon appears in the sidebar, falling back to a globe when absent

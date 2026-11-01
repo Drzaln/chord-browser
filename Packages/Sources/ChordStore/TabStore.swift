@@ -1170,14 +1170,22 @@ public final class TabStore {
             return
         }
 
-        closeTabRemovingEveryPane(tabID, in: window)
+        closeTabRemovingEveryPane(tabID, in: window, blankWithoutEarlierTab: true)
     }
 
     /// The whole-tab close: tears down every pane and removes the tab. This is
     /// what `closeTab` does for a single-pane tab, and what drag-to-split needs
     /// for its source — a source tab is *moved* into the target, so it must go
     /// entirely even if it was itself a split.
-    func closeTabRemovingEveryPane(_ tabID: UUID, in window: WindowState) {
+    ///
+    /// - Parameter blankWithoutEarlierTab: a user close (Cmd+W, swipe, close
+    ///   button) with nothing in the recency stack leaves the window blank and
+    ///   offers the command bar, as closing the last live Pinned tile does
+    ///   (non-spec: user-requested). Drag-to-split leaves it off: it picks the
+    ///   drop target itself straight after.
+    func closeTabRemovingEveryPane(
+        _ tabID: UUID, in window: WindowState, blankWithoutEarlierTab: Bool = false
+    ) {
         guard let index = tabs.firstIndex(where: { $0.id == tabID }) else { return }
 
         // Remember it for Cmd+Shift+T before the panes are torn down, so the
@@ -1213,7 +1221,18 @@ public final class TabStore {
         tabs.remove(at: index)
         extensionHost?.extensionTabDidClose(tabID, inSpace: closedSpaceID)
 
-        if window.selectedTabID == tabID {
+        var leftBlank = false
+        if window.selectedTabID == tabID,
+           blankWithoutEarlierTab,
+           previousActiveTab(after: tabID, in: window) == nil {
+            // No earlier tab to return to: render nothing rather than a
+            // positional neighbour or a fresh tab, remember the Space as blank,
+            // and put the command bar up so a destination is one keystroke away.
+            window.selectedTabID = nil
+            if let spaceID = window.activeSpaceID { window.blankSpaceIDs.insert(spaceID) }
+            closeLeftBlankPresenter?(window)
+            leftBlank = true
+        } else if window.selectedTabID == tabID {
             // Return to the *previously active* tab (Chrome/Firefox/Arc), not a
             // positional neighbour. Fall back to the tab now in the closed
             // tab's slot, within its own section and this Space only, when the
@@ -1230,7 +1249,7 @@ public final class TabStore {
             window.selectedTabID = next
             recordSelection(next, replacing: nil, in: window)
         }
-        if visibleTabs(in: window).isEmpty { newTab(in: window) }
+        if !leftBlank, visibleTabs(in: window).isEmpty { newTab(in: window) }
         // The acting window just chose its neighbour deliberately; the others
         // only need to stop pointing at a tab that is gone.
         reconcileWindows(excluding: window)

@@ -74,6 +74,11 @@ keys work without a prior click into the page. Thumbnails are captured while a
 tab is on screen, so opened tabs show their real content; a tab whose capture
 isn't ready yet shows a favicon tile instead.
 
+Closing a tab returns to the tab you were on before it. With nothing earlier to
+return to, the window goes blank and the command bar opens, so a destination is
+one keystroke away. A favourite or Pinned tab stays in the sidebar when closed;
+a loose tab is removed.
+
 `Cmd+Shift+T` restores what was most recently closed,
 in its original Space when it still exists: a closed tab comes back with its URL,
 title, favicon, and pinned state; a closed **pane** of a split comes back in the

@@ -249,8 +249,8 @@ struct PinnedTests {
         #expect(store.selectedTabID == facebook.id, "the previously active loose tab wins")
     }
 
-    @Test("Closing a loose tab with no history still picks the loose tab to its right")
-    func closingLooseTabWithoutHistoryPicksItsRightNeighbour() async {
+    @Test("Closing a loose tab with no history leaves the window blank, like a Pinned tab")
+    func closingLooseTabWithoutHistoryLeavesBlank() async {
         let store = await makeStore(stored: [
             TabBuilder().url("https://github.example").pinned(order: 0).build(),
             TabBuilder().url("https://facebook.example").build(),
@@ -258,13 +258,16 @@ struct PinnedTests {
             TabBuilder().url("https://last.example").ephemeral(order: 2).build(),
         ])
         let twitter = try! #require(store.unpinnedTabs.first { $0.focusedPane.url.host() == "twitter.example" })
-        let last = try! #require(store.unpinnedTabs.first { $0.focusedPane.url.host() == "last.example" })
         // A direct selection (as a restored layout would) leaves no history.
         store.primaryWindow.selectedTabID = twitter.id
+        var blankCloses = 0
+        store.closeLeftBlankPresenter = { _ in blankCloses += 1 }
 
         store.closeTab(twitter.id)
 
-        #expect(store.selectedTabID == last.id, "the tab that slides into the slot is the loose one to its right")
+        #expect(store.selectedTabID == nil, "no earlier tab, so no neighbour is picked")
+        #expect(store.unpinnedTabs.count == 2, "the loose tab is removed, not unloaded")
+        #expect(blankCloses == 1, "the blank close offers the command bar")
     }
 
     @Test("Closing a Pinned tab with no history leaves the window blank, not a section neighbour")

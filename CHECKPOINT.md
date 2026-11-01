@@ -5133,3 +5133,15 @@ so extension-opened popups still have an anchor. `SpaceSwitcher` is the bottom
 row: `DownloadsButton` (always shown) | centred scrolling Spaces | +. The rest
 of the Search-style redesign (epic l9y) waits for the user's Figma wireframe.
 
+## Loose-tab close goes blank with nothing earlier (2026-11-02)
+
+Closing a loose tab (`Cmd+W`, close button, swipe with no back history) with an
+empty recency stack now ends like the Pinned close of 2026-09-08: the window
+renders nothing, the Space joins `blankSpaceIDs`, and `closeLeftBlankPresenter`
+offers the command bar. The slot-neighbour pick and the fresh tab after the
+last close are gone for this path. `closeTab` passes
+`blankWithoutEarlierTab: true` to `closeTabRemovingEveryPane`; drag-to-split
+removes its source without it, since it selects the drop target itself. Tests
+renamed to `closingLooseTabWithoutHistoryLeavesBlank`,
+`closingSelectedWithoutHistoryLeavesBlank`, `closingLastTabLeavesBlank`; the
+multi-window "skips a tab another window shows" case now expects blank.

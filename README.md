@@ -50,7 +50,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
 - **Ephemeral tabs** — auto-sweep timer with archive. **Closing a tab returns
   to the previously active tab** (the one you were on before it), like Chrome,
   Firefox, and Arc — not a positional neighbour; open a tab from a page, close
-  it, and you land back where you were.
+  it, and you land back where you were. With no earlier tab to return to, the
+  window goes blank and the command bar opens, as for Pinned tabs.
 - **Favourites & Pinned tabs** — three tab tiers: a Favourites icon grid, a
   collapsible Pinned-tabs list (both sweep-exempt and homed at the URL they were
   pinned at — double-click/click to return, "Set Current Page as Pinned URL" to
