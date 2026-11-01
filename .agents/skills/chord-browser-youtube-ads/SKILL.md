@@ -36,7 +36,7 @@ All of this lives in `YouTubeAdBlocker.swift`. When a check runs, compare **each
 | Skip buttons | `.ytp-ad-skip-button`, `.ytp-ad-skip-button-modern`, `.ytp-skip-ad-button`, `.ytp-ad-skip-button-container button` |
 | Hidden surfaces (CSS) | `.video-ads`, `.ytp-ad-module`, `.ytp-ad-overlay-container`, `.ytp-ad-overlay-slot`, `.ytp-suggested-action`, `#masthead-ad`, `ytd-ad-slot-renderer`, `ytd-display-ad-renderer`, `ytd-promoted-sparkles-web-renderer`, `ytd-promoted-video-renderer`, `ytd-in-feed-ad-layout-renderer`, `ytd-banner-promo-renderer`, `ytmusic-ad-slot-renderer`, `.ytmusic-ad-slot-renderer` |
 | Anti-adblock wall | **dismantled by JS**, not just hidden. CSS hides `tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)` as a fallback; a `MutationObserver` (`dismantleEnforcementWall`) removes `ytd-enforcement-message-view-model` (climbing to its `TP-YT-PAPER-DIALOG` host), drops a visible `tp-yt-iron-overlay-backdrop`, resets `documentElement`/`body` `overflow`, and best-effort resumes the paused player |
-| Skip/seek behavior | tick every 250 ms; seek to `duration` only when `0 < duration <= 60`; re-assert `playbackRate = 10` on **every** tick; restore to 1x the moment the ad ends |
+| Skip/seek behavior | the tick runs **on events** (c1k.5): a `MutationObserver` on the player's `class` (`ad-showing` on/off) and video load/play/rate events; **every 250 ms only while an ad is up** (`pace()`), plus a 2 s backup tick. The player is cached until it leaves the document and videos come from the live `getElementsByTagName('video')` collection — never a `querySelectorAll` per tick (perf, 65c8f8f). Seek to `duration` only when `0 < duration <= 60`; re-assert `playbackRate = 10` on **every** tick while the ad is up; restore to 1x the moment the ad ends |
 
 Registered in `WebKitEngine.swift:214` via `controller.addUserScript(YouTubeAdBlocker.makeUserScript())`, injected `.atDocumentStart`, **all frames** (embeds and `music.youtube.com` are separate documents). Never change that injection shape without re-reading why it is there.
 
@@ -240,6 +240,7 @@ Update the `bd` issue with what changed (or that nothing needed changing), and c
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| Ads only skipped seconds late | The class watch lost the player (player element replaced) and only the 2 s backup tick catches it | `findPlayer()` must re-observe a new `.html5-video-player`; check `watched` is reset |
 | Ads always play to completion | Rate blast dies (once-only guard regressed) or ad moved to a separate `<video>` | Re-assert rate every tick; blast all videos |
 | Static ads visible | Hide-list selectors renamed | Port new selectors from Layer 2 / Layer 1 |
 | Player blocked, "ad blockers not allowed" | Enforcement-wall selector renamed | Update wall selector in `dismantleEnforcementWall` **and** the CSS fallback |
