@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import WebKit
 
@@ -38,7 +39,10 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
         else { throw Failure.badURL }
 
         let preferences = configuration.preferences.copy() as? WKPreferences
-        preferences?.inactiveSchedulingPolicy = .throttle
+        // Never suspended in its window, though: WebKit hides a suspending
+        // page's content until its next frame, which a window never shown
+        // doesn't draw, and the UI runs a display link meanwhile (c1k.11).
+        preferences?.inactiveSchedulingPolicy = reasons.contains("AUDIO_PLAYBACK") ? .none : .throttle
         // An offscreen document has no window to focus, so WebKit would hold
         // its getUserMedia for ever. A document made to record is allowed to.
         if reasons.contains("USER_MEDIA"), let preferences {
@@ -117,6 +121,12 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
     private var deadline: Task<Void, Never>?
     private var ready = false
     private var closed = false
+    /// The window an AUDIO_PLAYBACK document's view sits in, never shown:
+    /// WebKit neither loads nor plays a page's media until its view is in a
+    /// window (`play()` never settles), and Chrome's offscreen documents
+    /// exist to play sounds. An extension that played one in answer to a
+    /// click on a site stayed silent (se2).
+    private var stage: NSWindow?
 
     private init(
         context: WKWebExtensionContext, spaceID: UUID, url: URL, reasons: Set<String>,
@@ -134,6 +144,11 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
         super.init()
         web.navigationDelegate = self
         web.uiDelegate = self
+        if reasons.contains("AUDIO_PLAYBACK") {
+            let window = OffscreenWindow()
+            window.contentView = web
+            stage = window
+        }
     }
 
     private func load() async throws {
@@ -166,6 +181,8 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
         web.navigationDelegate = nil
         web.uiDelegate = nil
         web.stopLoading()
+        stage?.contentView = nil
+        stage = nil
         finish(.failure(error))
     }
 
@@ -264,4 +281,21 @@ final class ExtensionOffscreen: NSObject, WKNavigationDelegate, WKUIDelegate, WK
             }
         }
     }
+}
+
+/// Holds an offscreen document's view so WebKit counts it as in a window.
+/// Never ordered in, and never key or main, so nothing that looks for the
+/// app's windows finds it.
+private final class OffscreenWindow: NSWindow {
+    init() {
+        super.init(
+            contentRect: CGRect(x: -10_000, y: -10_000, width: 800, height: 600),
+            styleMask: .borderless, backing: .buffered, defer: true
+        )
+        isReleasedWhenClosed = false
+        isExcludedFromWindowsMenu = true
+    }
+
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
 }
