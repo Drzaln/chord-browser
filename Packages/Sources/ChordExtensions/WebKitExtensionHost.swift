@@ -186,6 +186,20 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
         capture.context = { [weak self] identifier in
             self?.context(identifier: identifier)
         }
+        capture.onRecordingsChanged = { [weak self] states in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let recordings = states.map { state in
+                    ExtensionRecording(
+                        id: state.extensionID,
+                        name: self.extensionName(identifier: state.extensionID),
+                        screen: state.screen, camera: state.camera,
+                        microphone: state.microphone
+                    )
+                }
+                self.onRecordingsChanged?(recordings)
+            }
+        }
         capture.bringForward = { [weak self] web in
             await self?.bringForward(web) ?? false
         }
@@ -1373,6 +1387,23 @@ public final class WebKitExtensionHost: NSObject, ExtensionHost {
     /// unhandled rejection in an extension script. Not in the SDK's enum
     /// (which stops at 6); probed on macOS 27.2.
     static let scriptErrorCode = 7
+
+    /// See `ExtensionHost.onRecordingsChanged`.
+    public var onRecordingsChanged: (@MainActor ([ExtensionRecording]) -> Void)?
+
+    public func stopRecording(id: String) {
+        capture.stop(id)
+    }
+
+    /// The name an extension shows, by Chrome id, from whichever Space has it.
+    private func extensionName(identifier: String) -> String {
+        for spaces in loadedContexts.values {
+            for loaded in spaces.values where loaded.installed.identifier == identifier {
+                return loaded.context.webExtension.displayName ?? loaded.installed.slug
+            }
+        }
+        return "An extension"
+    }
 
     public func scriptErrors(slug: String, in space: Space) -> [ExtensionScriptError] {
         scriptErrorLog.errors(for: watchKey(spaceID: space.id, slug: slug))

@@ -138,6 +138,11 @@ public struct AppEnvironment {
             engine?.refreshExternallyConnectable()
         }
 
+        // What extensions are recording, for the window's pill (1mm.15).
+        host.onRecordingsChanged = { [weak store] recordings in
+            store?.extensionRecordings = recordings
+        }
+
         // Permission prompts (7.5c): the host surfaces a WebKit-free request,
         // which the store queues for the UI's grant/deny sheet. The grants
         // repository lets the host persist a grant and re-apply it next launch.

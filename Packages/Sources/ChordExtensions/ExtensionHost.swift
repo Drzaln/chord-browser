@@ -180,6 +180,12 @@ public protocol ExtensionHost: AnyObject, ExtensionControllerProviding {
     /// Uncaught exceptions and unhandled rejections the extension's scripts
     /// have reported since it loaded in the Space, distinct, oldest first (9ba).
     func scriptErrors(slug: String, in space: Space) -> [ExtensionScriptError]
+
+    /// Called with every extension recording the screen, camera or microphone
+    /// whenever that changes (1mm.15), for the recording pill.
+    var onRecordingsChanged: (@MainActor ([ExtensionRecording]) -> Void)? { get set }
+    /// Ends everything the extension (by Chrome id) is recording.
+    func stopRecording(id: String)
 }
 
 public extension ExtensionHost {
@@ -191,4 +197,9 @@ public extension ExtensionHost {
     func spaceDidClose(_ space: Space) async {}
     func turnedOffPasswordSaving(identifier: String, in space: Space) -> Bool { false }
     func scriptErrors(slug: String, in space: Space) -> [ExtensionScriptError] { [] }
+    var onRecordingsChanged: (@MainActor ([ExtensionRecording]) -> Void)? {
+        get { nil }
+        set {}
+    }
+    func stopRecording(id: String) {}
 }

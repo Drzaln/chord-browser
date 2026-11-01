@@ -637,6 +637,16 @@ public final class TabStore {
     /// service.
     public internal(set) var extensionActionsToken: Int = 0
 
+    /// Extensions recording the screen, camera or microphone right now
+    /// (1mm.15). `AppEnvironment` wires the host's `onRecordingsChanged` to
+    /// this; the window shows a pill with Stop while it is non-empty.
+    public internal(set) var extensionRecordings: [ExtensionRecording] = []
+
+    /// The pill's Stop: ends what the extension is recording.
+    public func stopExtensionRecording(id: String) {
+        extensionHost?.stopRecording(id: id)
+    }
+
     /// Extension permission prompts awaiting the user's decision (M7, 7.5c),
     /// presented one at a time by the UI as a sheet. `AppEnvironment` appends to
     /// this when the host surfaces a request; the values are WebKit-free.

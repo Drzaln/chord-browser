@@ -35,6 +35,9 @@ final class ExtensionCapture: NSObject, WKScriptMessageHandlerWithReply {
     /// host wires this to the tab model so an extension page in a tab is
     /// selected and its window raised. Returns whether the page is visible.
     var bringForward: ((WKWebView) async -> Bool)?
+    /// What extensions are recording changed (1mm.15): the host names them
+    /// and passes them on, WebKit-free, for the recording pill.
+    var onRecordingsChanged: (([Watched.State]) -> Void)?
 
     // MARK: - Tokens
 
@@ -87,6 +90,7 @@ final class ExtensionCapture: NSObject, WKScriptMessageHandlerWithReply {
 
     /// An extension went away: its unused ids go with it.
     func purge(_ identifier: String) {
+        stop(identifier)
         grants = grants.filter { $0.value.extensionID != identifier }
     }
 
@@ -236,7 +240,142 @@ final class ExtensionCapture: NSObject, WKScriptMessageHandlerWithReply {
         inFlight[ObjectIdentifier(web)] = window ? 2 : 1
         let answer = await force(in: web, token: token, video: video)
         inFlight[ObjectIdentifier(web)] = nil
+        if answer["ok"] as? Bool == true {
+            watch(web, extensionID: context.uniqueIdentifier)
+        }
         return answer
+    }
+
+    // MARK: - What is recording (1mm.15)
+
+    /// A page that was handed a recording, watched until it stops: WebKit
+    /// reports the screen, camera and microphone it is capturing on the view.
+    @MainActor
+    final class Watched: NSObject {
+        struct State: Equatable {
+            let extensionID: String
+            let screen: Bool
+            let camera: Bool
+            let microphone: Bool
+            var isRecording: Bool { screen || camera || microphone }
+        }
+
+        weak var web: WKWebView?
+        let extensionID: String
+        private let onChange: @MainActor () -> Void
+        /// The view's KVO-compliant capture properties: the camera and the
+        /// microphone are public; the screen is WebKit's own, when it has it.
+        private var keys: [String] = []
+
+        static let displayKey = "_displayCaptureState"
+
+        init(web: WKWebView, extensionID: String, onChange: @escaping @MainActor () -> Void) {
+            self.web = web
+            self.extensionID = extensionID
+            self.onChange = onChange
+            super.init()
+            keys = ["cameraCaptureState", "microphoneCaptureState"]
+            if web.responds(to: NSSelectorFromString(Self.displayKey)) {
+                keys.append(Self.displayKey)
+            }
+            for key in keys { web.addObserver(self, forKeyPath: key, context: nil) }
+        }
+
+        var state: State {
+            guard let web else {
+                return State(extensionID: extensionID, screen: false, camera: false, microphone: false)
+            }
+            let screen = keys.contains(Self.displayKey)
+                && (web.value(forKey: Self.displayKey) as? Int ?? 0) != 0
+            return State(
+                extensionID: extensionID, screen: screen,
+                camera: web.cameraCaptureState != .none,
+                microphone: web.microphoneCaptureState != .none
+            )
+        }
+
+        nonisolated override func observeValue(
+            forKeyPath keyPath: String?, of object: Any?,
+            change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?
+        ) {
+            Task { @MainActor [weak self] in self?.onChange() }
+        }
+
+        func end() {
+            if let web {
+                for key in keys { web.removeObserver(self, forKeyPath: key) }
+            }
+            keys = []
+        }
+    }
+
+    private var watched: [ObjectIdentifier: Watched] = [:]
+    private var lastReported: [Watched.State] = []
+
+    func watch(_ web: WKWebView, extensionID: String) {
+        let key = ObjectIdentifier(web)
+        if watched[key] == nil {
+            watched[key] = Watched(web: web, extensionID: extensionID) { [weak self] in
+                self?.recordingsChanged()
+            }
+        }
+        recordingsChanged()
+    }
+
+    /// Every extension's recording, merged per extension. A page that stopped
+    /// or went away is let go.
+    var recordings: [Watched.State] {
+        var by: [String: Watched.State] = [:]
+        for entry in watched.values {
+            let now = entry.state
+            guard now.isRecording else { continue }
+            let before = by[entry.extensionID]
+            by[entry.extensionID] = Watched.State(
+                extensionID: entry.extensionID,
+                screen: now.screen || before?.screen == true,
+                camera: now.camera || before?.camera == true,
+                microphone: now.microphone || before?.microphone == true
+            )
+        }
+        return by.values.sorted { $0.extensionID < $1.extensionID }
+    }
+
+    private func recordingsChanged() {
+        // A page asked to record shows nothing for a moment before WebKit
+        // reports the capture: only one that has been seen recording and has
+        // stopped since (or whose view is gone) is let go.
+        for (key, entry) in watched where entry.web == nil {
+            entry.end()
+            watched[key] = nil
+        }
+        let now = recordings
+        guard now != lastReported else { return }
+        let stopped = Set(lastReported.map(\.extensionID)).subtracting(now.map(\.extensionID))
+        for (key, entry) in watched where stopped.contains(entry.extensionID) && !entry.state.isRecording {
+            entry.end()
+            watched[key] = nil
+        }
+        lastReported = now
+        onRecordingsChanged?(now)
+    }
+
+    private typealias SetDisplay = @convention(c) (
+        AnyObject, Selector, Int, (@convention(block) () -> Void)?
+    ) -> Void
+
+    /// Stop: everything the extension is recording ends, and its pages see
+    /// their tracks end, as when the Mac's own Stop is used.
+    func stop(_ extensionID: String) {
+        for entry in watched.values where entry.extensionID == extensionID {
+            guard let web = entry.web else { continue }
+            let selector = NSSelectorFromString("_setDisplayCaptureState:completionHandler:")
+            if web.responds(to: selector),
+               let method = class_getMethodImplementation(type(of: web), selector) {
+                unsafeBitCast(method, to: SetDisplay.self)(web, selector, 0, nil)
+            }
+            web.setCameraCaptureState(.none, completionHandler: nil)
+            web.setMicrophoneCaptureState(.none, completionHandler: nil)
+        }
     }
 
     private func force(

@@ -30,6 +30,8 @@ private final class RecordingExtensionHost: ExtensionHost {
     func extensionTabDidMove(_ tabID: UUID, from oldIndex: Int, inSpace spaceID: UUID) {}
     var groupChanges = 0
     func extensionGroupsDidChange() { groupChanges += 1 }
+    var stoppedRecordings: [String] = []
+    func stopRecording(id: String) { stoppedRecordings.append(id) }
 
     var closedSpaces: [UUID] = []
     var onSpaceDidClose: ((Space) -> Void)?
@@ -72,6 +74,17 @@ struct ExtensionModelTests {
         let host = RecordingExtensionHost()
         store.extensionHost = host
         return (store, host)
+    }
+
+    /// 1mm.15: the recording pill's Stop reaches the extension's recording.
+    @Test("The recording pill's Stop ends that extension's recording")
+    func recordingPillStop() async {
+        let (store, host) = await makeStore()
+        store.extensionRecordings = [
+            ExtensionRecording(id: "loom", name: "Loom", screen: true, camera: false, microphone: false)
+        ]
+        store.stopExtensionRecording(id: "loom")
+        #expect(host.stoppedRecordings == ["loom"])
     }
 
     /// c1k.5: workers hear about tab groups instead of asking every 3 s.

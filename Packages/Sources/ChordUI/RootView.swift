@@ -220,6 +220,16 @@ public struct RootView: View {
                 .id(sharingPaneID)
             }
 
+            if !store.extensionRecordings.isEmpty {
+                ExtensionRecordingPill(recordings: store.extensionRecordings) { id in
+                    store.stopExtensionRecording(id: id)
+                }
+                .padding(.bottom, 18)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(3)
+            }
+
             // Transient action feedback (zoom, copy URL, …) — top right, above
             // the page and any centred banner, but below the MRU switcher.
             if let toast = windowState.toast {
