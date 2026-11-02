@@ -5145,3 +5145,17 @@ removes its source without it, since it selects the drop target itself. Tests
 renamed to `closingLooseTabWithoutHistoryLeavesBlank`,
 `closingSelectedWithoutHistoryLeavesBlank`, `closingLastTabLeavesBlank`; the
 multi-window "skips a tab another window shows" case now expects blank.
+
+## Make Default asks once (2026-11-02)
+
+The Settings **Make Default** button could leave Safari as the default, with no
+trace of why: `WorkspaceDefaultBrowser.makeDefault` called
+`setDefaultApplication` for `http` and then `https` back to back, and
+`DefaultBrowserModel` swallowed the error. It now asks for `http` only (the
+request that raises the system alert, and accepting it moves `https` too),
+asks for `https` only when `http` is Chord's and `https` still isn't, and logs
+each request and outcome under `com.rizal.chord` / `default-browser`. Checked
+by hand: one alert, both schemes switched at the same timestamp. Several
+registered copies sharing `com.rizal.chord` (DerivedData Debug/Release) show
+as duplicates like "Chord 1.20.0" in the system list; `lsregister -u <path>`
+clears one.
