@@ -112,7 +112,9 @@ private struct PaneCard: View {
                     y: 2
                 )
 
-            if let surface = store.surface(for: pane, in: tab) {
+            // Gated on the window's live selection, not on `isParked`: a stale
+            // card can be re-rendered with the values it had while selected.
+            if let surface = store.surface(for: pane, in: tab, shownIn: windowState) {
                 // Keyed by pane, so resizing or reordering swaps surfaces rather
                 // than reconfiguring one in place. A background tab's is
                 // hidden, so WebKit throttles it like a background tab.

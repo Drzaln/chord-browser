@@ -1760,6 +1760,20 @@ public final class TabStore {
         return engine.surface(for: pane, in: space)
     }
 
+    /// The surface a content slot may show for `pane`, given which tab
+    /// `window` has selected *now*.
+    ///
+    /// Only the selected tab may build a view. Any other slot — a parked
+    /// background tab, or a stale one SwiftUI re-renders on its way out (a
+    /// `GeometryReader` re-evaluates after its parent has dropped it) — only
+    /// re-attaches a view the pool still holds. Without this, closing a playing
+    /// favourite evicted its view and the dying slot rebuilt it from the saved
+    /// state, so the song restarted with no tab on screen (hcf).
+    public func surface(for pane: Pane, in tab: Tab, shownIn window: WindowState) -> AnyWebSurface? {
+        guard window.selectedTabID == tab.id || hasLiveView(paneID: pane.id) else { return nil }
+        return surface(for: pane, in: tab)
+    }
+
     /// Whether a pane already has a live web view in the pool.
     ///
     /// The content layer uses this to decide if a background tab's surface can

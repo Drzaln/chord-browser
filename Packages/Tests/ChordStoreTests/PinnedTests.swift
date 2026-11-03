@@ -319,6 +319,37 @@ struct PinnedTests {
         )
     }
 
+    /// hcf: closing a playing favourite evicted its view, then its content
+    /// slot — re-rendered on the way out — rebuilt it from saved state, so the
+    /// song restarted with no tab on screen.
+    @Test("A closed favourite's stale content slot cannot rebuild its view")
+    func closedFavouriteIsNotRevivedByItsSlot() async throws {
+        let engine = FakeWebEngine()
+        let store = TabStore(
+            engine: engine,
+            repository: FakeTabRepository(stored: [
+                TabBuilder().url("https://music.example").pinned(order: 0).build(),
+            ]),
+            clock: FixedClock()
+        )
+        await store.restore()
+        let fav = try #require(store.pinnedTabs.first)
+        let loose = store.newTab(url: URL(string: "https://social.example")!, in: store.primaryWindow)
+        for id in [fav.id, loose, fav.id] {
+            store.select(id)
+            let tab = try #require(store.tabs.first { $0.id == id })
+            _ = store.surface(for: tab.focusedPane, in: tab, shownIn: store.primaryWindow)
+        }
+
+        store.closeTab(fav.id)
+        #expect(store.selectedTabID == loose, "focus returns to the previous tab")
+
+        let closed = try #require(store.tabs.first { $0.id == fav.id })
+        let surface = store.surface(for: closed.focusedPane, in: closed, shownIn: store.primaryWindow)
+        #expect(surface == nil, "the unselected, unloaded favourite gets no surface")
+        #expect(!engine.hasLiveView(paneID: closed.focusedPaneID), "and no view is rebuilt")
+    }
+
     @Test("Closing focused favourites follows Arc MRU and ends blank")
     func closingFocusedFavouriteGoesToPreviousActive() async {
         let store = await makeStore(stored: [

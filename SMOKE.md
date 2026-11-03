@@ -42,6 +42,9 @@ distribution.
       ones, and closing the last live one leaves the window **blank with the
       command bar focused** — no new tab, no dead tile (Arc behaviour,
       2026-09-08; the tiles stay in the sidebar)
+- [x] Closing a favourite that is playing audio (YouTube Music) after visiting
+      another tab stops it for good — the song does not restart with no tab
+      on screen (hcf, 2026-11-03)
 - [ ] Quit (`Cmd+Q`) with that blank window, relaunch: it comes back **still
       blank with the command bar offered**, not reviving a tab (Arc behaviour,
       2026-09-17)
