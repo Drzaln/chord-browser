@@ -18,7 +18,11 @@ reload; under it a full-width **address field** (click it, or `Cmd+L`); then
 favourites, pinned tabs and the tab list; and at the bottom **Downloads**, the
 Space switcher (centred, scrolling sideways when you have many Spaces) and
 **+** for a new Space. Extension buttons appear at the end of the address
-field when you point at it. Web content
+field when you point at it — the **pinned** ones, as many as fit beside the
+address. Right-click a button → **Unpin from Address Bar** to tuck it away, or
+pin and unpin from the pin icon in the **…** panel or **Show in address bar** in
+Settings → Extensions. An unpinned extension still runs; open it from **Open**
+in the **…** panel. Extensions you add start unpinned. Web content
 sits in an inset card to the right. The sidebar and the frame around the card are
 **frosted glass** — translucent `.ultraThinMaterial` tinted by the active Space's
 color, blurring your desktop behind the window (the web page itself stays opaque).

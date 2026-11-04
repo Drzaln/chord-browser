@@ -632,6 +632,14 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   media; script errors (WebKit's code 7) show in Settings → Extensions with a
   Copy button; an extension page a site may not open shows a page saying so;
   cross-origin-isolated pages load.
+- **Extension pinning** (2026-11-04, 1.24.0; non-spec: user-requested) —
+  Chrome's "pin to toolbar" for the address field's extension buttons. Only
+  pinned extensions show there, capped by the field's width so the address
+  keeps 96 pt; the rest (unpinned or overflowing) run as usual and open from the
+  … panel. Pins are per extension, app-wide (`extensions.pinned` preference);
+  extensions installed before pinning existed start pinned, later installs
+  unpinned. The … panel holds a floating sidebar open, like the Downloads
+  popover.
 
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
 software-only in a general `WKWebView`: macOS reserves the hardware decode path

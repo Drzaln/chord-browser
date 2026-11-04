@@ -558,6 +558,9 @@ public final class TabStore {
     /// the matching WebExtensions events. `nil` when extensions are off, and the
     /// conformance to `ExtensionTabModel` (TabStore+Extensions.swift) is inert.
     @ObservationIgnored public weak var extensionHost: (any ExtensionHost)?
+    /// Which extensions keep a button in the address field (21n). Observable
+    /// itself, so a pin change redraws the field. Nil without extensions.
+    @ObservationIgnored public var extensionPins: ExtensionPinning?
 
     /// The password vault (V4), when one is wired. Optional because the
     /// subsystem is built in phases and the app does not wire it until the UI

@@ -166,6 +166,16 @@ struct ExtensionsSettings: View {
                     .disabled(refusesPrivate)
                     .help(refusesPrivate ? "This extension doesn't run in private windows." : "")
                 }
+                if let pins = extensions?.pins {
+                    Toggle("Show in address bar", isOn: Binding(
+                        get: { pins.isPinned(ext.slug) },
+                        set: { pins.setPinned($0, slug: ext.slug) }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 10))
+                    .controlSize(.mini)
+                    .help("Unpinned, it still runs; open it from the … button in the address bar.")
+                }
             }
             .help(ext.identifier)
             if untrusted {

@@ -41,6 +41,9 @@ public final class ExtensionsService {
     /// Where "allowed in private windows" is kept, per extension.
     private let preferences: any PreferenceStore
 
+    /// Which extensions keep a button in the address field (21n).
+    public let pins: ExtensionPinning
+
     public init(
         installer: ExtensionInstaller,
         host: any ExtensionHost,
@@ -51,6 +54,9 @@ public final class ExtensionsService {
         self.host = host
         self.enablement = enablement
         self.preferences = preferences
+        self.pins = ExtensionPinning(preferences: preferences) {
+            ((try? installer.installedExtensions()) ?? []).map(\.slug)
+        }
     }
 
     // MARK: - Private windows
@@ -216,6 +222,7 @@ public final class ExtensionsService {
         }
         try installer.remove(slug: slug)
         preferences.set(nil, forKey: Self.privateKey(slug))
+        pins.forget(slug)
     }
 
     /// Ask the Chrome Web Store whether any installed store extension has a

@@ -383,6 +383,10 @@ public struct RootView: View {
         .onChange(of: windowState.isDownloadsPopoverOpen) { _, open in
             if open { cancelPendingHide() }
         }
+        // The Manage Extensions panel is the same case (21n).
+        .onChange(of: windowState.isExtensionsPanelOpen) { _, open in
+            if open { cancelPendingHide() }
+        }
         // Only this window's popup pins this window's sidebar: the host is
         // app-wide, so the notification carries the window it is anchored in and
         // every other window ignores it.

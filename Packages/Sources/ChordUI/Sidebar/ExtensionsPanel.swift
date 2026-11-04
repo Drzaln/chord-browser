@@ -14,6 +14,9 @@ struct ExtensionsPanel: View {
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
     let host: any ExtensionHost
+    /// Runs an extension's action (its popup or click) — how an unpinned
+    /// extension, which has no button in the address field, is used (21n).
+    var run: (String) -> Void = { _ in }
 
     private var space: Space? { store.activeSpace(in: windowState) }
     private var extensions: [LoadedExtension] {
@@ -59,6 +62,29 @@ struct ExtensionsPanel: View {
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
                 Spacer()
+                if let action = space.flatMap({ space in
+                    host.actions(in: space).first { $0.slug == ext.slug }
+                }) {
+                    Button("Open") { run(ext.slug) }
+                        .controlSize(.small)
+                        .disabled(!action.enabled)
+                        .help("Open \(ext.displayName ?? ext.slug)")
+                }
+                if let pins = store.extensionPins {
+                    let pinned = pins.isPinned(ext.slug)
+                    Button {
+                        pins.setPinned(!pinned, slug: ext.slug)
+                    } label: {
+                        Image(systemName: pinned ? "pin.fill" : "pin")
+                            .font(.system(size: 11))
+                            .frame(width: 20, height: 20)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(pinned ? Color.accentColor : .secondary)
+                    .help(pinned ? "Unpin from Address Bar" : "Pin to Address Bar")
+                    .accessibilityLabel(pinned ? "Unpin from Address Bar" : "Pin to Address Bar")
+                }
             }
 
             if ext.hasBackgroundContent {

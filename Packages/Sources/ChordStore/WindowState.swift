@@ -86,6 +86,11 @@ public final class WindowState {
     /// Set by `DownloadsButton` (it owns the popover's presentation).
     public var isDownloadsPopoverOpen: Bool = false
 
+    /// The address field's Manage Extensions (…) panel is on screen in this
+    /// window. Volatile. The same shape as the Downloads popover: anchored in
+    /// the sidebar, so a floating sidebar must not retract from under it (21n).
+    public var isExtensionsPanelOpen: Bool = false
+
     /// A docked extension side panel in this window. Volatile: opening it again
     /// replaces it, closing releases the page. The panel is a window preference,
     /// like the sidebar, not shared with other windows.
@@ -117,8 +122,8 @@ public final class WindowState {
     }
 
     /// Something is keeping a revealed sidebar on screen, so the auto-hide must
-    /// not fire: a resize drag, a Space sheet, an extension popup, or the
-    /// Downloads popover.
+    /// not fire: a resize drag, a Space sheet, an extension popup, the
+    /// Downloads popover, or the Manage Extensions panel.
     ///
     /// One rule rather than four scattered checks. The popup case is the one that
     /// is not obvious: the popup is anchored to the sidebar-header button, so
@@ -135,6 +140,7 @@ public final class WindowState {
             || deletingSpaceID != nil
             || isExtensionPopupOpen
             || isDownloadsPopoverOpen
+            || isExtensionsPanelOpen
             || renamingTabID != nil
     }
 

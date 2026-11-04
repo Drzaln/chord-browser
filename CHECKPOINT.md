@@ -5159,3 +5159,20 @@ by hand: one alert, both schemes switched at the same timestamp. Several
 registered copies sharing `com.rizal.chord` (DerivedData Debug/Release) show
 as duplicates like "Chord 1.20.0" in the system list; `lsregister -u <path>`
 clears one.
+
+## Extension pinning (2026-11-04, 1.24.0)
+
+Ten extensions took ~285 pt of the 240 pt sidebar on hover and left the address
+field no room. `ExtensionPinning` (ChordStore, `PreferenceStore` key
+`extensions.pinned`, the set of pinned slugs) decides which extensions keep an
+address-field button; `ExtensionsService` owns it (first run pins everything
+installed, `remove` forgets the pin) and `AppEnvironment` hands it to
+`TabStore.extensionPins`. `ExtensionToolbarLayout` filters the bar to pinned
+actions and caps them by the row width (`onGeometryChange` in `NavigationBar`),
+keeping 96 pt for the address. Pin/unpin: button context menu, the … panel's pin
+icon, Settings → Extensions "Show in address bar". The … panel's **Open** closes
+the panel and then presents the action, which hangs from the manager anchor.
+`WindowState.isExtensionsPanelOpen` joins `isSidebarHeldOpen` (released 0.5 s
+after the panel closes so Open's popup takes over the hold) — the panel used to
+vanish with a floating sidebar. Tests: `ExtensionPinningTests`,
+`ExtensionToolbarLayoutTests`, `extensionsPanelHolds`.

@@ -135,4 +135,14 @@ struct DownloadsPopoverSidebarTests {
         #expect(first.isSidebarHeldOpen)
         #expect(second.isSidebarHeldOpen == false)
     }
+
+    /// 21n: the address field's … panel vanished with a floating sidebar.
+    @Test("An open Manage Extensions panel holds the sidebar open, and closing releases it")
+    func extensionsPanelHolds() {
+        let window = makeWindowState()
+        window.isExtensionsPanelOpen = true
+        #expect(window.isSidebarHeldOpen)
+        window.isExtensionsPanelOpen = false
+        #expect(window.isSidebarHeldOpen == false)
+    }
 }

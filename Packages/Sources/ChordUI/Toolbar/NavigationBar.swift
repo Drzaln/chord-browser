@@ -23,7 +23,8 @@ struct NavigationBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isHoveringAddress = false
-    @State private var isExtensionsPanelOpen = false
+    /// The address row's width, for how many extension buttons fit (21n).
+    @State private var rowWidth: CGFloat = 0
 
     private var runtime: PaneRuntime? {
         store.selectedTab(in: windowState).map { store.runtime(for: $0.focusedPaneID) }
@@ -49,11 +50,12 @@ struct NavigationBar: View {
                 // panel is open), as in Arc: shown always they left a narrow
                 // sidebar's field room for a few letters of the address.
                 if let extensionHost {
-                    if isHoveringAddress || isExtensionsPanelOpen
+                    if isHoveringAddress || windowState.isExtensionsPanelOpen
                         || windowState.isExtensionPopupOpen {
                         ExtensionActionsBar(
                             store: store, windowState: windowState, host: extensionHost,
-                            onPanelShown: { isExtensionsPanelOpen = $0 }
+                            onPanelShown: { windowState.isExtensionsPanelOpen = $0 },
+                            maxButtons: ExtensionToolbarLayout.buttonCount(fitting: rowWidth)
                         )
                     } else if let space = store.activeSpace(in: windowState) {
                         // Something to hang a popup from while the buttons are
@@ -72,6 +74,7 @@ struct NavigationBar: View {
             }
             .padding(.trailing, 6)
             .frame(height: Metrics.addressFieldHeight)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rowWidth = $0 }
             .background(
                 // A neutral lift over the Space's tint, as Arc's field: darker
                 // on a light sidebar, lighter on a dark one, a little more

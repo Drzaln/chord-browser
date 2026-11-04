@@ -1645,3 +1645,17 @@ release reports "up to date".
       says "No downloads"), Spaces centred, scrolling with many Spaces, + at right.
 - [ ] Private window: Downloads at the end of the "Private window" heading.
 
+## Extension pinning (2026-11-04, 1.24.0)
+
+- [x] After updating, every extension already installed is still pinned — the
+      address field looks the same.
+- [x] Right-click an extension button → Unpin from Address Bar hides it; the …
+      panel's Open still runs it (popup from the field's end).
+- [x] Pin icon in the … panel and "Show in address bar" in Settings → Extensions
+      pin and unpin; the choice survives relaunch.
+- [ ] Many pinned extensions never squeeze the address below its minimum; the
+      overflow is reachable from the … panel.
+- [ ] A newly installed extension starts unpinned.
+- [x] Floating sidebar: the … panel stays while the pointer is in it; Open's
+      popup stays too; the sidebar hides once both are gone.
+
