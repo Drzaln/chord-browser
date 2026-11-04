@@ -105,6 +105,40 @@ struct ExtensionNativeTests {
         let echo = object?["echo"] as? [String: Any]
         #expect(echo?["hello"] as? String == "world")
     }
+
+    /// "Too many open files" on updating: every host left its pipes open, and
+    /// a long session with Bitwarden had ~4,800 of them. Done hosts close all
+    /// four ends even while something still holds the `HostPipe`.
+    @Test func finishedHostsCloseTheirPipes() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appending(path: "chord-native-fd-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let script = dir.appending(path: "host.sh")
+        try "#!/bin/sh\ncat > /dev/null\n".write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755], ofItemAtPath: script.path
+        )
+
+        let before = HostPipe.openPipeDescriptorCount()
+        var held: [HostPipe] = []
+        for _ in 0..<20 {
+            let pipe = HostPipe(program: script, origin: "chrome-extension://\(id)/")
+            try pipe.start()
+            pipe.stop()
+            held.append(pipe)
+        }
+        // Stopped hosts are terminated; give them time to exit.
+        let deadline = Date().addingTimeInterval(5)
+        while HostPipe.openPipeDescriptorCount() > before + 4, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(
+            HostPipe.openPipeDescriptorCount() <= before + 4,
+            "20 finished hosts must not hold their 80 pipe ends open"
+        )
+        #expect(held.count == 20)
+    }
 }
 
 @MainActor

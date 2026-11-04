@@ -184,9 +184,14 @@ enum ExtensionNative {
         static func keep(_ pipe: HostPipe, for port: WKWebExtension.MessagePort) {
             pipes[ObjectIdentifier(pipe)] = (pipe, port)
             let previous = pipe.onExit
+            // By identifier, not the pipe: a closure the pipe holds that held
+            // the pipe was a cycle, so no connected host was ever freed — and
+            // with it went two pipes (four descriptors) per connection, until
+            // the app hit "Too many open files" (Bitwarden reconnects often).
+            let key = ObjectIdentifier(pipe)
             pipe.onExit = {
                 previous?()
-                DispatchQueue.main.async { pipes[ObjectIdentifier(pipe)] = nil }
+                DispatchQueue.main.async { pipes[key] = nil }
             }
         }
     }
@@ -216,6 +221,7 @@ final class HostPipe: @unchecked Sendable {
     private var outputClosed = false
     private var finished = false
     private var ending = false
+    private var closed = false
 
     private static var exited: Error { ExtensionNative.Refused(why: "Native host has exited.") }
 
@@ -252,10 +258,12 @@ final class HostPipe: @unchecked Sendable {
             self.lock.unlock()
             if now {
                 self.finish()
+                self.closePipes()
             } else {
                 DispatchQueue.global().asyncAfter(deadline: .now() + Self.exitGrace) {
                     self.finish()
                     self.end()
+                    self.closePipes()
                 }
             }
         }
@@ -267,7 +275,42 @@ final class HostPipe: @unchecked Sendable {
         stopped = true
         lock.unlock()
         output.fileHandleForReading.readabilityHandler = nil
-        if process.isRunning { end() } else { finish() }
+        if process.isRunning {
+            // The termination handler closes the pipes once the host is gone.
+            end()
+        } else {
+            finish()
+            closePipes()
+        }
+    }
+
+    /// Closes both pipes, all four ends, once the host is done with them.
+    /// Explicit rather than left to deinit: anything that kept a `HostPipe`
+    /// alive kept its descriptors open, and a process has only so many.
+    private func closePipes() {
+        writing.lock()
+        defer { writing.unlock() }
+        lock.lock()
+        guard !closed else { return lock.unlock() }
+        closed = true
+        lock.unlock()
+        output.fileHandleForReading.readabilityHandler = nil
+        for handle in [
+            input.fileHandleForWriting, input.fileHandleForReading,
+            output.fileHandleForReading, output.fileHandleForWriting,
+        ] {
+            try? handle.close()
+        }
+    }
+
+    /// Open pipe descriptors in this process — for tests of the leak above.
+    static func openPipeDescriptorCount() -> Int {
+        var count = 0
+        var info = stat()
+        for fd in 0..<getdtablesize() where fstat(fd, &info) == 0 {
+            if info.st_mode & S_IFMT == S_IFIFO { count += 1 }
+        }
+        return count
     }
 
     func write(_ json: Data) throws {
@@ -279,7 +322,7 @@ final class HostPipe: @unchecked Sendable {
         frame.append(json)
         writing.lock()
         defer { writing.unlock() }
-        guard !stopped, !finished else { throw Self.exited }
+        guard !stopped, !finished, !closed else { throw Self.exited }
         try input.fileHandleForWriting.write(contentsOf: frame)
     }
 

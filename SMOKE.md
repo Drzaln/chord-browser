@@ -1659,3 +1659,8 @@ release reports "up to date".
 - [x] Floating sidebar: the … panel stays while the pointer is in it; Open's
       popup stays too; the sidebar hides once both are gone.
 
+## Native messaging pipe leak (2026-11-05, 1.24.1)
+
+- [ ] With Bitwarden (desktop app linked) enabled for a few hours,
+      `lsof -p $(pgrep -f Chord.app/Contents/MacOS/Chord) | grep -c PIPE` stays
+      small (tens, not thousands), and Check for Updates installs.

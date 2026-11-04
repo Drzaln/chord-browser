@@ -5176,3 +5176,14 @@ the panel and then presents the action, which hangs from the manager anchor.
 after the panel closes so Open's popup takes over the hold) — the panel used to
 vanish with a floating sidebar. Tests: `ExtensionPinningTests`,
 `ExtensionToolbarLayoutTests`, `extensionsPanelHolds`.
+
+## Native messaging pipe leak (2026-11-05, 1.24.1)
+
+Updating 1.23.1 → 1.24.0 failed with "Too many open files": a day-old Chord held
+4,824 pipe descriptors and no host children. `HostPipe` (ExtensionNative.swift)
+only closed its `Pipe`s on deinit, and `Live.keep`'s `onExit` captured the pipe
+strongly — a cycle, so no `connectNative` host was ever freed (Bitwarden
+reconnects often; 4 fds each). Now `closePipes()` closes all four ends once the
+host has exited or been stopped (guarded by the write lock; `write` refuses
+after), and `Live.keep` captures the `ObjectIdentifier`. Test:
+`finishedHostsCloseTheirPipes` (fails without the close: 80 ends left open).
