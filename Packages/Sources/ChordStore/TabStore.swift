@@ -383,7 +383,21 @@ public final class TabStore {
     /// Asks the user whether an agent may go ahead with a consequential
     /// action (0mu.2). Set by the app; with none set, the answer is no.
     @ObservationIgnored public var agentConfirmationPresenter:
-        (@MainActor (AgentActionPrompt) async -> Bool)?
+        (@MainActor (AgentActionPrompt) async -> AgentConfirmationAnswer)?
+
+    /// Whether agents may run their own JavaScript (`eval_js`, 0mu.3), in
+    /// Read & Act Spaces only. Off by default; turning it off also forgets
+    /// every "allow on this site" answer.
+    public var agentScriptsEnabled: Bool = Preferences.loadAgentScriptsEnabled() {
+        didSet {
+            Preferences.save(agentScriptsEnabled: agentScriptsEnabled, to: preferenceStore)
+            if !agentScriptsEnabled { agentScriptHosts = [] }
+        }
+    }
+
+    /// Sites where the user said "allow scripts until Chord quits". Memory
+    /// only, by design: it never outlives the session.
+    @ObservationIgnored var agentScriptHosts: Set<String> = []
 
     /// How many agents are connected right now; drives the indicator.
     public internal(set) var agentConnectionCount = 0

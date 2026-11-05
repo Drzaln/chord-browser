@@ -31,6 +31,7 @@ enum Preferences {
     private static let agentAccessEnabledKey = "prefs.agentAccessEnabled"
     private static let agentSpaceIDsKey = "prefs.agentSpaceIDs"
     private static let agentActSpaceIDsKey = "prefs.agentActSpaceIDs"
+    private static let agentScriptsEnabledKey = "prefs.agentScriptsEnabled"
 
     static func loadSearchEngine(
         _ defaults: any PreferenceStore = UserDefaults.standard
@@ -254,6 +255,19 @@ enum Preferences {
         agentSpaceIDs ids: Set<UUID>, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         encode(ids, forKey: agentSpaceIDsKey, to: defaults)
+    }
+
+    /// Whether agents may run their own JavaScript. Off by default.
+    static func loadAgentScriptsEnabled(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Bool {
+        defaults.object(forKey: agentScriptsEnabledKey) as? Bool ?? false
+    }
+
+    static func save(
+        agentScriptsEnabled enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(enabled, forKey: agentScriptsEnabledKey)
     }
 
     /// The shared Spaces where agents may also act. Empty by default.

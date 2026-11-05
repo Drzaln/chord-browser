@@ -7,9 +7,18 @@ public enum AgentAccessLevel: String, CaseIterable, Identifiable, Sendable {
     public var id: String { rawValue }
 }
 
+/// The user's answer to an `AgentActionPrompt`.
+public enum AgentConfirmationAnswer: Sendable, Equatable {
+    case deny
+    case allow
+    /// Allow, and stop asking for this kind of action on this site until
+    /// Chord quits. Offered only where the prompt says so (`eval_js`).
+    case allowForSite
+}
+
 /// What the user is asked before an agent's action goes ahead.
 public struct AgentActionPrompt: Sendable, Equatable {
-    /// "click" or "submit".
+    /// "click", "submit" or "script".
     public let action: String
     /// The element's label, as the page gives it.
     public let target: String
@@ -18,12 +27,22 @@ public struct AgentActionPrompt: Sendable, Equatable {
     /// Why Chord is asking, in a few words: "submits a sign-in form".
     public let reason: String
 
-    public init(action: String, target: String, host: String, spaceName: String, reason: String) {
+    /// The JavaScript an `eval_js` run would execute, shown in full.
+    public let script: String?
+    /// Whether "Allow on this site until Chord quits" is offered.
+    public let offersAllowForSite: Bool
+
+    public init(
+        action: String, target: String, host: String, spaceName: String, reason: String,
+        script: String? = nil, offersAllowForSite: Bool = false
+    ) {
         self.action = action
         self.target = target
         self.host = host
         self.spaceName = spaceName
         self.reason = reason
+        self.script = script
+        self.offersAllowForSite = offersAllowForSite
     }
 }
 

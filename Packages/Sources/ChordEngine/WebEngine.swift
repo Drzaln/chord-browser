@@ -557,6 +557,10 @@ public protocol WebEngine: AnyObject {
     /// Nil when the pane has no live view or the script threw.
     func agentPerform(_ request: AgentPageRequest, in paneID: UUID) async -> String?
 
+    /// Runs an agent's own JavaScript (`eval_js`, 0mu.3) in a hardened
+    /// content world of its own. See `AgentEvalScript` for what it hides.
+    func agentEvaluate(_ script: String, in paneID: UUID, timeout: Duration) async -> AgentEvalOutcome
+
 #if DEBUG
     /// Developer diagnostic (non-spec): how many captured interaction-state
     /// blobs are held in memory vs. the LRU cap, plus how many panes the engine
@@ -592,6 +596,9 @@ extension WebEngine {
     public func agentPageContent(for paneID: UUID, maxCharacters: Int) async -> AgentPageContent? { nil }
     public func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data? { nil }
     public func agentPerform(_ request: AgentPageRequest, in paneID: UUID) async -> String? { nil }
+    public func agentEvaluate(_ script: String, in paneID: UUID, timeout: Duration) async -> AgentEvalOutcome {
+        .noView
+    }
     public func togglePictureInPicture(paneID: UUID) async -> PictureInPictureResult {
         .unsupported
     }

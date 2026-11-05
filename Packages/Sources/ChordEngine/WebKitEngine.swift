@@ -1506,6 +1506,15 @@ public final class WebKitEngine: WebEngine {
         return await AgentPageScript.run(request, in: live.webView, world: Self.agentWorld)
     }
 
+    /// `eval_js`'s world: apart from the page, the password monitor, and the
+    /// action tools' refs, so a script cannot reach any of them.
+    static let agentEvalWorld = WKContentWorld.world(name: "chord.agent.eval")
+
+    public func agentEvaluate(_ script: String, in paneID: UUID, timeout: Duration) async -> AgentEvalOutcome {
+        guard let live = pool.peek(paneID) else { return .noView }
+        return await AgentEvalScript.run(script, in: live.webView, world: Self.agentEvalWorld, timeout: timeout)
+    }
+
     public func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data? {
         guard let live = pool.peek(paneID), live.webView.window != nil,
             !live.webView.isHiddenOrHasHiddenAncestor

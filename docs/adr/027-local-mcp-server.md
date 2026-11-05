@@ -1,6 +1,6 @@
 # 027 — Chord as a local MCP server, reached through its own executable
 
-**Status:** accepted (0mu phase 1, 2026-11-05; phase 2 added the same day)
+**Status:** accepted (0mu phases 1–3, 2026-11-05)
 
 ## Context
 
@@ -60,7 +60,7 @@ so it cannot be the child an agent starts.
 ## Consequences
 
 - Phase 1 is read-only: `list_spaces`, `list_tabs`, `read_page`, `screenshot`.
-  Phase 2 adds acting (below). `eval_js` (0mu.3) needs its own toggle.
+  Phase 2 adds acting, phase 3 `eval_js` (both below).
 - The helper path is the running build's executable. A dev build and the
   installed app are different executables, so a client set up for one is
   refused by the other. Settings shows the command for the build in use.
@@ -106,3 +106,32 @@ so it cannot be the child an agent starts.
 - **Lazy restore still holds**, except where the agent asks for loading:
   `open_url` with `background` and `navigate` on an unloaded tab build the
   view, because that is what was requested.
+
+## Phase 3: `eval_js` (0mu.3)
+
+- **Its own switch**, off by default (`agentScriptsEnabled`), effective only in
+  Read & Act Spaces.
+- **Asked on every run.** The sheet shows the whole script, scrollable and
+  selectable. Deny is the default. The third button, "Allow on <site> Until
+  Quit", keeps a per-host list in memory only. It never persists, and turning
+  the switch off clears it.
+- **A world of its own,** `chord.agent.eval`. It is apart from the page, from
+  the password monitor, and from the action tools' refs. It is hardened once
+  per document with non-configurable overrides:
+  - `document.cookie` reads empty;
+  - `localStorage`, `sessionStorage` and `indexedDB` throw;
+  - a password input's `value` reads empty and refuses writes;
+  - the run is refused outright while any password field has a value.
+
+  The native getter that can see passwords lives only in a closure, and one
+  yes/no function is all that escapes it. Found in testing: an earlier
+  version re-read the descriptor on later runs, got its own override back,
+  and missed filled passwords.
+- **Not a sandbox.** A same-origin iframe's fresh prototypes, `FormData`,
+  `fetch` with the page's credentials, and DOM text are all still reachable.
+  The controls are the default-off switch, the per-run sheet that shows the
+  code, and the Space scoping. Settings says so in plain words.
+- **Bounded.** Scripts are capped at 20k characters and output at 50k. The
+  timeout defaults to 10 s, with a maximum of 30 s, and a script that never
+  settles cannot hang the tool (its continuation races a timer). Output is
+  labelled untrusted. Logs record script size and host, never content.

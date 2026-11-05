@@ -257,7 +257,7 @@ final class AgentTools: MCPToolProvider {
                 inputSchema: ["type": "object", "properties": .object(tabTarget), "required": ["tab_id"]],
                 readOnly: true
             ),
-        ] + Self.actTools(tabTarget: tabTarget)
+        ] + Self.actTools(tabTarget: tabTarget) + [Self.scriptTool(tabTarget: tabTarget)]
     }
 
     func callTool(name: String, arguments: [String: JSONValue]) async -> MCPToolResult {

@@ -92,7 +92,7 @@ struct AgentActionTests {
         let answers = Answers()
         store.agentConfirmationPresenter = { prompt in
             answers.prompts.append(prompt)
-            return answers.answer
+            return answers.answer ? .allow : .deny
         }
         return (store, engine, workTab, readTab, answers)
     }
@@ -192,7 +192,7 @@ struct AgentActionTests {
         defer { store.agentAccessEnabled = false }
         store.agentConfirmationPresenter = { [work] _ in
             store.setAgentAccessLevel(.read, for: work.id)
-            return true
+            return .allow
         }
         let result = await call(store, "click", ["tab_id": .string(workTab.id.uuidString), "ref": "e1"])
         #expect(result.isError)

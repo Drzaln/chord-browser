@@ -34,6 +34,9 @@ public final class FakeWebEngine: WebEngine {
     public private(set) var agentRequests: [(AgentPageRequest, UUID)] = []
     /// Answers `agentPerform`; nil (the default) reads as "no live view".
     public var agentResponder: ((AgentPageRequest, UUID) -> String?)?
+    /// Scripts `agentEvaluate` was given, and what it answers (0mu.3).
+    public private(set) var evaluatedScripts: [String] = []
+    public var agentEvalOutcome: AgentEvalOutcome = .noView
 
     public init() {}
 
@@ -246,6 +249,11 @@ public final class FakeWebEngine: WebEngine {
 
     public func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data? {
         agentScreenshots[paneID]
+    }
+
+    public func agentEvaluate(_ script: String, in paneID: UUID, timeout: Duration) async -> AgentEvalOutcome {
+        evaluatedScripts.append(script)
+        return agentEvalOutcome
     }
 
     public func agentPerform(_ request: AgentPageRequest, in paneID: UUID) async -> String? {

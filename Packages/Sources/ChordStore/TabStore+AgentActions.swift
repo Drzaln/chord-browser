@@ -123,6 +123,7 @@ extension AgentTools {
         case "navigate": return navigate(store, arguments)
         case "switch_tab": return switchTab(store, arguments)
         case "close_tab": return closeTab(store, arguments)
+        case "eval_js": return await evalJS(store, arguments)
         default: return .error("Unknown tool: \(name)")
         }
     }
@@ -145,7 +146,7 @@ extension AgentTools {
     }
 
     /// A live pane to act on, or the reason there is none.
-    private func liveTarget(
+    func liveTarget(
         _ store: TabStore, _ arguments: [String: JSONValue]
     ) -> Result<(Tab, Pane), ToolError> {
         switch resolveForAct(store, arguments) {
@@ -182,7 +183,7 @@ extension AgentTools {
 
     /// The window an action lands in: one already showing the Space, else the
     /// one the user last used. Never a private window.
-    private func window(for spaceID: UUID, _ store: TabStore) -> WindowState {
+    func window(for spaceID: UUID, _ store: TabStore) -> WindowState {
         if let showing = store.windows.first(where: { !$0.isPrivate && $0.activeSpaceID == spaceID }) {
             return showing
         }
@@ -201,12 +202,12 @@ extension AgentTools {
 
     // MARK: - Confirmation
 
-    /// Asks the user, with a timeout. False when nobody can be asked.
-    private func confirm(_ prompt: AgentActionPrompt, _ store: TabStore) async -> Bool {
-        guard let presenter = store.agentConfirmationPresenter else { return false }
+    /// Asks the user. A no when nobody can be asked.
+    func confirm(_ prompt: AgentActionPrompt, _ store: TabStore) async -> AgentConfirmationAnswer {
+        guard let presenter = store.agentConfirmationPresenter else { return .deny }
         Log.store.notice("agent asks to \(prompt.action) on \(prompt.host): \(prompt.reason)")
         let answer = await presenter(prompt)
-        Log.store.notice("agent \(prompt.action) on \(prompt.host) \(answer ? "allowed" : "denied")")
+        Log.store.notice("agent \(prompt.action) on \(prompt.host): \(answer)")
         return answer
     }
 
@@ -225,7 +226,7 @@ extension AgentTools {
             spaceName: space,
             reason: reason
         )
-        guard await confirm(prompt, store) else {
+        guard await confirm(prompt, store) != .deny else {
             store.noteAgentActivity("You denied the agent’s \(action) on \(prompt.host)")
             return .error("The user did not allow this \(action) (\(reason)). Do not retry it unless they ask.")
         }

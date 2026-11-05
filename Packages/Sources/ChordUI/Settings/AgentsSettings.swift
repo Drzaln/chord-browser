@@ -34,6 +34,8 @@ struct AgentsSettings: View {
             Divider()
             spacesSection
             Divider()
+            scriptsSection
+            Divider()
             connectSection
         }
     }
@@ -114,6 +116,32 @@ struct AgentsSettings: View {
                     .fixedSize()
                 }
             }
+        }
+        .disabled(!store.agentAccessEnabled)
+        .opacity(store.agentAccessEnabled ? 1 : 0.5)
+    }
+
+    @ViewBuilder
+    private var scriptsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("JavaScript").font(.system(size: 13, weight: .semibold))
+            Text(
+                "Lets agents run their own JavaScript in Read & Act Spaces. Chord shows "
+                    + "you each script and asks before it runs. Scripts run apart from the "
+                    + "page's own code and can't read cookies, site storage or password "
+                    + "fields, but they can read anything else on the page."
+            )
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Toggle(
+                "Let agents run JavaScript",
+                isOn: Binding(
+                    get: { store.agentScriptsEnabled },
+                    set: { store.agentScriptsEnabled = $0 }
+                )
+            )
+            .toggleStyle(.checkbox)
         }
         .disabled(!store.agentAccessEnabled)
         .opacity(store.agentAccessEnabled ? 1 : 0.5)
@@ -232,19 +260,43 @@ struct AgentConnectedPill: View {
 /// within the timeout is a no.
 @MainActor
 public enum AgentConfirmation {
-    public static func ask(_ prompt: AgentActionPrompt, timeout: Duration = .seconds(120)) async -> Bool {
+    public static func ask(
+        _ prompt: AgentActionPrompt, timeout: Duration = .seconds(120)
+    ) async -> AgentConfirmationAnswer {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        let verb = prompt.action == "submit" ? "submit a form" : "click “\(prompt.target)”"
-        alert.messageText = "Allow an agent to \(verb)?"
-        var detail = "On \(prompt.host.isEmpty ? "this page" : prompt.host)"
+        let site = prompt.host.isEmpty ? "this page" : prompt.host
+        switch prompt.action {
+        case "script": alert.messageText = "Allow an agent to run JavaScript on \(site)?"
+        case "submit": alert.messageText = "Allow an agent to submit a form?"
+        default: alert.messageText = "Allow an agent to click “\(prompt.target)”?"
+        }
+        var detail = prompt.action == "script" ? "In “\(prompt.target)”" : "On \(site)"
         if !prompt.spaceName.isEmpty { detail += " in \(prompt.spaceName)" }
         detail += ". Chord is asking because it \(prompt.reason)."
         if prompt.action == "submit", !prompt.target.isEmpty { detail += "\nField: \(prompt.target)" }
         alert.informativeText = detail
+
+        if let script = prompt.script {
+            // The whole script, scrollable and selectable: the user is
+            // approving exactly this code, not a summary of it.
+            let scroll = NSTextView.scrollableTextView()
+            scroll.frame = NSRect(x: 0, y: 0, width: 440, height: 180)
+            scroll.hasVerticalScroller = true
+            scroll.borderType = .bezelBorder
+            if let text = scroll.documentView as? NSTextView {
+                text.string = script
+                text.isEditable = false
+                text.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+                text.textContainerInset = NSSize(width: 4, height: 4)
+            }
+            alert.accessoryView = scroll
+        }
+
         alert.addButton(withTitle: "Deny")
         alert.addButton(withTitle: "Allow")
-        // Deny is the default: Return must never approve a purchase.
+        if prompt.offersAllowForSite { alert.addButton(withTitle: "Allow on \(site) Until Quit") }
+        // Deny is the default: Return must never approve a purchase or a script.
         alert.buttons[0].keyEquivalent = "\r"
         alert.buttons[1].keyEquivalent = ""
 
@@ -269,6 +321,10 @@ public enum AgentConfirmation {
         } else {
             response = alert.runModal()
         }
-        return response == .alertSecondButtonReturn
+        switch response {
+        case .alertSecondButtonReturn: return .allow
+        case .alertThirdButtonReturn: return prompt.offersAllowForSite ? .allowForSite : .deny
+        default: return .deny
+        }
     }
 }
