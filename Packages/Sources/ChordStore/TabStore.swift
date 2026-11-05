@@ -356,6 +356,34 @@ public final class TabStore {
         referrerOverrides.removeAll { $0.domain == domain }
     }
 
+    // MARK: - Agent access (MCP, 0mu)
+
+    /// Whether local agents may connect over MCP. Turning it on starts the
+    /// socket server; off stops it and hangs up on every client.
+    public var agentAccessEnabled: Bool = Preferences.loadAgentAccessEnabled() {
+        didSet {
+            guard agentAccessEnabled != oldValue else { return }
+            Preferences.save(agentAccessEnabled: agentAccessEnabled, to: preferenceStore)
+            applyAgentAccess()
+        }
+    }
+
+    /// The Spaces an agent may see and read. A private Space is never shared,
+    /// whatever this holds — see `agentSharedSpaces`.
+    public var agentSpaceIDs: Set<UUID> = Preferences.loadAgentSpaceIDs() {
+        didSet { Preferences.save(agentSpaceIDs: agentSpaceIDs, to: preferenceStore) }
+    }
+
+    /// How many agents are connected right now; drives the indicator.
+    public internal(set) var agentConnectionCount = 0
+
+    /// Why the server could not start, for Settings. Nil when it is fine.
+    public internal(set) var agentAccessError: String?
+
+    @ObservationIgnored var agentServer: AgentServer?
+    /// Overridable by tests, which must not bind the real socket.
+    @ObservationIgnored var agentSocketPath: String = AgentServer.defaultSocketPath
+
     /// Swipe-right-with-no-history closes the tab / Little Chord panel
     /// (non-spec: user-requested experiment). Defaults to on; the setter pushes
     /// it to the engine, which starts or stops its back-swipe monitor.

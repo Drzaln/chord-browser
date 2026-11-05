@@ -25,6 +25,11 @@ public final class FakeWebEngine: WebEngine {
     public private(set) var stopCount = 0
 
     public var snapshots: [UUID: PaneSnapshot] = [:]
+    /// What `agentPageContent` returns per pane (MCP, 0mu). A pane missing here
+    /// reads as having no live view.
+    public var agentPages: [UUID: AgentPageContent] = [:]
+    /// What `agentScreenshot` returns per pane; missing means "not on screen".
+    public var agentScreenshots: [UUID: Data] = [:]
 
     public init() {}
 
@@ -225,6 +230,19 @@ public final class FakeWebEngine: WebEngine {
     }
 
     public func snapshot(for paneID: UUID) -> PaneSnapshot? { snapshots[paneID] }
+
+    public func agentPageContent(for paneID: UUID, maxCharacters: Int) async -> AgentPageContent? {
+        guard var page = agentPages[paneID] else { return nil }
+        if page.text.count > maxCharacters {
+            page.text = String(page.text.prefix(maxCharacters))
+            page.truncated = true
+        }
+        return page
+    }
+
+    public func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data? {
+        agentScreenshots[paneID]
+    }
 
     /// The fake has no window to focus; a test asserts the store *asked* by
     /// checking `focusRequests` instead.

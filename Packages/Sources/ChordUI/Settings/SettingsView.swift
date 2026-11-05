@@ -23,6 +23,7 @@ public struct SettingsView: View {
         case privacy = "Privacy & Data"
         case extensions = "Extensions"
         case bookmarks = "Bookmarks"
+        case agents = "Agents"
         case updates = "Updates"
         var id: String { rawValue }
     }
@@ -96,6 +97,9 @@ public struct SettingsView: View {
                         store: store, windowState: windowState, bookmarks: bookmarks
                     )
                     .padding(20)
+                case .agents:
+                    AgentsSettings(store: store)
+                        .padding(20)
                 case .updates:
                     UpdateSettings()
                         .padding(20)

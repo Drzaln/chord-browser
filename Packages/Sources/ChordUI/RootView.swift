@@ -220,6 +220,18 @@ public struct RootView: View {
                 .id(sharingPaneID)
             }
 
+            // An agent connected over MCP (0mu). Above the recording pill's
+            // spot when both show, so neither hides the other.
+            if store.agentConnectionCount > 0 {
+                AgentConnectedPill(count: store.agentConnectionCount) {
+                    store.disconnectAgents()
+                }
+                .padding(.bottom, store.extensionRecordings.isEmpty ? 18 : 18 + 44)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(3)
+            }
+
             if !store.extensionRecordings.isEmpty {
                 ExtensionRecordingPill(recordings: store.extensionRecordings) { id in
                     store.stopExtensionRecording(id: id)
