@@ -3,7 +3,20 @@ import ChordUI
 import SwiftUI
 import os
 
+/// The real entry point. `Chord --mcp-stdio` is the MCP helper an agent's
+/// client launches (0mu): it bridges stdio to the running app and exits,
+/// before any of AppKit, the store or a window exists. Anything else is the
+/// browser.
 @main
+enum ChordMain {
+    static func main() {
+        if CommandLine.arguments.dropFirst().contains(AgentBridge.stdioFlag) {
+            exit(AgentBridge.runStdio())
+        }
+        ChordApp.main()
+    }
+}
+
 struct ChordApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 

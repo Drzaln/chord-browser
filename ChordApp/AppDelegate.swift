@@ -139,6 +139,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         disableWindowTabbing()
         attachVaultLockObservers()
+        // Local agents over MCP (0mu), when the user has turned it on. After
+        // launch, not in `init`, so it never costs the first paint.
+        launch.store?.agentConfirmationPresenter = { prompt in
+            await AgentConfirmation.ask(prompt)
+        }
+        launch.store?.startAgentAccessIfEnabled()
 
         // "Open in Little Chord" from a link's context menu routes here: the engine
         // asks the store, the store forwards to this presenter, which owns the

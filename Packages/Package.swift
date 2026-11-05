@@ -22,6 +22,7 @@ let package = Package(
         .library(name: "ChordUI", targets: ["ChordUI"]),
         .library(name: "ChordSecrets", targets: ["ChordSecrets"]),
         .library(name: "ChordUpdater", targets: ["ChordUpdater"]),
+        .library(name: "ChordMCP", targets: ["ChordMCP"]),
         .library(name: "ChordTestSupport", targets: ["ChordTestSupport"]),
     ],
     dependencies: [
@@ -84,7 +85,7 @@ let package = Package(
             name: "ChordStore",
             dependencies: [
                 "ChordCore", "ChordEngine", "ChordExtensions", "ChordPersistence",
-                "ChordSecrets", "ChordLogging",
+                "ChordSecrets", "ChordLogging", "ChordMCP",
             ],
             swiftSettings: strict
         ),
@@ -101,6 +102,16 @@ let package = Package(
         // in the UI layer, so this target never sees AppKit.
         .target(
             name: "ChordUpdater",
+            swiftSettings: strict
+        ),
+
+        // Local MCP server (0mu): JSON-RPC over a user-only Unix socket, plus
+        // the `--mcp-stdio` helper that bridges an MCP client's stdio to it.
+        // Foundation + Darwin only — it knows tools by name and JSON, never a
+        // tab or a web view; ChordStore supplies the tools.
+        .target(
+            name: "ChordMCP",
+            dependencies: ["ChordLogging"],
             swiftSettings: strict
         ),
 
@@ -160,7 +171,12 @@ let package = Package(
         ),
         .testTarget(
             name: "ChordStoreTests",
-            dependencies: ["ChordStore", "ChordSecrets", "ChordTestSupport"],
+            dependencies: ["ChordStore", "ChordSecrets", "ChordMCP", "ChordTestSupport"],
+            swiftSettings: strict
+        ),
+        .testTarget(
+            name: "ChordMCPTests",
+            dependencies: ["ChordMCP"],
             swiftSettings: strict
         ),
         .testTarget(

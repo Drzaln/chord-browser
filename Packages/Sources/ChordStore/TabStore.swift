@@ -356,6 +356,67 @@ public final class TabStore {
         referrerOverrides.removeAll { $0.domain == domain }
     }
 
+    // MARK: - Agent access (MCP, 0mu)
+
+    /// Whether local agents may connect over MCP. Turning it on starts the
+    /// socket server; off stops it and hangs up on every client.
+    public var agentAccessEnabled: Bool = Preferences.loadAgentAccessEnabled() {
+        didSet {
+            guard agentAccessEnabled != oldValue else { return }
+            Preferences.save(agentAccessEnabled: agentAccessEnabled, to: preferenceStore)
+            applyAgentAccess()
+        }
+    }
+
+    /// The Spaces an agent may see and read. A private Space is never shared,
+    /// whatever this holds — see `agentSharedSpaces`.
+    public var agentSpaceIDs: Set<UUID> = Preferences.loadAgentSpaceIDs() {
+        didSet { Preferences.save(agentSpaceIDs: agentSpaceIDs, to: preferenceStore) }
+    }
+
+    /// The shared Spaces where agents may also act (0mu.2). A Space here but
+    /// not in `agentSpaceIDs` grants nothing — see `agentActingSpaces`.
+    public var agentActSpaceIDs: Set<UUID> = Preferences.loadAgentActSpaceIDs() {
+        didSet { Preferences.save(agentActSpaceIDs: agentActSpaceIDs, to: preferenceStore) }
+    }
+
+    /// Asks the user whether an agent may go ahead with a consequential
+    /// action (0mu.2). Set by the app; with none set, the answer is no.
+    @ObservationIgnored public var agentConfirmationPresenter:
+        (@MainActor (AgentActionPrompt) async -> AgentConfirmationAnswer)?
+
+    /// Whether agents may run their own JavaScript (`eval_js`, 0mu.3), in
+    /// Read & Act Spaces only. Off by default; turning it off also forgets
+    /// every "allow on this site" answer.
+    public var agentScriptsEnabled: Bool = Preferences.loadAgentScriptsEnabled() {
+        didSet {
+            Preferences.save(agentScriptsEnabled: agentScriptsEnabled, to: preferenceStore)
+            if !agentScriptsEnabled { agentScriptHosts = [] }
+        }
+    }
+
+    /// Sites where the user said "allow scripts until Chord quits". Memory
+    /// only, by design: it never outlives the session.
+    @ObservationIgnored var agentScriptHosts: Set<String> = []
+
+    /// How many agents are connected right now; drives the indicator.
+    public internal(set) var agentConnectionCount = 0
+
+    /// The last thing an agent did, for the indicator ("Agent clicked
+    /// “Search” on youtube.com"). Cleared once it has lingered.
+    public internal(set) var agentActivity: String?
+    /// Until when the indicator stays up with no agent connected, so a burst
+    /// of short connections cannot come and go unseen.
+    public internal(set) var agentLingerUntil: Date?
+    @ObservationIgnored var agentLingerTask: Task<Void, Never>?
+
+    /// Why the server could not start, for Settings. Nil when it is fine.
+    public internal(set) var agentAccessError: String?
+
+    @ObservationIgnored var agentServer: AgentServer?
+    /// Overridable by tests, which must not bind the real socket.
+    @ObservationIgnored var agentSocketPath: String = AgentServer.defaultSocketPath
+
     /// Swipe-right-with-no-history closes the tab / Little Chord panel
     /// (non-spec: user-requested experiment). Defaults to on; the setter pushes
     /// it to the engine, which starts or stops its back-swipe monitor.

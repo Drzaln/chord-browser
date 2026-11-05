@@ -1463,6 +1463,76 @@ public final class WebKitEngine: WebEngine {
         return window.makeFirstResponder(live.webView)
     }
 
+    // MARK: - Agent access (MCP, 0mu)
+
+    /// The agent's own content world. Never `.page` (the site could rewrite
+    /// what is read) and never the password monitor's world.
+    static let agentWorld = WKContentWorld.world(name: "chord.agent")
+
+    public func agentPageContent(for paneID: UUID, maxCharacters: Int) async -> AgentPageContent? {
+        guard let live = pool.peek(paneID) else { return nil }
+        do {
+            let value = try await live.webView.callAsyncJavaScript(
+                """
+                const root = document.body || document.documentElement;
+                let text = root ? (root.innerText ?? root.textContent ?? "") : "";
+                text = text.replace(/[ \\t]+\\n/g, "\\n").replace(/\\n{3,}/g, "\\n\\n").trim();
+                const truncated = text.length > max;
+                return {
+                    title: document.title || "",
+                    url: location.href,
+                    text: truncated ? text.slice(0, max) : text,
+                    truncated
+                };
+                """,
+                arguments: ["max": max(0, maxCharacters)],
+                contentWorld: Self.agentWorld
+            )
+            guard let dict = value as? [String: Any] else { return nil }
+            return AgentPageContent(
+                url: (dict["url"] as? String).flatMap(URL.init(string:)) ?? live.webView.url,
+                title: dict["title"] as? String ?? live.webView.title ?? "",
+                text: dict["text"] as? String ?? "",
+                truncated: dict["truncated"] as? Bool ?? false
+            )
+        } catch {
+            Log.engine.debug("agent page read failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    public func agentPerform(_ request: AgentPageRequest, in paneID: UUID) async -> String? {
+        guard let live = pool.peek(paneID) else { return nil }
+        return await AgentPageScript.run(request, in: live.webView, world: Self.agentWorld)
+    }
+
+    /// `eval_js`'s world: apart from the page, the password monitor, and the
+    /// action tools' refs, so a script cannot reach any of them.
+    static let agentEvalWorld = WKContentWorld.world(name: "chord.agent.eval")
+
+    public func agentEvaluate(_ script: String, in paneID: UUID, timeout: Duration) async -> AgentEvalOutcome {
+        guard let live = pool.peek(paneID) else { return .noView }
+        return await AgentEvalScript.run(script, in: live.webView, world: Self.agentEvalWorld, timeout: timeout)
+    }
+
+    public func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data? {
+        guard let live = pool.peek(paneID), live.webView.window != nil,
+            !live.webView.isHiddenOrHasHiddenAncestor
+        else { return nil }
+        let config = WKSnapshotConfiguration()
+        let width = live.webView.bounds.width
+        if width > maxWidth { config.snapshotWidth = NSNumber(value: maxWidth) }
+        let image: NSImage? = await withCheckedContinuation { continuation in
+            live.webView.takeSnapshot(with: config) { image, _ in
+                continuation.resume(returning: image)
+            }
+        }
+        guard let image, let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff)
+        else { return nil }
+        return rep.representation(using: .png, properties: [:])
+    }
+
     public func captureThumbnail(for paneID: UUID) {
         // Only a pane whose view is actually on screen can be snapshot: a view
         // detached from its window has no backing store, so `takeSnapshot`
