@@ -552,6 +552,11 @@ public protocol WebEngine: AnyObject {
     /// out of its window snapshots blank (see `captureThumbnail`).
     func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data?
 
+    /// Runs one agent request against the pane's page (MCP, 0mu.2), in the
+    /// agent's content world, and returns the script's result as JSON text.
+    /// Nil when the pane has no live view or the script threw.
+    func agentPerform(_ request: AgentPageRequest, in paneID: UUID) async -> String?
+
 #if DEBUG
     /// Developer diagnostic (non-spec): how many captured interaction-state
     /// blobs are held in memory vs. the LRU cap, plus how many panes the engine
@@ -586,6 +591,7 @@ extension WebEngine {
     public func mediaDiagnostics(for paneID: UUID) async -> MediaDiagnostics? { nil }
     public func agentPageContent(for paneID: UUID, maxCharacters: Int) async -> AgentPageContent? { nil }
     public func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data? { nil }
+    public func agentPerform(_ request: AgentPageRequest, in paneID: UUID) async -> String? { nil }
     public func togglePictureInPicture(paneID: UUID) async -> PictureInPictureResult {
         .unsupported
     }

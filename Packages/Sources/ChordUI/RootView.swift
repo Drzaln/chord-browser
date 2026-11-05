@@ -222,8 +222,10 @@ public struct RootView: View {
 
             // An agent connected over MCP (0mu). Above the recording pill's
             // spot when both show, so neither hides the other.
-            if store.agentConnectionCount > 0 {
-                AgentConnectedPill(count: store.agentConnectionCount) {
+            if store.showsAgentIndicator {
+                AgentConnectedPill(
+                    count: store.agentConnectionCount, activity: store.agentActivity
+                ) {
                     store.disconnectAgents()
                 }
                 .padding(.bottom, store.extensionRecordings.isEmpty ? 18 : 18 + 44)

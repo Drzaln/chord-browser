@@ -30,6 +30,7 @@ enum Preferences {
     private static let siteOverridesKey = "prefs.siteOverrides"
     private static let agentAccessEnabledKey = "prefs.agentAccessEnabled"
     private static let agentSpaceIDsKey = "prefs.agentSpaceIDs"
+    private static let agentActSpaceIDsKey = "prefs.agentActSpaceIDs"
 
     static func loadSearchEngine(
         _ defaults: any PreferenceStore = UserDefaults.standard
@@ -253,6 +254,19 @@ enum Preferences {
         agentSpaceIDs ids: Set<UUID>, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         encode(ids, forKey: agentSpaceIDsKey, to: defaults)
+    }
+
+    /// The shared Spaces where agents may also act. Empty by default.
+    static func loadAgentActSpaceIDs(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Set<UUID> {
+        decode(Set<UUID>.self, forKey: agentActSpaceIDsKey, from: defaults) ?? []
+    }
+
+    static func save(
+        agentActSpaceIDs ids: Set<UUID>, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(ids, forKey: agentActSpaceIDsKey, to: defaults)
     }
 
     // MARK: - Background tabs

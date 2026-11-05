@@ -30,6 +30,10 @@ public final class FakeWebEngine: WebEngine {
     public var agentPages: [UUID: AgentPageContent] = [:]
     /// What `agentScreenshot` returns per pane; missing means "not on screen".
     public var agentScreenshots: [UUID: Data] = [:]
+    /// Every agent request, in order, with its pane (0mu.2).
+    public private(set) var agentRequests: [(AgentPageRequest, UUID)] = []
+    /// Answers `agentPerform`; nil (the default) reads as "no live view".
+    public var agentResponder: ((AgentPageRequest, UUID) -> String?)?
 
     public init() {}
 
@@ -242,6 +246,11 @@ public final class FakeWebEngine: WebEngine {
 
     public func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data? {
         agentScreenshots[paneID]
+    }
+
+    public func agentPerform(_ request: AgentPageRequest, in paneID: UUID) async -> String? {
+        agentRequests.append((request, paneID))
+        return agentResponder?(request, paneID)
     }
 
     /// The fake has no window to focus; a test asserts the store *asked* by

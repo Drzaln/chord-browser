@@ -1467,7 +1467,7 @@ public final class WebKitEngine: WebEngine {
 
     /// The agent's own content world. Never `.page` (the site could rewrite
     /// what is read) and never the password monitor's world.
-    private static let agentWorld = WKContentWorld.world(name: "chord.agent")
+    static let agentWorld = WKContentWorld.world(name: "chord.agent")
 
     public func agentPageContent(for paneID: UUID, maxCharacters: Int) async -> AgentPageContent? {
         guard let live = pool.peek(paneID) else { return nil }
@@ -1499,6 +1499,11 @@ public final class WebKitEngine: WebEngine {
             Log.engine.debug("agent page read failed: \(error.localizedDescription)")
             return nil
         }
+    }
+
+    public func agentPerform(_ request: AgentPageRequest, in paneID: UUID) async -> String? {
+        guard let live = pool.peek(paneID) else { return nil }
+        return await AgentPageScript.run(request, in: live.webView, world: Self.agentWorld)
     }
 
     public func agentScreenshot(for paneID: UUID, maxWidth: Double) async -> Data? {

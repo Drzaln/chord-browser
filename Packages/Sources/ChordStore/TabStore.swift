@@ -374,8 +374,27 @@ public final class TabStore {
         didSet { Preferences.save(agentSpaceIDs: agentSpaceIDs, to: preferenceStore) }
     }
 
+    /// The shared Spaces where agents may also act (0mu.2). A Space here but
+    /// not in `agentSpaceIDs` grants nothing — see `agentActingSpaces`.
+    public var agentActSpaceIDs: Set<UUID> = Preferences.loadAgentActSpaceIDs() {
+        didSet { Preferences.save(agentActSpaceIDs: agentActSpaceIDs, to: preferenceStore) }
+    }
+
+    /// Asks the user whether an agent may go ahead with a consequential
+    /// action (0mu.2). Set by the app; with none set, the answer is no.
+    @ObservationIgnored public var agentConfirmationPresenter:
+        (@MainActor (AgentActionPrompt) async -> Bool)?
+
     /// How many agents are connected right now; drives the indicator.
     public internal(set) var agentConnectionCount = 0
+
+    /// The last thing an agent did, for the indicator ("Agent clicked
+    /// “Search” on youtube.com"). Cleared once it has lingered.
+    public internal(set) var agentActivity: String?
+    /// Until when the indicator stays up with no agent connected, so a burst
+    /// of short connections cannot come and go unseen.
+    public internal(set) var agentLingerUntil: Date?
+    @ObservationIgnored var agentLingerTask: Task<Void, Never>?
 
     /// Why the server could not start, for Settings. Nil when it is fine.
     public internal(set) var agentAccessError: String?
