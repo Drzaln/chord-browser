@@ -54,6 +54,9 @@ extension NavigationCoordinator: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         guard let paneID = paneID(for: webView) else { return }
+        // The page that reported a hovered link is on its way out, and will
+        // not be there to say the pointer left.
+        engine?.setHoveredLink(nil, for: paneID)
         engine?.publishSnapshot(for: paneID)
     }
 
@@ -332,6 +335,8 @@ extension NavigationCoordinator: WKScriptMessageHandler {
             engine?.setContextLinkURL(ContextLinkMonitor.linkURL(from: message.body), for: paneID)
         case ContextImageMonitor.messageName:
             engine?.setContextImageURL(ContextImageMonitor.imageURL(from: message.body), for: paneID)
+        case LinkHoverMonitor.messageName:
+            engine?.setHoveredLink(LinkHoverMonitor.link(from: message.body), for: paneID)
         case SiteOverridePicker.messageName:
             guard let result = SiteOverridePicker.result(from: message.body) else { return }
             if result.cancelled {

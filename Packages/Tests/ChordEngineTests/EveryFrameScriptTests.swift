@@ -14,7 +14,8 @@ struct EveryFrameScriptTests {
         let bundle = WebKitEngine.everyFrameSource
         for part in [
             MediaActivityMonitor.makeUserScript(), ContextLinkMonitor.makeUserScript(),
-            ContextImageMonitor.makeUserScript(), AudioMuteController.makeUserScript(),
+            ContextImageMonitor.makeUserScript(), LinkHoverMonitor.makeUserScript(),
+            AudioMuteController.makeUserScript(),
             SleepTimerController.makeUserScript(), NotificationBridge.makeUserScript(),
             ScreenShareMonitor.makeUserScript(), YouTubeAdBlocker.makeUserScript(),
             GeolocationBridge.makeUserScript(), PictureInPictureMonitor.makeUserScript(),

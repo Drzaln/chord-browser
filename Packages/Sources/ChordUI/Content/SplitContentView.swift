@@ -143,6 +143,13 @@ private struct PaneCard: View {
             }
         }
         .overlay {
+            // Where the link under the pointer goes. Never hit-testable, and
+            // not drawn for a pane nobody can see.
+            if !isParked {
+                LinkDestinationLabel(runtime: store.runtime(for: pane.id))
+            }
+        }
+        .overlay {
             // Only while a tab is actually in flight. A permanent layer here
             // would sit above the web view and swallow every click; without a
             // layer at all, the web view swallows the *drop*, because it

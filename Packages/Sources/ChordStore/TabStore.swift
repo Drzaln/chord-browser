@@ -2000,6 +2000,11 @@ extension TabStore: WebEngineDelegate {
         pendingHistoryURL[paneID] = nil
     }
 
+    public func paneDidHoverLink(_ paneID: UUID, url: URL?) {
+        let runtime = runtime(for: paneID)
+        if runtime.hoveredLink != url { runtime.hoveredLink = url }
+    }
+
     public func paneDidLoadFavicon(_ paneID: UUID, data: Data?) {
         guard let data,
               let tabID = tabID(owning: paneID),

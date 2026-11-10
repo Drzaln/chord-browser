@@ -115,6 +115,9 @@ public struct PaneSnapshot: Equatable, Sendable {
 public protocol WebEngineDelegate: AnyObject {
     func paneDidUpdate(_ paneID: UUID, snapshot: PaneSnapshot)
     func paneDidLoadFavicon(_ paneID: UUID, data: Data?)
+    /// The pointer moved onto a link in the pane's page (`url`), or off it
+    /// (nil). Non-spec: user-requested. See `LinkHoverMonitor`.
+    func paneDidHoverLink(_ paneID: UUID, url: URL?)
     /// A page thumbnail was captured (non-spec: user-requested, the Ctrl+Tab
     /// switcher). Carries the PNG; `nil` means the capture failed. The engine
     /// never caches — the store owns the thumbnails.
@@ -213,6 +216,7 @@ extension WebEngineDelegate {
     /// Defaults so delegates that predate these features (and test doubles) need
     /// not implement them.
     public func paneRequestedBackgroundTab(url: URL, fromPane paneID: UUID?) {}
+    public func paneDidHoverLink(_ paneID: UUID, url: URL?) {}
     public func paneRequestedPopup(url: URL?, popupPaneID: UUID, fromPane paneID: UUID?) {}
     public func panePopupDidClose(_ paneID: UUID) {}
     public func paneRequestedPrivateWindow(url: URL) {}

@@ -512,6 +512,7 @@ public final class WebKitEngine: WebEngine {
             controller.add(coordinator, name: MediaActivityMonitor.messageName)
             controller.add(coordinator, name: ContextLinkMonitor.messageName)
             controller.add(coordinator, name: ContextImageMonitor.messageName)
+            controller.add(coordinator, name: LinkHoverMonitor.messageName)
             controller.add(coordinator, name: SiteOverridePicker.messageName)
             controller.add(coordinator, name: NotificationBridge.showMessageName)
             controller.add(coordinator, name: ScreenShareMonitor.messageName)
@@ -566,6 +567,7 @@ public final class WebKitEngine: WebEngine {
         MediaActivityMonitor.makeUserScript(),
         ContextLinkMonitor.makeUserScript(),
         ContextImageMonitor.makeUserScript(),
+        LinkHoverMonitor.makeUserScript(),
         AudioMuteController.makeUserScript(),
         SleepTimerController.makeUserScript(),
         NotificationBridge.makeUserScript(),
@@ -1274,6 +1276,14 @@ public final class WebKitEngine: WebEngine {
     /// right-click. `nil` when the click was not over a link.
     func setContextLinkURL(_ url: URL?, for paneID: UUID) {
         contextLinkURL[paneID] = url
+    }
+
+    /// The link under the pointer in the pane's page, or nil once it has left.
+    /// Passed straight on rather than through the snapshot: it changes with
+    /// every link the pointer crosses, and a snapshot is compared and applied
+    /// field by field.
+    func setHoveredLink(_ url: URL?, for paneID: UUID) {
+        delegate?.paneDidHoverLink(paneID, url: url)
     }
 
     /// Records (or clears) the image the pane's page reported under the last

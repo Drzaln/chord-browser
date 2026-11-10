@@ -36,6 +36,10 @@ public final class PaneRuntime {
     /// button is a pure function of state rather than a view-side async lookup
     /// racing the page load.
     public var fillableCredentials: [Credential] = []
+    /// The link under the pointer in this pane's page, if any (non-spec:
+    /// user-requested). Read only by the pane's small destination label, so a
+    /// pointer crossing links redraws nothing else.
+    public var hoveredLink: URL?
 
     init(paneID: UUID) {
         self.paneID = paneID
