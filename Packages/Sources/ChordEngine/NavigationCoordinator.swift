@@ -81,7 +81,7 @@ extension NavigationCoordinator: WKNavigationDelegate {
         withError error: Error
     ) {
         if retryTransientLoad(webView: webView, error: error) { return }
-        report(error, webView: webView)
+        report(error, webView: webView, beforeCommit: true)
     }
 
     /// WebKit cancels the *first* navigation to a service-worker app shell with
@@ -108,7 +108,7 @@ extension NavigationCoordinator: WKNavigationDelegate {
         return true
     }
 
-    private func report(_ error: Error, webView: WKWebView) {
+    private func report(_ error: Error, webView: WKWebView, beforeCommit: Bool = false) {
         // A cancelled navigation is the normal result of the user clicking a new
         // link mid-load, not a failure worth surfacing.
         let nsError = error as NSError
@@ -127,6 +127,14 @@ extension NavigationCoordinator: WKNavigationDelegate {
             failed.scheme == "http" || failed.scheme == "https"
         {
             engine?.presentOfflineGame(for: paneID, failedURL: failed)
+            return
+        }
+
+        // A load that failed before the site showed anything gets a page that
+        // says so. One that failed after committing keeps what it managed to
+        // show: replacing a half-loaded page with an error would lose it.
+        if beforeCommit, let failed = ErrorPage.failedURL(for: error, webViewURL: webView.url) {
+            engine?.presentErrorPage(for: paneID, failedURL: failed, code: nsError.code)
             return
         }
 

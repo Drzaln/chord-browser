@@ -89,6 +89,10 @@ public final class WebKitEngine: WebEngine {
     /// `WKWebViewConfiguration.copy()` cannot drop it.
     private let offlineGamePage = OfflineGameSchemeHandler()
 
+    /// Serves the page for a load that failed (`ErrorPage`). Registered beside
+    /// the offline game's, for the same reason.
+    private let errorPage = ErrorPageSchemeHandler()
+
     /// Owns `WKDownload` and its delegate. Public so the UI can list and cancel
     /// downloads without WebKit appearing in any signature it can see.
     public let downloads: DownloadCoordinator
@@ -446,6 +450,9 @@ public final class WebKitEngine: WebEngine {
         if config.urlSchemeHandler(forURLScheme: OfflineGamePage.scheme) == nil {
             config.setURLSchemeHandler(offlineGamePage, forURLScheme: OfflineGamePage.scheme)
         }
+        if config.urlSchemeHandler(forURLScheme: ErrorPage.scheme) == nil {
+            config.setURLSchemeHandler(errorPage, forURLScheme: ErrorPage.scheme)
+        }
 
         // Attach this Space's extension controller, if the host has one loaded
         // (M7). Left unset when the Space has no extensions, so a configuration
@@ -725,6 +732,9 @@ public final class WebKitEngine: WebEngine {
         )
         if config.urlSchemeHandler(forURLScheme: OfflineGamePage.scheme) == nil {
             config.setURLSchemeHandler(offlineGamePage, forURLScheme: OfflineGamePage.scheme)
+        }
+        if config.urlSchemeHandler(forURLScheme: ErrorPage.scheme) == nil {
+            config.setURLSchemeHandler(errorPage, forURLScheme: ErrorPage.scheme)
         }
         let webView = ChordWebView(frame: .zero, configuration: config)
         configure(webView)
@@ -1433,6 +1443,14 @@ public final class WebKitEngine: WebEngine {
         live.webView.load(URLRequest(url: OfflineGamePage.url(target: failedURL)))
     }
 
+    /// Puts the error page in front of a load that failed before the site
+    /// showed anything. The pane is still reported as being at `failedURL`
+    /// (see `handleSnapshot`).
+    func presentErrorPage(for paneID: UUID, failedURL: URL, code: Int) {
+        guard let live = pool.view(for: paneID) else { return }
+        live.webView.load(URLRequest(url: ErrorPage.url(target: failedURL, code: code)))
+    }
+
     public func goBack(in paneID: UUID) { pool.view(for: paneID)?.webView.goBack() }
     public func goForward(in paneID: UUID) { pool.view(for: paneID)?.webView.goForward() }
 
@@ -1443,6 +1461,11 @@ public final class WebKitEngine: WebEngine {
         if live.webView.url?.scheme == OfflineGamePage.scheme,
             let target = lastKnownURL[paneID]
         {
+            live.webView.loadPage(target)
+            return
+        }
+        // Nor is the error page: a reload retries the address that failed.
+        if let url = live.webView.url, let target = ErrorPage.targetURL(from: url) {
             live.webView.loadPage(target)
             return
         }
@@ -1731,6 +1754,15 @@ public final class WebKitEngine: WebEngine {
         // The offline game is not a real page, so it never becomes the pane's
         // last-known URL — a reload (or a crash recovery) must retry the site
         // the game stands in for (non-spec: user-requested).
+        var snapshot = snapshot
+        // The error page stands in for the address that failed, and the rest of
+        // the app is told the pane is at that address: the address field keeps
+        // what the user asked for, the session saves it, a reload retries it.
+        // `loadFailed` keeps the visit out of history.
+        if let url = snapshot.url, ErrorPage.isErrorPage(url) {
+            snapshot.url = ErrorPage.targetURL(from: url)
+            snapshot.loadFailed = true
+        }
         if let url = snapshot.url, url.scheme != OfflineGamePage.scheme {
             lastKnownURL[paneID] = url
         }
@@ -1756,6 +1788,8 @@ public final class WebKitEngine: WebEngine {
 
     func fetchFavicon(for paneID: UUID) {
         guard let live = pool.view(for: paneID), let pageURL = live.webView.url else { return }
+        // Chord's own error page has no icon to fetch.
+        guard !ErrorPage.isErrorPage(pageURL) else { return }
 
         let script = """
         (function () {

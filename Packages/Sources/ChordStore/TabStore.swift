@@ -1976,6 +1976,13 @@ extension TabStore: WebEngineDelegate {
               let scheme = url.scheme, scheme == "http" || scheme == "https"
         else { return }
 
+        // A load that failed shows Chord's error page at this address. It is
+        // not a visit, and it must not be left waiting to be recorded as one.
+        if snapshot.loadFailed {
+            pendingHistoryURL[paneID] = nil
+            return
+        }
+
         // A new URL (fresh load or in-page navigation) reopens the record window
         // for this pane, so a settled title is written even when WebKit never
         // flipped `isLoading` for the navigation.

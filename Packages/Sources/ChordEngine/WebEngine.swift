@@ -79,6 +79,11 @@ public struct PaneSnapshot: Equatable, Sendable {
     /// The distinction matters to the UI: "not looked yet" is not "no form here".
     public var loginForm: LoginFormAnalysis?
 
+    /// True while the pane shows Chord's own error page in place of `url`,
+    /// which failed to load. `url` is still the address that failed; the store
+    /// keeps such a visit out of history.
+    public var loadFailed: Bool = false
+
     public init(
         url: URL? = nil,
         title: String = "",
