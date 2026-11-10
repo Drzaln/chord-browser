@@ -48,6 +48,7 @@ struct FolderRowView: View {
                     Image(systemName: "pencil").font(.system(size: 9))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Rename folder")
                 .help("Rename folder")
             }
         }

@@ -63,6 +63,7 @@ struct SpaceEditor: View {
                         } label: {
                             Image(systemName: "face.smiling")
                         }
+                        .accessibilityLabel("Choose an emoji")
                         .help("Choose Emoji…")
                         ColorPicker("Colour", selection: $color, supportsOpacity: false)
                             .labelsHidden()

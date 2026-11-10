@@ -169,6 +169,7 @@ struct PrivacyDataSettings: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Revoke permission")
                         .help("Forget this site’s camera/microphone choice")
                     }
                     .padding(.vertical, 6)

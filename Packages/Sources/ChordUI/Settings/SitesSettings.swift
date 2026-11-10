@@ -124,6 +124,7 @@ struct SitesSettings: View {
                                 Image(systemName: "trash").foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Remove routing rule for \(rule.pattern)")
                             .help("Remove this rule")
                         }
                         .padding(.vertical, 5)
@@ -228,6 +229,7 @@ struct SitesSettings: View {
                                     Image(systemName: "trash").foregroundStyle(.secondary)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel("Remove override for \(override.pattern)")
                                 .help("Remove this override")
                             }
                         }
@@ -321,6 +323,7 @@ private struct SiteOverrideEditor: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel("Stop hiding this element")
                                 .help("Stop hiding this element")
                             }
                         }

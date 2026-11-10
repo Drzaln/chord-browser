@@ -145,6 +145,7 @@ struct PasswordsSettings: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Delete password")
                     .help("Delete this saved password")
                 }
                 .padding(.vertical, 6)

@@ -276,6 +276,7 @@ struct GeneralSettings: View {
                                 Image(systemName: "trash").foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Remove User-Agent rule for \(override.domain)")
                             .help("Remove this rule")
                         }
                         .padding(.vertical, 5)
@@ -474,6 +475,7 @@ struct GeneralSettings: View {
                 Image(systemName: "trash").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Remove referrer rule for \(override.domain)")
             .help("Remove this rule")
         }
         .padding(.vertical, 5)

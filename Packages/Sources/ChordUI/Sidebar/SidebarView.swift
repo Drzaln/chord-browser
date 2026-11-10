@@ -609,6 +609,7 @@ struct SidebarView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("New Folder")
             .help("New Folder")
         }
         .foregroundStyle(.secondary)

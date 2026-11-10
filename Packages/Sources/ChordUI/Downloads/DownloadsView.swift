@@ -126,12 +126,14 @@ struct DownloadRow: View {
                     Image(systemName: "xmark.circle.fill")
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Cancel download")
                 .help("Cancel")
             } else {
                 Button(action: clear) {
                     Image(systemName: "xmark")
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Remove from list")
                 .help("Remove from list")
             }
         }

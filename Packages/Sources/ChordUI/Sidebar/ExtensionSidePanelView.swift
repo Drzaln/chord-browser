@@ -37,6 +37,7 @@ struct ExtensionSidePanelView: View {
                         .font(.system(size: 11, weight: .semibold))
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Close Side Panel")
                 .help("Close Side Panel")
             }
             .padding(.horizontal, 12)

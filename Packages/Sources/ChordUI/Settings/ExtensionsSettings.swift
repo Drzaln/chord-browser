@@ -212,6 +212,7 @@ struct ExtensionsSettings: View {
                     Image(systemName: "trash")
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Uninstall extension")
                 .help("Uninstall")
             }
         }

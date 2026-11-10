@@ -92,6 +92,8 @@ struct BookmarksSettings: View {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel("Remove bookmark")
+            .help("Remove bookmark")
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
