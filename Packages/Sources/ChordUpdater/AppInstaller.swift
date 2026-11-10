@@ -12,12 +12,17 @@ public struct AppInstaller: Sendable {
 
     public let applicationsDirectory: URL
     public let supportDirectory: URL
+    /// What a download must be to be installed. Nil means "the app this
+    /// process is running from", looked up when an install starts.
+    public let expected: BundleIdentity?
 
     public init(
         applicationsDirectory: URL = URL(fileURLWithPath: "/Applications", isDirectory: true),
-        supportDirectory: URL? = nil
+        supportDirectory: URL? = nil,
+        expected: BundleIdentity? = nil
     ) {
         self.applicationsDirectory = applicationsDirectory
+        self.expected = expected
         if let supportDirectory {
             self.supportDirectory = supportDirectory
         } else {
@@ -30,8 +35,9 @@ public struct AppInstaller: Sendable {
         }
     }
 
-    /// Fetches `asset`, unzips it, finds the bundled `.app`, and swaps it into
-    /// the applications directory. Returns the installed app URL.
+    /// Fetches `asset`, unzips it, finds the bundled `.app`, checks it is the
+    /// update it claims to be, and swaps it into the applications directory.
+    /// Returns the installed app URL.
     public func install(
         release: GitHubRelease,
         asset: GitHubRelease.Asset,
@@ -42,22 +48,36 @@ public struct AppInstaller: Sendable {
         try fileManager.createDirectory(at: supportDirectory, withIntermediateDirectories: true)
         try? fileManager.removeItem(at: staging)
         try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+        // A refused or failed download is not kept around.
+        defer { try? fileManager.removeItem(at: staging) }
 
         let zipURL = staging.appendingPathComponent(asset.name)
         try await download(asset.downloadURL, to: zipURL, progress: progress)
+        return try installDownloaded(zip: zipURL, release: release, staging: staging)
+    }
 
+    /// Everything after the download. Nothing in the applications directory is
+    /// touched until the bundle has passed `BundleVerifier`.
+    func installDownloaded(zip zipURL: URL, release: GitHubRelease, staging: URL) throws -> URL {
         let extracted = staging.appendingPathComponent("extracted", isDirectory: true)
-        try fileManager.createDirectory(at: extracted, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: extracted, withIntermediateDirectories: true)
         try extract(zip: zipURL, to: extracted)
 
         guard let bundledApp = findAppBundle(in: extracted) else {
-            throw InstallError(message: "No .app bundle found inside \(asset.name).")
+            throw InstallError(message: "No .app bundle found inside \(zipURL.lastPathComponent).")
+        }
+        guard let expected = expected ?? BundleIdentity.running() else {
+            throw InstallError(message: "Chord could not tell which app it is, so it did not install the update.")
+        }
+        do {
+            try BundleVerifier.verify(bundledApp, expected: expected, version: release.version)
+        } catch let failure as BundleVerifier.Failure {
+            throw InstallError(message: "The update was not installed: \(failure.message)")
         }
 
         let destination = applicationsDirectory.appendingPathComponent(bundledApp.lastPathComponent)
         try swap(intoPlace: destination, from: bundledApp)
         stripQuarantine(at: destination)
-        try? fileManager.removeItem(at: staging)
         return destination
     }
 
@@ -92,17 +112,32 @@ public struct AppInstaller: Sendable {
 
     // MARK: - Install
 
-    private func swap(intoPlace destination: URL, from source: URL) throws {
+    func swap(intoPlace destination: URL, from source: URL) throws {
         let fileManager = FileManager.default
+        // The installed copy is moved aside, not deleted, until the new one is
+        // in place: a failed swap must not leave the user with no app. Beside
+        // the destination, so the move is a rename on the same volume.
+        var previous: URL?
         if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
+            let aside = destination.deletingLastPathComponent().appendingPathComponent(
+                ".\(destination.lastPathComponent).previous-\(UUID().uuidString.prefix(8))")
+            try fileManager.moveItem(at: destination, to: aside)
+            previous = aside
         }
         do {
-            try fileManager.moveItem(at: source, to: destination)
+            do {
+                try fileManager.moveItem(at: source, to: destination)
+            } catch {
+                // Cross-volume fallback (rare: staging usually shares the volume).
+                try? fileManager.removeItem(at: destination)
+                try fileManager.copyItem(at: source, to: destination)
+            }
         } catch {
-            // Cross-volume fallback (rare: staging usually shares the volume).
-            try fileManager.copyItem(at: source, to: destination)
+            try? fileManager.removeItem(at: destination)
+            if let previous { try? fileManager.moveItem(at: previous, to: destination) }
+            throw error
         }
+        if let previous { try? fileManager.removeItem(at: previous) }
     }
 
     private func findAppBundle(in directory: URL) -> URL? {

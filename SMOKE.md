@@ -1610,6 +1610,11 @@ is manual — check on open, but download and install only on a click.
       an orange message, never a crash
 - [ ] Offline: the check fails gracefully with the error message, and
       **Check for Updates** re-runs
+- [ ] (added 2026-11-10) A real update still installs with the bundle checks
+      in place, and `ls -a /Applications | grep previous` shows nothing after.
+- [ ] (added 2026-11-10) A release whose zip holds a different or damaged app
+      shows "The update was not installed: …" and `/Applications/Chord.app` is
+      unchanged.
 
 **Development note:** the pipeline was verified live against the real
 `Chord.zip` into a temporary directory (not `/Applications`). The update path

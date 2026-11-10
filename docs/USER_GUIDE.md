@@ -274,7 +274,9 @@ hint) to see a change. Edits are saved with **Save**, not as you type.
   releases page (`Drzaln/chord-browser`) runs automatically when you open it.
 - If a newer release exists, a **Download & Install** button appears. Click it
   and Chord downloads the zip, extracts it, and replaces the copy in
-  `/Applications`.
+  `/Applications`. Before replacing anything it checks that the download is
+  Chord, is the version the release says, and is intact. If a check fails, the
+  section says why and the copy you have stays as it is.
 - Once installed, **Restart Now** quits Chord and relaunches the new version —
   your tabs, Spaces, and session are restored as on a normal quit.
 

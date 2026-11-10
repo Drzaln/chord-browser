@@ -87,3 +87,35 @@ signed-update-channel infrastructure — is acceptable for a personal browser.
   distribution.
 - A newer *local* build than the latest release reports "up to date" — the
   comparison is directional (latest > installed), so dev builds never nag.
+
+## Amendment (2026-11-10): the download is checked before it is installed
+
+As first built, `AppInstaller` moved the first `.app` in the zip into
+`/Applications` and stripped its quarantine without looking at it, and it
+deleted the installed copy before moving the new one in. Both change.
+
+- **Checks (`BundleVerifier`), all before anything in `/Applications` is
+  touched.** The bundle's `CFBundleIdentifier` must be the running app's. Its
+  `CFBundleShortVersionString` must be the release's version. Its signature
+  must hold (`codesign --verify --deep --strict`). When the running app is
+  signed by a team, the download must be signed by the same team. A refusal
+  shows in Settings → Updates and the installed app is left alone.
+- **`codesign`, not Security.** The verifier shells out to `/usr/bin/codesign`,
+  as the installer already does to `ditto` and `xattr`, so `ChordUpdater` stays
+  Foundation-only and Security stays in `ChordSecrets` and `ChordCrypto`
+  (ADR 011).
+- **What this does and does not prove.** Releases are ad-hoc signed unless the
+  `MACOS_CERTIFICATE_*` secrets are set, and 1.24.1 is ad-hoc. An ad-hoc
+  signature names nobody, so for those releases the checks catch a wrong,
+  mismatched, truncated or damaged bundle, and nothing more. HTTPS to GitHub is
+  still what stands between the user and a hostile build. The team check only
+  starts to mean something once a release is signed with the developer
+  certificate. From then on an install that has a team refuses a download
+  without it, including an ad-hoc release published after the secrets lapse.
+- **The swap keeps the old copy until the new one is in place.** The installed
+  app is renamed aside (a hidden sibling, same volume), the new one is moved
+  in, and the old one is deleted only then. If the move and its cross-volume
+  copy both fail, the old copy is moved back.
+- The line above that calls the app "notarized" was never true of an ad-hoc
+  build. Quarantine is still stripped, now only from a bundle that passed the
+  checks.

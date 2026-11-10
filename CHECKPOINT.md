@@ -5187,3 +5187,26 @@ reconnects often; 4 fds each). Now `closePipes()` closes all four ends once the
 host has exited or been stopped (guarded by the write lock; `write` refuses
 after), and `Live.keep` captures the `ObjectIdentifier`. Test:
 `finishedHostsCloseTheirPipes` (fails without the close: 80 ends left open).
+
+## Updater checks what it installs (2026-11-10, unreleased)
+
+`AppInstaller` installed whatever `.app` the zip held, unchecked, and deleted
+the installed copy before moving the new one in. Now `BundleVerifier`
+(ChordUpdater, shells out to `/usr/bin/codesign`, so the package stays
+Foundation-only) runs before `/Applications` is touched: same bundle id as the
+running app (`BundleIdentity.running()`), version equal to the release's, a
+signature that holds (`--verify --deep --strict`), and the same signing team
+when the running app has one. `swap` renames the installed copy aside and
+deletes it only once the new one is in place; a failed swap moves it back.
+Staging is removed on failure too. ADR 021 has the amendment.
+
+**Limit, on purpose in plain words:** releases are ad-hoc signed (1.24.1 is;
+the `MACOS_CERTIFICATE_*` secrets are not set), and an ad-hoc signature names
+nobody. For those the checks catch a wrong or damaged bundle only. The team
+check starts to matter with the first release signed by the developer
+certificate.
+
+Tests: `AppInstallerTests` (7), against real bundles signed ad hoc, from a zip
+on disk. `failedSwapRestores` was watched failing against the old swap. The
+installed 1.24.1 passes the same `codesign` check by hand. Not done: a real
+update through Settings → Updates, which needs a published release.
