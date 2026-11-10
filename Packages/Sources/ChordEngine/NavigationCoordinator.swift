@@ -57,7 +57,12 @@ extension NavigationCoordinator: WKNavigationDelegate {
         // The page that reported a hovered link is on its way out, and will
         // not be there to say the pointer left.
         engine?.setHoveredLink(nil, for: paneID)
+        WebKitEngine.notePhaseOnce("first-load-start")
         engine?.publishSnapshot(for: paneID)
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        WebKitEngine.notePhaseOnce("first-commit")
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

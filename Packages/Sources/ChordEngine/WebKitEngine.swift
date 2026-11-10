@@ -479,6 +479,7 @@ public final class WebKitEngine: WebEngine {
         )
         let webView = ChordWebView(frame: .zero, configuration: config)
         configure(webView)
+        Self.notePhaseOnce("first-view")
         return webView
     }
 
@@ -1730,6 +1731,24 @@ public final class WebKitEngine: WebEngine {
         // maintaining a second index.
         pool.paneID(matching: webView)
     }
+
+    /// c1k.17: the steps between launch and the first page, each logged once
+    /// per launch as `perf <phase>` so `scripts/perf-baseline.sh startup` can
+    /// say where the time went:
+    /// - `first-view`: the first tab web view exists;
+    /// - `first-load-start`: its first navigation began (what Chord controls
+    ///   ends here);
+    /// - `first-commit`: the first bytes of the page arrived and it began to
+    ///   draw, the nearest public signal to a real first paint;
+    /// - `first-paint`: the page *finished* loading (the historic name; it
+    ///   depends on the site and the network, not on Chord).
+    static func notePhaseOnce(_ phase: String) {
+        guard !notedPhases.contains(phase) else { return }
+        notedPhases.insert(phase)
+        Log.engine.notice("perf \(phase)")
+    }
+
+    private static var notedPhases: Set<String> = []
 
     /// Whether any pane has finished a load since launch; see `noteFirstPaint`.
     private static var hasPainted = false

@@ -221,6 +221,9 @@ public struct AppEnvironment {
             Task(priority: .utility) { [weak store] in
                 await LaunchDeferral.first(engine.whenFirstPaint, orAfter: .seconds(1.5))
                 guard let store else { return }
+                // c1k.17: if this lands before `perf first-paint`, extensions
+                // are loading while the first page still is.
+                Log.store.notice("perf extensions-start")
                 await extensionsService.restoreEnabled(
                     spaces: store.spaces, active: store.activeSpaces
                 )

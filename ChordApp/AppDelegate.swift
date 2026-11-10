@@ -54,6 +54,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launch = .failed(String(describing: error))
         }
         Self.signposter.endInterval("launch", state)
+        // c1k.17: `AppEnvironment.live()` is done (database open, engine and
+        // stores wired). Read by scripts/perf-baseline.sh startup.
+        Self.log.notice("perf env-ready")
         super.init()
     }
 

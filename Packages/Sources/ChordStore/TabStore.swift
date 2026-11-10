@@ -935,6 +935,8 @@ public final class TabStore {
 
         let state = Log.signposts.beginInterval("restore")
         defer { Log.signposts.endInterval("restore", state) }
+        // c1k.17: launch phases, read by scripts/perf-baseline.sh startup.
+        Log.store.notice("perf restore-start")
 
         // A claim during restore must not pick up a latch set before it.
         pendingWindowKind = nil
@@ -1005,6 +1007,7 @@ public final class TabStore {
 
         // Extensions load after the Spaces they belong to exist (7.4).
         reportsSpaceActivation = true
+        Log.store.notice("perf restore-done")
         await afterRestore?()
     }
 

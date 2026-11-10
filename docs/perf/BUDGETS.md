@@ -27,3 +27,10 @@ gate. `CHORD_PERF=1 scripts/prepush.sh` runs `scripts/perf-baseline.sh
 startup` (median of 5 relaunches of the Release build) and fails above
 `STARTUP_BUDGET_MS` in `scripts/prepush.sh`. Change that number the same way
 as the others.
+
+Each run also prints where the time went, in ms since launch (c1k.17):
+`env-ready`, `restore-start`, `restore-done`, `first-view`,
+`first-load-start`, `first-commit`, `extensions-start`, `first-paint`. Up to
+`first-load-start` is Chord's own work. `first-paint` is the first page
+finishing its load, so it moves with the site and the network: the installed
+1.24.1 logged 559 to 6,748 ms across nine everyday launches (median 3,227).

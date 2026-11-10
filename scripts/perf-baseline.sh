@@ -74,11 +74,19 @@ cmd_startup() {
         open "$app"
         sleep 15
         local ms
-        ms=$(perf_lines "$start" | awk '
+        local lines; lines=$(perf_lines "$start")
+        ms=$(echo "$lines" | awk '
             $3=="launch" && !l {l=$1}
             $3=="first-paint" && l && !p {p=$1}
             END {if (l && p) print p-l}')
         echo "run $run: ${ms:-no first-paint logged} ms"
+        # c1k.17: where the time went, in ms since launch. Up to
+        # first-load-start is Chord; after it, the site and the network.
+        echo "$lines" | awk '
+            $3=="launch" && !l {l=$1; next}
+            l && !seen[$3]++ && ($3=="env-ready" || $3=="restore-start" || $3=="restore-done" ||
+                $3=="first-view" || $3=="first-load-start" || $3=="extensions-start" ||
+                $3=="first-commit" || $3=="first-paint") {printf "    %-17s %5d\n", $3, $1-l}'
         [[ -n "$ms" ]] && results+=("$ms")
     done
     printf '%s\n' "${results[@]+"${results[@]}"}" | median | sed 's/^/startup median ms: /'
