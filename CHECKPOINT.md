@@ -22,7 +22,7 @@ only the current position within it.
 | **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0) · **content blocker compiles one list per source so `@@` exceptions work** (2026-09-10, 1.10.1) · **swipe-to-close yields to canvas apps (Sheets, Figma) and horizontally-scrollable content** (2026-09-17) · **command bar leads with up to two matching open tabs ("Switch to Tab"), URL/search fallback below them — Arc order** (2026-09-17) · **command bar scoped to the active Space** (2026-09-17) · **command bar tinted with the active Space gradient** (2026-09-17) · **offline endless Space Impact** (procedural waves, EASY→ULTRA difficulty, `chord-offline://` scheme + `OfflineGamePage`, 2026-10-08) · **routing rules + site overrides** (host→Space routing; per-site CSS/JS/click-to-hide; Settings → Sites; ADR 023 + ADR 024, 2026-10-23). See §4.9 of the spec and the dated sections below. |
 | **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **835 passing** (`swift test`, 124 suites), measured 2026-10-23                                                                |
+| **Tests**                        | **1,091 passing** (`scripts/prepush.sh`, per target, 180 suites), measured 2026-11-10                                                                |
 | **Schema**                       | **v15** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`, `v15_window_blank_spaces`                                                                                                      |
 
 **Routing rules and site overrides (2026-10-23).** Two per-site tools in
@@ -5188,7 +5188,7 @@ host has exited or been stopped (guarded by the write lock; `write` refuses
 after), and `Live.keep` captures the `ObjectIdentifier`. Test:
 `finishedHostsCloseTheirPipes` (fails without the close: 80 ends left open).
 
-## Updater checks what it installs (2026-11-10, unreleased)
+## Updater checks what it installs (2026-11-10, 1.25.0)
 
 `AppInstaller` installed whatever `.app` the zip held, unchecked, and deleted
 the installed copy before moving the new one in. Now `BundleVerifier`
@@ -5210,3 +5210,105 @@ Tests: `AppInstallerTests` (7), against real bundles signed ad hoc, from a zip
 on disk. `failedSwapRestores` was watched failing against the old swap. The
 installed 1.24.1 passes the same `codesign` check by hand. Not done: a real
 update through Settings → Updates, which needs a published release.
+
+## Error page, link destinations, button labels, launch phases (2026-11-10, 1.25.0)
+
+Four beads from the 2026-11-10 review, on top of a287036, shipped in 1.25.0.
+None had been driven in the real app when it shipped: everything below is from
+tests, plus one live look at the log (a refused connection was caught). The
+SMOKE.md section of the same date is the list to walk.
+
+**Error page (gn0.2).** A load that failed before the site showed anything used
+to leave the pane as it was, with no message: `NavigationCoordinator.report`
+only handled "offline" (the game). Now `ErrorPage` (ChordEngine) serves a page
+from a private `chord-error://` scheme, registered beside the offline game's on
+both configuration paths. It names the host, says what went wrong (cannot find
+the server, refused, timed out, not private, too many redirects, other), shows
+the `NSURLErrorDomain` code and has **Try Again** (`location.replace`, so the
+error does not stay in the back list). Rules:
+- Only `NSURLErrorDomain`, only an http(s) failing URL, never a cancelled load,
+  and only for `didFailProvisionalNavigation`. A failure after commit keeps what
+  the page managed to show. WebKit's own errors (102, a navigation that became
+  a download; a refused low port) get no page, as before. A link to an app
+  nothing handles leaves the page it was clicked on alone.
+- The rest of the app is told the pane is **at the failed URL**:
+  `WebKitEngine.handleSnapshot` swaps the `chord-error://` URL for its target
+  and sets `PaneSnapshot.loadFailed`. So the address field keeps what the user
+  asked for, the session saves that address, and `reload` retries it.
+  `recordVisitIfSettled` skips a `loadFailed` snapshot: a failed load is not a
+  visit. The tab's title is the host (the page's `<title>`).
+- Certificate errors say the connection is not private and offer Try Again only.
+  There is no "proceed anyway"; that would be its own decision.
+- The offline game is unchanged, including that its tab still reports the
+  `chord-offline://` URL (`OfflineGameE2ETests` pin that).
+Tests: `ErrorPageTests` (8), `ErrorPageE2ETests` (3: a really refused
+connection, reload retries, an unhandled scheme keeps the page).
+
+**Link destinations (gn0.3).** Pointing at a link shows where it goes at the
+bottom-left of its pane. `LinkHoverMonitor` joins the every-frame bundle (no new
+script; `PerfBudgetTests` still pass at the 45,000-byte budget): three passive
+capture listeners, no timer, one message when the link under the pointer
+changes, empty on leaving, on scroll and when the pointer leaves the frame. No
+SPI. The message goes engine -> `WebEngineDelegate.paneDidHoverLink` ->
+`PaneRuntime.hoveredLink`, not through `PaneSnapshot`, and only
+`LinkDestinationLabel` reads it, so crossing links redraws nothing else. The
+label never takes a click. `LinkDestination.display` (ChordCore) shows a
+`javascript:` link as its scheme only and bounds the text. Cleared when a
+navigation starts. Not done: flipping the label to the right when the pointer
+is at the bottom-left, and it is not wired into Little Chord's panel.
+Tests: `LinkHoverMonitorTests` (3, one in a real page), `LinkDestinationTests` (3).
+
+**Button labels (gn0.8).** The review's "115 buttons, 23 labels" overstated it:
+a source audit found 15 buttons whose label is only an image, 14 of them with
+`.help`. VoiceOver read those by the symbol's own name ("trash"). Each now has
+a specific `.accessibilityLabel` ("Remove routing rule for example.com").
+`IconButtonLabelTests` reads the ChordUI sources and fails on a new one. It is
+a text check by indentation, not a parser. Not done: a walk through the real
+app with VoiceOver.
+
+**Launch phases (c1k.17, still open).** Not fixed; measured and instrumented.
+- From the system log, the installed 1.24.1 on the everyday profile, nine
+  launches on 2026-11-09/10: 559, 1574, 1586, 3074, 3227, 3794, 4949, 6232,
+  6748 ms from `perf launch` to `perf first-paint`. Median 3227 ms.
+- `perf first-paint` is logged in `didFinish`: it is the first page *finishing*
+  its load, so it measures the restored tab's site and the network at least as
+  much as Chord. The 559 ms and 6.7 s launches are the same build.
+- In the 3794 ms launch, extensions began loading at about 1.9 s (three loaded
+  by 2.8 s, uBlock logging 53 lines) while the first page was still loading:
+  `LaunchDeferral`'s 1.5 s bound ran out before the page finished.
+- New `perf` lines, each once per launch: `env-ready`, `restore-start`,
+  `restore-done`, `first-view`, `first-load-start`, `first-commit`,
+  `extensions-start`. `scripts/perf-baseline.sh startup` prints them per run.
+  Up to `first-load-start` is Chord; after it, the site.
+- **Measured 2026-11-10** (Release build of this tree, everyday profile, five
+  relaunches, ms since launch):
+
+  | run | env-ready | restore-done | first-view | first-load-start | first-commit | first-paint | extensions-start |
+  |---|---:|---:|---:|---:|---:|---:|---:|
+  | 1 | 13 | 155 | 189 | 323 | 690 | 756 | 756 |
+  | 2 | 9 | 155 | none | none | none | none | 1830 |
+  | 3 | 9 | 149 | 9553 | 9603 | 9842 | 11421 | 1831 |
+  | 4 | 9 | 135 | 167 | 272 | 453 | 2014 | 1687 |
+  | 5 | 9 | 138 | 166 | 272 | 457 | 1820 | 1646 |
+
+  Chord's own part is small and steady: the session is restored by about
+  140 ms, the first web view exists by about 170 ms, and its navigation has
+  started by about 270 ms (323 on the first run). First bytes of the page land
+  at 450 to 690 ms. Everything after that is the site: in runs 4 and 5 the
+  page took another 1.4 to 1.6 s to *finish*, which is all `first-paint` adds.
+  The spec's 400 ms aim / 800 ms ceiling is met at `first-commit` and missed
+  only by the `didFinish` marker.
+- In runs 4 and 5 extensions started (1.65 s) before the page finished (1.8 to
+  2.0 s): the 1.5 s deferral bound expires on an ordinary page, not only a slow
+  one.
+- **Runs 2 and 3 are not a fault.** The user closed the tab with Cmd+W while
+  the script was running (the window goes blank, by design, and restores
+  blank), then switched Space and opened a pinned tab by hand at 9.5 s in
+  run 3. Only runs 1, 4 and 5 count. A run with no `first-view` means the
+  session had no selected tab; do not run the measure while the browser is in
+  use. (Filed as c1k.20 before the user explained, then closed.) The 5 to
+  6.7 s figures in the system log may be the same thing: a launch into a blank
+  window, and a tab picked later.
+- Not done: the budget still reads `first-paint`. Whether to judge it at
+  `first-commit` is the user's call (it changes what §6.1's number means), as
+  is making extensions wait longer.

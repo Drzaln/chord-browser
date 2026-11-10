@@ -1669,3 +1669,32 @@ release reports "up to date".
 - [ ] With Bitwarden (desktop app linked) enabled for a few hours,
       `lsof -p $(pgrep -f Chord.app/Contents/MacOS/Chord) | grep -c PIPE` stays
       small (tens, not thousands), and Check for Updates installs.
+
+## Error page, link destinations, button labels (added 2026-11-10, 1.25.0)
+
+Unticked: written with the code, not walked yet.
+
+- [ ] `https://no-such-host.invalid` shows "Chord can’t find no-such-host.invalid",
+      the address field still shows that address, and the tab is titled with
+      the host.
+- [ ] A local port with nothing on it (`http://127.0.0.1:59999`) shows "can’t
+      connect"; **Try Again** retries; `Cmd+R` retries too.
+- [ ] `https://expired.badssl.com` shows "This connection is not private", with
+      no way to proceed.
+- [ ] From a working page, click a link to a dead host: the error page shows,
+      Back returns to the working page, and after a successful Try Again the
+      error is not in the back list.
+- [ ] A failed address is not in History, and after quitting on an error page
+      the tab comes back at the failed address, not at `chord-error://`.
+- [ ] Offline (Wi-Fi off) still shows the game, not the error page.
+- [ ] A link that downloads a file, and a `mailto:` link, leave the page alone.
+- [ ] Pointing at a link shows its destination at the bottom-left of the pane;
+      it goes when the pointer leaves, on scroll, and on clicking through.
+- [ ] The label never blocks a click on a link under it, and shows per pane in
+      a split.
+- [ ] Links inside an iframe (an embedded post, an ad) show too.
+- [ ] Moving the pointer over a page full of links does not raise CPU
+      noticeably (Activity Monitor, the WebContent and Chord processes).
+- [ ] VoiceOver (Cmd+F5): the trash and x buttons in Settings (Sites, General
+      rules, Passwords, Privacy, Bookmarks, Extensions), in Downloads, the
+      folder rename pencil and New Folder are read with what they act on.

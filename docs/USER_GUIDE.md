@@ -172,6 +172,27 @@ online, press **Try again** on the page (or `⌘R`) to reload the site you were
 trying to reach. You can also open the game any time by typing
 `chord-offline://no-internet` into the command bar.
 
+## When a page can't load
+
+If a site can't be reached while your Mac is online, the tab says so instead of
+staying blank: the server can't be found (often a typing mistake in the
+address), the server refused the connection, it took too long to answer, or the
+connection is not private. **Try Again** (or `Cmd+R`) retries the same address,
+which stays in the address field. A page that failed to load is not added to
+your history.
+
+"This connection is not private" means Chord could not make a secure
+connection, or could not confirm the site is who it claims to be. Chord does
+not offer a way past it.
+
+## Where a link goes
+
+Point at a link and its destination appears at the bottom-left of the page.
+It is the address a click would really open, whatever the link's text says, so
+it is worth a glance before following a link in an email or a message.
+
+---
+
 ## General settings
 
 Open **Settings** with `Cmd+,` and pick **General** to choose:

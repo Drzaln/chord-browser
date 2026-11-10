@@ -195,6 +195,13 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   refills, and **gun upgrades** — an 8-step ladder from single up to a piercing
   rapid fan, lost a step when you're hit). A **Try again** button retries the
   site. It also opens on demand at `chord-offline://no-internet`.
+- **An error page for loads that fail** — a wrong domain, a refused connection,
+  a timeout or a certificate that does not hold shows a page that names the
+  site and the reason, with **Try Again**. The address field keeps the address
+  you asked for, and a failed load is not written to history. Certificate
+  errors cannot be bypassed.
+- **Link destinations** — pointing at a link shows where it goes at the bottom
+  of the pane, read from the link itself rather than its text.
 - **Native content blocking** — see below.
 
 ### Content blocking

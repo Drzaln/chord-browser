@@ -380,3 +380,17 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
   re-asserted on each copied configuration, guarded — a popup config copied from
   a live view already carries it, and double-registration is an exception that
   aborts. Tests: `OfflineGamePageTests`, `OfflineGameE2ETests`.
+- **Error page (2026-11-10, gn0.2)** — a load that fails before commit (`NSURLErrorDomain`, http(s)
+  only, never cancelled) gets `ErrorPage` from a private `chord-error://` scheme, the offline
+  game's sibling. `WebKitEngine.handleSnapshot` reports the pane at the *failed* URL with
+  `PaneSnapshot.loadFailed` set, so the address field, the saved session and `reload` all use the
+  real address and history skips it. No certificate bypass. Tests: `ErrorPageTests`,
+  `ErrorPageE2ETests`.
+- **Link destinations (2026-11-10, gn0.3)** — `LinkHoverMonitor` lives in the every-frame bundle
+  (no new script, no timer, no SPI) and posts the link under the pointer; it travels
+  `paneDidHoverLink` -> `PaneRuntime.hoveredLink`, never through `PaneSnapshot`, and only
+  `LinkDestinationLabel` reads it. Anything added to the bundle counts against
+  `PerfBudget.userScriptBytes`.
+- **Launch phases (c1k.17)** — `perf env-ready / restore-start / restore-done / first-view /
+  first-load-start / first-commit / extensions-start` are logged once per launch;
+  `perf first-paint` is `didFinish` of the first page, so it depends on the site.

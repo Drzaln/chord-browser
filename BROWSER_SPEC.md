@@ -640,6 +640,12 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   extensions installed before pinning existed start pinned, later installs
   unpinned. The … panel holds a floating sidebar open, like the Downloads
   popover.
+- **Error page and link destinations** (2026-11-10; non-spec: user-requested) —
+  a load that fails before the site shows anything gets a page from a private
+  `chord-error://` scheme (`ErrorPage`) while the app still reports the pane at
+  the failed address; no certificate bypass. Pointing at a link shows its
+  destination in the pane (`LinkHoverMonitor`, in the every-frame bundle, no
+  SPI). See the CHECKPOINT section of the same date.
 
 **Media note (not a feature — a platform limit worth writing down).** AV1 is
 software-only in a general `WKWebView`: macOS reserves the hardware decode path
