@@ -177,7 +177,7 @@ private final class Connection: @unchecked Sendable {
     var onClose: (() -> Void)?
 
     private var source: (any DispatchSourceRead)?
-    private var buffer = Data()
+    private var buffer = MCPLineBuffer(maxLineBytes: MCPSocketServer.maxLineBytes)
     /// Guarded by `writeLock`. Replies are written from tasks; the lock keeps
     /// two from interleaving bytes and a write from racing the close.
     private var isClosed = false
@@ -219,24 +219,20 @@ private final class Connection: @unchecked Sendable {
         while true {
             let count = read(fd, &chunk, chunk.count)
             if count > 0 {
-                buffer.append(contentsOf: chunk[0..<count])
+                // Framed chunk by chunk, so the cap holds while the socket is
+                // still being drained.
+                guard let lines = buffer.append(chunk[0..<count]) else {
+                    Log.mcp.notice("dropping a client that sent an oversized line")
+                    close()
+                    return
+                }
+                lines.forEach(dispatch)
             } else if count < 0, errno == EAGAIN || errno == EINTR {
                 break
             } else {
                 close()
                 return
             }
-        }
-
-        while let newline = buffer.firstIndex(of: 0x0A) {
-            let line = buffer[buffer.startIndex..<newline]
-            buffer = Data(buffer[buffer.index(after: newline)...])
-            let trimmed = line.drop(while: { $0 == 0x20 || $0 == 0x0D })
-            if !trimmed.isEmpty { dispatch(Data(line)) }
-        }
-        if buffer.count > MCPSocketServer.maxLineBytes {
-            Log.mcp.notice("dropping a client that sent an oversized line")
-            close()
         }
     }
 
@@ -250,8 +246,12 @@ private final class Connection: @unchecked Sendable {
 
     private func send(_ data: Data) {
         writeLock.lock()
-        defer { writeLock.unlock() }
-        guard !isClosed else { return }
-        MCPSocket.writeAll(data, to: fd)
+        let delivered = isClosed || MCPSocket.writeAll(data, to: fd)
+        writeLock.unlock()
+        guard !delivered else { return }
+        // Part of the reply may be on the wire. Anything written after it
+        // would land in the middle of that line, so the connection ends here.
+        Log.mcp.notice("dropping a client that stopped taking replies")
+        queue.async { [weak self] in self?.close() }
     }
 }

@@ -19,10 +19,10 @@ only the current position within it.
 | **In progress (M9)**            | Full Search JS shim active, native bridge core + data service, bookmarks store, folders-as-tabGroups, side-panel fallback. Store install, popup/capture/identity/sockets, permission UI and real-extension matrix remain. See the dated M9 section at the end. |
 | **Completed (content blocking)** | **§4.8 — C1–C4 + chunking, all VERIFIED LIVE** (converter, compile/cache/attach, weekly refresh, full-list chunking, soak).                                                                       |
 | **Shipped**                      | **Extensions and content blocking are ON by default — `FeatureFlags` deleted (§7.4).** Both always wired in `AppEnvironment.live()`. **Every spec milestone (M1–M7) + content blocking is done.** |
-| **Next**                         | **Nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
+| **Next**                         | **Local MCP server (0mu, ADR 027): phases 1–3 are committed on `feat/mcp-server`, not merged or released; the SMOKE.md checklist is not walked yet — see the dated section at the end.** Otherwise **nothing assigned. The password vault is complete — V1–V7 all shipped and verified live** (V7, the lock, on 2026-07-31); this is a review stop point. **2026-08-20 signing fix** removed the ad-hoc rebuild keychain dialog and fixed camera/mic TCC prompts (stable Apple Development identity + the three device entitlements; see the dated section below). Design and threat model in [docs/design/password-vault.md](docs/design/password-vault.md). **2026-08-07 security pass done** (ADR 017): extension signature verification (warn-but-install, new `ChordCrypto` package), per-list content-blocker refresh, and one source of truth for the Safari UA token. Open non-spec items, none started, **ask first** (§11): per-site content-blocking whitelist / runtime disable toggle. (§9.6's per-domain UA map is **done** — 2026-08-01.) |
 | **Post-M7 (non-spec)**           | Pinned tabs (three tiers, v8) · folders (v7) · per-Space history (v6) · **multiple windows + window layout (v9)** · **per-site camera/mic/notification permissions (v10, re-scoped v11)** · web notifications · YouTube ad skipping · UA setting · General settings · **password vault V1–V7 (v12, v13)** · **private windows** · **per-domain UA rules** · **extension signature verification (warn-but-install, ADR 017)** · **per-list content-blocker refresh** · **single source of truth for the Safari UA version token** (neither needs a migration) · **Arc-style Peek + resizable remembered panel** (2026-08-08; replaced the ⌘-hover preview) · **`window.open()` popups as real web views** (keep the `window.open()` reference, `window.close()` closes the tab — fixes OAuth logins like Shopee's Google button; ADR 018) · **user-renamed tabs (v14)** · **swipe-to-close with a disable flag** (2026-08-18) · **Arc-style split close + pane-level Cmd+Shift+T undo** (2026-08-21) · **engine state hygiene** (2026-08-21) · **web geolocation** (2026-08-22) · **self-updates from GitHub releases** (ADR 021, 2026-08-22) · **Arc-style Ctrl+Tab MRU tab switcher + page thumbnails** (2026-08-23) · **closing a tab returns to the previously active tab** (2026-08-26) · **Developer mode (Web Inspector) + page zoom + DRM Diagnostics + action toasts** (2026-08-27, 1.7.0) · **UA token bumped to Safari 26.6** (2026-08-27) · **close-MRU blank end + Liquid Glass** (2026-09-08, 1.9.0) · **Picture-in-Picture** (2026-09-10, 1.10.0) · **content blocker compiles one list per source so `@@` exceptions work** (2026-09-10, 1.10.1) · **swipe-to-close yields to canvas apps (Sheets, Figma) and horizontally-scrollable content** (2026-09-17) · **command bar leads with up to two matching open tabs ("Switch to Tab"), URL/search fallback below them — Arc order** (2026-09-17) · **command bar scoped to the active Space** (2026-09-17) · **command bar tinted with the active Space gradient** (2026-09-17) · **offline endless Space Impact** (procedural waves, EASY→ULTRA difficulty, `chord-offline://` scheme + `OfflineGamePage`, 2026-10-08) · **routing rules + site overrides** (host→Space routing; per-site CSS/JS/click-to-hide; Settings → Sites; ADR 023 + ADR 024, 2026-10-23). See §4.9 of the spec and the dated sections below. |
-| **Branch**                       | `main` — single branch, linear history, one commit per milestone                                                                                                                                  |
-| **Tests**                        | **835 passing** (`swift test`, 124 suites), measured 2026-10-23                                                                |
+| **Branch**                       | `main` — linear history, one commit per milestone. **`feat/mcp-server`** carries the local MCP server (three commits ahead of `main`, unmerged, unreleased)                                                                                                                                  |
+| **Tests**                        | **1,121 passing** (`swift test` per target, 176 suites), measured 2026-11-10 on `feat/mcp-server`                                                                |
 | **Schema**                       | **v15** — … `v12_credentials`, `v13_credential_never_save`, `v14_tab_custom_title`, `v15_window_blank_spaces`                                                                                                      |
 
 **Routing rules and site overrides (2026-10-23).** Two per-site tools in
@@ -5187,3 +5187,88 @@ reconnects often; 4 fds each). Now `closePipes()` closes all four ends once the
 host has exited or been stopped (guarded by the write lock; `write` refuses
 after), and `Live.keep` captures the `ObjectIdentifier`. Test:
 `finishedHostsCloseTheirPipes` (fails without the close: 80 ends left open).
+
+## Local MCP server (2026-11-05, branch `feat/mcp-server`, unreleased)
+
+Chord serves the Model Context Protocol to agents on the same Mac (bead `0mu`,
+[ADR 027](docs/adr/027-local-mcp-server.md)). Three commits, one per phase, all
+on `feat/mcp-server`; nothing is merged to `main` and no version is bumped. No
+schema change: every setting is a preference.
+
+**Transport.** The running app listens on
+`~/Library/Application Support/Chord/MCP/chord.sock` (directory 0700, socket
+0600, bound under `umask 077`), one JSON-RPC message per line. An MCP client
+starts Chord's own executable with `--mcp-stdio`; `ChordMain` checks the flag
+before AppKit starts and `MCPStdioBridge` copies stdio to the socket. Each peer
+must be the same user running Chord's own executable (`MCPPeer`,
+`MCPPeerPolicy`: `LOCAL_PEERCRED`, `LOCAL_PEERPID`, `proc_pidpath`). No TCP or
+HTTP listener exists. A dev build and the installed app are different
+executables, so each refuses the other's helper.
+
+**New package `ChordMCP`** (Foundation + Darwin, depends on `ChordLogging`
+only): `JSONValue`, `MCPProtocol` (`MCPProtocolHandler`), `MCPSocket`,
+`MCPSocketServer`, `MCPStdioBridge`. It knows tool names and JSON, never a tab.
+`ChordStore` supplies the tools; `ChordEngine` gained `agentPageContent`,
+`agentScreenshot` and the agent content worlds.
+
+**Phase 1, read (`0mu.1`, `TabStore+Agent.swift`).** `list_spaces`,
+`list_tabs`, `read_page`, `screenshot`. Off by default (`agentAccessEnabled`),
+shared per Space (`agentSpaceIDs`, empty at first); private Spaces are never
+shared and a tab outside the shared Spaces is answered like one that does not
+exist. Page text is read in the `chord.agent` world from `innerText` and wrapped
+in BEGIN/END markers as untrusted. Reading never builds a web view, so lazy
+restore holds. While an agent is connected every window shows a pill with
+Disconnect; it lingers 5 s.
+
+**Phase 2, act (`0mu.2`, `TabStore+AgentActions.swift`,
+`AgentActionPolicy.swift`).** Each Space is Off, Read or Read & Act
+(`agentActSpaceIDs`). Tools: `list_elements`, `click`, `type`, `scroll`,
+`wait_for`, `open_url`, `navigate`, `switch_tab`, `close_tab`. Each action is a
+fixed `AgentPageRequest` script; the store never sends JavaScript to a page.
+Element refs live in a `Map` of `WeakRef`s in the agent world, so a page cannot
+read or forge them. Password fields are always refused. `AgentActionPolicy`
+raises a native sheet (Deny default, two minutes of silence is a no) before a
+sign-in submit, any click or submit while a password field has a value, a
+non-search POST form, or a label with a risky word (English and Indonesian).
+Access is re-checked after the answer. `wait_for` needs 800 ms of idle before a
+page counts as loaded.
+
+**Phase 3, `eval_js` (`0mu.3`, `TabStore+AgentScripts.swift`).** Its own switch
+(`agentScriptsEnabled`), off by default, effective only in Read & Act Spaces.
+Asked on every run with the whole script shown; "Allow on <site> Until Quit"
+keeps an in-memory per-host list that the switch clears. Scripts run in
+`chord.agent.eval`, hardened once per document: `document.cookie` reads empty,
+`localStorage`/`sessionStorage`/`indexedDB` throw, password values read empty,
+and a run is refused while any password field has a value. It is not a sandbox
+(same-origin iframes, `FormData`, credentialed `fetch` remain) and Settings says
+so. Caps: 20k characters in, 50k out, 10 s default and 30 s maximum timeout.
+Logs record script size and host, never content.
+
+**UI.** Settings → Agents (`AgentsSettings.swift`): the switch, the per-Space
+level picker, the JavaScript switch, and copyable setup for Claude Code and
+other MCP clients. The agent pill and the confirmation sheets live there too.
+
+**Tests.** `MCPProtocolTests`, `MCPSocketServerTests` (17 in `ChordMCPTests`),
+`AgentAccessTests`, `AgentActionTests`, `AgentScriptTests` (Store),
+`AgentPageScriptTests`, `AgentEvalScriptTests` (Engine). Whole suite, per
+target: 1,121 passing in 176 suites on 2026-11-10.
+
+**Socket hardening (2026-11-10).** Two gaps
+found on review. `Connection.send` discarded `writeAll`'s result, so a reply
+that failed partway left the connection open with a truncated line for the next
+reply to land in; it now closes the connection (on the server queue, after
+releasing the write lock). `readAvailable` checked `maxLineBytes` only after
+draining the socket, so a fast writer could grow the buffer past the cap, and it
+re-copied the buffer once per line; framing moved to `MCPLineBuffer`, which
+checks the cap on every chunk, refuses a finished line over the cap too, and
+copies once per chunk. Tests: `MCPLineBufferTests` (5). The `send` path has no
+test of its own: a stalled write takes `writeAll`'s ten seconds to fail. Still
+true and not changed: a stalled write holds the write lock for those ten
+seconds, and `close()` on the server queue waits for it. `ChordMCPTests` is now
+22 tests in 3 suites (suite total 1,126 in 177, by addition; only
+`ChordMCPTests` was re-run).
+
+**Open.** Not merged or released. The SMOKE.md "Local agents / MCP" checklist is
+written but not walked. Docs added 2026-11-10: README,
+USER_GUIDE "Agents (MCP)", SMOKE, and the `CLAUDE.md` build/architecture
+sections.

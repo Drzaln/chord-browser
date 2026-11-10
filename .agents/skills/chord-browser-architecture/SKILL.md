@@ -23,6 +23,7 @@ Packages/Sources/
   ChordSecrets/        Keychain + LocalAuthentication. The vault's secret half.
   ChordCrypto/         Security + CryptoKit. Extension-bundle signature verification.
   ChordUpdater/        GitHub-release self-updater (check/compare/download/install). Foundation + Observation only.
+  ChordMCP/            Local MCP server (ADR 027, on feat/mcp-server): JSON-RPC over a user-only Unix socket + the `--mcp-stdio` bridge. Foundation + Darwin only; knows tool names and JSON, never a tab. Tools come from ChordStore (`TabStore+Agent`, `+AgentActions`, `+AgentScripts`, `AgentActionPolicy`); page reads and actions run in the engine's `chord.agent` / `chord.agent.eval` content worlds.
   ChordPersistence/    GRDB, migrations, row types, mappers
   ChordEngine/         The ONLY package importing WebKit (with ChordExtensions)
   ChordExtensions/     WKWebExtension host + .crx unpack + signature verdict stamping
