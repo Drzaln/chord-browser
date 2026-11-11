@@ -28,6 +28,10 @@ enum Preferences {
     private static let pageZoomKey = "prefs.pageZoom"
     private static let routeRulesKey = "prefs.routeRules"
     private static let siteOverridesKey = "prefs.siteOverrides"
+    private static let agentAccessEnabledKey = "prefs.agentAccessEnabled"
+    private static let agentSpaceIDsKey = "prefs.agentSpaceIDs"
+    private static let agentActSpaceIDsKey = "prefs.agentActSpaceIDs"
+    private static let agentScriptsEnabledKey = "prefs.agentScriptsEnabled"
 
     static func loadSearchEngine(
         _ defaults: any PreferenceStore = UserDefaults.standard
@@ -221,6 +225,62 @@ enum Preferences {
         swipeToCloseEnabled enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         defaults.set(enabled, forKey: swipeToCloseEnabledKey)
+    }
+
+    // MARK: - Agent access (MCP, 0mu)
+
+    /// Whether Chord serves MCP to local agents at all. Off by default: an
+    /// agent reading pages is something the user turns on, never inherits.
+    static func loadAgentAccessEnabled(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Bool {
+        defaults.object(forKey: agentAccessEnabledKey) as? Bool ?? false
+    }
+
+    static func save(
+        agentAccessEnabled enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(enabled, forKey: agentAccessEnabledKey)
+    }
+
+    /// The Spaces an agent may see. Empty by default, so turning access on
+    /// shares nothing until a Space is picked.
+    static func loadAgentSpaceIDs(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Set<UUID> {
+        decode(Set<UUID>.self, forKey: agentSpaceIDsKey, from: defaults) ?? []
+    }
+
+    static func save(
+        agentSpaceIDs ids: Set<UUID>, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(ids, forKey: agentSpaceIDsKey, to: defaults)
+    }
+
+    /// Whether agents may run their own JavaScript. Off by default.
+    static func loadAgentScriptsEnabled(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Bool {
+        defaults.object(forKey: agentScriptsEnabledKey) as? Bool ?? false
+    }
+
+    static func save(
+        agentScriptsEnabled enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(enabled, forKey: agentScriptsEnabledKey)
+    }
+
+    /// The shared Spaces where agents may also act. Empty by default.
+    static func loadAgentActSpaceIDs(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Set<UUID> {
+        decode(Set<UUID>.self, forKey: agentActSpaceIDsKey, from: defaults) ?? []
+    }
+
+    static func save(
+        agentActSpaceIDs ids: Set<UUID>, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        encode(ids, forKey: agentActSpaceIDsKey, to: defaults)
     }
 
     // MARK: - Background tabs

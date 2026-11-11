@@ -679,9 +679,12 @@ specific site; both are noted as possible future additions.
 ## Settings
 
 Open Settings with `Cmd+,` (or the app menu → _Settings…_). It's a sheet with
-four sections: **General** (search engine, new-tab behaviour, User-Agent, archive
-timing — described [above](#general-settings)), **Passwords** (see
-[Passwords](#passwords)), **Privacy & Data**, and **Extensions**.
+eight sections: **General** (search engine, new-tab behaviour, User-Agent, archive
+timing — described [above](#general-settings)), **Sites** (see
+[Sites](#sites--routing-and-overrides)), **Passwords** (see
+[Passwords](#passwords)), **Privacy & Data**, **Extensions**, **Bookmarks**,
+**Agents** (see [Agents](#agents-mcp)), and **Updates** (see
+[Updates](#updates)).
 
 ### Privacy & Data — clear browsing data
 
@@ -788,6 +791,64 @@ Once enabled, an extension also appears in the sidebar and behaves like this:
   developer. An extension that "just stops working" usually shows why here.
 - **Restore on launch** — extensions you had enabled are re-loaded into their
   Spaces after session restore.
+
+---
+
+## Agents (MCP)
+
+Chord can let an AI agent running on this Mac, such as Claude Code, use the
+browser you are already signed in to. It is **off by default** and you choose
+which Spaces an agent may see. Everything is in **Settings → Agents**.
+
+### Turning it on
+
+1. Switch on **Allow local agents (MCP)**.
+2. Under **Shared Spaces**, set each Space to **Off**, **Read** or
+   **Read & Act**. Turning access on shares nothing until you pick a Space.
+   Private windows are never shared.
+3. Under **Connect an Agent**, copy the command for Claude Code and run it in
+   Terminal, or copy the JSON for another MCP client's server config.
+
+Chord must be running with agent access on for the agent to connect. The command
+names the copy of Chord you are running, so an agent set up for a development
+build will not connect to the installed app, and the other way round.
+
+### What an agent can do
+
+- **Read** — list the shared Spaces and their tabs, read a loaded page's text,
+  and screenshot a page that is on screen. Reading never loads a tab that is
+  still asleep.
+- **Read & Act** — also open, switch and close tabs, navigate, list a page's
+  buttons and fields, click, type and scroll. Password fields are always
+  refused.
+- **Let agents run JavaScript** — a separate switch, off by default, that only
+  works in Read & Act Spaces. Chord shows the whole script and asks before
+  **every** run. **Allow on _site_ Until Quit** stops the asking for that site
+  until you quit Chord or turn the switch off. This is not a sandbox: a script
+  you allow can still read the page and make requests as you.
+
+An agent never reaches the password vault or cookies.
+
+### When Chord asks you first
+
+A sheet appears, with **Deny** as the default, before an agent:
+
+- submits a sign-in form, or clicks or submits anything while a password is
+  filled in on the page;
+- submits a form that posts data (other than a search);
+- uses anything labelled like buying, paying, sending or deleting.
+
+Two minutes without an answer counts as a no.
+
+### Seeing and stopping it
+
+While an agent is connected, every window shows a pill that says so and what
+the agent last did, with a **Disconnect** button. The pill stays for a few
+seconds after the agent leaves, so a short visit is still visible.
+Settings → Agents has the same Disconnect button.
+
+Some sites ignore clicks that do not come from a real mouse or keyboard. An
+agent's clicks will do nothing there.
 
 ---
 

@@ -1698,3 +1698,37 @@ Unticked: written with the code, not walked yet.
 - [ ] VoiceOver (Cmd+F5): the trash and x buttons in Settings (Sites, General
       rules, Passwords, Privacy, Bookmarks, Extensions), in Downloads, the
       folder rename pencil and New Folder are read with what they act on.
+
+## Local agents / MCP (added 2026-11-10, 1.26.0)
+
+Unticked: this list was written from ADR 027 and has not been walked yet.
+
+- [ ] Fresh profile: Settings → Agents has **Allow local agents (MCP)** off, and
+      no socket exists at `~/Library/Application Support/Chord/MCP/chord.sock`.
+- [ ] Switch it on with every Space Off: the Claude Code command connects, and
+      `list_spaces` returns nothing.
+- [ ] Set one Space to Read: `list_tabs` shows only that Space's tabs;
+      `read_page` returns text between BEGIN/END markers; a tab id from another
+      Space is answered like a tab that does not exist.
+- [ ] A private window's tabs never appear, whatever the settings.
+- [ ] `read_page` on an unloaded (lazily restored) tab reports it and does not
+      load it. `screenshot` works for a pane on screen only.
+- [ ] While connected, every window shows the agent pill; **Disconnect** drops
+      the agent; the pill lingers about 5 s after it goes.
+- [ ] Read Space: `click` is refused and the refusal names the setting.
+- [ ] Read & Act Space: `open_url`, `navigate`, `switch_tab`, `close_tab`,
+      `list_elements`, `click`, `type`, `scroll`, `wait_for` all work on a
+      plain page, and the pill says what the agent last did.
+- [ ] `type` into a password field is refused without a sheet.
+- [ ] A sign-in submit, a non-search POST form, and a button labelled "Delete"
+      each raise the sheet with Deny as the default; Deny refuses the action.
+- [ ] `eval_js` is refused until **Let agents run JavaScript** is on; then the
+      sheet shows the whole script on every run; "Allow on <site> Until Quit"
+      stops the asking for that site, and turning the switch off clears it.
+- [ ] In `eval_js`, `document.cookie` reads empty and `localStorage` throws; a
+      run is refused while a password field has a value.
+- [ ] `ls -ld` shows the `MCP` directory at `drwx------` and the socket at
+      `srw-------`. A dev build's `--mcp-stdio` helper is refused by the
+      installed app.
+- [ ] Quit Chord with an agent connected, relaunch: the stale socket is
+      replaced and the agent can reconnect.

@@ -176,6 +176,16 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   (**Settings → Sites**). Hiding is a stylesheet, so it survives a page's own
   re-renders; changes apply on the next load
   ([ADR 024](docs/adr/024-site-overrides-are-generated-css.md)).
+- **Local agents (MCP)** — Chord is an MCP server for AI agents on the same Mac,
+  such as Claude Code (**Settings → Agents**, off by default). Each Space is
+  Off, Read or Read & Act; private Spaces are never shared. Read lists tabs,
+  reads page text and takes screenshots; Read & Act adds opening, navigating,
+  clicking, typing and scrolling, with a confirmation sheet before sign-ins,
+  POST forms and anything labelled like buying, sending or deleting. Running an
+  agent's own JavaScript is a separate switch and asks on every run. The agent
+  starts Chord's own executable with `--mcp-stdio`, which bridges to a
+  user-only Unix socket; there is no network listener
+  ([ADR 027](docs/adr/027-local-mcp-server.md)).
 - **Settings** (`Cmd+,`) — General preferences, clear browsing data (cache,
   cookies, site storage, history) across every Space, per-site permission
   management, extensions, and updates.
@@ -363,6 +373,9 @@ Packages/              All logic, as a Swift package (ChordPackages)
     ChordExtensions/   WKWebExtension host + .crx unpack + prepared shim bundle
     ChordCrypto/       Security/CryptoKit — Chrome ids + extension signature verification
     ChordUpdater/      GitHub-release self-updater (check, download, install)
+    ChordSecrets/      Keychain + LocalAuthentication for the password vault
+    ChordMCP/          Local MCP server — JSON-RPC over a Unix socket, stdio bridge
+    ChordLogging/      The one logging sink (os.Logger + rotating file)
     ChordStore/        App state store
     ChordUI/           SwiftUI views
   Tests/                 One test suite per source module

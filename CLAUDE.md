@@ -60,18 +60,64 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
 ## Build & Test
 
-_Add your build and test commands here_
-
 ```bash
-# Example:
-# npm install
-# npm test
+# The full local gate: SDK check, packages (warnings are errors), every test
+# target serially, then the app build. Must be green before a push or release.
+./scripts/prepush.sh
+
+# Packages only
+swift build --package-path Packages -Xswiftc -warnings-as-errors
+
+# One test target (serial; a whole-suite run can stall, so go target by target)
+swift test --package-path Packages --no-parallel --filter '^ChordStoreTests\.'
+
+# The app
+xcodebuild -project Chord.xcodeproj -scheme Chord -configuration Debug \
+  -destination 'platform=macOS' build
 ```
+
+Opt-in gates: `CHORD_REAL_EXTENSIONS=1` (real Chrome extension matrix) and
+`CHORD_PERF=1` (startup budget, needs a Release build). Releases go through
+`./scripts/release.sh <version> [build]`; the procedure is in
+[AGENTS.md](AGENTS.md) under "Push to GitHub / release".
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+Chord is a macOS browser (15.4+) on `WKWebView`. All logic lives in one Swift
+package, `Packages/` (Swift 6 language mode); `ChordApp/` is the thin app target.
+
+| Target | Role |
+| --- | --- |
+| `ChordCore` | Value types, ranking, converters. Foundation only. |
+| `ChordLogging` | The one logging sink (`os.Logger` plus a rotating file). |
+| `ChordPersistence` | GRDB/SQLite repositories and migrations. |
+| `ChordEngine` | The WebKit boundary: web views, pooling, navigation, content blocking. |
+| `ChordExtensions` | `WKWebExtension` host and the Chrome compatibility shim. |
+| `ChordCrypto` | Chrome extension ids and signature verification. |
+| `ChordSecrets` | Keychain and LocalAuthentication for the password vault. |
+| `ChordMCP` | Local MCP server: JSON-RPC over a user-only Unix socket (ADR 027). |
+| `ChordUpdater` | GitHub-release self-updater. |
+| `ChordStore` | App state (`TabStore` and its extensions); wires everything in `AppEnvironment.live()`. |
+| `ChordUI` | SwiftUI views. |
+| `ChordTestSupport` | Fakes shared by the test targets. |
+
+Read first: [BROWSER_SPEC.md](BROWSER_SPEC.md) (the contract),
+[CHECKPOINT.md](CHECKPOINT.md) (current position), [docs/adr/](docs/adr)
+(decisions). The project skills in `.claude/skills/` (`chord-browser-architecture`,
+`-extensions`, `-maintenance`, `-youtube-ads`) carry the detail.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- **WebKit stays in the engine layer.** Only `ChordEngine` and `ChordExtensions`
+  import WebKit; no `WK*` type reaches `ChordStore` or `ChordUI`. One target per
+  OS-framework boundary (ADR 011).
+- **Never invent WebKit API.** Check the SDK headers. The release runner builds
+  against the macOS 26 SDK, so `scripts/check-sdk-availability.py` must pass.
+- **Docs move with the code.** A user-facing change updates `CHECKPOINT.md`,
+  `README.md`, `docs/USER_GUIDE.md`, `SMOKE.md` and the matching skill in the
+  same commit; a design decision gets an ADR.
+- **Watch a regression test fail** against the bug before trusting it.
+- **Verify UI work by driving the real app**, not by reasoning about it.
+- **Stay in scope.** Non-spec features need the user's say first (BROWSER_SPEC §11).
+- `AGENTS.md` is the fuller agent guide (beads workflow, release procedure).
+  Keep the two in step.
