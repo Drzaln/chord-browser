@@ -32,6 +32,7 @@ enum Preferences {
     private static let agentSpaceIDsKey = "prefs.agentSpaceIDs"
     private static let agentActSpaceIDsKey = "prefs.agentActSpaceIDs"
     private static let agentScriptsEnabledKey = "prefs.agentScriptsEnabled"
+    private static let welcomeShownKey = "prefs.welcomeShown"
 
     static func loadSearchEngine(
         _ defaults: any PreferenceStore = UserDefaults.standard
@@ -318,6 +319,21 @@ enum Preferences {
         developerMode enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         defaults.set(enabled, forKey: developerModeKey)
+    }
+
+    // MARK: - First-run welcome
+
+    /// Whether the first-run welcome was ever offered on this profile (gn0.6).
+    static func loadWelcomeShown(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Bool {
+        defaults.object(forKey: welcomeShownKey) as? Bool ?? false
+    }
+
+    static func save(
+        welcomeShown shown: Bool, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(shown, forKey: welcomeShownKey)
     }
 
     // MARK: - Page zoom

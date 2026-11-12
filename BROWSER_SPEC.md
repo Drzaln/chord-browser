@@ -782,6 +782,14 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   Find-only notes answer lookalikes that are not settings (appearance, page
   zoom, private windows, downloads, content blocking). Tests:
   `SettingsCatalogTests`.
+- **First-run welcome** (gn0.6, 2026-11-12; non-spec: user-requested) — one
+  sheet, once, on an empty profile: default browser, where the imports are,
+  edit the first Space. `WelcomePolicy`, `WelcomeSheet`.
+- **Sidebar follows the text size** (gn0.10, 2026-11-12) — `ChromeMetrics`
+  scales the sidebar, address field and command bar from `dynamicTypeSize`.
+- **VoiceOver actions on tab rows** (gn0.9, 2026-11-12) — Close, Mute and
+  Cancel Sleep Timer as named accessibility actions; the close button stays
+  hover-only.
 - **Error page and link destinations** (2026-11-10; non-spec: user-requested) —
   a load that fails before the site shows anything gets a page from a private
   `chord-error://` scheme (`ErrorPage`) while the app still reports the pane at

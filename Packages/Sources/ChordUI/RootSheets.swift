@@ -86,6 +86,9 @@ struct RootSheets: ViewModifier {
                     extensions: extensions, bookmarks: bookmarks
                 )
             }
+            .sheet(isPresented: $windowState.isWelcomePresented) {
+                WelcomeSheet(store: store, windowState: windowState)
+            }
             .sheet(isPresented: $windowState.isHistoryPresented) {
                 HistoryView(store: store, windowState: windowState)
             }

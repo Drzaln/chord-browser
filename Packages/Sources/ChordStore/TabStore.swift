@@ -1003,8 +1003,13 @@ public final class TabStore {
         pendingWindowKind = nil
 
         var restoredPrivateSpaceIDs: Set<UUID> = []
+        // A profile is fresh when its store answered and held no Space at all
+        // (gn0.6). A failed load is not "fresh", and neither is a store-less
+        // TabStore.
+        var isFreshProfile = false
         do {
             let loaded = try await spaceRepository?.loadSpaces() ?? []
+            isFreshProfile = spaceRepository != nil && loaded.isEmpty
             // Self-healing: nothing writes a private Space today, but a profile
             // written by a build before this feature's guards existed would
             // otherwise resurrect one — the single thing private browsing must
@@ -1069,6 +1074,7 @@ public final class TabStore {
         // Extensions load after the Spaces they belong to exist (7.4).
         reportsSpaceActivation = true
         Log.store.notice("perf restore-done")
+        offerWelcomeIfFirstRun(isFreshProfile: isFreshProfile)
         await afterRestore?()
     }
 

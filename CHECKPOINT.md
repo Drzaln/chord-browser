@@ -5525,3 +5525,22 @@ setting's per-app list (`com.apple.universalaccess` `FontSizeCategory`) names
 only Apple apps, and checking means changing a system setting. If the slider
 does nothing in Chord, the options are an in-app size setting or reading that
 preference directly; that is a new decision.
+
+## First-run welcome (2026-11-12, bead `gn0.6`; non-spec, user go-ahead 2026-11-12)
+
+One sheet on the first launch of an empty profile: make Chord the default
+browser (reuses `DefaultBrowserModel`), where the File-menu imports are, edit
+the first Space (hands over to `SpaceEditor`), then the command bar and
+Settings shortcuts. Every step is optional.
+
+- `WelcomePolicy.shouldShow(alreadyShown:isFreshProfile:)` and
+  `TabStore.offerWelcomeIfFirstRun`, called at the end of `restore()`. Fresh
+  means the Space store answered and was empty; a failed load or a store-less
+  `TabStore` is not fresh. The flag (`prefs.welcomeShown`) is set when the
+  sheet is offered, and also on any existing profile, so it is asked once.
+- `WindowState.isWelcomePresented` on the primary window only (never private);
+  `WelcomeSheet` is presented from `RootSheets`, after the first paint.
+- The import step points at the File menu rather than running the imports:
+  those flows live in the app target's menu code.
+- Tests: `WelcomePolicyTests` (4). **Not seen in the app**: it needs an empty
+  profile, and I did not wipe the real one.

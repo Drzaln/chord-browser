@@ -46,6 +46,14 @@ its own tab** once you finish signing in instead of lingering.
 
 ---
 
+### First launch
+
+The first time Chord opens on a new profile it shows a short welcome: make
+Chord your default browser, where the imports are (**File → Import
+Bookmarks…**, **Import from Arc…**, **Import Passwords…**), and a button to
+name and colour your first Space. Every step is optional, and the sheet is
+shown once.
+
 ## Keyboard shortcuts
 
 ### Tabs & navigation

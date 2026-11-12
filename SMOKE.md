@@ -1990,3 +1990,19 @@ Regression — extensions that were fine before must stay fine:
       CHECKPOINT) and the bead reopens.
 - [ ] Smallest setting: the same, shrunk; rows stay readable.
 - [ ] Scrolling a long tab list is as smooth as before.
+
+### First-run welcome (gn0.6)
+
+Needs an empty profile. **Do not run `scripts/reset-data.sh` on your everyday
+profile**: it wipes everything. Use a spare macOS user account, or back up
+`~/Library/Application Support/Chord` first.
+
+- [ ] First launch on an empty profile: after the window paints, the
+      **Welcome to Chord** sheet appears once.
+- [ ] **Make Default** raises the macOS confirmation; after confirming, the row
+      shows a tick.
+- [ ] **Edit Space…** closes the welcome and opens the Space editor.
+- [ ] **Get Started** (or Return) closes it. Quit and relaunch: it does not
+      come back, with or without tabs open.
+- [ ] Your everyday profile, updating to this build: the sheet never appears.
+- [ ] A private window never shows it.
