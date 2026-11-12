@@ -1732,3 +1732,18 @@ Unticked: this list was written from ADR 027 and has not been walked yet.
       installed app.
 - [ ] Quit Chord with an agent connected, relaunch: the stale socket is
       replaced and the agent can reconnect.
+
+## 2026-11-12 batch: c1k and gn0 work (branch `feat/c1k-gn0`, unreleased)
+
+Unticked: written with the code, not walked yet.
+
+### VoiceOver actions on tab rows (gn0.9)
+
+- [ ] VoiceOver on (Cmd+F5), cursor on a tab row that is not selected: the
+      Actions menu (VO+Cmd+Space) offers **Close Tab**, and it closes that tab
+      without selecting it.
+- [ ] A tab playing audio also offers **Mute Tab**; a muted one **Unmute Tab**;
+      one with a sleep timer **Cancel Sleep Timer**.
+- [ ] A favourite tile offers **Remove from Favourites**, mute and **Close Tab**.
+- [ ] Without VoiceOver nothing looks different: the x still shows only on
+      hover, and click, drag-to-split and the context menu behave as before.

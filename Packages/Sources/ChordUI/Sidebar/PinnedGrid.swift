@@ -100,6 +100,13 @@ struct PinnedGrid: View {
         }
         .accessibilityLabel(tab.displayTitle)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        // The same commands as the context menu, for VoiceOver's Actions
+        // menu (gn0.9). Nothing visible changes.
+        .accessibilityActions {
+            Button("Remove from Favourites") { store.setPinned(false, tabID: tab.id) }
+            Button(store.isMuted(tab.id) ? "Unmute Tab" : "Mute Tab") { store.toggleMute(tab.id) }
+            Button("Close Tab") { store.closeTab(tab.id, in: windowState) }
+        }
         .contextMenu {
             Button("Rename Tab…") { windowState.renamingTabID = tab.id }
             Button("Return to Pinned URL") { store.returnToPinnedHome(tab.id, in: windowState) }

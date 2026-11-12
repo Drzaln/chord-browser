@@ -5435,3 +5435,15 @@ which is the site's time: 559 to 6,748 ms on one build).
   453–690 ms. Both inside the budget.
 - Not done: no code was made faster; the budget is met where it is now read.
   Extensions still start at ~1.65 s, which can be before a slow page finishes.
+
+## VoiceOver actions on tab rows (2026-11-12, bead `gn0.9`)
+
+The row's close button exists only on hover (Arc's behaviour, kept on the
+user's word), so VoiceOver could not close a tab it had not selected.
+`TabRowView` now publishes named accessibility actions from
+`TabRowAccessibilityAction.actions(isPlayingAudio:isMuted:hasSleepTimer:)`:
+Close Tab always, Mute/Unmute Tab and Cancel Sleep Timer when they apply.
+Pinned rows get them through `TabRowView`; favourite tiles (`PinnedGrid`)
+offer Remove from Favourites, mute and Close Tab. Nothing visible changed.
+Tests: `TabRowAccessibilityTests` (5). Not tried with VoiceOver in the app.
+The sidebar has no keyboard focus navigation at all; filed as `gn0.11`.

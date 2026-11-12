@@ -129,6 +129,28 @@ struct TabRowView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        // The close button is hover-only by design, and VoiceOver never
+        // hovers: the row's commands go in its Actions menu instead (gn0.9).
+        .accessibilityAction(.default, select)
+        .accessibilityActions {
+            ForEach(
+                TabRowAccessibilityAction.actions(
+                    isPlayingAudio: isPlayingAudio, isMuted: isMuted,
+                    hasSleepTimer: sleepTimerDeadline != nil
+                ),
+                id: \.name
+            ) { action in
+                Button(action.name) { perform(action) }
+            }
+        }
+    }
+
+    private func perform(_ action: TabRowAccessibilityAction) {
+        switch action {
+        case .close: close()
+        case .mute, .unmute: toggleMute()
+        case .cancelSleepTimer: cancelSleepTimer()
+        }
     }
 
     @ViewBuilder
