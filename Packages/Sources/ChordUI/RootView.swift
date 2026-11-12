@@ -302,6 +302,9 @@ public struct RootView: View {
                 .zIndex(1)
             }
         }
+        // Sidebar, address field and command bar sizes follow the system
+        // text size from here down (gn0.10).
+        .followsSystemTextSize()
         // `.hiddenTitleBar` still reserves the titlebar strip across the whole
         // window, which pushed the web card down and left a dead band above it.
         // The card runs to the top edge instead; the sidebar reserves its own

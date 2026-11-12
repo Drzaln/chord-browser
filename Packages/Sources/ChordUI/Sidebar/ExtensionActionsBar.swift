@@ -12,6 +12,7 @@ import SwiftUI
 /// the host (it wraps a `WKWebView`), so no WebKit type reaches this view; the
 /// button only hands the host an `NSView` anchor to position against (ADR 011).
 struct ExtensionActionsBar: View {
+    @Environment(\.chromeMetrics) private var metrics
     @Bindable var store: TabStore
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
@@ -52,7 +53,7 @@ struct ExtensionActionsBar: View {
                 if !loaded.isEmpty {
                     Button { showingPanel = true } label: {
                         Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(metrics.font(12, weight: .medium))
                             .frame(width: 24, height: 24)
                             .contentShape(Rectangle())
                     }
@@ -105,6 +106,7 @@ struct ExtensionActionsBar: View {
 
 /// A single extension's header button.
 private struct ExtensionActionButton: View {
+    @Environment(\.chromeMetrics) private var metrics
     let action: ExtensionActionSnapshot
     let space: Space
     let host: any ExtensionHost
@@ -150,14 +152,14 @@ private struct ExtensionActionButton: View {
         } else {
             // Extensions may supply no action icon; fall back to a generic mark.
             Image(systemName: "puzzlepiece.extension.fill")
-                .font(.system(size: 12))
+                .font(metrics.font(12))
         }
     }
 
     @ViewBuilder private var badge: some View {
         if !action.badgeText.isEmpty {
             Text(action.badgeText)
-                .font(.system(size: 7, weight: .bold))
+                .font(metrics.font(7, weight: .bold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 2)
                 .padding(.vertical, 0.5)

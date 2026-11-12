@@ -4,6 +4,7 @@ import SwiftUI
 /// A folder header in the sidebar: a disclosure chevron, the name (editable
 /// inline), and a tab count (non-spec: user-requested).
 struct FolderRowView: View {
+    @Environment(\.chromeMetrics) private var metrics
     let folder: Folder
     let isRenaming: Bool
     /// The active Space's colour, so a folder's hover highlight matches its tabs.
@@ -20,24 +21,24 @@ struct FolderRowView: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: folder.isCollapsed ? "chevron.right" : "chevron.down")
-                .font(.system(size: 9, weight: .semibold))
+                .font(metrics.font(9, weight: .semibold))
                 .foregroundStyle(.secondary)
-                .frame(width: 12)
+                .frame(width: metrics.points(12))
 
             Image(systemName: "folder.fill")
-                .font(.system(size: 10))
+                .font(metrics.font(10))
                 .foregroundStyle(.secondary)
 
             if isRenaming {
                 TextField("Folder name", text: $draftName)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(metrics.font(12, weight: .medium))
                     .focused($nameFocused)
                     .onSubmit { rename(draftName) }
                     .onAppear { draftName = folder.name; nameFocused = true }
             } else {
                 Text(folder.displayName)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(metrics.font(12, weight: .medium))
                     .lineLimit(1)
             }
 
@@ -45,7 +46,7 @@ struct FolderRowView: View {
 
             if isHovering && !isRenaming {
                 Button(action: beginRename) {
-                    Image(systemName: "pencil").font(.system(size: 9))
+                    Image(systemName: "pencil").font(metrics.font(9))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Rename folder")
@@ -53,7 +54,7 @@ struct FolderRowView: View {
             }
         }
         .padding(.horizontal, 8)
-        .frame(height: Metrics.sidebarRowHeight)
+        .frame(height: metrics.sidebarRowHeight)
         // A hover highlight matching a tab row's, so every sidebar entry reacts
         // the same way to the pointer.
         .background {

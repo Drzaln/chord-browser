@@ -5499,3 +5499,29 @@ Tests that came across and pass: `BookmarkImportTests`,
 **Not run in the app with real export files.** The password import asks the
 Keychain for the other browser's Safe Storage key, which shows a system
 prompt; that path is untested here.
+
+## Sidebar sizes follow the text size (2026-11-12, bead `gn0.10`)
+
+User decision 2026-11-12: scale now, without waiting for the sidebar redesign
+(`l9y.1` can take these tokens over).
+
+- `ChordUI/ChromeMetrics.swift`: one value per `DynamicTypeSize`, built once in
+  a table (`resolved(for:)`): row height, favicon, favourite tile, address
+  field height, and the tab row's three fonts. `scale(for:)` runs 0.85 to 2.0
+  with `large` (the default) at exactly 1, so the default look is unchanged.
+- `RootView` applies `.followsSystemTextSize()`, which reads
+  `dynamicTypeSize` once per window and puts the metrics in the environment.
+- Converted to read it: `TabRowView` (precomputed fonts only, nothing built in
+  `body`, §6.4), `FolderRowView`, `PinnedGrid`, `SidebarView`, `SpaceSwitcher`,
+  `ExtensionActionsBar`, `NavigationBar`, `CredentialFillButton`,
+  `CommandBarView`. Settings, sheets and Little Chord keep fixed sizes.
+- Tests: `ChromeMetricsTests` (5), including "rows never clip" at every size
+  and a source check that the tab row builds no font.
+
+**Unverified, and it matters:** this follows SwiftUI's `dynamicTypeSize`. I
+could not confirm that macOS feeds the Accessibility → Text size setting into
+that value for a third-party app: AppKit has no public text-size API, the
+setting's per-app list (`com.apple.universalaccess` `FontSizeCategory`) names
+only Apple apps, and checking means changing a system setting. If the slider
+does nothing in Chord, the options are an in-app size setting or reading that
+preference directly; that is a new decision.

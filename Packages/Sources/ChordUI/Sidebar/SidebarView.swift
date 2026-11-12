@@ -10,6 +10,7 @@ import SwiftUI
 /// it owns its lane — which is what Arc does, and what makes the revealed
 /// state read as *over* the content rather than part of it.
 struct SidebarView: View {
+    @Environment(\.chromeMetrics) private var metrics
     @Bindable var store: TabStore
     /// This window's sidebar state — width, and which sections it has collapsed.
     @Bindable var windowState: WindowState
@@ -38,7 +39,7 @@ struct SidebarView: View {
 
     /// One row plus the `LazyVStack`'s inter-row spacing — the height of a slot
     /// the drop maps a cursor Y onto.
-    private var rowSlot: CGFloat { Metrics.sidebarRowHeight + 2 }
+    private var rowSlot: CGFloat { metrics.sidebarRowHeight + 2 }
 
     private var isDragging: Bool { store.draggingTabID != nil }
 
@@ -267,23 +268,23 @@ struct SidebarView: View {
         let collapsed = windowState.isPinnedSectionCollapsed(inSpace: store.activeSpace(in: windowState)?.id)
         return HStack(spacing: 6) {
             Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                .font(.system(size: 9, weight: .semibold))
+                .font(metrics.font(9, weight: .semibold))
                 .foregroundStyle(.secondary)
-                .frame(width: 12)
+                .frame(width: metrics.points(12))
             Image(systemName: "pin.fill")
-                .font(.system(size: 10))
+                .font(metrics.font(10))
                 .foregroundStyle(.secondary)
             Text("Pinned")
-                .font(.system(size: 12, weight: .medium))
+                .font(metrics.font(12, weight: .medium))
                 .lineLimit(1)
             Spacer(minLength: 0)
             Text("\(store.bookmarkedTabs(in: windowState).count)")
-                .font(.system(size: 11))
+                .font(metrics.font(11))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
         .padding(.horizontal, 8)
-        .frame(height: Metrics.sidebarRowHeight)
+        .frame(height: metrics.sidebarRowHeight)
         .contentShape(Rectangle())
         .onTapGesture {
             windowState.togglePinnedSectionCollapsed(inSpace: store.activeSpace(in: windowState)?.id)
@@ -315,10 +316,10 @@ struct SidebarView: View {
     private var firstBookmarkDropZone: some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .strokeBorder(.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4]))
-            .frame(height: Metrics.sidebarRowHeight)
+            .frame(height: metrics.sidebarRowHeight)
             .overlay {
                 Label("Pin Tab", systemImage: "pin")
-                    .font(.system(size: 11))
+                    .font(metrics.font(11))
                     .foregroundStyle(.secondary)
             }
             .overlay { bookmarkDropOverlay }
@@ -331,10 +332,10 @@ struct SidebarView: View {
     private var firstPinDropZone: some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .strokeBorder(.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4]))
-            .frame(height: Metrics.pinnedTileHeight)
+            .frame(height: metrics.pinnedTileHeight)
             .overlay {
                 Label("Pin to Favourites", systemImage: "pin")
-                    .font(.system(size: 11))
+                    .font(metrics.font(11))
                     .foregroundStyle(.secondary)
             }
             .overlay { pinnedDropOverlay }
@@ -379,8 +380,8 @@ struct SidebarView: View {
             windowState.isSidebarCollapsed.toggle()
         } label: {
             Image(systemName: "sidebar.leading")
-                .font(.system(size: 12, weight: .medium))
-                .frame(width: 24, height: 24)
+                .font(metrics.font(12, weight: .medium))
+                .frame(width: metrics.points(24), height: metrics.points(24))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -489,9 +490,9 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: "eye.slash.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(metrics.font(11, weight: .medium))
                 Text("Private window")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(metrics.font(12, weight: .semibold))
                 Spacer(minLength: 0)
                 DownloadsButton(downloads: downloads, windowState: windowState)
             }
@@ -501,7 +502,7 @@ struct SidebarView: View {
                     + "It does not hide you from the sites you visit or from your network. "
                     + "Downloads and passwords you fill are real."
             )
-            .font(.system(size: 10))
+            .font(metrics.font(10))
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -588,13 +589,13 @@ struct SidebarView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(metrics.font(10, weight: .semibold))
                     Text("New Tab")
-                        .font(.system(size: 12))
+                        .font(metrics.font(12))
                     Spacer()
                 }
                 .padding(.horizontal, 8)
-                .frame(height: Metrics.sidebarRowHeight)
+                .frame(height: metrics.sidebarRowHeight)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -604,8 +605,8 @@ struct SidebarView: View {
                 if let id = store.addFolder() { renamingFolderID = id }
             } label: {
                 Image(systemName: "folder.badge.plus")
-                    .font(.system(size: 11))
-                    .frame(width: Metrics.sidebarRowHeight, height: Metrics.sidebarRowHeight)
+                    .font(metrics.font(11))
+                    .frame(width: metrics.sidebarRowHeight, height: metrics.sidebarRowHeight)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

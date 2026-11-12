@@ -4,6 +4,7 @@ import SwiftUI
 /// One sidebar row. Deliberately cheap: no image decoding, no string
 /// formatting, no colour computation in `body` (6.4).
 struct TabRowView: View {
+    @Environment(\.chromeMetrics) private var metrics
     // Fully qualified: SwiftUI ships its own `Tab` type on macOS 15.
     let tab: ChordCore.Tab
     let isSelected: Bool
@@ -49,12 +50,12 @@ struct TabRowView: View {
     var body: some View {
         HStack(spacing: 8) {
             favicon
-                .frame(width: Metrics.faviconSize, height: Metrics.faviconSize)
+                .frame(width: metrics.faviconSize, height: metrics.faviconSize)
 
             Text(tab.displayTitle)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .font(.system(size: 12))
+                .font(metrics.rowTitleFont)
 
             Spacer(minLength: 0)
 
@@ -63,7 +64,7 @@ struct TabRowView: View {
             if isPlayingAudio || isMuted {
                 Button(action: toggleMute) {
                     Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(metrics.rowGlyphFont)
                         .foregroundStyle(isMuted ? secondaryText : AnyShapeStyle(.tint))
                 }
                 .buttonStyle(.plain)
@@ -76,7 +77,7 @@ struct TabRowView: View {
             if let sleepTimerDeadline {
                 Button(action: cancelSleepTimer) {
                     Image(systemName: "moon.zzz.fill")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(metrics.rowGlyphFont)
                         .foregroundStyle(secondaryText)
                 }
                 .buttonStyle(.plain)
@@ -87,7 +88,7 @@ struct TabRowView: View {
             if isHovering {
                 Button(action: close) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(metrics.rowGlyphFont)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Close tab")
@@ -95,7 +96,7 @@ struct TabRowView: View {
         }
         .foregroundStyle(primaryText)
         .padding(.horizontal, 8)
-        .frame(height: Metrics.sidebarRowHeight)
+        .frame(height: metrics.sidebarRowHeight)
         .background(background)
         .contentShape(Rectangle())
         // Handles the click in the region it covers; this catches the rest.
@@ -117,8 +118,8 @@ struct TabRowView: View {
             // The gap keeps the trailing buttons clickable — wider when a mute
             // or sleep-timer button shares the row with the close button.
             .padding(.trailing, hasTrailingButtons
-                ? Metrics.sidebarRowHeight + 20
-                : Metrics.sidebarRowHeight)
+                ? metrics.sidebarRowHeight + 20
+                : metrics.sidebarRowHeight)
         }
         .onHover { hovering in
             withAnimation(Motion.respectingReduceMotion(
@@ -161,7 +162,7 @@ struct TabRowView: View {
             image.resizable().interpolation(.high)
         } else {
             Image(systemName: "globe")
-                .font(.system(size: 11))
+                .font(metrics.rowPlaceholderFont)
                 .foregroundStyle(.secondary)
         }
     }

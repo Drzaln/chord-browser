@@ -11,6 +11,7 @@ import SwiftUI
 /// Observes the focused pane's `PaneRuntime` rather than the whole store, so a
 /// loading progress tick redraws this bar and nothing else (6.4).
 struct NavigationBar: View {
+    @Environment(\.chromeMetrics) private var metrics
     @Bindable var store: TabStore
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
@@ -73,7 +74,7 @@ struct NavigationBar: View {
                 }
             }
             .padding(.trailing, 6)
-            .frame(height: Metrics.addressFieldHeight)
+            .frame(height: metrics.addressFieldHeight)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rowWidth = $0 }
             .background(
                 // A neutral lift over the Space's tint, as Arc's field: darker
@@ -103,11 +104,11 @@ struct NavigationBar: View {
             HStack(spacing: 8) {
                 if currentURLString.isEmpty {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(metrics.font(13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
                 Text(displayAddress)
-                    .font(.system(size: 13))
+                    .font(metrics.font(13))
                     .foregroundStyle(currentURLString.isEmpty ? .secondary : .primary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -155,6 +156,7 @@ struct NavigationBar: View {
 /// Back, forward and reload (stop while loading), at the trailing end of the
 /// title-bar row beside the traffic lights, as Arc places them.
 struct NavigationButtons: View {
+    @Environment(\.chromeMetrics) private var metrics
     @Bindable var store: TabStore
     @Bindable var windowState: WindowState
 
@@ -187,8 +189,8 @@ struct NavigationButtons: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 14, weight: .regular))
-                .frame(width: 28, height: 24)
+                .font(metrics.font(14, weight: .regular))
+                .frame(width: metrics.points(28), height: metrics.points(24))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -12,6 +12,7 @@ import SwiftUI
 /// Per-Space comes for free: `store.pinnedTabs(in: windowState)` filters by the active Space,
 /// so one Space's favourites can never appear in another.
 struct PinnedGrid: View {
+    @Environment(\.chromeMetrics) private var metrics
     @Bindable var store: TabStore
     /// The window this view belongs to — its selection, its Space.
     @Bindable var windowState: WindowState
@@ -55,9 +56,9 @@ struct PinnedGrid: View {
                     )
 
                 favicon(for: tab)
-                    .frame(width: 20, height: 20)
+                    .frame(width: metrics.pinnedFaviconSize, height: metrics.pinnedFaviconSize)
             }
-            .frame(height: Metrics.pinnedTileHeight)
+            .frame(height: metrics.pinnedTileHeight)
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -130,7 +131,7 @@ struct PinnedGrid: View {
             image.resizable().interpolation(.high)
         } else {
             Image(systemName: "globe")
-                .font(.system(size: 14))
+                .font(metrics.font(14))
                 .foregroundStyle(placeholderForeground(for: tab))
         }
     }

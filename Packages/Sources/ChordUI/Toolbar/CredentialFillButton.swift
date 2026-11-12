@@ -14,6 +14,7 @@ import SwiftUI
 /// several it offers a menu first, because picking the wrong account is a real
 /// mistake on the sites where Spaces exist in the first place.
 struct CredentialFillButton: View {
+    @Environment(\.chromeMetrics) private var metrics
     @Bindable var store: TabStore
     @Bindable var windowState: WindowState
 
@@ -80,7 +81,7 @@ struct CredentialFillButton: View {
 
     private var icon: some View {
         Image(systemName: iconName)
-            .font(.system(size: 12, weight: .medium))
+            .font(metrics.font(12, weight: .medium))
             // Green only briefly, as an acknowledgement: a fill is otherwise
             // invisible when the page renders dots.
             .foregroundStyle(status == .filled ? Color.green : Color.secondary)
@@ -95,7 +96,7 @@ struct CredentialFillButton: View {
                 // the anchor button's 24 pt and truncates the sentence to
                 // nothing. Found by reading it on screen.
                 Text(failureMessage ?? "")
-                    .font(.system(size: 11))
+                    .font(metrics.font(11))
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(width: 220, alignment: .leading)
                     .padding(12)

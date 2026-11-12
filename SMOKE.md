@@ -1978,3 +1978,15 @@ Regression — extensions that were fine before must stay fine:
 - [ ] A content script on a page still runs (the shim is prepended to it), and
       `chrome.offscreen` stays **undefined** in the content-script world — it
       cannot reach the app there
+
+### Sidebar follows the system text size (gn0.10)
+
+- [ ] At the default text size nothing moved: rows are 30 pt, titles 12 pt,
+      favourites and the address field look as in 1.26.0.
+- [ ] System Settings → Accessibility → Display → Text size, moved to the
+      largest setting: sidebar titles, row heights, favicons, the address
+      field and the command bar grow together; nothing clips or overlaps.
+      **If nothing changes, macOS is not passing the setting to Chord** (see
+      CHECKPOINT) and the bead reopens.
+- [ ] Smallest setting: the same, shrunk; rows stay readable.
+- [ ] Scrolling a long tab list is as smooth as before.

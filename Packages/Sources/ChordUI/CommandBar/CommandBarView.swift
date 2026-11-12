@@ -5,6 +5,7 @@ import SwiftUI
 
 /// The command bar's contents: one input, one ranked result list (4.4).
 struct CommandBarView: View {
+    @Environment(\.chromeMetrics) private var metrics
     @Bindable var store: TabStore
     /// Which window the bar is acting for this time round. Not a stored
     /// `WindowState`: the panel is built once and reused across windows, so the
@@ -85,7 +86,7 @@ struct CommandBarView: View {
 
             TextField("Search or enter address", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 18))
+                .font(metrics.font(18))
                 .focused($isFocused)
                 // Plain Return only. A focused TextField consumes Return for its
                 // own submit and ignores it entirely when Command is held, so
@@ -103,7 +104,7 @@ struct CommandBarView: View {
                 }
         }
         .padding(.horizontal, 16)
-        .frame(height: 52)
+        .frame(height: metrics.points(52))
     }
 
     private var resultList: some View {
@@ -209,6 +210,8 @@ struct CommandBarView: View {
 }
 
 struct CommandBarRow: View {
+
+    @Environment(\.chromeMetrics) private var metrics
     let suggestion: Suggestion
     let isHighlighted: Bool
     /// Decides the row's action text: the same result reads "Switch to Tab" or
@@ -243,16 +246,16 @@ struct CommandBarRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 12))
+                .font(metrics.font(12))
                 .foregroundStyle(secondaryText)
-                .frame(width: 18)
+                .frame(width: metrics.points(18))
 
             VStack(alignment: .leading, spacing: 1) {
                 titleText
-                    .font(.system(size: 13))
+                    .font(metrics.font(13))
                     .lineLimit(1)
                 Text(suggestion.subtitle)
-                    .font(.system(size: 11))
+                    .font(metrics.font(11))
                     .foregroundStyle(secondaryText)
                     .lineLimit(1)
             }
@@ -264,10 +267,10 @@ struct CommandBarRow: View {
             // has already happened.
             HStack(spacing: 6) {
                 Text(suggestion.actionLabel(for: destination))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(metrics.font(11, weight: .medium))
                     .lineLimit(1)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(metrics.font(10, weight: .semibold))
             }
             .foregroundStyle(isHighlighted ? primaryText : AnyShapeStyle(.tertiary))
         }

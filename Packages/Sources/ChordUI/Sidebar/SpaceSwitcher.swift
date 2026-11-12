@@ -6,6 +6,7 @@ import SwiftUI
 /// centred between, scrolling sideways when there are more than fit, and the
 /// new-Space button at the trailing end.
 struct SpaceSwitcher: View {
+    @Environment(\.chromeMetrics) private var metrics
     @Bindable var store: TabStore
     /// The Edit/Delete Space items drive this window's sheets.
     @Bindable var windowState: WindowState
@@ -39,7 +40,7 @@ struct SpaceSwitcher: View {
                 store.addSpace(in: windowState)
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(metrics.font(10, weight: .semibold))
                     .frame(width: 22, height: 22)
             }
             .buttonStyle(.plain)
@@ -103,10 +104,10 @@ struct SpaceSwitcher: View {
     private func icon(for space: Space) -> some View {
         if space.isEmojiIcon {
             Text(space.iconSymbol)
-                .font(.system(size: 13))
+                .font(metrics.font(13))
         } else {
             Image(systemName: space.iconSymbol)
-                .font(.system(size: 11, weight: .medium))
+                .font(metrics.font(11, weight: .medium))
         }
     }
 }
