@@ -462,6 +462,17 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   reported. Chord's folders are flat, so a nested path becomes one folder named
   `Parent / Child`. No new schema and no second persistence path: the apply pass
   uses `TabStore`'s existing `TabRepository` and `FolderRepository` seams.
+- **Arc import.** `File ▸ Import from Arc…` reads Arc's
+  `StorableSidebar.json` from a user-chosen data folder. Parsing is pure
+  (`ChordCore/ArcImport.swift`, `ArcSidebarParser`): unknown keys and missing
+  arrays are tolerated, folder depth is capped at 64, the whole graph is capped
+  at 5 000 items, cycles terminate, and only http(s) URLs survive (credentials
+  stripped, `arc://`/extension/file URLs reported). The plan is then applied by
+  `TabStore+ArcImport`: Spaces matched by name, Arc's Pinned list → `.bookmarked`
+  homed at the URL, top apps → `.pinned` favourites, Arc folders → flat
+  `Folder`s named `Parent / Child` (same-named folders in one Space merge). A
+  re-import adds nothing; a corrupt file returns no plan, so nothing is written.
+  Disabled in private windows, and the archive is never touched.
 - **Per-tab mute**, and **Peek** (a link clicked in a Favourite/Pinned tab opens
   in a floating, promotable panel instead of navigating the protected page away).
 - **Site permissions** — camera, microphone, location, and notifications asked

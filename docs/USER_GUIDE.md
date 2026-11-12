@@ -432,6 +432,25 @@ as `Work → Dev` becomes a single folder named **Work / Dev**. Only `http` and
 `https` links are imported — `javascript:`, `data:`, and `file:` entries are
 skipped — and an identical URL lands only once per folder. Importing the same
 file again adds nothing twice.
+## Importing from Arc
+
+`File ▸ Import from Arc…`, then choose Arc's data folder (usually
+`~/Library/Application Support/Arc`) or its `StorableSidebar.json` directly.
+
+- Each Arc Space becomes a Chord Space. A Space with the same name is reused, so
+  importing twice does not duplicate anything.
+- Arc's **Pinned** tabs become Chord's **Pinned** list, homed at their Arc URL.
+- Arc's **top apps** — the icons above the Spaces — become **favourites**.
+- Arc folders become Chord folders. Chord's folders are flat, so a nested folder
+  is flattened to one folder named `Parent / Child`; folders that share a name
+  in one Space merge into one.
+- Only `http` and `https` pages are imported. `arc://`, `chrome-extension://`,
+  `file:` and other items are dropped and counted. Passwords and cookies are
+  never read.
+
+A confirmation lists what each Space will contribute before anything is
+written. Importing is unavailable in private windows, whose Space is not kept
+after the window closes.
 
 ## Muting tabs
 

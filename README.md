@@ -111,6 +111,13 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   HTML every browser exports, shows a dry-run count, then adds root-level
   bookmarks as Pinned tabs and folders as sidebar folders. Only `http(s)` URLs
   are kept; repeating an import adds nothing twice.
+- **Import from Arc** — `File ▸ Import from Arc…` reads Arc's
+  `StorableSidebar.json` from the data folder you pick. Each Arc Space becomes a
+  Chord Space (matched by name on re-import), Arc's Pinned list becomes Chord's
+  Pinned tabs homed at their Arc URLs, top apps become favourites, and Arc
+  folders become Chord folders (nested paths flatten to `Parent / Child`). A
+  dry-run count per Space comes before anything is written. http(s) only;
+  passwords and cookies are never read.
 - **Peek** — click a link inside a Favourite or Pinned tab and it opens in a
   floating preview instead of navigating the protected page away; promote with
   `⌘O` or dismiss with `Esc`.

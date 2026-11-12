@@ -338,6 +338,206 @@ struct ChordCommands: Commands {
         alert.runModal()
     }
 
+    /// File → Import from Arc…: pick Arc's data folder (or its
+    /// `StorableSidebar.json`), show the per-Space dry-run counts, then write
+    /// Spaces, Pins and favourites through the store.
+    ///
+    /// The picker is security-scoped for exactly the read. Parsing is pure and
+    /// finishes before the first write, so cancel, a corrupt file, or a file
+    /// that is not Arc's sidebar leaves the profile untouched.
+    @MainActor
+    private func importFromArc(into window: WindowState) {
+        guard let store else { return }
+
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.folder, .json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.prompt = "Import"
+        panel.message = "Choose Arc's data folder, or its StorableSidebar.json."
+        guard panel.runModal() == .OK, let chosen = panel.url else { return }
+
+        let scoped = chosen.startAccessingSecurityScopedResource()
+        defer { if scoped { chosen.stopAccessingSecurityScopedResource() } }
+
+        guard let file = Self.arcSidebarFile(startingAt: chosen) else {
+            presentImportError(
+                "No Arc sidebar found",
+                detail: "Chord looks for StorableSidebar.json in the folder you "
+                    + "choose. Pick Arc's data folder — usually "
+                    + "~/Library/Application Support/Arc — or the file itself."
+            )
+            return
+        }
+
+        let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        guard size <= 32 << 20 else {
+            presentImportError(
+                "Arc's sidebar is too large",
+                detail: "StorableSidebar.json is larger than 32 MB, which is not "
+                    + "a sidebar Chord can read safely."
+            )
+            return
+        }
+
+        let data: Data
+        do {
+            data = try Data(contentsOf: file)
+        } catch {
+            presentImportError(
+                "Could not read “\(file.lastPathComponent)”",
+                detail: error.localizedDescription
+            )
+            return
+        }
+
+        guard let plan = ArcSidebarParser.parse(data) else {
+            presentImportError(
+                "Not an Arc sidebar",
+                detail: "“\(file.lastPathComponent)” is not a readable Arc "
+                    + "StorableSidebar.json. Nothing was imported."
+            )
+            return
+        }
+        guard !plan.spaces.isEmpty else {
+            presentImportError(
+                "No Arc Spaces found",
+                detail: "The file is readable, but it holds no Spaces to import."
+            )
+            return
+        }
+
+        let confirmation = NSAlert()
+        confirmation.messageText = plan.spaceCount == 1
+            ? "Import 1 Arc Space?"
+            : "Import \(plan.spaceCount) Arc Spaces?"
+        confirmation.informativeText = importArcSummary(plan)
+        confirmation.addButton(withTitle: "Import")
+        confirmation.addButton(withTitle: "Cancel")
+        guard confirmation.runModal() == .alertFirstButtonReturn else { return }
+
+        let result = store.importArc(plan, in: window)
+        guard result.didWriteAnything else {
+            toast("Nothing new to import", icon: "square.and.arrow.down")
+            return
+        }
+
+        var parts: [String] = []
+        if result.pinsAdded > 0 {
+            parts.append("\(result.pinsAdded) pin\(result.pinsAdded == 1 ? "" : "s")")
+        }
+        if result.favouritesAdded > 0 {
+            parts.append(
+                "\(result.favouritesAdded) "
+                    + "favourite\(result.favouritesAdded == 1 ? "" : "s")"
+            )
+        }
+        if result.spacesCreated > 0 {
+            parts.append(
+                "\(result.spacesCreated) space\(result.spacesCreated == 1 ? "" : "s")"
+            )
+        }
+        if parts.isEmpty {
+            parts.append(
+                "\(result.foldersCreated) "
+                    + "folder\(result.foldersCreated == 1 ? "" : "s")"
+            )
+        }
+        toast("Imported " + parts.joined(separator: ", "), icon: "square.and.arrow.down")
+    }
+
+    /// The dry-run text: one line per Space with what it will contribute, then
+    /// the totals and every class of dropped item. Shown before any write.
+    private func importArcSummary(_ plan: ArcImportPlan) -> String {
+        var lines: [String] = []
+        let listed = plan.spaces.prefix(6)
+        for space in listed {
+            var counts = ["\(space.pinned.count) pinned"]
+            if !space.favourites.isEmpty {
+                counts.append("\(space.favourites.count) favourites")
+            }
+            if !space.folders.isEmpty {
+                counts.append("\(space.folders.count) folders")
+            }
+            lines.append("• \(space.name) — \(counts.joined(separator: ", "))")
+        }
+        if plan.spaces.count > listed.count {
+            lines.append("… and \(plan.spaces.count - listed.count) more")
+        }
+
+        lines.append("")
+        lines.append(
+            "\(plan.itemCount) page\(plan.itemCount == 1 ? "" : "s") in all. "
+                + "Spaces with the same name are reused, and only http(s) pages "
+                + "are imported. Passwords and cookies are never read."
+        )
+        if plan.flattenedFolderCount > 0 {
+            lines.append(
+                "\(plan.flattenedFolderCount) nested "
+                    + "folder\(plan.flattenedFolderCount == 1 ? " is" : "s are") "
+                    + "flattened as “Parent / Child”."
+            )
+        }
+        if plan.mergedFolderCount > 0 {
+            lines.append(
+                "\(plan.mergedFolderCount) same-named "
+                    + "folder\(plan.mergedFolderCount == 1 ? " merges" : "s merge") "
+                    + "into one."
+            )
+        }
+        if plan.skippedCount > 0 {
+            lines.append(
+                "\(plan.skippedCount) item\(plan.skippedCount == 1 ? "" : "s") "
+                    + "will be skipped (arc://, extensions, files, and broken URLs)."
+            )
+        }
+        if plan.credentialsStripped > 0 {
+            lines.append(
+                "\(plan.credentialsStripped) URL"
+                    + "\(plan.credentialsStripped == 1 ? " had" : "s had") embedded "
+                    + "credentials removed."
+            )
+        }
+        if plan.depthLimitReached {
+            lines.append(
+                "Folders nested deeper than "
+                    + "\(ArcSidebarParser.maximumFolderDepth) levels are skipped."
+            )
+        }
+        if plan.itemLimitReached {
+            lines.append(
+                "Arc's sidebar is larger than the import limit; later items "
+                    + "are left behind."
+            )
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// Arc keeps `StorableSidebar.json` at the top of its data folder; some
+    /// builds nest it one level down with the profile. A chosen file is used as
+    ///-is.
+    private static func arcSidebarFile(startingAt url: URL) -> URL? {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        else { return nil }
+        guard isDirectory.boolValue else { return url }
+
+        let candidates = [
+            url.appendingPathComponent("StorableSidebar.json"),
+            url.appendingPathComponent("Arc/StorableSidebar.json"),
+            url.appendingPathComponent("User Data/Default/StorableSidebar.json"),
+            url.appendingPathComponent("User Data/StorableSidebar.json"),
+            url.appendingPathComponent("Default/StorableSidebar.json"),
+        ]
+        return candidates.first { candidate in
+            var isDirectory: ObjCBool = false
+            return FileManager.default.fileExists(
+                atPath: candidate.path, isDirectory: &isDirectory
+            ) && !isDirectory.boolValue
+        }
+    }
+
     var body: some Commands {
         // The standard app "Settings…" item — Cmd+, — opens the settings sheet
         // (clear browsing data + extensions) rather than a separate window, so
@@ -412,6 +612,17 @@ struct ChordCommands: Commands {
             Button("Import Bookmarks…") {
                 guard let windowState else { return }
                 importBookmarks(into: windowState)
+            }
+            .disabled(windowState == nil || isPrivateWindowFocused)
+
+            Divider()
+
+            // File → Import from Arc…: Arc's StorableSidebar.json, with a
+            // per-Space dry run before anything is written. Disabled in a
+            // private window, whose Space and its pins evaporate on close.
+            Button("Import from Arc…") {
+                guard let windowState else { return }
+                importFromArc(into: windowState)
             }
             .disabled(windowState == nil || isPrivateWindowFocused)
         }

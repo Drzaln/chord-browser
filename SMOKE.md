@@ -1760,3 +1760,31 @@ Unticked: written with the code, not walked yet.
 - [ ] A favourite tile offers **Remove from Favourites**, mute and **Close Tab**.
 - [ ] Without VoiceOver nothing looks different: the x still shows only on
       hover, and click, drag-to-split and the context menu behave as before.
+## Import from Arc (added 2026-10-25)
+
+Arc's `StorableSidebar.json` is undocumented and changes between builds, so
+this check runs against a **copy** of a real Arc data folder — never the live
+one, and never with Arc running.
+
+- [ ] `File ▸ Import from Arc…` opens a picker that accepts a folder or
+      `StorableSidebar.json`; choosing `~/Library/Application Support/Arc`
+      finds the file
+- [ ] The dry-run alert lists each Arc Space with its pinned / favourite /
+      folder counts **before** anything is written
+- [ ] Cancel, and closing the panel, leave the profile exactly as it was
+- [ ] Import creates one Chord Space per Arc Space, with the same names and
+      every Arc Pinned tab in the **Pinned** section, homed at its Arc URL
+- [ ] Arc top apps appear in the **favourites** grid (not in Pinned)
+- [ ] A nested Arc folder appears as one flat folder named `Parent / Child`,
+      and its tabs are inside it
+- [ ] An empty Arc folder still exists after import
+- [ ] Importing the same folder again reports "Nothing new to import" and
+      leaves the Space/tab counts unchanged — no twin Spaces or tabs
+- [ ] An existing Chord Space of the same name (any capitalisation) is reused,
+      not duplicated
+- [ ] `arc://`, `chrome-extension://`, `file:`, `javascript:` and `data:`
+      items are absent, and the alert says how many were skipped
+- [ ] A corrupt or unrelated `.json` shows "Not an Arc sidebar" and writes
+      nothing (no partial Space, pin, or favourite)
+- [ ] The menu item is disabled in a private window (`Cmd+Shift+N`)
+- [ ] The archive list is unchanged after an import
