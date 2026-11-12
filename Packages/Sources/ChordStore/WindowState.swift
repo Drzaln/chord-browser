@@ -192,6 +192,10 @@ public final class WindowState {
 
     /// Whether the settings sheet is showing. Kept here for the same reason.
     public var isSettingsPresented = false
+    /// The sidebar's keyboard cursor (gn0.11): the tab row arrow keys are on.
+    /// Separate from the selection, so walking the list loads nothing. Not
+    /// persisted.
+    public var sidebarKeyboardCursor: UUID?
     /// The first-run welcome (gn0.6). Set once, by `restore()`, on a profile
     /// that had nothing in it; never in a private window. Not persisted.
     public var isWelcomePresented = false

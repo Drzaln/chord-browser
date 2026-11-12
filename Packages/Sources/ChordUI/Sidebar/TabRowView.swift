@@ -17,6 +17,9 @@ struct TabRowView: View {
     /// When the tab's sleep timer fires, if one is armed (non-spec:
     /// user-requested).
     var sleepTimerDeadline: Date? = nil
+    /// The keyboard cursor is on this row (gn0.11): drawn as a ring, so it
+    /// reads differently from the selection's fill.
+    var isKeyboardFocused: Bool = false
     let select: () -> Void
     let close: () -> Void
     var toggleMute: () -> Void = {}
@@ -98,6 +101,12 @@ struct TabRowView: View {
         .padding(.horizontal, 8)
         .frame(height: metrics.sidebarRowHeight)
         .background(background)
+        .overlay {
+            if isKeyboardFocused {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(tint, lineWidth: 2)
+            }
+        }
         .contentShape(Rectangle())
         // Handles the click in the region it covers; this catches the rest.
         .onTapGesture(perform: select)

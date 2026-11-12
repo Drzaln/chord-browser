@@ -43,6 +43,30 @@ struct SidebarView: View {
 
     private var isDragging: Bool { store.draggingTabID != nil }
 
+    @FocusState private var listFocused: Bool
+
+    private func moveKeyboardCursor(by delta: Int) {
+        windowState.sidebarKeyboardCursor = SidebarNavigation.move(
+            from: windowState.sidebarKeyboardCursor,
+            selected: windowState.selectedTabID,
+            in: store.sidebarRowOrder(in: windowState), by: delta
+        )
+    }
+
+    private func activateKeyboardCursor() -> KeyPress.Result {
+        guard let id = windowState.sidebarKeyboardCursor else { return .ignored }
+        store.select(id, in: windowState)
+        return .handled
+    }
+
+    private func closeAtKeyboardCursor() -> KeyPress.Result {
+        guard let id = windowState.sidebarKeyboardCursor else { return .ignored }
+        let next = SidebarNavigation.afterClosing(id, in: store.sidebarRowOrder(in: windowState))
+        store.closeTab(id, in: windowState)
+        windowState.sidebarKeyboardCursor = next
+        return .handled
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -180,6 +204,7 @@ struct SidebarView: View {
                         isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                         isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
                         sleepTimerDeadline: store.runtime(for: tab.focusedPaneID).sleepTimerDeadline,
+                        isKeyboardFocused: tab.id == windowState.sidebarKeyboardCursor,
                         select: { store.select(tab.id, in: windowState) },
                         close: { store.closeTab(tab.id, in: windowState) },
                         toggleMute: { store.toggleMute(tab.id) },
@@ -197,6 +222,31 @@ struct SidebarView: View {
         // the drop target below covers the empty area under the rows, not just
         // the rows themselves.
         .frame(maxHeight: .infinity)
+        // gn0.11: the list takes keyboard focus (Tab, with macOS keyboard
+        // navigation on). Up and Down move a cursor ring, Return selects the
+        // row under it, Delete closes it, Esc lets go.
+        .focusable()
+        .focusEffectDisabled()
+        .focused($listFocused)
+        .onMoveCommand { direction in
+            switch direction {
+            case .up: moveKeyboardCursor(by: -1)
+            case .down: moveKeyboardCursor(by: 1)
+            default: break
+            }
+        }
+        .onKeyPress(.return) { activateKeyboardCursor() }
+        .onKeyPress(.space) { activateKeyboardCursor() }
+        .onKeyPress(.delete) { closeAtKeyboardCursor() }
+        .onKeyPress(.escape) {
+            guard windowState.sidebarKeyboardCursor != nil else { return .ignored }
+            windowState.sidebarKeyboardCursor = nil
+            return .handled
+        }
+        .onChange(of: listFocused) { _, focused in
+            if !focused { windowState.sidebarKeyboardCursor = nil }
+        }
+        .accessibilityLabel("Tabs")
         .overlay(alignment: .top) {
             if isDragging {
                 ZStack(alignment: .top) {
@@ -420,6 +470,7 @@ struct SidebarView: View {
                         isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                         isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
                         sleepTimerDeadline: store.runtime(for: tab.focusedPaneID).sleepTimerDeadline,
+                        isKeyboardFocused: tab.id == windowState.sidebarKeyboardCursor,
                         select: { store.select(tab.id, in: windowState) },
                         close: { store.closeTab(tab.id, in: windowState) },
                         toggleMute: { store.toggleMute(tab.id) },

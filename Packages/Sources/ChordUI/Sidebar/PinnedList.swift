@@ -31,6 +31,7 @@ struct PinnedList: View {
                     isPlayingAudio: store.runtime(for: tab.focusedPaneID).isPlayingAudio,
                     isMuted: store.runtime(for: tab.focusedPaneID).isMuted,
                     sleepTimerDeadline: store.runtime(for: tab.focusedPaneID).sleepTimerDeadline,
+                    isKeyboardFocused: tab.id == windowState.sidebarKeyboardCursor,
                     select: { selectOrReturnHome(tab) },
                     close: { store.closeTab(tab.id, in: windowState) },
                     toggleMute: { store.toggleMute(tab.id) },

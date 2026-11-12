@@ -3321,6 +3321,16 @@
         }
       }
     },
+    "Tabs": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab"
+          }
+        }
+      }
+    },
     "Tabs keep running while a Chord window is on screen, and stop when none is. Not measured yet: if the fans or battery get worse after you bring Chord back, turn it off.": {
       "localizations": {
         "id": {

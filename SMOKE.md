@@ -2035,3 +2035,16 @@ Run one build in Indonesian without changing the system language:
       record that.
 - [ ] With it on, music in a background tab keeps playing through Cmd-H, and a
       chat tab reconnects after Chord comes back.
+
+### Sidebar keyboard navigation (gn0.11)
+
+Needs System Settings → Keyboard → **Keyboard navigation** on, so Tab moves
+focus between controls.
+
+- [ ] Tab reaches the sidebar's tab list. Down and Up move a ring from row to
+      row (Pinned rows, open folders' tabs, then the rest) without switching
+      tab or loading anything.
+- [ ] Return (or Space) selects the ringed row; Delete closes it and the ring
+      moves to the next row; Esc removes the ring.
+- [ ] Clicking a row, dragging one to split, and typing in a page are all
+      unchanged; the ring never appears from mouse use alone.

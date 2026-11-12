@@ -5596,3 +5596,18 @@ within ~2x of Safari, no spin after three hide/unhide and minimize/restore
 cycles) need about 75 minutes on a Release build with nobody using the Mac,
 twice. That has not been run. WebKit may also apply a policy change only at
 the next activity change, which would defeat the early lift.
+
+## Sidebar keyboard navigation (2026-11-12, bead `gn0.11`)
+
+The tab list had no keyboard focus at all. Now the list (`ephemeralList` in
+`SidebarView`) is focusable, and a cursor separate from the selection walks
+the rows: `WindowState.sidebarKeyboardCursor`, moved by
+`SidebarNavigation.move` over `TabStore.sidebarRowOrder(in:)` (Pinned rows,
+open folders' tabs, unpinned tabs). Return or Space selects, Delete closes
+(`afterClosing` picks the neighbour), Esc or losing focus clears it.
+`TabRowView` draws the cursor as a ring. Favourite tiles and folder headers
+are not in the walk. Tests: `SidebarNavigationTests` (6).
+
+**Not tried in the app.** Whether Tab reaches the list depends on macOS
+keyboard navigation, and whether making the list focusable changes where
+typing goes after a click in the sidebar's empty area is unchecked.
