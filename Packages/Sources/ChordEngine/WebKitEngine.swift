@@ -341,6 +341,9 @@ public final class WebKitEngine: WebEngine {
             let host = url.host?.lowercased()
         else { return nil }
         let webView = ChordWebView(frame: .zero, configuration: configuration)
+        // c1k.18: say what asked for a web view, so a WebContent launch in
+        // the system log can be matched to its cause.
+        Log.engine.notice("perf web-view extension-page")
         configure(webView)
         return (webView, host)
     }
@@ -478,6 +481,9 @@ public final class WebKitEngine: WebEngine {
             capture: handle?.attachCapture
         )
         let webView = ChordWebView(frame: .zero, configuration: config)
+        // c1k.18: say what asked for a web view, so a WebContent launch in
+        // the system log can be matched to its cause.
+        Log.engine.notice("perf web-view tab")
         configure(webView)
         Self.notePhaseOnce("first-view")
         return webView
@@ -740,6 +746,9 @@ public final class WebKitEngine: WebEngine {
             config.setURLSchemeHandler(errorPage, forURLScheme: ErrorPage.scheme)
         }
         let webView = ChordWebView(frame: .zero, configuration: config)
+        // c1k.18: say what asked for a web view, so a WebContent launch in
+        // the system log can be matched to its cause.
+        Log.engine.notice("perf web-view popup")
         configure(webView)
         // Resolve the UA at creation, like `liveView` does, so the popup's
         // *first* navigation is not cancelled-and-re-issued by the policy

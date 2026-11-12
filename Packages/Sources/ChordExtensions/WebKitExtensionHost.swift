@@ -1976,6 +1976,7 @@ private final class BlankExtensionPage: NSObject, WKNavigationDelegate {
 
     init(_ configuration: WKWebViewConfiguration) {
         web = WKWebView(frame: .zero, configuration: configuration)
+        Log.extensions.notice("perf web-view extension-hidden")  // c1k.18
         super.init()
         web.navigationDelegate = self
     }
