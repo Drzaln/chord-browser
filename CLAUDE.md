@@ -77,7 +77,8 @@ xcodebuild -project Chord.xcodeproj -scheme Chord -configuration Debug \
 ```
 
 Opt-in gates: `CHORD_REAL_EXTENSIONS=1` (real Chrome extension matrix) and
-`CHORD_PERF=1` (startup budget, needs a Release build). Releases go through
+`CHORD_PERF=1` (the startup gate, `scripts/startup-gate.sh`, which `release.sh`
+always runs). Releases go through
 `./scripts/release.sh <version> [build]`; the procedure is in
 [AGENTS.md](AGENTS.md) under "Push to GitHub / release".
 

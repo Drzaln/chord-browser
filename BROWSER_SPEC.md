@@ -702,7 +702,7 @@ Measured on Apple Silicon, with 20 tabs across 3 Spaces, 5 of them live:
 | Total footprint, 5 live tabs | < 1.2 GB | 1.8 GB |
 | Idle CPU, window visible, no animation | < 0.5% | 1% |
 | Idle CPU, window occluded | ~0% | 0.2% |
-| Cold launch to first interactive frame | < 400 ms | 800 ms |
+| Cold launch to first interactive frame (read at the first page's first commit; Chord's own work, to first-load-start, holds the 400 ms aim — docs/perf/BUDGETS.md) | < 400 ms | 800 ms |
 | Space switch to first painted frame | < 100 ms | 200 ms |
 | Command bar open to input-ready | < 50 ms | 100 ms |
 | Sidebar scroll / drag | 120 fps (ProMotion) | no dropped frames at 60 |

@@ -5416,3 +5416,22 @@ Decision (user, 2026-11-12, bead `gn0.1`):
 
 The extension foundations (899.17–21) were re-landed separately (ADR 025,
 ADR 026) and are on `main`. Each 899 bead carries a dated correction note.
+
+## Startup budget moved to first commit, and gated at release (2026-11-12)
+
+Beads `c1k.17` and `c1k.19`. User decision 2026-11-12: §6.1's launch budget is
+judged at the first page's **first commit**, not at `first-paint` (`didFinish`,
+which is the site's time: 559 to 6,748 ms on one build).
+
+- `scripts/perf-baseline.sh startup` now reports three medians: first commit
+  (the budget mark), Chord's own work (to `first-load-start`) and page finish.
+  A run with no commit (blank window) is not counted. It reopens the Chord
+  that was running before it started.
+- `scripts/startup-gate.sh` builds Release into `.build-perf`, runs it, and
+  fails over 400 ms own work or 800 ms first commit. `release.sh` runs it on
+  every release (`CHORD_SKIP_STARTUP=1` skips); `CHORD_PERF=1` in prepush runs
+  the same script. The old 2,545 ms `STARTUP_BUDGET_MS` is gone.
+- Measured 2026-11-10 (three counted runs): own work 272–323 ms, first commit
+  453–690 ms. Both inside the budget.
+- Not done: no code was made faster; the budget is met where it is now read.
+  Extensions still start at ~1.65 s, which can be before a slow page finishes.

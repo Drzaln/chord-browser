@@ -395,3 +395,5 @@ Close on a favourite/pinned tab **unloads** it (tears down web view) but keeps t
 - **Launch phases (c1k.17)** — `perf env-ready / restore-start / restore-done / first-view /
   first-load-start / first-commit / extensions-start` are logged once per launch;
   `perf first-paint` is `didFinish` of the first page, so it depends on the site.
+  The startup budget is judged at `perf first-commit` (800 ms) and `first-load-start`
+  (400 ms) by `scripts/startup-gate.sh`, which `release.sh` runs.

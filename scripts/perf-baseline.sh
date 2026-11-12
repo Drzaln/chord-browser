@@ -2,7 +2,7 @@
 # c1k.1: the perf baseline harness. Chord against Safari on the tab set in
 # docs/perf/TABSET.md. Every c1k task reports before/after numbers from here.
 #
-#   scripts/perf-baseline.sh startup [--app Safari]     median cold start → first paint, 5 runs
+#   scripts/perf-baseline.sh startup [--app Safari]     median launch → first commit, 5 runs
 #   scripts/perf-baseline.sh switch                      median tab switch, last 20 switches
 #   scripts/perf-baseline.sh idle <seconds> [--app Safari]   CPU / wakeups / energy (sudo)
 #   scripts/perf-baseline.sh footprint [--app Safari] [--plist <file>]
@@ -65,31 +65,60 @@ median() { sort -n | awk '{a[NR]=$1} END {if (NR==0) {print "n/a"; exit} m=(NR%2
 cmd_startup() {
     [[ "$target" == "Chord" ]] || die "startup reads Chord's own signposts; time Safari by hand"
     local app; app=$(chord_app)
-    local results=()
-    for run in 1 2 3 4 5; do
+    local runs="${STARTUP_RUNS:-5}"
+    # The budget mark is first-commit (c1k.17, decided 2026-11-12): the first
+    # bytes of the first page on screen. `own` is Chord's part alone, up to
+    # first-load-start; `paint` is the page finishing, which is the site's.
+    local commits=() owns=() paints=()
+    # Put back whichever Chord the user had open (the runs quit it).
+    local previous=""
+    local pid; pid=$(pgrep -x Chord | head -1 || true)
+    if [[ -n "$pid" ]]; then
+        previous=$(ps -o comm= -p "$pid" | sed 's|/Contents/MacOS/Chord$||')
+    fi
+    for run in $(seq 1 "$runs"); do
         osascript -e 'tell application id "'"$CHORD_ID"'" to quit' >/dev/null 2>&1 || true
         while pgrep -x Chord >/dev/null; do sleep 0.5; done
         sleep 2
         local start; start=$(date "+%Y-%m-%d %H:%M:%S")
         open "$app"
         sleep 15
-        local ms
         local lines; lines=$(perf_lines "$start")
-        ms=$(echo "$lines" | awk '
+        local marks; marks=$(echo "$lines" | awk '
             $3=="launch" && !l {l=$1}
+            $3=="first-load-start" && l && !o {o=$1}
+            $3=="first-commit" && l && !c {c=$1}
             $3=="first-paint" && l && !p {p=$1}
-            END {if (l && p) print p-l}')
-        echo "run $run: ${ms:-no first-paint logged} ms"
-        # c1k.17: where the time went, in ms since launch. Up to
-        # first-load-start is Chord; after it, the site and the network.
+            END {print (c ? c-l : "-"), (o ? o-l : "-"), (p ? p-l : "-")}')
+        local commit own paint
+        read -r commit own paint <<< "$marks"
+        if [[ "$commit" == "-" ]]; then
+            # No page was loaded: the session came back with a blank window
+            # (no selected tab). That is not a slow launch, so it is not counted.
+            echo "run $run: no first-commit logged (blank window?), not counted"
+        else
+            echo "run $run: $commit ms to first commit"
+            commits+=("$commit")
+            [[ "$own" != "-" ]] && owns+=("$own")
+            [[ "$paint" != "-" ]] && paints+=("$paint")
+        fi
+        # Where the time went, in ms since launch. Up to first-load-start is
+        # Chord; after it, the site and the network.
         echo "$lines" | awk '
             $3=="launch" && !l {l=$1; next}
             l && !seen[$3]++ && ($3=="env-ready" || $3=="restore-start" || $3=="restore-done" ||
                 $3=="first-view" || $3=="first-load-start" || $3=="extensions-start" ||
                 $3=="first-commit" || $3=="first-paint") {printf "    %-17s %5d\n", $3, $1-l}'
-        [[ -n "$ms" ]] && results+=("$ms")
     done
-    printf '%s\n' "${results[@]+"${results[@]}"}" | median | sed 's/^/startup median ms: /'
+    if [[ -n "$previous" && "$previous" != "$app" && -d "$previous" ]]; then
+        osascript -e 'tell application id "'"$CHORD_ID"'" to quit' >/dev/null 2>&1 || true
+        while pgrep -x Chord >/dev/null; do sleep 0.5; done
+        open "$previous"
+    fi
+    echo "startup valid runs: ${#commits[@]}"
+    printf '%s\n' "${commits[@]+"${commits[@]}"}" | median | sed 's/^/startup median ms: /'
+    printf '%s\n' "${owns[@]+"${owns[@]}"}" | median | sed 's/^/startup own-work median ms: /'
+    printf '%s\n' "${paints[@]+"${paints[@]}"}" | median | sed 's/^/startup page-finish median ms: /'
 }
 
 cmd_switch() {

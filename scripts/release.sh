@@ -75,6 +75,13 @@ fi
 echo "==> Release gate: prepush"
 ./scripts/prepush.sh
 
+# Startup budget (c1k.19): every release is measured, nobody has to opt in.
+# It quits and relaunches Chord, so do not browse while it runs.
+# CHORD_SKIP_STARTUP=1 skips it (say why in the release notes).
+if [[ "${CHORD_SKIP_STARTUP:-0}" != "1" ]]; then
+    ./scripts/startup-gate.sh
+fi
+
 # --- Commit, tag, push -------------------------------------------------------
 
 git add Chord.xcodeproj/project.pbxproj ChordApp/Info.plist

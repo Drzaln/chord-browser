@@ -14,23 +14,35 @@ fails names this file.
 | `setInterval` in the extension shim | 0 | the shim runs in every extension page and worker | `ShimPerfBudgetTests.noIntervals` |
 | Live intervals 2 s after a plain page loads | 0 | | `PerfBudgetTests.liveIntervals` |
 | …on YouTube | 1 | the ad check's 2 s backup (c1k.5) | same |
-| Startup, launch to first paint (opt-in) | 2,213 ms × 1.15 | measured on the 2026-10-30 baseline | `CHORD_PERF=1 scripts/prepush.sh` |
+| Startup, launch to first commit | 800 ms | §6.1's ceiling; measured 453–690 ms on 2026-11-10 | `scripts/startup-gate.sh` (every `release.sh`) |
+| Startup, Chord's own work (launch to first-load-start) | 400 ms | §6.1's aim; measured about 270 ms | same |
 
 The reviewed intervals: YouTube's ad check runs four times a second only
 while an ad is up, plus a 2 s backup for missed events; Geolocation polls
 only while a page watches the position.
 
-## Startup (opt-in)
+## Startup
 
-Launch timing is noisy on a shared machine, so it isn't in the default
-gate. `CHORD_PERF=1 scripts/prepush.sh` runs `scripts/perf-baseline.sh
-startup` (median of 5 relaunches of the Release build) and fails above
-`STARTUP_BUDGET_MS` in `scripts/prepush.sh`. Change that number the same way
-as the others.
+Decided 2026-11-12 (c1k.17): §6.1's "cold launch to first interactive frame"
+is judged at **first commit**, the first bytes of the first page on screen.
+It used to be read at `first-paint`, which is `didFinish` of the restored
+page and so belongs to the site and the network: the installed 1.24.1 logged
+559 to 6,748 ms across nine everyday launches with the same build.
 
-Each run also prints where the time went, in ms since launch (c1k.17):
-`env-ready`, `restore-start`, `restore-done`, `first-view`,
-`first-load-start`, `first-commit`, `extensions-start`, `first-paint`. Up to
-`first-load-start` is Chord's own work. `first-paint` is the first page
-finishing its load, so it moves with the site and the network: the installed
-1.24.1 logged 559 to 6,748 ms across nine everyday launches (median 3,227).
+`scripts/startup-gate.sh` (c1k.19) builds the Release app into `.build-perf`,
+relaunches it five times on the everyday profile
+(`scripts/perf-baseline.sh startup`) and fails when a median passes its
+budget: launch to `first-load-start` (Chord's own work) over 400 ms, or
+launch to `first-commit` over 800 ms. `release.sh` runs it on every release
+with nobody opting in; `CHORD_SKIP_STARTUP=1` skips it.
+`CHORD_PERF=1 scripts/prepush.sh` runs the same gate by hand. A daily push
+does not run it, because it quits and relaunches the running Chord (and puts
+it back after).
+
+Do not browse while it runs. A launch into a blank window (no selected tab)
+loads no page; that run is not counted, and fewer than three counted runs
+reports "not measured" and passes with a warning.
+
+Each run also prints where the time went, in ms since launch: `env-ready`,
+`restore-start`, `restore-done`, `first-view`, `first-load-start`,
+`first-commit`, `extensions-start`, `first-paint`.

@@ -234,7 +234,10 @@ for every agent (Claude, Codex, opencode).
 3. **Bump, tag, push with `./scripts/release.sh <version> [build]`** — it
    refuses to run off `main` or with a dirty tree, bumps
    `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` (project.pbxproj +
-   `ChordApp/Info.plist`), re-runs prepush, commits `release: X (build Y)`,
+   `ChordApp/Info.plist`), re-runs prepush, runs the startup gate
+   (`scripts/startup-gate.sh`: it quits and relaunches Chord five times, so
+   nobody browses meanwhile; `CHORD_SKIP_STARTUP=1` skips it), commits
+   `release: X (build Y)`,
    tags `v<version>`, and pushes `main` + the tag. Pick the new version
    deliberately: minor bump for a user-facing feature, patch for a fix.
    The tag **must** equal the app version or the GitHub Release workflow
