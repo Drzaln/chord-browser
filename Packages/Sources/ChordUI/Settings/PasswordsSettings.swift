@@ -97,10 +97,7 @@ struct PasswordsSettings: View {
             .font(.system(size: 12))
 
             Text(
-                "Filling a saved password asks for Touch ID (or your Mac's password) "
-                    + "when the vault is locked. It also locks on sleep and screen lock. "
-                    + "This keeps someone at your unlocked Mac out of your passwords; "
-                    + "it is not encryption."
+                "Filling a saved password asks for Touch ID (or your Mac's password) when the vault is locked. It also locks on sleep and screen lock. This keeps someone at your unlocked Mac out of your passwords; it is not encryption."
             )
             .font(.system(size: 11))
             .foregroundStyle(.secondary)

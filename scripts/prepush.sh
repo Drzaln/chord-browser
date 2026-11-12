@@ -65,6 +65,10 @@ if [[ "${CHORD_PERF:-0}" == "1" ]]; then
     scripts/startup-gate.sh
 fi
 
+# gn0.7: every UI string is in the catalog, with Indonesian.
+echo "==> String catalog"
+python3 scripts/l10n.py check
+
 echo "==> Building app"
 # Not piped straight into grep: `set -e` takes the *pipeline's* status, which is
 # grep's, and `|| true` swallowed even that — so a failed app build still

@@ -44,10 +44,7 @@ struct AgentsSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Local Agents (MCP)").font(.system(size: 13, weight: .semibold))
             Text(
-                "Lets AI agents on this Mac, such as Claude Code, use Chord in the "
-                    + "Spaces you pick below. Only "
-                    + "agents started on this Mac can connect, and nothing goes over the "
-                    + "network. Agents never get passwords or cookies."
+                "Lets AI agents on this Mac, such as Claude Code, use Chord in the Spaces you pick below. Only agents started on this Mac can connect, and nothing goes over the network. Agents never get passwords or cookies."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -85,12 +82,7 @@ struct AgentsSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Shared Spaces").font(.system(size: 13, weight: .semibold))
             Text(
-                "Read lets an agent list tabs, read pages and take screenshots. Read & Act "
-                    + "also lets it open tabs, navigate, click and type; Chord asks you before "
-                    + "it signs in, submits a form that sends data, or clicks anything that "
-                    + "reads like buying, paying, sending or deleting. It can never type into "
-                    + "password fields. Pages can try to give an agent instructions, so a Space "
-                    + "with your bank or email is best left Off. Private Spaces are never shared."
+                "Read lets an agent list tabs, read pages and take screenshots. Read & Act also lets it open tabs, navigate, click and type; Chord asks you before it signs in, submits a form that sends data, or clicks anything that reads like buying, paying, sending or deleting. It can never type into password fields. Pages can try to give an agent instructions, so a Space with your bank or email is best left Off. Private Spaces are never shared."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -125,10 +117,7 @@ struct AgentsSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("JavaScript").font(.system(size: 13, weight: .semibold))
             Text(
-                "Lets agents run their own JavaScript in Read & Act Spaces. Chord shows "
-                    + "you each script and asks before it runs. Scripts run apart from the "
-                    + "page's own code and can't read cookies, site storage or password "
-                    + "fields, but they can read anything else on the page."
+                "Lets agents run their own JavaScript in Read & Act Spaces. Chord shows you each script and asks before it runs. Scripts run apart from the page's own code and can't read cookies, site storage or password fields, but they can read anything else on the page."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -266,9 +255,9 @@ public enum AgentConfirmation {
         alert.alertStyle = .warning
         let site = prompt.host.isEmpty ? "this page" : prompt.host
         switch prompt.action {
-        case "script": alert.messageText = "Allow an agent to run JavaScript on \(site)?"
-        case "submit": alert.messageText = "Allow an agent to submit a form?"
-        default: alert.messageText = "Allow an agent to click “\(prompt.target)”?"
+        case "script": alert.messageText = String(localized: "Allow an agent to run JavaScript on \(site)?")
+        case "submit": alert.messageText = String(localized: "Allow an agent to submit a form?")
+        default: alert.messageText = String(localized: "Allow an agent to click “\(prompt.target)”?")
         }
         var detail = prompt.action == "script" ? "In “\(prompt.target)”" : "On \(site)"
         if !prompt.spaceName.isEmpty { detail += " in \(prompt.spaceName)" }
@@ -292,9 +281,9 @@ public enum AgentConfirmation {
             alert.accessoryView = scroll
         }
 
-        alert.addButton(withTitle: "Deny")
-        alert.addButton(withTitle: "Allow")
-        if prompt.offersAllowForSite { alert.addButton(withTitle: "Allow on \(site) Until Quit") }
+        alert.addButton(withTitle: String(localized: "Deny"))
+        alert.addButton(withTitle: String(localized: "Allow"))
+        if prompt.offersAllowForSite { alert.addButton(withTitle: String(localized: "Allow on \(site) Until Quit")) }
         // Deny is the default: Return must never approve a purchase or a script.
         alert.buttons[0].keyEquivalent = "\r"
         alert.buttons[1].keyEquivalent = ""

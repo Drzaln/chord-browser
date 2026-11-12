@@ -43,8 +43,7 @@ struct WelcomeSheet: View {
             step(
                 symbol: "square.and.arrow.down",
                 title: "Bring your things across",
-                detail: "In the File menu: Import Bookmarks… (an HTML export from any browser), "
-                    + "Import from Arc…, and Import Passwords… (Chrome, Brave, Edge)."
+                detail: "In the File menu: Import Bookmarks… (an HTML export from any browser), Import from Arc…, and Import Passwords… (Chrome, Brave, Edge)."
             ) { EmptyView() }
 
             step(
@@ -75,7 +74,7 @@ struct WelcomeSheet: View {
     }
 
     private func step<Trailing: View>(
-        symbol: String, title: String, detail: String,
+        symbol: String, title: LocalizedStringKey, detail: LocalizedStringKey,
         @ViewBuilder trailing: () -> Trailing
     ) -> some View {
         HStack(alignment: .top, spacing: 12) {
@@ -95,7 +94,7 @@ struct WelcomeSheet: View {
         }
     }
 
-    private func tip(_ keys: String, _ text: String) -> some View {
+    private func tip(_ keys: String, _ text: LocalizedStringKey) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(keys)
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))

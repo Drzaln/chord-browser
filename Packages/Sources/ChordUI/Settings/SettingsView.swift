@@ -24,13 +24,13 @@ public struct SettingsView: View {
     /// The open section lives on the window (other sheets deep-link to it by
     /// title), so the picker binds through it.
     private var section: SettingsSection {
-        SettingsSection.allCases.first { $0.title == windowState.settingsSection } ?? .general
+        SettingsSection.allCases.first { $0.englishTitle == windowState.settingsSection } ?? .general
     }
 
     private var sectionBinding: Binding<SettingsSection> {
         Binding(
             get: { section },
-            set: { windowState.settingsSection = $0.title }
+            set: { windowState.settingsSection = $0.englishTitle }
         )
     }
 
@@ -187,7 +187,7 @@ public struct SettingsView: View {
     /// have already said where the control really lives.
     private func open(_ hit: SettingsSearchHit) {
         query = ""
-        windowState.settingsSection = hit.section.title
+        windowState.settingsSection = hit.section.englishTitle
         highlightedRowID = hit.isNote ? nil : hit.id
         scrollTarget = hit.isNote ? nil : hit.id
         scrollRequest += 1

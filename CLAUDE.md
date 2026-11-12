@@ -117,6 +117,9 @@ Read first: [BROWSER_SPEC.md](BROWSER_SPEC.md) (the contract),
 - **Docs move with the code.** A user-facing change updates `CHECKPOINT.md`,
   `README.md`, `docs/USER_GUIDE.md`, `SMOKE.md` and the matching skill in the
   same commit; a design decision gets an ADR.
+- **UI strings are localized.** A new string literal shown to the user needs an
+  entry, with Indonesian, in `ChordApp/Localizable.xcstrings`;
+  `scripts/l10n.py check` (in prepush) fails without it.
 - **Watch a regression test fail** against the bug before trusting it.
 - **Verify UI work by driving the real app**, not by reasoning about it.
 - **Stay in scope.** Non-spec features need the user's say first (BROWSER_SPEC §11).

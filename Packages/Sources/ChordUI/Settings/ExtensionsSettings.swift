@@ -371,8 +371,7 @@ struct ExtensionsSettings: View {
                         // Warn-but-install: the bundle is in, but its unverified
                         // provenance is surfaced immediately, not hidden in a row.
                         warningMessage =
-                            "“\(installed.slug)” is \(Self.warningText(for: installed.signatureStatus))."
-                        + " Install only if you trust the source."
+                            "“\(installed.slug)” is \(Self.warningText(for: installed.signatureStatus)). Install only if you trust the source."
                     }
                     refresh()
                 } catch ExtensionsServiceError.declined {

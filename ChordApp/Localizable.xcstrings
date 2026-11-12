@@ -1,0 +1,3936 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ uses a separate profile, so this tab may be signed out of any sites it is logged in to.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ memakai profil terpisah, jadi tab ini mungkin keluar dari situs yang sedang masuk."
+          }
+        }
+      }
+    },
+    "%lld Minutes": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Menit"
+          }
+        }
+      }
+    },
+    "%lld agents connected": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld agen terhubung"
+          }
+        }
+      }
+    },
+    "%lld entries will be skipped.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld entri akan dilewati."
+          }
+        }
+      }
+    },
+    "%lld hidden": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld disembunyikan"
+          }
+        }
+      }
+    },
+    "%lld of %lld run a background worker in this Space": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dari %lld menjalankan pekerja latar belakang di Space ini"
+          }
+        }
+      }
+    },
+    "%lld results match “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld hasil cocok dengan “%@”"
+          }
+        }
+      }
+    },
+    "%lld script errors": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld galat skrip"
+          }
+        }
+      }
+    },
+    "1 agent connected": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 agen terhubung"
+          }
+        }
+      }
+    },
+    "1 result matches “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 hasil cocok dengan “%@”"
+          }
+        }
+      }
+    },
+    "1 script error": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 galat skrip"
+          }
+        }
+      }
+    },
+    "A Space keeps its own tabs, pins and sign-ins. Give this one a name and a colour.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setiap Space punya tab, sematan, dan sesi masuknya sendiri. Beri yang ini nama dan warna."
+          }
+        }
+      }
+    },
+    "A blank page, your search engine, or a page you choose.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halaman kosong, mesin pencari Anda, atau halaman pilihan Anda."
+          }
+        }
+      }
+    },
+    "A rule covers the domain and its subdomains, and beats the setting above. Set a site to “Default” to keep its own referrer while everywhere else is stripped.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aturan berlaku untuk domain dan subdomainnya, dan mengalahkan pengaturan di atas. Atur situs ke “Default” agar referrer-nya tetap dikirim sementara di tempat lain dihapus."
+          }
+        }
+      }
+    },
+    "A rule covers the domain and its subdomains, and beats the setting above. Set a site to “Default” to keep your own User-Agent there while everywhere else is overridden.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aturan berlaku untuk domain dan subdomainnya, dan mengalahkan pengaturan di atas. Atur situs ke “Default” agar User-Agent Anda sendiri dipakai di sana sementara di tempat lain diganti."
+          }
+        }
+      }
+    },
+    "Access on all sites": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akses di semua situs"
+          }
+        }
+      }
+    },
+    "Activate Stop to end screen sharing": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktifkan Berhenti untuk mengakhiri berbagi layar"
+          }
+        }
+      }
+    },
+    "Actual Size": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ukuran Sebenarnya"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah"
+          }
+        }
+      }
+    },
+    "Add Extension…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah Ekstensi…"
+          }
+        }
+      }
+    },
+    "Add Override": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah Penggantian"
+          }
+        }
+      }
+    },
+    "Add Rule": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah Aturan"
+          }
+        }
+      }
+    },
+    "Add to Favourites": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambahkan ke Favorit"
+          }
+        }
+      }
+    },
+    "Adding…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menambahkan…"
+          }
+        }
+      }
+    },
+    "Address: %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alamat: %@"
+          }
+        }
+      }
+    },
+    "Agents": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen"
+          }
+        }
+      }
+    },
+    "Allow": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan"
+          }
+        }
+      }
+    },
+    "Allow an agent to click “%@”?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan agen mengeklik “%@”?"
+          }
+        }
+      }
+    },
+    "Allow an agent to run JavaScript on %@?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan agen menjalankan JavaScript di %@?"
+          }
+        }
+      }
+    },
+    "Allow an agent to submit a form?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan agen mengirim formulir?"
+          }
+        }
+      }
+    },
+    "Allow in private windows": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan di jendela pribadi"
+          }
+        }
+      }
+    },
+    "Allow local agents (MCP)": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan agen lokal (MCP)"
+          }
+        }
+      }
+    },
+    "Allow on %@ Until Quit": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan di %@ Sampai Keluar"
+          }
+        }
+      }
+    },
+    "Also route ⌘-clicked and target=_blank links": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arahkan juga tautan yang diklik dengan ⌘ dan target=_blank"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilan"
+          }
+        }
+      }
+    },
+    "Archive Inactive Tabs": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arsipkan Tab Tidak Aktif"
+          }
+        }
+      }
+    },
+    "Ask Again": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanya Lagi"
+          }
+        }
+      }
+    },
+    "Authentication was cancelled.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autentikasi dibatalkan."
+          }
+        }
+      }
+    },
+    "Background Tabs": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab Latar Belakang"
+          }
+        }
+      }
+    },
+    "Background worker (on demand)": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pekerja latar belakang (sesuai kebutuhan)"
+          }
+        }
+      }
+    },
+    "Bookmarks": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markah"
+          }
+        }
+      }
+    },
+    "Bookmarks imported: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markah diimpor: %lld"
+          }
+        }
+      }
+    },
+    "Bring your things across": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bawa data Anda ke sini"
+          }
+        }
+      }
+    },
+    "Camera, microphone, location, and notification choices you have made, per Space. Removing one asks again next time.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilihan kamera, mikrofon, lokasi, dan notifikasi yang Anda buat, per Space. Menghapus salah satu membuat Chord bertanya lagi lain kali."
+          }
+        }
+      }
+    },
+    "Camera, microphone, location, and notification choices, per Space.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilihan kamera, mikrofon, lokasi, dan notifikasi, per Space."
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batal"
+          }
+        }
+      }
+    },
+    "Cancel Sleep Timer": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batalkan Pengatur Waktu Tidur"
+          }
+        }
+      }
+    },
+    "Cancel download": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batalkan unduhan"
+          }
+        }
+      }
+    },
+    "Cancel sleep timer": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batalkan pengatur waktu tidur"
+          }
+        }
+      }
+    },
+    "Cancelled": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dibatalkan"
+          }
+        }
+      }
+    },
+    "Change how a site looks: your own CSS, a script, or elements hidden for good. Covers the domain and its subdomains. Changes apply the next time the page loads — reload the tab to see them.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ubah tampilan situs: CSS Anda sendiri, skrip, atau elemen yang disembunyikan seterusnya. Berlaku untuk domain dan subdomainnya. Perubahan berlaku saat halaman dimuat berikutnya — muat ulang tab untuk melihatnya."
+          }
+        }
+      }
+    },
+    "Check GitHub for a new version, then download, install, and restart.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Periksa versi baru di GitHub, lalu unduh, pasang, dan mulai ulang."
+          }
+        }
+      }
+    },
+    "Check for Updates": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Periksa Pembaruan"
+          }
+        }
+      }
+    },
+    "Checking for updates…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memeriksa pembaruan…"
+          }
+        }
+      }
+    },
+    "Choose Arc's data folder, or its StorableSidebar.json.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih folder data Arc, atau berkas StorableSidebar.json miliknya."
+          }
+        }
+      }
+    },
+    "Choose Emoji…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih Emoji…"
+          }
+        }
+      }
+    },
+    "Choose a bookmarks HTML file exported by another browser.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih berkas HTML markah yang diekspor dari peramban lain."
+          }
+        }
+      }
+    },
+    "Choose an emoji": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih emoji"
+          }
+        }
+      }
+    },
+    "Chord checks the GitHub releases page (Drzaln/chord-browser) and updates itself by replacing the copy in Applications. You initiate every step — nothing downloads without a click.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord memeriksa halaman rilis GitHub (Drzaln/chord-browser) dan memperbarui dirinya dengan mengganti salinan di Aplikasi. Setiap langkah Anda yang memulai — tidak ada yang diunduh tanpa klik."
+          }
+        }
+      }
+    },
+    "Chord does not offer to save passwords on these sites.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord tidak menawarkan untuk menyimpan kata sandi di situs-situs ini."
+          }
+        }
+      }
+    },
+    "Chord follows your Mac's light or dark appearance. Change it in System Settings › Appearance.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord mengikuti tampilan terang atau gelap Mac Anda. Ubah di Pengaturan Sistem › Tampilan."
+          }
+        }
+      }
+    },
+    "Chord is not your default browser. Links from other apps open elsewhere.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord bukan peramban default Anda. Tautan dari aplikasi lain dibuka di tempat lain."
+          }
+        }
+      }
+    },
+    "Chord is your default browser.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord adalah peramban default Anda."
+          }
+        }
+      }
+    },
+    "Chord must be running with agent access on for the agent to connect.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord harus berjalan dengan akses agen aktif agar agen dapat terhubung."
+          }
+        }
+      }
+    },
+    "Chrome Web Store link or extension id": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tautan Chrome Web Store atau id ekstensi"
+          }
+        }
+      }
+    },
+    "Claude Code — run in Terminal:": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code — jalankan di Terminal:"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus"
+          }
+        }
+      }
+    },
+    "Clear Browsing Data": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus Data Penjelajahan"
+          }
+        }
+      }
+    },
+    "Clear Data": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus Data"
+          }
+        }
+      }
+    },
+    "Clear History": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus Riwayat"
+          }
+        }
+      }
+    },
+    "Clear History…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus Riwayat…"
+          }
+        }
+      }
+    },
+    "Clear Search": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus Pencarian"
+          }
+        }
+      }
+    },
+    "Clear cache, cookies, site storage, and history across every Space.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus cache, cookie, penyimpanan situs, dan riwayat di semua Space."
+          }
+        }
+      }
+    },
+    "Clear search": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus pencarian"
+          }
+        }
+      }
+    },
+    "Clear the selected browsing data?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus data penjelajahan yang dipilih?"
+          }
+        }
+      }
+    },
+    "Clear this Space's history?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus riwayat Space ini?"
+          }
+        }
+      }
+    },
+    "Cleared": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dihapus"
+          }
+        }
+      }
+    },
+    "Click an element in the page to hide it": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klik elemen di halaman untuk menyembunyikannya"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup"
+          }
+        }
+      }
+    },
+    "Close Pane": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup Panel"
+          }
+        }
+      }
+    },
+    "Close Side Panel": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup Panel Samping"
+          }
+        }
+      }
+    },
+    "Close Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup Tab"
+          }
+        }
+      }
+    },
+    "Close tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup tab"
+          }
+        }
+      }
+    },
+    "Codec support": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dukungan codec"
+          }
+        }
+      }
+    },
+    "Collapse": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ciutkan"
+          }
+        }
+      }
+    },
+    "Colour": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warna"
+          }
+        }
+      }
+    },
+    "Completed — %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selesai — %@"
+          }
+        }
+      }
+    },
+    "Connect an Agent": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hubungkan Agen"
+          }
+        }
+      }
+    },
+    "Content Blocking": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pemblokiran Konten"
+          }
+        }
+      }
+    },
+    "Content blocking is on by default (EasyList and EasyPrivacy) and has no in-app off switch.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pemblokiran konten aktif secara default (EasyList dan EasyPrivacy) dan tidak punya tombol untuk mematikannya di aplikasi."
+          }
+        }
+      }
+    },
+    "Continue": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lanjutkan"
+          }
+        }
+      }
+    },
+    "Cookies for a Site": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cookie untuk Satu Situs"
+          }
+        }
+      }
+    },
+    "Copied": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disalin"
+          }
+        }
+      }
+    },
+    "Copied URL": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL disalin"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salin"
+          }
+        }
+      }
+    },
+    "Copy Link": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salin Tautan"
+          }
+        }
+      }
+    },
+    "Copy URL": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salin URL"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kustom"
+          }
+        }
+      }
+    },
+    "Custom…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kustom…"
+          }
+        }
+      }
+    },
+    "DRM Diagnostics": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostik DRM"
+          }
+        }
+      }
+    },
+    "DRM Diagnostics…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostik DRM…"
+          }
+        }
+      }
+    },
+    "DRM/EME is in use on this page.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DRM/EME sedang dipakai di halaman ini."
+          }
+        }
+      }
+    },
+    "Default Browser": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peramban Default"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus"
+          }
+        }
+      }
+    },
+    "Delete Folder": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus Folder"
+          }
+        }
+      }
+    },
+    "Delete Space and Its Data": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus Space dan Datanya"
+          }
+        }
+      }
+    },
+    "Delete Space…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus Space…"
+          }
+        }
+      }
+    },
+    "Delete password": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus kata sandi"
+          }
+        }
+      }
+    },
+    "Delete the saved password for %@?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus kata sandi tersimpan untuk %@?"
+          }
+        }
+      }
+    },
+    "Delete this saved password": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus kata sandi tersimpan ini"
+          }
+        }
+      }
+    },
+    "Delete “%@”?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus “%@”?"
+          }
+        }
+      }
+    },
+    "Deny": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tolak"
+          }
+        }
+      }
+    },
+    "Developer": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pengembang"
+          }
+        }
+      }
+    },
+    "Developer Mode": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode Pengembang"
+          }
+        }
+      }
+    },
+    "Disconnect": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Putuskan"
+          }
+        }
+      }
+    },
+    "Display chain caps at HDCP %@. DRM services may silently serve 720p — check docks and non-HDCP adapters.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rantai layar dibatasi pada HDCP %@. Layanan DRM mungkin diam-diam menyajikan 720p — periksa dok dan adaptor non-HDCP."
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selesai"
+          }
+        }
+      }
+    },
+    "Don’t Allow": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jangan Izinkan"
+          }
+        }
+      }
+    },
+    "Download & Install": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unduh & Pasang"
+          }
+        }
+      }
+    },
+    "Downloading…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengunduh…"
+          }
+        }
+      }
+    },
+    "Downloads": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unduhan"
+          }
+        }
+      }
+    },
+    "Downloads open from the toolbar and go to your Mac's Downloads folder. Chord has no folder setting.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unduhan dibuka dari bilah alat dan disimpan ke folder Unduhan Mac Anda. Chord tidak punya pengaturan folder."
+          }
+        }
+      }
+    },
+    "Edit Space": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Space"
+          }
+        }
+      }
+    },
+    "Edit Space…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Space…"
+          }
+        }
+      }
+    },
+    "Edit address": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit alamat"
+          }
+        }
+      }
+    },
+    "Emoji or SF Symbol name": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emoji atau nama SF Symbol"
+          }
+        }
+      }
+    },
+    "Enable Anyway": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetap Aktifkan"
+          }
+        }
+      }
+    },
+    "Enabled": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktif"
+          }
+        }
+      }
+    },
+    "Enables the Web Inspector (right-click “Inspect Element” and the detached inspector window) and the DRM Diagnostics panel in the Develop menu. Uses a private WebKit flag; off by default, including in release builds.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengaktifkan Web Inspector (klik kanan “Inspect Element” dan jendela inspector terpisah) serta panel Diagnostik DRM di menu Develop. Memakai flag WebKit privat; mati secara default, termasuk di build rilis."
+          }
+        }
+      }
+    },
+    "Enter Picture in Picture": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masuk Gambar dalam Gambar"
+          }
+        }
+      }
+    },
+    "Enter Presentation Mode": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masuk Mode Presentasi"
+          }
+        }
+      }
+    },
+    "Every password Chord has saved, with reveal and delete.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Semua kata sandi yang disimpan Chord, dengan opsi tampilkan dan hapus."
+          }
+        }
+      }
+    },
+    "Example: https://example.com/search?q=%s": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contoh: https://example.com/search?q=%s"
+          }
+        }
+      }
+    },
+    "Exceptions and rejections in this extension's scripts since it loaded": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exception dan rejection di skrip ekstensi ini sejak dimuat"
+          }
+        }
+      }
+    },
+    "Exit Picture in Picture": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keluar dari Gambar dalam Gambar"
+          }
+        }
+      }
+    },
+    "Exit Presentation Mode": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keluar dari Mode Presentasi"
+          }
+        }
+      }
+    },
+    "Expand": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bentangkan"
+          }
+        }
+      }
+    },
+    "Extensions": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekstensi"
+          }
+        }
+      }
+    },
+    "Fill a saved password": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isi kata sandi tersimpan"
+          }
+        }
+      }
+    },
+    "Fill saved password": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isi kata sandi tersimpan"
+          }
+        }
+      }
+    },
+    "Filling a saved password asks for Touch ID (or your Mac's password) when the vault is locked. It also locks on sleep and screen lock. This keeps someone at your unlocked Mac out of your passwords; it is not encryption.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengisi kata sandi tersimpan meminta Touch ID (atau kata sandi Mac Anda) saat brankas terkunci. Brankas juga terkunci saat Mac tidur dan saat layar dikunci. Ini mencegah orang yang memakai Mac Anda yang tidak terkunci melihat kata sandi Anda; ini bukan enkripsi."
+          }
+        }
+      }
+    },
+    "Find Next": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cari Berikutnya"
+          }
+        }
+      }
+    },
+    "Find Previous": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cari Sebelumnya"
+          }
+        }
+      }
+    },
+    "Find on page": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cari di halaman"
+          }
+        }
+      }
+    },
+    "Find…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cari…"
+          }
+        }
+      }
+    },
+    "Folder %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder %@"
+          }
+        }
+      }
+    },
+    "Folder name": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nama folder"
+          }
+        }
+      }
+    },
+    "Forget this site’s camera/microphone choice": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lupakan pilihan kamera/mikrofon situs ini"
+          }
+        }
+      }
+    },
+    "General": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Umum"
+          }
+        }
+      }
+    },
+    "Gestures": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestur"
+          }
+        }
+      }
+    },
+    "Get Started": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mulai"
+          }
+        }
+      }
+    },
+    "HDCP %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HDCP %@"
+          }
+        }
+      }
+    },
+    "HDCP display chain": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rantai layar HDCP"
+          }
+        }
+      }
+    },
+    "Hide": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sembunyikan"
+          }
+        }
+      }
+    },
+    "Hide Sidebar": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sembunyikan Bilah Sisi"
+          }
+        }
+      }
+    },
+    "History": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riwayat"
+          }
+        }
+      }
+    },
+    "How Chord identifies itself to sites, plus per-site exceptions.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cara Chord memperkenalkan diri ke situs, beserta pengecualian per situs."
+          }
+        }
+      }
+    },
+    "How the browser identifies itself to sites. Change it for the occasional site that blocks non-Chrome browsers or serves a better mobile layout. Takes effect on the next page load.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cara peramban memperkenalkan diri ke situs. Ubah untuk situs yang sesekali memblokir peramban selain Chrome atau menyajikan tata letak seluler yang lebih baik. Berlaku saat halaman dimuat berikutnya."
+          }
+        }
+      }
+    },
+    "HttpOnly": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HttpOnly"
+          }
+        }
+      }
+    },
+    "Icon": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ikon"
+          }
+        }
+      }
+    },
+    "Import": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor"
+          }
+        }
+      }
+    },
+    "Import %lld bookmarks?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor %lld markah?"
+          }
+        }
+      }
+    },
+    "Import Bookmarks…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor Markah…"
+          }
+        }
+      }
+    },
+    "Import Passwords…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor Kata Sandi…"
+          }
+        }
+      }
+    },
+    "Import from Another Browser": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor dari Peramban Lain"
+          }
+        }
+      }
+    },
+    "Import from Arc…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor dari Arc…"
+          }
+        }
+      }
+    },
+    "In the File menu: Import Bookmarks… (an HTML export from any browser), Import from Arc…, and Import Passwords… (Chrome, Brave, Edge).": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Di menu File: Impor Markah… (ekspor HTML dari peramban apa pun), Impor dari Arc…, dan Impor Kata Sandi… (Chrome, Brave, Edge)."
+          }
+        }
+      }
+    },
+    "Inspect": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Periksa"
+          }
+        }
+      }
+    },
+    "Inspect and clear the cookies one site holds in the current Space.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Periksa dan hapus cookie yang disimpan satu situs di Space saat ini."
+          }
+        }
+      }
+    },
+    "Install from the Chrome Web Store or a .crx/.xpi, then enable, disable, or uninstall.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pasang dari Chrome Web Store atau berkas .crx/.xpi, lalu aktifkan, nonaktifkan, atau copot."
+          }
+        }
+      }
+    },
+    "Its tabs, cookies, and cached data are removed permanently.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab, cookie, dan data cache-nya dihapus secara permanen."
+          }
+        }
+      }
+    },
+    "JavaScript": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JavaScript"
+          }
+        }
+      }
+    },
+    "Last media error: %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Galat media terakhir: %@"
+          }
+        }
+      }
+    },
+    "Leave empty to use the browser's own User-Agent.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kosongkan untuk memakai User-Agent bawaan peramban."
+          }
+        }
+      }
+    },
+    "Let AI agents on this Mac connect to Chord over a private socket.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan agen AI di Mac ini terhubung ke Chord melalui soket privat."
+          }
+        }
+      }
+    },
+    "Let agents run JavaScript": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan agen menjalankan JavaScript"
+          }
+        }
+      }
+    },
+    "Lets AI agents on this Mac, such as Claude Code, use Chord in the Spaces you pick below. Only agents started on this Mac can connect, and nothing goes over the network. Agents never get passwords or cookies.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengizinkan agen AI di Mac ini, seperti Claude Code, memakai Chord di Space yang Anda pilih di bawah. Hanya agen yang dijalankan di Mac ini yang dapat terhubung, dan tidak ada yang dikirim lewat jaringan. Agen tidak pernah mendapat kata sandi atau cookie."
+          }
+        }
+      }
+    },
+    "Lets agents run their own JavaScript in Read & Act Spaces. Chord shows you each script and asks before it runs. Scripts run apart from the page's own code and can't read cookies, site storage or password fields, but they can read anything else on the page.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengizinkan agen menjalankan JavaScript mereka sendiri di Space Baca & Bertindak. Chord menampilkan setiap skrip dan bertanya sebelum menjalankannya. Skrip berjalan terpisah dari kode halaman dan tidak dapat membaca cookie, penyimpanan situs, atau kolom kata sandi, tetapi dapat membaca hal lain di halaman."
+          }
+        }
+      }
+    },
+    "Links from other apps will open here. macOS asks you to confirm.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tautan dari aplikasi lain akan dibuka di sini. macOS meminta Anda mengonfirmasi."
+          }
+        }
+      }
+    },
+    "Local Agents (MCP)": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen Lokal (MCP)"
+          }
+        }
+      }
+    },
+    "Lock Now": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunci Sekarang"
+          }
+        }
+      }
+    },
+    "Lock the vault": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunci brankas"
+          }
+        }
+      }
+    },
+    "Look at, and clear, the cookies the current Space holds for one site. Clearing signs you out there without touching any other site.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lihat dan hapus cookie yang disimpan Space saat ini untuk satu situs. Menghapusnya membuat Anda keluar dari situs itu tanpa menyentuh situs lain."
+          }
+        }
+      }
+    },
+    "Make Chord the browser that links from other apps open in.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jadikan Chord peramban tempat tautan dari aplikasi lain dibuka."
+          }
+        }
+      }
+    },
+    "Make Chord your default browser": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jadikan Chord peramban default Anda"
+          }
+        }
+      }
+    },
+    "Make Default": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jadikan Default"
+          }
+        }
+      }
+    },
+    "Manage Extensions": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelola Ekstensi"
+          }
+        }
+      }
+    },
+    "Matches": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cocok"
+          }
+        }
+      }
+    },
+    "Move Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pindahkan Tab"
+          }
+        }
+      }
+    },
+    "Move tabs you have not touched for a while to the archive.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pindahkan tab yang lama tidak Anda sentuh ke arsip."
+          }
+        }
+      }
+    },
+    "Move to Folder": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pindahkan ke Folder"
+          }
+        }
+      }
+    },
+    "Move to Space": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pindahkan ke Space"
+          }
+        }
+      }
+    },
+    "Move “%@” to %@?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pindahkan “%@” ke %@?"
+          }
+        }
+      }
+    },
+    "Mute Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bisukan Tab"
+          }
+        }
+      }
+    },
+    "Mute tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bisukan tab"
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nama"
+          }
+        }
+      }
+    },
+    "Name your first Space": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beri nama Space pertama Anda"
+          }
+        }
+      }
+    },
+    "Never": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak Pernah"
+          }
+        }
+      }
+    },
+    "Never Saved": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak Pernah Disimpan"
+          }
+        }
+      }
+    },
+    "New Blank Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab Kosong Baru"
+          }
+        }
+      }
+    },
+    "New Folder": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder Baru"
+          }
+        }
+      }
+    },
+    "New Folder…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder Baru…"
+          }
+        }
+      }
+    },
+    "New Private Window": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jendela Pribadi Baru"
+          }
+        }
+      }
+    },
+    "New Space": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space Baru"
+          }
+        }
+      }
+    },
+    "New Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab Baru"
+          }
+        }
+      }
+    },
+    "New Tab Opens": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab Baru Membuka"
+          }
+        }
+      }
+    },
+    "New Tab…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab Baru…"
+          }
+        }
+      }
+    },
+    "New Window": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jendela Baru"
+          }
+        }
+      }
+    },
+    "New private window opened": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jendela pribadi baru dibuka"
+          }
+        }
+      }
+    },
+    "New tab opened": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab baru dibuka"
+          }
+        }
+      }
+    },
+    "New tabs": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab baru"
+          }
+        }
+      }
+    },
+    "New window opened": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jendela baru dibuka"
+          }
+        }
+      }
+    },
+    "Next Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab Berikutnya"
+          }
+        }
+      }
+    },
+    "No EME (encrypted media) session observed yet.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada sesi EME (media terenkripsi) yang teramati."
+          }
+        }
+      }
+    },
+    "No HDCP-capable path reported — DRM playback will likely fail.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada jalur berkemampuan HDCP yang dilaporkan — pemutaran DRM kemungkinan gagal."
+          }
+        }
+      }
+    },
+    "No bookmarks. Add one above; extension `chrome.bookmarks` writes show up here.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada markah. Tambahkan di atas; markah yang ditulis ekstensi lewat `chrome.bookmarks` muncul di sini."
+          }
+        }
+      }
+    },
+    "No cookies stored for %@.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada cookie yang tersimpan untuk %@."
+          }
+        }
+      }
+    },
+    "No downloads": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada unduhan"
+          }
+        }
+      }
+    },
+    "No extensions installed. Add a .crx or .xpi to get started.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada ekstensi terpasang. Tambahkan berkas .crx atau .xpi untuk memulai."
+          }
+        }
+      }
+    },
+    "No extensions loaded in this Space.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada ekstensi yang dimuat di Space ini."
+          }
+        }
+      }
+    },
+    "No live page to probe. Open a tab first.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada halaman aktif untuk diperiksa. Buka tab dulu."
+          }
+        }
+      }
+    },
+    "No media error raised on this page.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada galat media di halaman ini."
+          }
+        }
+      }
+    },
+    "No overrides yet.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada penggantian."
+          }
+        }
+      }
+    },
+    "No passwords saved yet. Chord offers to save one when you sign in.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada kata sandi tersimpan. Chord menawarkan untuk menyimpannya saat Anda masuk."
+          }
+        }
+      }
+    },
+    "No rules yet.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada aturan."
+          }
+        }
+      }
+    },
+    "No settings match “%@”.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada pengaturan yang cocok dengan “%@”."
+          }
+        }
+      }
+    },
+    "No sites have been granted or blocked yet.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada situs yang diizinkan atau diblokir."
+          }
+        }
+      }
+    },
+    "None. Add a selector below.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada. Tambahkan selector di bawah."
+          }
+        }
+      }
+    },
+    "Not Now": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nanti Saja"
+          }
+        }
+      }
+    },
+    "Not a setting": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bukan pengaturan"
+          }
+        }
+      }
+    },
+    "Not found": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ditemukan"
+          }
+        }
+      }
+    },
+    "Nothing here is written to disk — no history, no saved tabs, no cookies. Close the window and the session is gone.\nIt does not hide you from the sites you visit or from your network. Downloads and passwords you fill are real.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada yang ditulis ke disk di sini — tanpa riwayat, tanpa tab tersimpan, tanpa cookie. Tutup jendela dan sesinya hilang.\nIni tidak menyembunyikan Anda dari situs yang dikunjungi atau dari jaringan Anda. Unduhan dan kata sandi yang Anda isi tetap nyata."
+          }
+        }
+      }
+    },
+    "Nothing new to import": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada yang baru untuk diimpor"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "Off": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mati"
+          }
+        }
+      }
+    },
+    "On, tabs you can't see stop running a few minutes after they are hidden, as in Safari. Music keeps playing. Off by default: on this macOS a suspended tab can keep the window drawing, which costs more battery than the tabs save.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jika aktif, tab yang tidak terlihat berhenti berjalan beberapa menit setelah disembunyikan, seperti di Safari. Musik tetap diputar. Mati secara default: di macOS ini tab yang ditangguhkan bisa membuat jendela terus menggambar, yang menghabiskan baterai lebih banyak daripada yang dihemat tab."
+          }
+        }
+      }
+    },
+    "Open": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka"
+          }
+        }
+      }
+    },
+    "Open %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka %@"
+          }
+        }
+      }
+    },
+    "Open Location…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka Lokasi…"
+          }
+        }
+      }
+    },
+    "Open as Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka sebagai Tab"
+          }
+        }
+      }
+    },
+    "Open in New Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka di Tab Baru"
+          }
+        }
+      }
+    },
+    "Opens %@ at this setting": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membuka %@ pada pengaturan ini"
+          }
+        }
+      }
+    },
+    "Other MCP clients — add to the client's MCP servers config:": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klien MCP lain — tambahkan ke konfigurasi server MCP klien:"
+          }
+        }
+      }
+    },
+    "Page Zoom": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom Halaman"
+          }
+        }
+      }
+    },
+    "Passwords": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kata Sandi"
+          }
+        }
+      }
+    },
+    "Paste a full User-Agent string": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempel string User-Agent lengkap"
+          }
+        }
+      }
+    },
+    "Pause this tab's playback after how long?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeda pemutaran tab ini setelah berapa lama?"
+          }
+        }
+      }
+    },
+    "Per-Site Rules": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aturan Per Situs"
+          }
+        }
+      }
+    },
+    "Persistent background worker": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pekerja latar belakang persisten"
+          }
+        }
+      }
+    },
+    "Pick on Page": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih di Halaman"
+          }
+        }
+      }
+    },
+    "Pin Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sematkan Tab"
+          }
+        }
+      }
+    },
+    "Pin or Unpin Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sematkan atau Lepas Sematan Tab"
+          }
+        }
+      }
+    },
+    "Pin to Address Bar": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sematkan ke Bilah Alamat"
+          }
+        }
+      }
+    },
+    "Pin to Favourites": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sematkan ke Favorit"
+          }
+        }
+      }
+    },
+    "Pinned": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disematkan"
+          }
+        }
+      }
+    },
+    "Pinned tabs, %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab disematkan, %lld"
+          }
+        }
+      }
+    },
+    "Playback errors": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Galat pemutaran"
+          }
+        }
+      }
+    },
+    "Previous Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab Sebelumnya"
+          }
+        }
+      }
+    },
+    "Print…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cetak…"
+          }
+        }
+      }
+    },
+    "Privacy & Data": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privasi & Data"
+          }
+        }
+      }
+    },
+    "Private Windows": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jendela Pribadi"
+          }
+        }
+      }
+    },
+    "Private window": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jendela pribadi"
+          }
+        }
+      }
+    },
+    "Probing the engine…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memeriksa mesin…"
+          }
+        }
+      }
+    },
+    "Query URL (use %s for the query)": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL kueri (pakai %s untuk kueri)"
+          }
+        }
+      }
+    },
+    "Read": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baca"
+          }
+        }
+      }
+    },
+    "Read & Act": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baca & Bertindak"
+          }
+        }
+      }
+    },
+    "Read lets an agent list tabs, read pages and take screenshots. Read & Act also lets it open tabs, navigate, click and type; Chord asks you before it signs in, submits a form that sends data, or clicks anything that reads like buying, paying, sending or deleting. It can never type into password fields. Pages can try to give an agent instructions, so a Space with your bank or email is best left Off. Private Spaces are never shared.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baca mengizinkan agen melihat daftar tab, membaca halaman, dan mengambil tangkapan layar. Baca & Bertindak juga mengizinkannya membuka tab, bernavigasi, mengeklik, dan mengetik; Chord bertanya kepada Anda sebelum agen masuk ke akun, mengirim formulir yang mengirim data, atau mengeklik apa pun yang terbaca seperti membeli, membayar, mengirim, atau menghapus. Agen tidak pernah bisa mengetik di kolom kata sandi. Halaman bisa mencoba memberi instruksi kepada agen, jadi Space berisi bank atau email Anda sebaiknya dibiarkan Mati. Space pribadi tidak pernah dibagikan."
+          }
+        }
+      }
+    },
+    "Recording": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merekam"
+          }
+        }
+      }
+    },
+    "Referrer": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Referrer"
+          }
+        }
+      }
+    },
+    "Reload": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muat Ulang"
+          }
+        }
+      }
+    },
+    "Reloaded": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dimuat ulang"
+          }
+        }
+      }
+    },
+    "Remove User-Agent rule for %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus aturan User-Agent untuk %@"
+          }
+        }
+      }
+    },
+    "Remove bookmark": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus markah"
+          }
+        }
+      }
+    },
+    "Remove from Favourites": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus dari Favorit"
+          }
+        }
+      }
+    },
+    "Remove from Folder": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keluarkan dari Folder"
+          }
+        }
+      }
+    },
+    "Remove from list": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus dari daftar"
+          }
+        }
+      }
+    },
+    "Remove override for %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus penggantian untuk %@"
+          }
+        }
+      }
+    },
+    "Remove referrer rule for %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus aturan referrer untuk %@"
+          }
+        }
+      }
+    },
+    "Remove routing rule for %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus aturan perutean untuk %@"
+          }
+        }
+      }
+    },
+    "Remove this override": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus penggantian ini"
+          }
+        }
+      }
+    },
+    "Remove this rule": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus aturan ini"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti Nama"
+          }
+        }
+      }
+    },
+    "Rename Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti Nama Tab"
+          }
+        }
+      }
+    },
+    "Rename Tab…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti Nama Tab…"
+          }
+        }
+      }
+    },
+    "Rename folder": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti nama folder"
+          }
+        }
+      }
+    },
+    "Reopen Closed Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka Lagi Tab yang Ditutup"
+          }
+        }
+      }
+    },
+    "Reopened tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab dibuka lagi"
+          }
+        }
+      }
+    },
+    "Restart Now": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mulai Ulang Sekarang"
+          }
+        }
+      }
+    },
+    "Return to Pinned URL": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kembali ke URL yang Disematkan"
+          }
+        }
+      }
+    },
+    "Reveal": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilkan"
+          }
+        }
+      }
+    },
+    "Revoke permission": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cabut izin"
+          }
+        }
+      }
+    },
+    "Routing Rules": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aturan Perutean"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan"
+          }
+        }
+      }
+    },
+    "Save password?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan kata sandi?"
+          }
+        }
+      }
+    },
+    "Save the password for %@?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan kata sandi untuk %@?"
+          }
+        }
+      }
+    },
+    "Saved Passwords": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kata Sandi Tersimpan"
+          }
+        }
+      }
+    },
+    "Saved. Reload the page to see it.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tersimpan. Muat ulang halaman untuk melihatnya."
+          }
+        }
+      }
+    },
+    "Search Engine": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesin Pencari"
+          }
+        }
+      }
+    },
+    "Search history": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cari riwayat"
+          }
+        }
+      }
+    },
+    "Search or enter address": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cari atau masukkan alamat"
+          }
+        }
+      }
+    },
+    "Search settings": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cari pengaturan"
+          }
+        }
+      }
+    },
+    "Secure": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aman"
+          }
+        }
+      }
+    },
+    "Send a site's links to the Space it belongs in. A rule covers the domain and its subdomains. It is a default: splitting a pane, peeking a link out of a pinned tab, and private windows all win.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kirim tautan sebuah situs ke Space tempatnya berada. Aturan berlaku untuk domain dan subdomainnya. Ini hanya default: membagi panel, mengintip tautan dari tab yang disematkan, dan jendela pribadi semuanya lebih diutamakan."
+          }
+        }
+      }
+    },
+    "Send a site's links to the Space they belong in.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kirim tautan sebuah situs ke Space tempatnya berada."
+          }
+        }
+      }
+    },
+    "Set Current Page as Pinned URL": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jadikan Halaman Ini URL yang Disematkan"
+          }
+        }
+      }
+    },
+    "Set Timer": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atur Pengatur Waktu"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pengaturan"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pengaturan…"
+          }
+        }
+      }
+    },
+    "Shared Spaces": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space yang Dibagikan"
+          }
+        }
+      }
+    },
+    "Show History": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilkan Riwayat"
+          }
+        }
+      }
+    },
+    "Show Web Inspector": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilkan Web Inspector"
+          }
+        }
+      }
+    },
+    "Show in address bar": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilkan di bilah alamat"
+          }
+        }
+      }
+    },
+    "Show the Web Inspector and DRM Diagnostics.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilkan Web Inspector dan Diagnostik DRM."
+          }
+        }
+      }
+    },
+    "Site Overrides": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Penggantian Situs"
+          }
+        }
+      }
+    },
+    "Site Permissions": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izin Situs"
+          }
+        }
+      }
+    },
+    "Sites": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Situs"
+          }
+        }
+      }
+    },
+    "Sites where Chord never offers to save a password.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Situs tempat Chord tidak pernah menawarkan untuk menyimpan kata sandi."
+          }
+        }
+      }
+    },
+    "Sleep Timer": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pengatur Waktu Tidur"
+          }
+        }
+      }
+    },
+    "Sleep timer: %@ — click to cancel": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pengatur waktu tidur: %@ — klik untuk membatalkan"
+          }
+        }
+      }
+    },
+    "Space %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space %lld"
+          }
+        }
+      }
+    },
+    "Split Tab…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bagi Tab…"
+          }
+        }
+      }
+    },
+    "Stop": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berhenti"
+          }
+        }
+      }
+    },
+    "Stop %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hentikan %@"
+          }
+        }
+      }
+    },
+    "Stop Loading": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hentikan Pemuatan"
+          }
+        }
+      }
+    },
+    "Stop hiding this element": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berhenti menyembunyikan elemen ini"
+          }
+        }
+      }
+    },
+    "Suspend tabs you can't see": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tangguhkan tab yang tidak terlihat"
+          }
+        }
+      }
+    },
+    "Suspend tabs you can't see to save power, at the cost of pages that work in the background.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tangguhkan tab yang tidak terlihat untuk menghemat daya, dengan mengorbankan halaman yang bekerja di latar belakang."
+          }
+        }
+      }
+    },
+    "Swipe right closes a tab with no back history": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usap ke kanan menutup tab yang tidak punya riwayat mundur"
+          }
+        }
+      }
+    },
+    "Swipe right on a page that has nothing to undo — it closes the tab (or the Little Chord panel). Turn this off to restore WebKit's default, where the swipe just does nothing.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usap ke kanan pada halaman yang tidak punya langkah mundur — tab (atau panel Little Chord) akan ditutup. Matikan untuk mengembalikan perilaku default WebKit, yaitu usapan tidak melakukan apa-apa."
+          }
+        }
+      }
+    },
+    "Swipe right on a page with no back history to close the tab.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usap ke kanan pada halaman tanpa riwayat mundur untuk menutup tab."
+          }
+        }
+      }
+    },
+    "Tab closed": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab ditutup"
+          }
+        }
+      }
+    },
+    "That does not look like a domain — try example.com.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Itu tidak terlihat seperti domain — coba example.com."
+          }
+        }
+      }
+    },
+    "That does not look like a domain, or reads as a host without a dot.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Itu tidak terlihat seperti domain, atau terbaca sebagai host tanpa titik."
+          }
+        }
+      }
+    },
+    "The bookmarks extensions and the command bar read; open or remove one.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markah yang dibaca ekstensi dan bilah perintah; buka atau hapus salah satunya."
+          }
+        }
+      }
+    },
+    "The browser could not start": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peramban tidak dapat dimulai"
+          }
+        }
+      }
+    },
+    "The command and config that point Claude Code or another agent at Chord.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perintah dan konfigurasi yang mengarahkan Claude Code atau agen lain ke Chord."
+          }
+        }
+      }
+    },
+    "The exact Referer every navigation sends.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Referer persis yang dikirim setiap navigasi."
+          }
+        }
+      }
+    },
+    "The extension subsystem is not available.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subsistem ekstensi tidak tersedia."
+          }
+        }
+      }
+    },
+    "This extension doesn't run in private windows.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekstensi ini tidak berjalan di jendela pribadi."
+          }
+        }
+      }
+    },
+    "This extension's side panel could not be opened.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panel samping ekstensi ini tidak dapat dibuka."
+          }
+        }
+      }
+    },
+    "This name shows in the sidebar instead of the page title.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nama ini ditampilkan di bilah sisi sebagai pengganti judul halaman."
+          }
+        }
+      }
+    },
+    "This page is sharing your screen": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halaman ini sedang membagikan layar Anda"
+          }
+        }
+      }
+    },
+    "This permanently removes every recorded visit in “%@”. Other Spaces are unaffected.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ini menghapus permanen semua kunjungan yang tercatat di “%@”. Space lain tidak terpengaruh."
+          }
+        }
+      }
+    },
+    "This permanently removes the selected data across every Space.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ini menghapus permanen data yang dipilih di semua Space."
+          }
+        }
+      }
+    },
+    "This removes the password from the Keychain. It cannot be undone.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ini menghapus kata sandi dari Keychain. Tindakan ini tidak dapat dibatalkan."
+          }
+        }
+      }
+    },
+    "Three things you can set up now, or skip and do later.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiga hal yang bisa Anda atur sekarang, atau lewati dan lakukan nanti."
+          }
+        }
+      }
+    },
+    "Title": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Judul"
+          }
+        }
+      }
+    },
+    "Toggle Sidebar": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilkan/Sembunyikan Bilah Sisi"
+          }
+        }
+      }
+    },
+    "Try fewer words, or another name for it — “sleep”, “dark”, “zoom”.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coba lebih sedikit kata, atau nama lain untuknya — “sleep”, “dark”, “zoom”."
+          }
+        }
+      }
+    },
+    "Turn this override off without deleting it": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matikan penggantian ini tanpa menghapusnya"
+          }
+        }
+      }
+    },
+    "Turn this rule off without deleting it": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matikan aturan ini tanpa menghapusnya"
+          }
+        }
+      }
+    },
+    "Uninstall": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copot"
+          }
+        }
+      }
+    },
+    "Uninstall extension": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copot ekstensi"
+          }
+        }
+      }
+    },
+    "Unmute Tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunyikan Tab"
+          }
+        }
+      }
+    },
+    "Unmute tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunyikan tab"
+          }
+        }
+      }
+    },
+    "Unpin": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lepas Sematan"
+          }
+        }
+      }
+    },
+    "Unpin from Address Bar": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lepas Sematan dari Bilah Alamat"
+          }
+        }
+      }
+    },
+    "Unpinned tabs you haven't touched for this long are moved to the archive, reachable from the command bar. Pinned tabs and tabs playing audio are never archived.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab tidak disematkan yang tidak Anda sentuh selama ini dipindahkan ke arsip, dapat dijangkau dari bilah perintah. Tab yang disematkan dan tab yang memutar audio tidak pernah diarsipkan."
+          }
+        }
+      }
+    },
+    "Unpinned, it still runs; open it from the … button in the address bar.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanpa disematkan, ekstensi tetap berjalan; buka dari tombol … di bilah alamat."
+          }
+        }
+      }
+    },
+    "Unsaved changes": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perubahan belum disimpan"
+          }
+        }
+      }
+    },
+    "Unverified extension": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekstensi belum terverifikasi"
+          }
+        }
+      }
+    },
+    "Update": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perbarui"
+          }
+        }
+      }
+    },
+    "Update installed. Restart to finish.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pembaruan terpasang. Mulai ulang untuk menyelesaikan."
+          }
+        }
+      }
+    },
+    "Update saved password?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perbarui kata sandi tersimpan?"
+          }
+        }
+      }
+    },
+    "Update the saved password for %@?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perbarui kata sandi tersimpan untuk %@?"
+          }
+        }
+      }
+    },
+    "Updates": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pembaruan"
+          }
+        }
+      }
+    },
+    "Use the File menu: Import Bookmarks… (an HTML export), Import from Arc…, and Import Passwords… (Chrome, Brave, Edge and other Chromium browsers).": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pakai menu File: Impor Markah… (ekspor HTML), Impor dari Arc…, dan Impor Kata Sandi… (Chrome, Brave, Edge, dan peramban Chromium lain)."
+          }
+        }
+      }
+    },
+    "Use the page's Web Inspector to find a selector.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pakai Web Inspector halaman untuk menemukan selector."
+          }
+        }
+      }
+    },
+    "User Agent": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "User Agent"
+          }
+        }
+      }
+    },
+    "Vault Lock": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunci Brankas"
+          }
+        }
+      }
+    },
+    "Vault locked": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brankas terkunci"
+          }
+        }
+      }
+    },
+    "Vault unlocked": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brankas terbuka"
+          }
+        }
+      }
+    },
+    "Website data is cleared for every Space. This cannot be undone.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data situs web dihapus untuk semua Space. Tindakan ini tidak dapat dibatalkan."
+          }
+        }
+      }
+    },
+    "Welcome to Chord": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selamat Datang di Chord"
+          }
+        }
+      }
+    },
+    "What address a site is told you came from, plus per-site exceptions.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alamat asal yang diberitahukan ke situs, beserta pengecualian per situs."
+          }
+        }
+      }
+    },
+    "What address a site is told you came from. “Strip” sends no referrer at all — useful on sites that leak the page you were on. Takes effect on the next page load.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alamat asal yang diberitahukan ke situs. “Strip” tidak mengirim referrer sama sekali — berguna di situs yang membocorkan halaman asal Anda. Berlaku saat halaman dimuat berikutnya."
+          }
+        }
+      }
+    },
+    "What this browser's engine and display chain can actually play. Answers “can’t do it” vs “Netflix won’t serve it”.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apa yang benar-benar bisa diputar mesin peramban dan rantai layar ini. Menjawab “tidak bisa” versus “Netflix tidak mau menyajikannya”."
+          }
+        }
+      }
+    },
+    "When the saved-password vault locks; filling then asks for Touch ID.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kapan brankas kata sandi terkunci; setelah itu pengisian meminta Touch ID."
+          }
+        }
+      }
+    },
+    "Where the address bar and command bar send what you type.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ke mana bilah alamat dan bilah perintah mengirim yang Anda ketik."
+          }
+        }
+      }
+    },
+    "Whether agents may run their own JavaScript in a page, asked every time.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apakah agen boleh menjalankan JavaScript mereka sendiri di halaman, ditanyakan setiap kali."
+          }
+        }
+      }
+    },
+    "Which Spaces an agent may read, and which it may also act in.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space mana yang boleh dibaca agen, dan di mana agen juga boleh bertindak."
+          }
+        }
+      }
+    },
+    "Which browser saved these passwords?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peramban mana yang menyimpan kata sandi ini?"
+          }
+        }
+      }
+    },
+    "Your own CSS, JavaScript, and hidden elements for a site.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CSS, JavaScript, dan elemen tersembunyi Anda sendiri untuk sebuah situs."
+          }
+        }
+      }
+    },
+    "Zoom In": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perbesar"
+          }
+        }
+      }
+    },
+    "Zoom Out": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perkecil"
+          }
+        }
+      }
+    },
+    "Zoom a page with ⌘= and ⌘-, and return to actual size with ⌘0. These are menu commands, not a setting.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom halaman dengan ⌘= dan ⌘-, dan kembali ke ukuran sebenarnya dengan ⌘0. Ini perintah menu, bukan pengaturan."
+          }
+        }
+      }
+    },
+    "^[%lld item](inflect: true)": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld item"
+          }
+        }
+      }
+    },
+    "available": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tersedia"
+          }
+        }
+      }
+    },
+    "opens Settings.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "membuka Pengaturan."
+          }
+        }
+      }
+    },
+    "opens the command bar: type an address, a search, or a tab's name.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "membuka bilah perintah: ketik alamat, pencarian, atau nama tab."
+          }
+        }
+      }
+    },
+    "or type a selector:": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "atau ketik selector:"
+          }
+        }
+      }
+    },
+    "unavailable": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tidak tersedia"
+          }
+        }
+      }
+    },
+    "⌘⇧N opens a private window. Its cookies, history, and tabs are not kept when it closes.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌘⇧N membuka jendela pribadi. Cookie, riwayat, dan tabnya tidak disimpan saat ditutup."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

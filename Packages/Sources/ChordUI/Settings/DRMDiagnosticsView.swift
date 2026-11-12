@@ -58,8 +58,7 @@ struct DRMDiagnosticsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("DRM Diagnostics").font(.system(size: 15, weight: .semibold))
                 Text(
-                    "What this browser's engine and display chain can actually play. "
-                        + "Answers “can’t do it” vs “Netflix won’t serve it”."
+                    "What this browser's engine and display chain can actually play. Answers “can’t do it” vs “Netflix won’t serve it”."
                 )
                 .font(.system(size: 11)).foregroundStyle(.secondary)
             }
@@ -100,8 +99,7 @@ struct DRMDiagnosticsView: View {
             let highest = diagnostics.hdcp.filter(\.available).map(\.level).max()
             if let highest, Double(highest) ?? 0 < 2.2 {
                 Text(
-                    "Display chain caps at HDCP \(highest). DRM services may silently "
-                        + "serve 720p — check docks and non-HDCP adapters."
+                    "Display chain caps at HDCP \(highest). DRM services may silently serve 720p — check docks and non-HDCP adapters."
                 )
                 .font(.system(size: 11)).foregroundStyle(.orange)
             } else if diagnostics.hdcp.contains(where: \.available) == false {

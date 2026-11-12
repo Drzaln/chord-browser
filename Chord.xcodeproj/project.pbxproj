@@ -16,6 +16,7 @@
 		A1000303000000000000001 /* ChordCore in Frameworks */ = {isa = PBXBuildFile; productRef = A1000403000000000000001 /* ChordCore */; };
 		A1000304000000000000001 /* ChordUpdater in Frameworks */ = {isa = PBXBuildFile; productRef = A1000404000000000000001 /* ChordUpdater */; };
 		C42B564430149E4B00869681 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C42B564330149E4B00869681 /* Assets.xcassets */; };
+		C42B5646301CA1B000869681 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C42B5645301CA1B000869681 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 		A1000205000000000000001 /* Chord.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Chord.entitlements; sourceTree = "<group>"; };
 		A1000206000000000000001 /* NotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationController.swift; sourceTree = "<group>"; };
 		C42B564330149E4B00869681 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C42B5645301CA1B000869681 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +58,7 @@
 		A1000602000000000000001 /* ChordApp */ = {
 			isa = PBXGroup;
 			children = (
+				C42B5645301CA1B000869681 /* Localizable.xcstrings */,
 				A1000201000000000000001 /* ChordApp.swift */,
 				A1000202000000000000001 /* AppDelegate.swift */,
 				A1000203000000000000001 /* DebugOverlay.swift */,
@@ -122,6 +125,7 @@
 			knownRegions = (
 				en,
 				Base,
+				id,
 			);
 			mainGroup = A1000601000000000000001;
 			packageReferences = (
@@ -142,6 +146,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C42B564430149E4B00869681 /* Assets.xcassets in Resources */,
+				C42B5646301CA1B000869681 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

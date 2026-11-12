@@ -81,10 +81,10 @@ struct SleepTimerMenu: View {
 
     private func promptForCustomMinutes() {
         let alert = NSAlert()
-        alert.messageText = "Sleep Timer"
-        alert.informativeText = "Pause this tab's playback after how long?"
-        alert.addButton(withTitle: "Set Timer")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(localized: "Sleep Timer")
+        alert.informativeText = String(localized: "Pause this tab's playback after how long?")
+        alert.addButton(withTitle: String(localized: "Set Timer"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
 
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
         field.placeholderString = "Minutes — e.g. 45, 1:30, 1.5h"

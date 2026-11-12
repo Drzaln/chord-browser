@@ -229,6 +229,9 @@ for every agent (Claude, Codex, opencode).
    user-facing feature: `README.md`, `CHECKPOINT.md`, `docs/USER_GUIDE.md`,
    `BROWSER_SPEC.md` §4.9, `SMOKE.md` (manual checklist), and the
    `chord-browser-architecture` skill.
+   A new or changed UI string also goes in `ChordApp/Localizable.xcstrings`
+   with its Indonesian text (`scripts/l10n.py sync`, translate, `check`);
+   prepush fails otherwise.
 2. **Run `./scripts/prepush.sh`** — the release gate (packages, tests, app;
    warnings are errors). Must be green.
 3. **Bump, tag, push with `./scripts/release.sh <version> [build]`** — it

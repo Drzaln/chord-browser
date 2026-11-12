@@ -497,10 +497,7 @@ struct SidebarView: View {
                 DownloadsButton(downloads: downloads, windowState: windowState)
             }
             Text(
-                "Nothing here is written to disk — no history, no saved tabs, no cookies. "
-                    + "Close the window and the session is gone.\n"
-                    + "It does not hide you from the sites you visit or from your network. "
-                    + "Downloads and passwords you fill are real."
+                "Nothing here is written to disk — no history, no saved tabs, no cookies. Close the window and the session is gone.\nIt does not hide you from the sites you visit or from your network. Downloads and passwords you fill are real."
             )
             .font(metrics.font(10))
             .foregroundStyle(.secondary)

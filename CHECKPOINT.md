@@ -5544,3 +5544,29 @@ Settings shortcuts. Every step is optional.
   those flows live in the app target's menu code.
 - Tests: `WelcomePolicyTests` (4). **Not seen in the app**: it needs an empty
   profile, and I did not wipe the real one.
+
+## UI strings localizable, with Indonesian (2026-11-12, bead `gn0.7`; non-spec, user go-ahead)
+
+- **One catalog, in the app bundle:** `ChordApp/Localizable.xcstrings` (393
+  strings, English keys, Indonesian values), added to the Xcode project with
+  the `id` region. SwiftUI resolves `Text("…")`, `Button("…")` and
+  `String(localized:)` in `Bundle.main` even from the `ChordUI` package, so no
+  call site needed a `bundle:` argument and the package has no resources.
+  `swift test` has no catalog and so sees the English keys.
+- **`scripts/l10n.py`** (`check` in prepush, `sync`, `list`) scans ChordUI,
+  ChordStore and ChordApp for literals in SwiftUI text positions, ternary arms
+  inside them, and `String(localized:)`. It turns `\(…)` into `%lld` (counts)
+  or `%@`, which was checked against the keys SwiftUI really builds. It fails
+  on a missing key, a key without Indonesian, or a stale key.
+- **Code changes:** 83 `"a" + "b"` concatenations merged into single literals
+  (a concatenation is a `String`, which SwiftUI shows verbatim); 39 `NSAlert`,
+  open-panel and toast literals wrapped in `String(localized:)`; Settings
+  catalog titles, blurbs and section names localized where they are built
+  (`WindowState.settingsSection` still stores the English name).
+- **Fixed in passing:** the "move tab to another Space" dialog text had a run
+  of 20 spaces in it (a broken multi-line literal, already on `main`).
+- **Not done** (bead `gn0.12`): text built in ChordStore, the import dry-run
+  summaries, literals passed as `String` through helpers, the error page and
+  offline game, Info.plist usage strings, Indonesian search keywords.
+- **Not seen:** the app has not been run in Indonesian, so wording in context
+  and clipping are unchecked. The translations are mine and unreviewed.

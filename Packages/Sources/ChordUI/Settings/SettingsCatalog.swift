@@ -17,6 +17,11 @@ enum SettingsSection: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 
     var title: String {
+        String(localized: String.LocalizationValue(englishTitle))
+    }
+
+    /// The stable name: `WindowState.settingsSection` stores this one.
+    var englishTitle: String {
         switch self {
         case .general: "General"
         case .sites: "Sites"
@@ -155,11 +160,13 @@ extension SettingsRowInfo {
         keywords: [String],
         shortcut: String? = nil
     ) {
+        // Shown text is looked up in the app's string catalog (gn0.7); the
+        // keywords stay as written, so English words keep finding the row.
         self.init(
             id: row.rawValue,
             section: Row.section,
-            title: title,
-            blurb: blurb,
+            title: String(localized: String.LocalizationValue(title)),
+            blurb: String(localized: String.LocalizationValue(blurb)),
             keywords: keywords,
             shortcut: shortcut
         )
@@ -180,6 +187,18 @@ struct SettingsNote: Identifiable, Hashable, Sendable {
     let blurb: String
     let keywords: [String]
     let shortcut: String?
+
+    init(
+        id: String, section: SettingsSection, title: String, blurb: String,
+        keywords: [String], shortcut: String?
+    ) {
+        self.id = id
+        self.section = section
+        self.title = String(localized: String.LocalizationValue(title))
+        self.blurb = String(localized: String.LocalizationValue(blurb))
+        self.keywords = keywords
+        self.shortcut = shortcut
+    }
 }
 
 /// One ranked search result: a row or a note.

@@ -241,7 +241,7 @@ struct ChordCommands: Commands {
         guard !url.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(url, forType: .string)
-        toast("Copied URL", icon: "link")
+        toast(String(localized: "Copied URL"), icon: "link")
     }
 
     /// Zoom plus a percentage toast, so a menu action that has no other visible
@@ -250,7 +250,7 @@ struct ChordCommands: Commands {
         guard let store else { return }
         mutate(store)
         let percent = Int((store.pageZoom * 100).rounded())
-        toast("\(message) \(percent)%", icon: icon)
+        toast(String(localized: "\(message) \(percent)%"), icon: icon)
     }
 
     /// File → Import Bookmarks…: pick a Netscape-format export, show the
@@ -266,8 +266,8 @@ struct ChordCommands: Commands {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.prompt = "Import"
-        panel.message = "Choose a bookmarks HTML file exported by another browser."
+        panel.prompt = String(localized: "Import")
+        panel.message = String(localized: "Choose a bookmarks HTML file exported by another browser.")
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         let scoped = url.startAccessingSecurityScopedResource()
@@ -290,42 +290,37 @@ struct ChordCommands: Commands {
                 "No bookmarks found",
                 detail: plan.skippedCount == 0
                     ? "Chord could not find any folders or http(s) bookmarks in that file."
-                    : "\(plan.skippedCount) entries were skipped. "
-                        + "Is this a Netscape-format bookmarks export?"
+                    : "\(plan.skippedCount) entries were skipped. Is this a Netscape-format bookmarks export?"
             )
             return
         }
 
         let spaceName = store.activeSpace(in: window)?.name ?? "this Space"
         let confirmation = NSAlert()
-        let noun = plan.entryCount == 1 ? "bookmark" : "bookmarks"
-        confirmation.messageText = "Import \(plan.entryCount) \(noun)?"
+        confirmation.messageText = String(localized: "Import \(plan.entryCount) bookmarks?")
         var details = [
-            "Adds \(plan.entryCount) bookmarks to \(plan.folderCount) folders "
-                + "in “\(spaceName)”.",
-            "Root-level bookmarks become Pinned tabs; nested folders are "
-                + "flattened as “Parent / Child”.",
+            "Adds \(plan.entryCount) bookmarks to \(plan.folderCount) folders in “\(spaceName)”.",
+            "Root-level bookmarks become Pinned tabs; nested folders are flattened as “Parent / Child”.",
         ]
         if plan.skippedCount > 0 {
-            details.append("\(plan.skippedCount) entries will be skipped.")
+            details.append(String(localized: "\(plan.skippedCount) entries will be skipped."))
         }
         if plan.depthLimitReached {
             details.append(
-                "Folders deeper than \(NetscapeBookmarkParser.maximumFolderDepth) "
-                    + "levels will be skipped."
+                "Folders deeper than \(NetscapeBookmarkParser.maximumFolderDepth) levels will be skipped."
             )
         }
         confirmation.informativeText = details.joined(separator: "\n")
-        confirmation.addButton(withTitle: "Import")
-        confirmation.addButton(withTitle: "Cancel")
+        confirmation.addButton(withTitle: String(localized: "Import"))
+        confirmation.addButton(withTitle: String(localized: "Cancel"))
         guard confirmation.runModal() == .alertFirstButtonReturn else { return }
 
         let result = store.importBookmarks(plan, in: window)
         if result.entriesAdded == 0 && result.foldersCreated == 0 {
-            toast("Nothing new to import", icon: "bookmark")
+            toast(String(localized: "Nothing new to import"), icon: "bookmark")
         } else {
             let count = result.entriesAdded
-            toast("Imported \(count) bookmark\(count == 1 ? "" : "s")", icon: "bookmark")
+            toast(String(localized: "Bookmarks imported: \(count)"), icon: "bookmark")
         }
     }
 
@@ -334,7 +329,7 @@ struct ChordCommands: Commands {
         alert.alertStyle = .warning
         alert.messageText = message
         alert.informativeText = detail
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: String(localized: "OK"))
         alert.runModal()
     }
 
@@ -354,8 +349,8 @@ struct ChordCommands: Commands {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
-        panel.prompt = "Import"
-        panel.message = "Choose Arc's data folder, or its StorableSidebar.json."
+        panel.prompt = String(localized: "Import")
+        panel.message = String(localized: "Choose Arc's data folder, or its StorableSidebar.json.")
         guard panel.runModal() == .OK, let chosen = panel.url else { return }
 
         let scoped = chosen.startAccessingSecurityScopedResource()
@@ -364,9 +359,7 @@ struct ChordCommands: Commands {
         guard let file = Self.arcSidebarFile(startingAt: chosen) else {
             presentImportError(
                 "No Arc sidebar found",
-                detail: "Chord looks for StorableSidebar.json in the folder you "
-                    + "choose. Pick Arc's data folder — usually "
-                    + "~/Library/Application Support/Arc — or the file itself."
+                detail: "Chord looks for StorableSidebar.json in the folder you choose. Pick Arc's data folder — usually ~/Library/Application Support/Arc — or the file itself."
             )
             return
         }
@@ -375,8 +368,7 @@ struct ChordCommands: Commands {
         guard size <= 32 << 20 else {
             presentImportError(
                 "Arc's sidebar is too large",
-                detail: "StorableSidebar.json is larger than 32 MB, which is not "
-                    + "a sidebar Chord can read safely."
+                detail: "StorableSidebar.json is larger than 32 MB, which is not a sidebar Chord can read safely."
             )
             return
         }
@@ -395,8 +387,7 @@ struct ChordCommands: Commands {
         guard let plan = ArcSidebarParser.parse(data) else {
             presentImportError(
                 "Not an Arc sidebar",
-                detail: "“\(file.lastPathComponent)” is not a readable Arc "
-                    + "StorableSidebar.json. Nothing was imported."
+                detail: "“\(file.lastPathComponent)” is not a readable Arc StorableSidebar.json. Nothing was imported."
             )
             return
         }
@@ -413,13 +404,13 @@ struct ChordCommands: Commands {
             ? "Import 1 Arc Space?"
             : "Import \(plan.spaceCount) Arc Spaces?"
         confirmation.informativeText = importArcSummary(plan)
-        confirmation.addButton(withTitle: "Import")
-        confirmation.addButton(withTitle: "Cancel")
+        confirmation.addButton(withTitle: String(localized: "Import"))
+        confirmation.addButton(withTitle: String(localized: "Cancel"))
         guard confirmation.runModal() == .alertFirstButtonReturn else { return }
 
         let result = store.importArc(plan, in: window)
         guard result.didWriteAnything else {
-            toast("Nothing new to import", icon: "square.and.arrow.down")
+            toast(String(localized: "Nothing new to import"), icon: "square.and.arrow.down")
             return
         }
 
@@ -429,8 +420,7 @@ struct ChordCommands: Commands {
         }
         if result.favouritesAdded > 0 {
             parts.append(
-                "\(result.favouritesAdded) "
-                    + "favourite\(result.favouritesAdded == 1 ? "" : "s")"
+                "\(result.favouritesAdded) favourite\(result.favouritesAdded == 1 ? "" : "s")"
             )
         }
         if result.spacesCreated > 0 {
@@ -440,8 +430,7 @@ struct ChordCommands: Commands {
         }
         if parts.isEmpty {
             parts.append(
-                "\(result.foldersCreated) "
-                    + "folder\(result.foldersCreated == 1 ? "" : "s")"
+                "\(result.foldersCreated) folder\(result.foldersCreated == 1 ? "" : "s")"
             )
         }
         toast("Imported " + parts.joined(separator: ", "), icon: "square.and.arrow.down")
@@ -468,47 +457,36 @@ struct ChordCommands: Commands {
 
         lines.append("")
         lines.append(
-            "\(plan.itemCount) page\(plan.itemCount == 1 ? "" : "s") in all. "
-                + "Spaces with the same name are reused, and only http(s) pages "
-                + "are imported. Passwords and cookies are never read."
+            "\(plan.itemCount) page\(plan.itemCount == 1 ? "" : "s") in all. Spaces with the same name are reused, and only http(s) pages are imported. Passwords and cookies are never read."
         )
         if plan.flattenedFolderCount > 0 {
             lines.append(
-                "\(plan.flattenedFolderCount) nested "
-                    + "folder\(plan.flattenedFolderCount == 1 ? " is" : "s are") "
-                    + "flattened as “Parent / Child”."
+                "\(plan.flattenedFolderCount) nested folder\(plan.flattenedFolderCount == 1 ? " is" : "s are") flattened as “Parent / Child”."
             )
         }
         if plan.mergedFolderCount > 0 {
             lines.append(
-                "\(plan.mergedFolderCount) same-named "
-                    + "folder\(plan.mergedFolderCount == 1 ? " merges" : "s merge") "
-                    + "into one."
+                "\(plan.mergedFolderCount) same-named folder\(plan.mergedFolderCount == 1 ? " merges" : "s merge") into one."
             )
         }
         if plan.skippedCount > 0 {
             lines.append(
-                "\(plan.skippedCount) item\(plan.skippedCount == 1 ? "" : "s") "
-                    + "will be skipped (arc://, extensions, files, and broken URLs)."
+                "\(plan.skippedCount) item\(plan.skippedCount == 1 ? "" : "s") will be skipped (arc://, extensions, files, and broken URLs)."
             )
         }
         if plan.credentialsStripped > 0 {
             lines.append(
-                "\(plan.credentialsStripped) URL"
-                    + "\(plan.credentialsStripped == 1 ? " had" : "s had") embedded "
-                    + "credentials removed."
+                "\(plan.credentialsStripped) URL\(plan.credentialsStripped == 1 ? " had" : "s had") embedded credentials removed."
             )
         }
         if plan.depthLimitReached {
             lines.append(
-                "Folders nested deeper than "
-                    + "\(ArcSidebarParser.maximumFolderDepth) levels are skipped."
+                "Folders nested deeper than \(ArcSidebarParser.maximumFolderDepth) levels are skipped."
             )
         }
         if plan.itemLimitReached {
             lines.append(
-                "Arc's sidebar is larger than the import limit; later items "
-                    + "are left behind."
+                "Arc's sidebar is larger than the import limit; later items are left behind."
             )
         }
         return lines.joined(separator: "\n")
@@ -554,10 +532,9 @@ struct ChordCommands: Commands {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.prompt = "Import"
+        panel.prompt = String(localized: "Import")
         panel.message =
-            "Choose a Chromium browser's “Login Data” file inside a profile "
-            + "folder — for example Google/Chrome/Default/Login Data."
+            "Choose a Chromium browser's “Login Data” file inside a profile folder — for example Google/Chrome/Default/Login Data."
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         let scoped = url.startAccessingSecurityScopedResource()
@@ -596,33 +573,29 @@ struct ChordCommands: Commands {
                 : "Nothing to import from \(preview.source.browser.displayName)"
             confirmation.informativeText = passwordImportSummary(preview)
             if preview.hasAnythingToWrite {
-                confirmation.addButton(withTitle: "Import")
-                confirmation.addButton(withTitle: "Cancel")
+                confirmation.addButton(withTitle: String(localized: "Import"))
+                confirmation.addButton(withTitle: String(localized: "Cancel"))
                 guard confirmation.runModal() == .alertFirstButtonReturn else { return }
 
                 let result = await store.applyPasswordImport(preview)
                 if result.failed > 0 {
                     toast(
-                        "Imported \(result.imported) login"
-                            + "\(result.imported == 1 ? "" : "s"), "
-                            + "\(result.failed) failed",
+                        "Imported \(result.imported) login\(result.imported == 1 ? "" : "s"), \(result.failed) failed",
                         icon: "exclamationmark.triangle"
                     )
                 } else if result.imported == 0 {
-                    toast("Nothing new to import", icon: "key.fill")
+                    toast(String(localized: "Nothing new to import"), icon: "key.fill")
                 } else {
                     var message =
-                        "Imported \(result.imported) login"
-                        + "\(result.imported == 1 ? "" : "s")"
+                        "Imported \(result.imported) login\(result.imported == 1 ? "" : "s")"
                     if result.importedUsernameOnly > 0 {
                         message +=
-                            " (\(result.importedUsernameOnly) username"
-                            + "\(result.importedUsernameOnly == 1 ? "" : "s") only)"
+                            " (\(result.importedUsernameOnly) username\(result.importedUsernameOnly == 1 ? "" : "s") only)"
                     }
                     toast(message, icon: "key.fill")
                 }
             } else {
-                confirmation.addButton(withTitle: "OK")
+                confirmation.addButton(withTitle: String(localized: "OK"))
                 confirmation.runModal()
             }
         }
@@ -633,11 +606,9 @@ struct ChordCommands: Commands {
     /// folder name; Cancel imports nothing.
     private func askWhichBrowserSavedThePasswords() -> ChromiumBrowser? {
         let alert = NSAlert()
-        alert.messageText = "Which browser saved these passwords?"
+        alert.messageText = String(localized: "Which browser saved these passwords?")
         alert.informativeText =
-            "Chord reads the browser's Safe Storage key from your Keychain. "
-            + "This profile is outside the usual browser folder, so the browser "
-            + "cannot be told from the path."
+            "Chord reads the browser's Safe Storage key from your Keychain. This profile is outside the usual browser folder, so the browser cannot be told from the path."
         let choices = ChromiumBrowser.known
         let popup = NSPopUpButton(
             frame: NSRect(x: 0, y: 0, width: 260, height: 26), pullsDown: false
@@ -647,8 +618,8 @@ struct ChordCommands: Commands {
             popup.selectItem(at: chrome)
         }
         alert.accessoryView = popup
-        alert.addButton(withTitle: "Continue")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(localized: "Continue"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let index = popup.indexOfSelectedItem
         guard choices.indices.contains(index) else { return nil }
@@ -659,20 +630,16 @@ struct ChordCommands: Commands {
     /// class of row that will not be. No password and no ciphertext appears.
     private func passwordImportSummary(_ preview: ChromiumPasswordImportPreview) -> String {
         var lines = [
-            "\(preview.source.browser.displayName) — profile "
-                + "“\(preview.source.profileName)”",
+            "\(preview.source.browser.displayName) — profile “\(preview.source.profileName)”",
             "",
         ]
 
         lines.append(
-            "\(preview.importCount) login\(preview.importCount == 1 ? "" : "s") "
-                + "will be imported: \(preview.withSecretCount) with a password, "
-                + "\(preview.usernameOnlyCount) username-only."
+            "\(preview.importCount) login\(preview.importCount == 1 ? "" : "s") will be imported: \(preview.withSecretCount) with a password, \(preview.usernameOnlyCount) username-only."
         )
         if preview.alreadyPresentCount > 0 {
             lines.append(
-                "\(preview.alreadyPresentCount) already saved in Chord; existing "
-                    + "passwords are never overwritten."
+                "\(preview.alreadyPresentCount) already saved in Chord; existing passwords are never overwritten."
             )
         }
         if preview.skippedCount > 0 {
@@ -711,10 +678,7 @@ struct ChordCommands: Commands {
 
         lines.append("")
         lines.append(
-            "Only HTTPS logins with a username are kept; file:, extension:, and "
-                + "plain-HTTP entries are refused. The database was read from a "
-                + "private temporary copy, which has already been deleted. Nothing "
-                + "is written until you click Import."
+            "Only HTTPS logins with a username are kept; file:, extension:, and plain-HTTP entries are refused. The database was read from a private temporary copy, which has already been deleted. Nothing is written until you click Import."
         )
         return lines.joined(separator: "\n")
     }
@@ -754,7 +718,7 @@ struct ChordCommands: Commands {
             // open; `newWindow` is SwiftUI's action for a `WindowGroup`.
             Button("New Window") {
                 openWindow(id: "main")
-                toast("New window opened", icon: "macwindow")
+                toast(String(localized: "New window opened"), icon: "macwindow")
             }
                 .keyboardShortcut("n", modifiers: .command)
 
@@ -766,14 +730,14 @@ struct ChordCommands: Commands {
             Button("New Private Window") {
                 store?.markNextWindowPrivate()
                 openWindow(id: "main")
-                toast("New private window opened", icon: "hand.raised")
+                toast(String(localized: "New private window opened"), icon: "hand.raised")
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
 
             Button("New Blank Tab") {
                 withFocusedWindow { store, window in
                     store.newTab(in: window)
-                    toast("New tab opened", icon: "plus.square.on.square")
+                    toast(String(localized: "New tab opened"), icon: "plus.square.on.square")
                 }
             }
             .keyboardShortcut("n", modifiers: [.command, .option])
@@ -822,7 +786,7 @@ struct ChordCommands: Commands {
                 withFocusedWindow { store, window in
                     guard let id = window.selectedTabID else { return }
                     store.closeTab(id, in: window)
-                    toast("Tab closed", icon: "xmark.square")
+                    toast(String(localized: "Tab closed"), icon: "xmark.square")
                 }
             }
             .keyboardShortcut("w", modifiers: .command)
@@ -831,7 +795,7 @@ struct ChordCommands: Commands {
             Button("Reopen Closed Tab") {
                 withFocusedWindow { store, window in
                     store.reopenLastClosedTab(in: window)
-                    toast("Reopened tab", icon: "arrow.uturn.backward")
+                    toast(String(localized: "Reopened tab"), icon: "arrow.uturn.backward")
                 }
             }
             .keyboardShortcut("t", modifiers: [.command, .shift])
@@ -886,7 +850,7 @@ struct ChordCommands: Commands {
             Button("Reload") {
                 withFocusedWindow { store, window in
                     store.reload(in: window)
-                    toast("Reloaded", icon: "arrow.clockwise")
+                    toast(String(localized: "Reloaded"), icon: "arrow.clockwise")
                 }
             }
             .keyboardShortcut("r", modifiers: .command)

@@ -139,8 +139,7 @@ public struct HistoryView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(
-                "This permanently removes every recorded visit in "
-                    + "“\(store.activeSpace(in: windowState)?.name ?? "this Space")”. Other Spaces are unaffected."
+                "This permanently removes every recorded visit in “\(store.activeSpace(in: windowState)?.name ?? "this Space")”. Other Spaces are unaffected."
             )
         }
     }

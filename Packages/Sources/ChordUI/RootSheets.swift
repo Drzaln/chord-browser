@@ -108,11 +108,7 @@ struct RootSheets: ViewModifier {
                     store.cancelPendingTabMove(in: windowState)
                 }
             } message: {
-                Text(
-                    """
-                    \(windowState.pendingTabMove?.toSpaceName ?? "") uses a separate                     profile, so this tab may be signed out of any sites it is                     logged in to.
-                    """
-                )
+                Text("\(windowState.pendingTabMove?.toSpaceName ?? "") uses a separate profile, so this tab may be signed out of any sites it is logged in to.")
             }
             .confirmationDialog(
                 "Delete “\(deletingSpaceName)”?",

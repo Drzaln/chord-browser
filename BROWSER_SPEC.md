@@ -782,6 +782,9 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   Find-only notes answer lookalikes that are not settings (appearance, page
   zoom, private windows, downloads, content blocking). Tests:
   `SettingsCatalogTests`.
+- **Localization** (gn0.7, 2026-11-12; non-spec: user-requested) — UI strings
+  live in `ChordApp/Localizable.xcstrings` (English, Indonesian);
+  `scripts/l10n.py check` gates them in prepush.
 - **First-run welcome** (gn0.6, 2026-11-12; non-spec: user-requested) — one
   sheet, once, on an empty profile: default browser, where the imports are,
   edit the first Space. `WelcomePolicy`, `WelcomeSheet`.

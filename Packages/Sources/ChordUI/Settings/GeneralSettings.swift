@@ -202,9 +202,7 @@ struct GeneralSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("User Agent").font(.system(size: 13, weight: .semibold))
             Text(
-                "How the browser identifies itself to sites. Change it for the "
-                    + "occasional site that blocks non-Chrome browsers or serves a "
-                    + "better mobile layout. Takes effect on the next page load."
+                "How the browser identifies itself to sites. Change it for the occasional site that blocks non-Chrome browsers or serves a better mobile layout. Takes effect on the next page load."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -245,9 +243,7 @@ struct GeneralSettings: View {
                 .font(.system(size: 12, weight: .semibold))
                 .padding(.top, 6)
             Text(
-                "A rule covers the domain and its subdomains, and beats the setting "
-                    + "above. Set a site to “Default” to keep your own User-Agent there "
-                    + "while everywhere else is overridden."
+                "A rule covers the domain and its subdomains, and beats the setting above. Set a site to “Default” to keep your own User-Agent there while everywhere else is overridden."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -364,9 +360,7 @@ struct GeneralSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Referrer").font(.system(size: 13, weight: .semibold))
             Text(
-                "What address a site is told you came from. “Strip” sends no "
-                    + "referrer at all — useful on sites that leak the page you were "
-                    + "on. Takes effect on the next page load."
+                "What address a site is told you came from. “Strip” sends no referrer at all — useful on sites that leak the page you were on. Takes effect on the next page load."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -405,9 +399,7 @@ struct GeneralSettings: View {
                 .font(.system(size: 12, weight: .semibold))
                 .padding(.top, 6)
             Text(
-                "A rule covers the domain and its subdomains, and beats the setting "
-                    + "above. Set a site to “Default” to keep its own referrer while "
-                    + "everywhere else is stripped."
+                "A rule covers the domain and its subdomains, and beats the setting above. Set a site to “Default” to keep its own referrer while everywhere else is stripped."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -550,9 +542,7 @@ struct GeneralSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Archive Inactive Tabs").font(.system(size: 13, weight: .semibold))
             Text(
-                "Unpinned tabs you haven't touched for this long are moved to the "
-                    + "archive, reachable from the command bar. Pinned tabs and tabs "
-                    + "playing audio are never archived."
+                "Unpinned tabs you haven't touched for this long are moved to the archive, reachable from the command bar. Pinned tabs and tabs playing audio are never archived."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -584,9 +574,7 @@ struct GeneralSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Gestures").font(.system(size: 13, weight: .semibold))
             Text(
-                "Swipe right on a page that has nothing to undo — it closes the "
-                    + "tab (or the Little Chord panel). Turn this off to restore "
-                    + "WebKit's default, where the swipe just does nothing."
+                "Swipe right on a page that has nothing to undo — it closes the tab (or the Little Chord panel). Turn this off to restore WebKit's default, where the swipe just does nothing."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -607,10 +595,7 @@ struct GeneralSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Background Tabs").font(.system(size: 13, weight: .semibold))
             Text(
-                "On, tabs you can't see stop running a few minutes after they are hidden, "
-                    + "as in Safari. Music keeps playing. Off by default: on this macOS a "
-                    + "suspended tab can keep the window drawing, which costs more battery "
-                    + "than the tabs save."
+                "On, tabs you can't see stop running a few minutes after they are hidden, as in Safari. Music keeps playing. Off by default: on this macOS a suspended tab can keep the window drawing, which costs more battery than the tabs save."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -643,10 +628,7 @@ struct GeneralSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Developer").font(.system(size: 13, weight: .semibold))
             Text(
-                "Enables the Web Inspector (right-click “Inspect Element” and the "
-                    + "detached inspector window) and the DRM Diagnostics panel in "
-                    + "the Develop menu. Uses a private WebKit flag; off by default, "
-                    + "including in release builds."
+                "Enables the Web Inspector (right-click “Inspect Element” and the detached inspector window) and the DRM Diagnostics panel in the Develop menu. Uses a private WebKit flag; off by default, including in release builds."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)

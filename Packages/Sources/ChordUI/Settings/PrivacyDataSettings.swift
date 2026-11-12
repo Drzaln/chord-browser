@@ -192,8 +192,7 @@ struct PrivacyDataSettings: View {
         Text(PrivacyRow.cookiesForSite.title)
             .font(.system(size: 13, weight: .semibold))
         Text(
-            "Look at, and clear, the cookies the current Space holds for one site. "
-                + "Clearing signs you out there without touching any other site."
+            "Look at, and clear, the cookies the current Space holds for one site. Clearing signs you out there without touching any other site."
         )
         .font(.system(size: 11)).foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)

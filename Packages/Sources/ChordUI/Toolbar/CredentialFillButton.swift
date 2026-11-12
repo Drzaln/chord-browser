@@ -137,8 +137,7 @@ struct CredentialFillButton: View {
             if status == .filled { status = nil }
         case .vaultLocked:
             status = .failed(
-                "Chord did not fill anything — the vault stayed locked because "
-                    + "authentication was cancelled."
+                "Chord did not fill anything — the vault stayed locked because authentication was cancelled."
             )
         case .originMismatch:
             status = .failed("This page is no longer the site that password belongs to")

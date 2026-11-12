@@ -41,9 +41,7 @@ struct SitesSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(SitesRow.routingRules.title).font(.system(size: 13, weight: .semibold))
             Text(
-                "Send a site's links to the Space it belongs in. A rule covers the "
-                    + "domain and its subdomains. It is a default: splitting a pane, "
-                    + "peeking a link out of a pinned tab, and private windows all win."
+                "Send a site's links to the Space it belongs in. A rule covers the domain and its subdomains. It is a default: splitting a pane, peeking a link out of a pinned tab, and private windows all win."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -175,9 +173,7 @@ struct SitesSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(SitesRow.siteOverrides.title).font(.system(size: 13, weight: .semibold))
             Text(
-                "Change how a site looks: your own CSS, a script, or elements hidden "
-                    + "for good. Covers the domain and its subdomains. Changes apply "
-                    + "the next time the page loads — reload the tab to see them."
+                "Change how a site looks: your own CSS, a script, or elements hidden for good. Covers the domain and its subdomains. Changes apply the next time the page loads — reload the tab to see them."
             )
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)

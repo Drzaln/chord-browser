@@ -2006,3 +2006,18 @@ profile**: it wipes everything. Use a spare macOS user account, or back up
       come back, with or without tabs open.
 - [ ] Your everyday profile, updating to this build: the sheet never appears.
 - [ ] A private window never shows it.
+
+### Indonesian (gn0.7)
+
+Run one build in Indonesian without changing the system language:
+`open -n <Chord.app> --args -AppleLanguages '(id)'` (quit Chord first).
+
+- [ ] Menus, the sidebar's context menus, Settings (all eight sections, the
+      search field and its results), History, Downloads and the welcome sheet
+      read in Indonesian.
+- [ ] Nothing clips or wraps badly in Settings, the sidebar or the sheets.
+- [ ] Strings with a number or a name fill it in ("5 Menit", "Buka <name>").
+- [ ] In English nothing changed.
+- [ ] Known to stay English for now (bead `gn0.12`): import dry-run summaries,
+      some toasts, the error page and the offline game, macOS permission
+      prompts.

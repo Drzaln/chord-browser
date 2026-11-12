@@ -65,9 +65,7 @@ struct UpdateSettings: View {
             actionRow
 
             Text(
-                "Chord checks the GitHub releases page (Drzaln/chord-browser) and "
-                    + "updates itself by replacing the copy in Applications. You "
-                    + "initiate every step — nothing downloads without a click."
+                "Chord checks the GitHub releases page (Drzaln/chord-browser) and updates itself by replacing the copy in Applications. You initiate every step — nothing downloads without a click."
             )
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
