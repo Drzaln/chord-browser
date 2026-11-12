@@ -454,6 +454,14 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   another window is showing.
 - **Folders.** Collapsible, renamable sidebar groups (`v7_folders`). Foldered
   tabs are sweep-exempt, alongside the two pinned tiers of §4.1a.
+- **Bookmark HTML import.** **File → Import Bookmarks…** parses the
+  Netscape-format export every browser writes (`NetscapeBookmarkParser` in
+  ChordCore) into the existing folder tree and Pinned tier. The dry-run alert
+  shows folder/bookmark/skip counts before writing. Only `http`/`https` is kept;
+  a URL repeats at most once per folder; nesting past 64 levels is skipped and
+  reported. Chord's folders are flat, so a nested path becomes one folder named
+  `Parent / Child`. No new schema and no second persistence path: the apply pass
+  uses `TabStore`'s existing `TabRepository` and `FolderRepository` seams.
 - **Per-tab mute**, and **Peek** (a link clicked in a Favourite/Pinned tab opens
   in a floating, promotable panel instead of navigating the protected page away).
 - **Site permissions** — camera, microphone, location, and notifications asked

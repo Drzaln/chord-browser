@@ -107,6 +107,10 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   clear. Each Space keeps its own history, matching its isolated data store.
 - **Folders** — group tabs in the sidebar into collapsible, renamable folders;
   foldered tabs are exempt from the auto-archive sweep.
+- **Bookmark import** — **File → Import Bookmarks…** reads the Netscape-format
+  HTML every browser exports, shows a dry-run count, then adds root-level
+  bookmarks as Pinned tabs and folders as sidebar folders. Only `http(s)` URLs
+  are kept; repeating an import adds nothing twice.
 - **Peek** — click a link inside a Favourite or Pinned tab and it opens in a
   floating preview instead of navigating the protected page away; promote with
   `⌘O` or dismiss with `Esc`.

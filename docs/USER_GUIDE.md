@@ -420,6 +420,19 @@ A folder header toggles collapse on click; right-click it to rename or delete
 (deleting keeps its tabs, now loose). Tabs inside a folder are **never
 auto-archived**, so a folder is a safe place to keep things.
 
+## Importing bookmarks
+
+**File → Import Bookmarks…** reads the HTML bookmarks file every browser exports
+(Netscape format). Chord shows how many folders and bookmarks it found, and how
+many entries it will skip, before anything is written.
+
+Root-level bookmarks become **Pinned tabs**; each folder in the file becomes a
+sidebar folder. Chord's folders are one level deep, so a nested export path such
+as `Work → Dev` becomes a single folder named **Work / Dev**. Only `http` and
+`https` links are imported — `javascript:`, `data:`, and `file:` entries are
+skipped — and an identical URL lands only once per folder. Importing the same
+file again adds nothing twice.
+
 ## Muting tabs
 
 A tab making noise shows a speaker button in its sidebar row — click it to mute,

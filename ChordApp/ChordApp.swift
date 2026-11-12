@@ -1,6 +1,9 @@
+import ChordCore
 import ChordStore
 import ChordUI
+import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 import os
 
 /// The real entry point. `Chord --mcp-stdio` is the MCP helper an agent's
@@ -250,6 +253,91 @@ struct ChordCommands: Commands {
         toast("\(message) \(percent)%", icon: icon)
     }
 
+    /// File → Import Bookmarks…: pick a Netscape-format export, show the
+    /// dry-run counts, then write Pinned tabs and folders through the store.
+    /// The picker is security-scoped for exactly the read; the parser is pure,
+    /// so the file is closed before anything is written.
+    @MainActor
+    private func importBookmarks(into window: WindowState) {
+        guard let store else { return }
+
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.html]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.prompt = "Import"
+        panel.message = "Choose a bookmarks HTML file exported by another browser."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            presentImportError(
+                "Could not read “\(url.lastPathComponent)”",
+                detail: error.localizedDescription
+            )
+            return
+        }
+
+        let plan = NetscapeBookmarkParser.parse(data)
+        guard !plan.entries.isEmpty || !plan.folders.isEmpty else {
+            presentImportError(
+                "No bookmarks found",
+                detail: plan.skippedCount == 0
+                    ? "Chord could not find any folders or http(s) bookmarks in that file."
+                    : "\(plan.skippedCount) entries were skipped. "
+                        + "Is this a Netscape-format bookmarks export?"
+            )
+            return
+        }
+
+        let spaceName = store.activeSpace(in: window)?.name ?? "this Space"
+        let confirmation = NSAlert()
+        let noun = plan.entryCount == 1 ? "bookmark" : "bookmarks"
+        confirmation.messageText = "Import \(plan.entryCount) \(noun)?"
+        var details = [
+            "Adds \(plan.entryCount) bookmarks to \(plan.folderCount) folders "
+                + "in “\(spaceName)”.",
+            "Root-level bookmarks become Pinned tabs; nested folders are "
+                + "flattened as “Parent / Child”.",
+        ]
+        if plan.skippedCount > 0 {
+            details.append("\(plan.skippedCount) entries will be skipped.")
+        }
+        if plan.depthLimitReached {
+            details.append(
+                "Folders deeper than \(NetscapeBookmarkParser.maximumFolderDepth) "
+                    + "levels will be skipped."
+            )
+        }
+        confirmation.informativeText = details.joined(separator: "\n")
+        confirmation.addButton(withTitle: "Import")
+        confirmation.addButton(withTitle: "Cancel")
+        guard confirmation.runModal() == .alertFirstButtonReturn else { return }
+
+        let result = store.importBookmarks(plan, in: window)
+        if result.entriesAdded == 0 && result.foldersCreated == 0 {
+            toast("Nothing new to import", icon: "bookmark")
+        } else {
+            let count = result.entriesAdded
+            toast("Imported \(count) bookmark\(count == 1 ? "" : "s")", icon: "bookmark")
+        }
+    }
+
+    private func presentImportError(_ message: String, detail: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = message
+        alert.informativeText = detail
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
     var body: some Commands {
         // The standard app "Settings…" item — Cmd+, — opens the settings sheet
         // (clear browsing data + extensions) rather than a separate window, so
@@ -314,6 +402,18 @@ struct ChordCommands: Commands {
             Button("Copy URL") { copyCurrentURL() }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(currentURLString.isEmpty)
+
+            Divider()
+
+            // File → Import Bookmarks…: Netscape-format HTML from any browser,
+            // with a dry-run count before anything is written. A private
+            // window's Space is not persisted, so there is nowhere to keep an
+            // imported bookmark.
+            Button("Import Bookmarks…") {
+                guard let windowState else { return }
+                importBookmarks(into: windowState)
+            }
+            .disabled(windowState == nil || isPrivateWindowFocused)
         }
         CommandGroup(after: .newItem) {
             Button("Close Tab") {
