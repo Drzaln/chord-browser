@@ -5397,3 +5397,22 @@ seconds, and `close()` on the server queue waits for it. `ChordMCPTests` is now
 written but not walked. Docs added 2026-11-10: README,
 USER_GUIDE "Agents (MCP)", SMOKE, and the `CLAUDE.md` build/architecture
 sections.
+
+## What `main` does not contain: the 2026-10-26 reset (recorded 2026-11-12)
+
+On 2026-10-26 the local branch was reset to `origin/main`. The work that was
+ahead of it is parked on `backup/local-extension-work-20261026` (`71c25b8`, 69
+commits) and on per-feature `feat/*` branches. Epic `899`'s beads were closed
+as "Merged to main" before the reset, so the tracker said more than the code
+did. Checked 2026-11-10 by grep: none of the features below was on `main`.
+
+Decision (user, 2026-11-12, bead `gn0.1`):
+
+| Feature (bead) | Decision |
+| --- | --- |
+| Bookmark HTML import (899.11), Arc import (899.12), Chromium password import (899.15) | **Keep** — restored under `gn0.4` |
+| Settings search (899.7) | **Keep** — restored under `gn0.5` |
+| Copy Clean Link (899.1), tab discard/sleep (899.3), release media keys (899.4), keyword shortcuts (899.5), address-at-rest registrable domain (899.6), What's New card (899.8), AppleScript (899.9), blocked-popup tray (899.10), reader mode (899.13), site-search chips (899.14), translate page (899.16) | **Dropped for now** — not on `main`; code stays on the backup branch |
+
+The extension foundations (899.17–21) were re-landed separately (ADR 025,
+ADR 026) and are on `main`. Each 899 bead carries a dated correction note.
