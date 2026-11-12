@@ -23,20 +23,20 @@ final class StoreInstallRelay: ChromeStoreRelayDelegate {
               let space = store.activeSpace(in: store.focusedWindow)
         else { return }
         let window = store.focusedWindow
-        window.showToast("Adding extension…", icon: "puzzlepiece.extension")
+        window.showToast(String(localized: "Adding extension…"), icon: "puzzlepiece.extension")
         Task { @MainActor [weak self, weak window] in
             guard let self else { return }
             do {
                 let installed = try await extensions.installFromStore(id: id)
                 try await extensions.enable(slug: installed.slug, in: space)
                 window?.showToast(
-                    "Added \(installed.displayName ?? id)", icon: "puzzlepiece.extension"
+                    String(localized: "Added \(installed.displayName ?? id)"), icon: "puzzlepiece.extension"
                 )
             } catch ExtensionsServiceError.declined {
                 window?.dismissToast()
             } catch {
                 window?.showToast(
-                    "Could not add extension: \(error.localizedDescription)",
+                    String(localized: "Could not add extension: \(error.localizedDescription)"),
                     icon: "exclamationmark.triangle"
                 )
             }

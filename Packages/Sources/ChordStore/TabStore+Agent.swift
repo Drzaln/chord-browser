@@ -267,7 +267,7 @@ final class AgentTools: MCPToolProvider {
         switch name {
         case "list_spaces", "list_tabs":
             let result = name == "list_spaces" ? listSpaces(store) : listTabs(store, arguments)
-            if !result.isError { store.noteAgentActivity("Agent listed your tabs") }
+            if !result.isError { store.noteAgentActivity(String(localized: "Agent listed your tabs")) }
             return result
         case "read_page": return await readPage(store, arguments)
         case "screenshot": return await screenshot(store, arguments)
@@ -366,7 +366,7 @@ final class AgentTools: MCPToolProvider {
         if page.truncated {
             text += "\n(Cut at \(limit) characters; pass a larger max_characters for more.)"
         }
-        store.noteAgentActivity("Agent read “\(Self.short(page.title.isEmpty ? url : page.title))”")
+        store.noteAgentActivity(String(localized: "Agent read “\(Self.short(page.title.isEmpty ? url : page.title))”"))
         return .text(text)
     }
 
@@ -385,7 +385,7 @@ final class AgentTools: MCPToolProvider {
         guard store.agentAccessEnabled,
               store.agentSharedSpaces.contains(where: { $0.id == tab.spaceID })
         else { return .error("That tab's Space is no longer shared.") }
-        store.noteAgentActivity("Agent took a screenshot of “\(Self.short(tab.displayTitle))”")
+        store.noteAgentActivity(String(localized: "Agent took a screenshot of “\(Self.short(tab.displayTitle))”"))
         return MCPToolResult(content: [.image(png, mimeType: "image/png")])
     }
 

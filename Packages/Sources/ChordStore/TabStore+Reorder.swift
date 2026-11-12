@@ -113,10 +113,10 @@ extension TabStore {
             id: tabID,
             toSpaceID: destination.id,
             destination: .section(section, index: index),
-            fromSpaceName: spaces.first { $0.id == tab.spaceID }?.name ?? "another Space",
+            fromSpaceName: spaces.first { $0.id == tab.spaceID }?.name ?? String(localized: "another Space"),
             toSpaceName: destination.name,
             tabTitle: tab.focusedPane.title.isEmpty
-                ? (tab.focusedPane.url.host() ?? "this tab")
+                ? (tab.focusedPane.url.host() ?? String(localized: "this tab"))
                 : tab.focusedPane.title
         )
     }
@@ -137,10 +137,10 @@ extension TabStore {
             id: tabID,
             toSpaceID: spaceID,
             destination: .space,
-            fromSpaceName: spaces.first { $0.id == tab.spaceID }?.name ?? "another Space",
+            fromSpaceName: spaces.first { $0.id == tab.spaceID }?.name ?? String(localized: "another Space"),
             toSpaceName: destination.name,
             tabTitle: tab.focusedPane.title.isEmpty
-                ? (tab.focusedPane.url.host() ?? "this tab")
+                ? (tab.focusedPane.url.host() ?? String(localized: "this tab"))
                 : tab.focusedPane.title
         )
     }

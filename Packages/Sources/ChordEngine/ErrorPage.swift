@@ -113,31 +113,29 @@ enum ErrorPage {
 
     static func headline(for kind: Kind, host: String) -> String {
         switch kind {
-        case .cannotFindHost: return "Chord can’t find \(host)"
-        case .cannotConnect: return "Chord can’t connect to \(host)"
-        case .timedOut: return "\(host) took too long to respond"
-        case .notSecure: return "This connection is not private"
-        case .tooManyRedirects: return "\(host) redirected too many times"
-        case .other: return "Chord can’t open this page"
+        case .cannotFindHost: return String(localized: "Chord can’t find \(host)")
+        case .cannotConnect: return String(localized: "Chord can’t connect to \(host)")
+        case .timedOut: return String(localized: "\(host) took too long to respond")
+        case .notSecure: return String(localized: "This connection is not private")
+        case .tooManyRedirects: return String(localized: "\(host) redirected too many times")
+        case .other: return String(localized: "Chord can’t open this page")
         }
     }
 
     static func detail(for kind: Kind, host: String) -> String {
         switch kind {
         case .cannotFindHost:
-            return "No server answers to that name. Check the address for a typing mistake."
+            return String(localized: "No server answers to that name. Check the address for a typing mistake.")
         case .cannotConnect:
-            return "The server refused the connection or is not running."
+            return String(localized: "The server refused the connection or is not running.")
         case .timedOut:
-            return "The server may be busy or down, or your connection may be slow."
+            return String(localized: "The server may be busy or down, or your connection may be slow.")
         case .notSecure:
-            return "Chord could not make a secure connection to \(host), or could not confirm that "
-                + "the site is really \(host). Nothing was sent."
+            return String(localized: "Chord could not make a secure connection to \(host), or could not confirm that the site is really \(host). Nothing was sent.")
         case .tooManyRedirects:
-            return "The site keeps sending the browser somewhere else. Clearing its cookies in "
-                + "Settings can fix this."
+            return String(localized: "The site keeps sending the browser somewhere else. Clearing its cookies in Settings can fix this.")
         case .other:
-            return "Something went wrong while loading \(host)."
+            return String(localized: "Something went wrong while loading \(host).")
         }
     }
 
@@ -146,11 +144,12 @@ enum ErrorPage {
     /// tab then shows.
     static func html(target: URL?, code: Int) -> String {
         let kind = kind(forCode: code)
-        let host = target?.host() ?? "this page"
+        let host = target?.host() ?? String(localized: "this page")
         return template
             .replacingOccurrences(of: "__TITLE__", with: escape(host))
             .replacingOccurrences(of: "__HEADLINE__", with: escape(headline(for: kind, host: host)))
             .replacingOccurrences(of: "__DETAIL__", with: escape(detail(for: kind, host: host)))
+            .replacingOccurrences(of: "__RETRY__", with: escape(String(localized: "Try Again")))
             .replacingOccurrences(of: "__CODE__", with: String(code))
             // Last, so nothing in the URL can be mistaken for a placeholder.
             .replacingOccurrences(
@@ -213,7 +212,7 @@ enum ErrorPage {
         <main>
           <h1>__HEADLINE__</h1>
           <p>__DETAIL__</p>
-          <button id="retry" type="button" hidden>Try Again</button>
+          <button id="retry" type="button" hidden>__RETRY__</button>
           <small>NSURLErrorDomain __CODE__</small>
         </main>
         <script>

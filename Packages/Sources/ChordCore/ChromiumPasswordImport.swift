@@ -234,14 +234,14 @@ public enum ChromiumPasswordSkipReason: String, Sendable, Equatable, CaseIterabl
 
     public var label: String {
         switch self {
-        case .blacklisted: "the site was marked “never save”"
-        case .emptyUsername: "no username"
-        case .unsupportedScheme: "not an http(s) site"
-        case .insecureOrigin: "plain HTTP (Chord only fills HTTPS)"
-        case .embeddedCredentials: "the address embeds a username or password"
-        case .invalidOrigin: "the address has no usable host"
-        case .duplicateLogin: "duplicate of an earlier row"
-        case .alreadyPresent: "already saved in Chord"
+        case .blacklisted: String(localized: "the site was marked “never save”")
+        case .emptyUsername: String(localized: "no username")
+        case .unsupportedScheme: String(localized: "not an http(s) site")
+        case .insecureOrigin: String(localized: "plain HTTP (Chord only fills HTTPS)")
+        case .embeddedCredentials: String(localized: "the address embeds a username or password")
+        case .invalidOrigin: String(localized: "the address has no usable host")
+        case .duplicateLogin: String(localized: "duplicate of an earlier row")
+        case .alreadyPresent: String(localized: "already saved in Chord")
         }
     }
 }

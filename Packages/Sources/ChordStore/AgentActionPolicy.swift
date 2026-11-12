@@ -78,12 +78,12 @@ enum AgentActionPolicy {
     /// Why submitting `form` needs a yes, or nil.
     static func reason(submitting form: JSONValue?) -> String? {
         guard let form, form.objectValue != nil else { return nil }
-        if form["has_password"]?.boolValue == true { return "submits a sign-in form" }
+        if form["has_password"]?.boolValue == true { return String(localized: "submits a sign-in form") }
         if let text = form["submit_text"]?.stringValue, let phrase = riskyPhrase(in: text) {
-            return "submits a form whose button says “\(phrase)”"
+            return String(localized: "submits a form whose button says “\(phrase)”")
         }
         if form["method"]?.stringValue == "post", form["is_search"]?.boolValue != true {
-            return "submits a form that sends data to the site"
+            return String(localized: "submits a form that sends data to the site")
         }
         return nil
     }
@@ -91,13 +91,13 @@ enum AgentActionPolicy {
     /// Why clicking the described element needs a yes, or nil.
     static func reason(clicking element: JSONValue) -> String? {
         if element["password_filled"]?.boolValue == true {
-            return "the page has a password filled in, which this could send"
+            return String(localized: "the page has a password filled in, which this could send")
         }
         if element["is_submit"]?.boolValue == true, let why = reason(submitting: element["form"]) {
             return why
         }
         if let name = element["name"]?.stringValue, let phrase = riskyPhrase(in: name) {
-            return "its label says “\(phrase)”"
+            return String(localized: "its label says “\(phrase)”")
         }
         return nil
     }
@@ -105,7 +105,7 @@ enum AgentActionPolicy {
     /// Why typing with `submit: true` into the described field needs a yes.
     static func reason(typingAndSubmitting element: JSONValue) -> String? {
         if element["password_filled"]?.boolValue == true {
-            return "the page has a password filled in, which this could send"
+            return String(localized: "the page has a password filled in, which this could send")
         }
         return reason(submitting: element["form"])
     }

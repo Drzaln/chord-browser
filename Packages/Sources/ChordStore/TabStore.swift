@@ -546,14 +546,14 @@ public final class TabStore {
         switch result {
         case .entered:
             pictureInPicturePanes.insert(paneID)
-            window.showToast("Picture in Picture", icon: "pip")
+            window.showToast(String(localized: "Picture in Picture"), icon: "pip")
         case .exited:
             pictureInPicturePanes.remove(paneID)
-            window.showToast("Exited Picture in Picture", icon: "pip.exit")
+            window.showToast(String(localized: "Exited Picture in Picture"), icon: "pip.exit")
         case .noVideo:
-            window.showToast("No video on this page", icon: "video.slash")
+            window.showToast(String(localized: "No video on this page"), icon: "video.slash")
         case .unsupported:
-            window.showToast("Picture in Picture unavailable", icon: "pip.slash")
+            window.showToast(String(localized: "Picture in Picture unavailable"), icon: "pip.slash")
         case .noPane:
             break
         }
@@ -2177,7 +2177,7 @@ extension TabStore: WebEngineDelegate {
         // (non-spec: user-requested). The toast lives on that window, so the
         // action captures it to select the new tab there.
         targetWindow.showToast(
-            "Opened in new tab", icon: "plus.square.on.square",
+            String(localized: "Opened in new tab"), icon: "plus.square.on.square",
             action: { [weak self] in
                 targetWindow.dismissToast()
                 self?.select(tabID, in: targetWindow)

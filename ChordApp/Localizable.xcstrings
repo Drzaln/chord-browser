@@ -1,12 +1,42 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ redirected too many times": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ terlalu sering mengalihkan"
+          }
+        }
+      }
+    },
+    "%@ took too long to respond": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ terlalu lama merespons"
+          }
+        }
+      }
+    },
     "%@ uses a separate profile, so this tab may be signed out of any sites it is logged in to.": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ memakai profil terpisah, jadi tab ini mungkin keluar dari situs yang sedang masuk."
+          }
+        }
+      }
+    },
+    "%@ — profile “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — profil “%@”"
           }
         }
       }
@@ -27,6 +57,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld agen terhubung"
+          }
+        }
+      }
+    },
+    "%lld entries were skipped. Is this a Netscape-format bookmarks export?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld entri dilewati. Apakah ini ekspor markah berformat Netscape?"
           }
         }
       }
@@ -231,6 +271,26 @@
         }
       }
     },
+    "Added %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ditambahkan"
+          }
+        }
+      }
+    },
+    "Adding extension…": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menambahkan ekstensi…"
+          }
+        }
+      }
+    },
     "Adding…": {
       "localizations": {
         "id": {
@@ -247,6 +307,156 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alamat: %@"
+          }
+        }
+      }
+    },
+    "Adds %lld bookmarks to %lld folders in “%@”.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menambahkan %lld markah ke %lld folder di “%@”."
+          }
+        }
+      }
+    },
+    "Agent clicked “%@” on %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen mengeklik “%@” di %@"
+          }
+        }
+      }
+    },
+    "Agent closed “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen menutup “%@”"
+          }
+        }
+      }
+    },
+    "Agent listed your tabs": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen melihat daftar tab Anda"
+          }
+        }
+      }
+    },
+    "Agent looked at “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen melihat “%@”"
+          }
+        }
+      }
+    },
+    "Agent opened %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen membuka %@"
+          }
+        }
+      }
+    },
+    "Agent pressed %@ in “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen menekan %@ di “%@”"
+          }
+        }
+      }
+    },
+    "Agent ran a script on %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen menjalankan skrip di %@"
+          }
+        }
+      }
+    },
+    "Agent read “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen membaca “%@”"
+          }
+        }
+      }
+    },
+    "Agent scrolled “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen menggulir “%@”"
+          }
+        }
+      }
+    },
+    "Agent switched to “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen beralih ke “%@”"
+          }
+        }
+      }
+    },
+    "Agent took a screenshot of “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen mengambil tangkapan layar “%@”"
+          }
+        }
+      }
+    },
+    "Agent typed into “%@” and submitted on %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen mengetik di “%@” dan mengirimnya di %@"
+          }
+        }
+      }
+    },
+    "Agent typed into “%@” on %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen mengetik di “%@” di %@"
+          }
+        }
+      }
+    },
+    "Agent went to %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agen pergi ke %@"
           }
         }
       }
@@ -331,6 +541,16 @@
         }
       }
     },
+    "Already saved in Chord: %lld. Existing passwords are never overwritten.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sudah tersimpan di Chord: %lld. Kata sandi yang ada tidak pernah ditimpa."
+          }
+        }
+      }
+    },
     "Also route ⌘-clicked and target=_blank links": {
       "localizations": {
         "id": {
@@ -347,6 +567,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tampilan"
+          }
+        }
+      }
+    },
+    "Arc Import": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor Arc"
+          }
+        }
+      }
+    },
+    "Arc's sidebar is larger than the import limit; later items are left behind.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilah sisi Arc melebihi batas impor; item selanjutnya ditinggalkan."
+          }
+        }
+      }
+    },
+    "Arc's sidebar is too large": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilah sisi Arc terlalu besar"
           }
         }
       }
@@ -561,12 +811,32 @@
         }
       }
     },
+    "Choose a Chromium browser's “Login Data” file inside a profile folder — for example Google/Chrome/Default/Login Data.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih berkas “Login Data” peramban Chromium di dalam folder profil — misalnya Google/Chrome/Default/Login Data."
+          }
+        }
+      }
+    },
     "Choose a bookmarks HTML file exported by another browser.": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "Pilih berkas HTML markah yang diekspor dari peramban lain."
+          }
+        }
+      }
+    },
+    "Choose a file named “Login Data” inside a Chromium browser's profile folder, for example Google/Chrome/Default/Login Data. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih berkas bernama “Login Data” di dalam folder profil peramban Chromium, misalnya Google/Chrome/Default/Login Data. Tidak ada yang diimpor."
           }
         }
       }
@@ -581,12 +851,72 @@
         }
       }
     },
+    "Chord can’t connect to %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord tidak dapat terhubung ke %@"
+          }
+        }
+      }
+    },
+    "Chord can’t find %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord tidak dapat menemukan %@"
+          }
+        }
+      }
+    },
+    "Chord can’t open this page": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord tidak dapat membuka halaman ini"
+          }
+        }
+      }
+    },
     "Chord checks the GitHub releases page (Drzaln/chord-browser) and updates itself by replacing the copy in Applications. You initiate every step — nothing downloads without a click.": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "Chord memeriksa halaman rilis GitHub (Drzaln/chord-browser) dan memperbarui dirinya dengan mengganti salinan di Aplikasi. Setiap langkah Anda yang memulai — tidak ada yang diunduh tanpa klik."
+          }
+        }
+      }
+    },
+    "Chord could not find any folders or http(s) bookmarks in that file.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord tidak menemukan folder atau markah http(s) di berkas itu."
+          }
+        }
+      }
+    },
+    "Chord could not make a private copy of the database. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord tidak dapat membuat salinan privat basis data. Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
+    "Chord could not make a secure connection to %@, or could not confirm that the site is really %@. Nothing was sent.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord tidak dapat membuat koneksi aman ke %@, atau tidak dapat memastikan bahwa situs itu benar-benar %@. Tidak ada yang dikirim."
           }
         }
       }
@@ -631,12 +961,32 @@
         }
       }
     },
+    "Chord looks for StorableSidebar.json in the folder you choose. Pick Arc's data folder — usually ~/Library/Application Support/Arc — or the file itself.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord mencari StorableSidebar.json di folder yang Anda pilih. Pilih folder data Arc — biasanya ~/Library/Application Support/Arc — atau berkasnya langsung."
+          }
+        }
+      }
+    },
     "Chord must be running with agent access on for the agent to connect.": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "Chord harus berjalan dengan akses agen aktif agar agen dapat terhubung."
+          }
+        }
+      }
+    },
+    "Chord reads the browser's Safe Storage key from your Keychain. This profile is outside the usual browser folder, so the browser cannot be told from the path.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chord membaca kunci Safe Storage peramban dari Keychain Anda. Profil ini berada di luar folder peramban yang biasa, jadi perambannya tidak bisa dikenali dari jalurnya."
           }
         }
       }
@@ -971,6 +1321,66 @@
         }
       }
     },
+    "Could not add extension: %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat menambahkan ekstensi: %@"
+          }
+        }
+      }
+    },
+    "Could not be decrypted: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat didekripsi: %lld"
+          }
+        }
+      }
+    },
+    "Could not read that Login Data file": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat membaca berkas Login Data itu"
+          }
+        }
+      }
+    },
+    "Could not read the browser's encryption key": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat membaca kunci enkripsi peramban"
+          }
+        }
+      }
+    },
+    "Could not read “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat membaca “%@”"
+          }
+        }
+      }
+    },
+    "Could not use that element": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat memakai elemen itu"
+          }
+        }
+      }
+    },
     "Custom": {
       "localizations": {
         "id": {
@@ -1191,6 +1601,16 @@
         }
       }
     },
+    "Downloading %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengunduh %@"
+          }
+        }
+      }
+    },
     "Downloading…": {
       "localizations": {
         "id": {
@@ -1361,6 +1781,16 @@
         }
       }
     },
+    "Exited Picture in Picture": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keluar dari Gambar dalam Gambar"
+          }
+        }
+      }
+    },
     "Expand": {
       "localizations": {
         "id": {
@@ -1377,6 +1807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ekstensi"
+          }
+        }
+      }
+    },
+    "Favourites: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorit: %lld"
           }
         }
       }
@@ -1471,6 +1911,36 @@
         }
       }
     },
+    "Folders deeper than %lld levels will be skipped.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder yang lebih dalam dari %lld tingkat akan dilewati."
+          }
+        }
+      }
+    },
+    "Folders nested deeper than %lld levels are skipped.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder yang bersarang lebih dalam dari %lld tingkat dilewati."
+          }
+        }
+      }
+    },
+    "Folders: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder: %lld"
+          }
+        }
+      }
+    },
     "Forget this site’s camera/microphone choice": {
       "localizations": {
         "id": {
@@ -1527,6 +1997,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rantai layar HDCP"
+          }
+        }
+      }
+    },
+    "Hidden %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ disembunyikan"
           }
         }
       }
@@ -1611,12 +2091,32 @@
         }
       }
     },
+    "Import %lld Arc Spaces?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor %lld Space Arc?"
+          }
+        }
+      }
+    },
     "Import %lld bookmarks?": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "Impor %lld markah?"
+          }
+        }
+      }
+    },
+    "Import 1 Arc Space?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor 1 Space Arc?"
           }
         }
       }
@@ -1661,6 +2161,26 @@
         }
       }
     },
+    "Import passwords from %@?": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impor kata sandi dari %@?"
+          }
+        }
+      }
+    },
+    "Imported": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diimpor"
+          }
+        }
+      }
+    },
     "In the File menu: Import Bookmarks… (an HTML export from any browser), Import from Arc…, and Import Passwords… (Chrome, Brave, Edge).": {
       "localizations": {
         "id": {
@@ -1697,6 +2217,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pasang dari Chrome Web Store atau berkas .crx/.xpi, lalu aktifkan, nonaktifkan, atau copot."
+          }
+        }
+      }
+    },
+    "Items that will be skipped (arc://, extensions, files, and broken URLs): %lld.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Item yang akan dilewati (arc://, ekstensi, berkas, dan URL rusak): %lld."
           }
         }
       }
@@ -1817,6 +2347,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kunci brankas"
+          }
+        }
+      }
+    },
+    "Logins imported: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Login diimpor: %lld"
+          }
+        }
+      }
+    },
+    "Logins imported: %lld (username only: %lld)": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Login diimpor: %lld (hanya nama pengguna: %lld)"
+          }
+        }
+      }
+    },
+    "Logins imported: %lld, failed: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Login diimpor: %lld, gagal: %lld"
+          }
+        }
+      }
+    },
+    "Logins that will be imported: %lld (with a password: %lld, username only: %lld).": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Login yang akan diimpor: %lld (dengan kata sandi: %lld, hanya nama pengguna: %lld)."
           }
         }
       }
@@ -1967,6 +2537,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Beri nama Space pertama Anda"
+          }
+        }
+      }
+    },
+    "Nested folders flattened as “Parent / Child”: %lld.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder bersarang yang diratakan menjadi “Induk / Anak”: %lld."
           }
         }
       }
@@ -2131,6 +2711,26 @@
         }
       }
     },
+    "No Arc Spaces found": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada Space Arc yang ditemukan"
+          }
+        }
+      }
+    },
+    "No Arc sidebar found": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilah sisi Arc tidak ditemukan"
+          }
+        }
+      }
+    },
     "No EME (encrypted media) session observed yet.": {
       "localizations": {
         "id": {
@@ -2147,6 +2747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tidak ada jalur berkemampuan HDCP yang dilaporkan — pemutaran DRM kemungkinan gagal."
+          }
+        }
+      }
+    },
+    "No bookmarks found": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada markah yang ditemukan"
           }
         }
       }
@@ -2251,6 +2861,26 @@
         }
       }
     },
+    "No saved logins found": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada login tersimpan yang ditemukan"
+          }
+        }
+      }
+    },
+    "No server answers to that name. Check the address for a typing mistake.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada server yang menjawab dengan nama itu. Periksa apakah alamatnya salah ketik."
+          }
+        }
+      }
+    },
     "No settings match “%@”.": {
       "localizations": {
         "id": {
@@ -2267,6 +2897,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Belum ada situs yang diizinkan atau diblokir."
+          }
+        }
+      }
+    },
+    "No video on this page": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada video di halaman ini"
           }
         }
       }
@@ -2291,12 +2931,42 @@
         }
       }
     },
+    "Not a Chromium profile Chord can read": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bukan profil Chromium yang bisa dibaca Chord"
+          }
+        }
+      }
+    },
     "Not a setting": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "Bukan pengaturan"
+          }
+        }
+      }
+    },
+    "Not an Arc sidebar": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bukan bilah sisi Arc"
+          }
+        }
+      }
+    },
+    "Not available in a private window": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak tersedia di jendela pribadi"
           }
         }
       }
@@ -2331,6 +3001,26 @@
         }
       }
     },
+    "Nothing to import from %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada yang bisa diimpor dari %@"
+          }
+        }
+      }
+    },
+    "Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
     "OK": {
       "localizations": {
         "id": {
@@ -2357,6 +3047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jika aktif, tab yang tidak terlihat berhenti berjalan beberapa menit setelah disembunyikan, seperti di Safari. Musik tetap diputar. Mati secara default: di macOS ini tab yang ditangguhkan bisa membuat jendela terus menggambar, yang menghabiskan baterai lebih banyak daripada yang dihemat tab."
+          }
+        }
+      }
+    },
+    "Only HTTPS logins with a username are kept; file:, extension:, and plain-HTTP entries are refused. The database was read from a private temporary copy, which has already been deleted. Nothing is written until you click Import.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hanya login HTTPS dengan nama pengguna yang disimpan; entri file:, extension:, dan HTTP biasa ditolak. Basis data dibaca dari salinan sementara privat yang sudah dihapus. Tidak ada yang ditulis sampai Anda mengeklik Impor."
           }
         }
       }
@@ -2391,6 +3091,16 @@
         }
       }
     },
+    "Open a page on %@ first": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka dulu sebuah halaman di %@"
+          }
+        }
+      }
+    },
     "Open as Tab": {
       "localizations": {
         "id": {
@@ -2407,6 +3117,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Buka di Tab Baru"
+          }
+        }
+      }
+    },
+    "Opened in %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dibuka di %@"
+          }
+        }
+      }
+    },
+    "Opened in new tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dibuka di tab baru"
           }
         }
       }
@@ -2437,6 +3167,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zoom Halaman"
+          }
+        }
+      }
+    },
+    "Pages in all: %lld. Spaces with the same name are reused, and only http(s) pages are imported. Passwords and cookies are never read.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total halaman: %lld. Space dengan nama yang sama dipakai ulang, dan hanya halaman http(s) yang diimpor. Kata sandi dan cookie tidak pernah dibaca."
           }
         }
       }
@@ -2501,6 +3241,26 @@
         }
       }
     },
+    "Picture in Picture": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gambar dalam Gambar"
+          }
+        }
+      }
+    },
+    "Picture in Picture unavailable": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gambar dalam Gambar tidak tersedia"
+          }
+        }
+      }
+    },
     "Pin Tab": {
       "localizations": {
         "id": {
@@ -2561,6 +3321,16 @@
         }
       }
     },
+    "Pinned tabs: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab disematkan: %lld"
+          }
+        }
+      }
+    },
     "Playback errors": {
       "localizations": {
         "id": {
@@ -2617,6 +3387,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jendela pribadi"
+          }
+        }
+      }
+    },
+    "Private windows do not keep a Space, and imports write into the profile. Open a normal window and try again.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jendela pribadi tidak menyimpan Space, dan impor menulis ke profil. Buka jendela biasa dan coba lagi."
           }
         }
       }
@@ -2911,12 +3691,42 @@
         }
       }
     },
+    "Root-level bookmarks become Pinned tabs; nested folders are flattened as “Parent / Child”.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markah di tingkat teratas menjadi tab Disematkan; folder bersarang diratakan menjadi “Induk / Anak”."
+          }
+        }
+      }
+    },
     "Routing Rules": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "Aturan Perutean"
+          }
+        }
+      }
+    },
+    "Rows skipped: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baris dilewati: %lld"
+          }
+        }
+      }
+    },
+    "Same-named folders merged into one: %lld.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder bernama sama yang digabung menjadi satu: %lld."
           }
         }
       }
@@ -3191,12 +4001,32 @@
         }
       }
     },
+    "Something went wrong while loading %@.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terjadi masalah saat memuat %@."
+          }
+        }
+      }
+    },
     "Space %lld": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "Space %lld"
+          }
+        }
+      }
+    },
+    "Spaces: %lld": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space: %lld"
           }
         }
       }
@@ -3247,6 +4077,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Berhenti menyembunyikan elemen ini"
+          }
+        }
+      }
+    },
+    "StorableSidebar.json is larger than 32 MB, which is not a sidebar Chord can read safely.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "StorableSidebar.json lebih besar dari 32 MB, bukan bilah sisi yang bisa dibaca Chord dengan aman."
           }
         }
       }
@@ -3361,6 +4201,26 @@
         }
       }
     },
+    "That element is not on %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elemen itu tidak ada di %@"
+          }
+        }
+      }
+    },
+    "That is not a regular file. Choose the “Login Data” file itself. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Itu bukan berkas biasa. Pilih berkas “Login Data” itu sendiri. Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
     "The bookmarks extensions and the command bar read; open or remove one.": {
       "localizations": {
         "id": {
@@ -3391,6 +4251,26 @@
         }
       }
     },
+    "The copy is not a readable SQLite database. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salinannya bukan basis data SQLite yang bisa dibaca. Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
+    "The database is readable but holds no saved logins. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basis data bisa dibaca tetapi tidak berisi login tersimpan. Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
     "The exact Referer every navigation sends.": {
       "localizations": {
         "id": {
@@ -3407,6 +4287,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "Subsistem ekstensi tidak tersedia."
+          }
+        }
+      }
+    },
+    "The file could not be opened. If it is in another browser's folder, choose it again and allow access. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berkas tidak dapat dibuka. Jika berada di folder peramban lain, pilih lagi dan izinkan akses. Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
+    "The file is SQLite, but it has no Chromium logins table. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berkasnya SQLite, tetapi tidak punya tabel login Chromium. Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
+    "The file is larger than any real Login Data database, so Chord refused to copy it. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berkas lebih besar dari basis data Login Data mana pun yang wajar, jadi Chord menolak menyalinnya. Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
+    "The file is readable, but it holds no Spaces to import.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berkas bisa dibaca, tetapi tidak berisi Space untuk diimpor."
+          }
+        }
+      }
+    },
+    "The password vault is not available": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brankas kata sandi tidak tersedia"
+          }
+        }
+      }
+    },
+    "The server may be busy or down, or your connection may be slow.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server mungkin sibuk atau mati, atau koneksi Anda mungkin lambat."
+          }
+        }
+      }
+    },
+    "The server refused the connection or is not running.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server menolak koneksi atau tidak berjalan."
+          }
+        }
+      }
+    },
+    "The site keeps sending the browser somewhere else. Clearing its cookies in Settings can fix this.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Situs terus mengirim peramban ke tempat lain. Menghapus cookie-nya di Pengaturan bisa memperbaikinya."
+          }
+        }
+      }
+    },
+    "The vault could not be opened, so nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brankas tidak dapat dibuka, jadi tidak ada yang diimpor."
+          }
+        }
+      }
+    },
+    "This Space": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space ini"
+          }
+        }
+      }
+    },
+    "This connection is not private": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koneksi ini tidak privat"
           }
         }
       }
@@ -3511,6 +4501,16 @@
         }
       }
     },
+    "Try Again": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coba Lagi"
+          }
+        }
+      }
+    },
     "Try fewer words, or another name for it — “sleep”, “dark”, “zoom”.": {
       "localizations": {
         "id": {
@@ -3537,6 +4537,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Matikan aturan ini tanpa menghapusnya"
+          }
+        }
+      }
+    },
+    "URLs with embedded credentials removed: %lld.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL yang kredensial tersematnya dihapus: %lld."
           }
         }
       }
@@ -3851,6 +4861,26 @@
         }
       }
     },
+    "You denied the agent’s %@ on %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda menolak %@ oleh agen di %@"
+          }
+        }
+      }
+    },
+    "You denied the agent’s script on %@": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda menolak skrip agen di %@"
+          }
+        }
+      }
+    },
     "Your own CSS, JavaScript, and hidden elements for a site.": {
       "localizations": {
         "id": {
@@ -3901,12 +4931,72 @@
         }
       }
     },
+    "already saved in Chord": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sudah tersimpan di Chord"
+          }
+        }
+      }
+    },
+    "another Space": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space lain"
+          }
+        }
+      }
+    },
     "available": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "tersedia"
+          }
+        }
+      }
+    },
+    "duplicate of an earlier row": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "duplikat dari baris sebelumnya"
+          }
+        }
+      }
+    },
+    "its label says “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "labelnya bertuliskan “%@”"
+          }
+        }
+      }
+    },
+    "no username": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tanpa nama pengguna"
+          }
+        }
+      }
+    },
+    "not an http(s) site": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bukan situs http(s)"
           }
         }
       }
@@ -3941,12 +5031,172 @@
         }
       }
     },
+    "plain HTTP (Chord only fills HTTPS)": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTP biasa (Chord hanya mengisi di HTTPS)"
+          }
+        }
+      }
+    },
+    "reveal a saved password": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "menampilkan kata sandi tersimpan"
+          }
+        }
+      }
+    },
+    "submits a form that sends data to the site": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mengirim formulir yang mengirim data ke situs"
+          }
+        }
+      }
+    },
+    "submits a form whose button says “%@”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mengirim formulir yang tombolnya bertuliskan “%@”"
+          }
+        }
+      }
+    },
+    "submits a sign-in form": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mengirim formulir masuk"
+          }
+        }
+      }
+    },
+    "the address embeds a username or password": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "alamatnya memuat nama pengguna atau kata sandi"
+          }
+        }
+      }
+    },
+    "the address has no usable host": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "alamatnya tidak punya host yang bisa dipakai"
+          }
+        }
+      }
+    },
+    "the page": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "halaman ini"
+          }
+        }
+      }
+    },
+    "the page has a password filled in, which this could send": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ada kata sandi yang terisi di halaman, yang bisa ikut terkirim"
+          }
+        }
+      }
+    },
+    "the site was marked “never save”": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "situs ditandai “jangan pernah simpan”"
+          }
+        }
+      }
+    },
+    "this Space": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space ini"
+          }
+        }
+      }
+    },
+    "this page": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "halaman ini"
+          }
+        }
+      }
+    },
+    "this tab": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "tab ini"
+          }
+        }
+      }
+    },
     "unavailable": {
       "localizations": {
         "id": {
           "stringUnit": {
             "state": "translated",
             "value": "tidak tersedia"
+          }
+        }
+      }
+    },
+    "unlock your saved passwords": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "membuka kata sandi tersimpan Anda"
+          }
+        }
+      }
+    },
+    "“%@” is not a readable Arc StorableSidebar.json. Nothing was imported.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” bukan StorableSidebar.json Arc yang bisa dibaca. Tidak ada yang diimpor."
+          }
+        }
+      }
+    },
+    "… and %lld more": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "… dan %lld lainnya"
           }
         }
       }

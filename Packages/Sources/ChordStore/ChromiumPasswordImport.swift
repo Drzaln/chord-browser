@@ -90,51 +90,42 @@ public enum ChromiumPasswordImportError: Error, Equatable, Sendable {
 
     public var title: String {
         switch self {
-        case .unrecognisedBrowser: "Not a Chromium profile Chord can read"
-        case .databaseUnreadable: "Could not read that Login Data file"
-        case .noLogins: "No saved logins found"
-        case .vaultUnavailable: "The password vault is not available"
-        case .privateWindow: "Not available in a private window"
-        case .keyUnavailable: "Could not read the browser's encryption key"
+        case .unrecognisedBrowser: String(localized: "Not a Chromium profile Chord can read")
+        case .databaseUnreadable: String(localized: "Could not read that Login Data file")
+        case .noLogins: String(localized: "No saved logins found")
+        case .vaultUnavailable: String(localized: "The password vault is not available")
+        case .privateWindow: String(localized: "Not available in a private window")
+        case .keyUnavailable: String(localized: "Could not read the browser's encryption key")
         }
     }
 
     public var message: String {
         switch self {
         case .unrecognisedBrowser:
-            "Choose a file named “Login Data” inside a Chromium browser's "
-                + "profile folder, for example Google/Chrome/Default/Login Data. "
-                + "Nothing was imported."
+            String(localized: "Choose a file named “Login Data” inside a Chromium browser's profile folder, for example Google/Chrome/Default/Login Data. Nothing was imported.")
         case .databaseUnreadable(let reason):
             switch reason {
             case .notReadable:
-                "The file could not be opened. If it is in another browser's "
-                    + "folder, choose it again and allow access. Nothing was imported."
+                String(localized: "The file could not be opened. If it is in another browser's folder, choose it again and allow access. Nothing was imported.")
             case .notRegularFile:
-                "That is not a regular file. Choose the “Login Data” file itself. "
-                    + "Nothing was imported."
+                String(localized: "That is not a regular file. Choose the “Login Data” file itself. Nothing was imported.")
             case .tooLarge:
-                "The file is larger than any real Login Data database, so Chord "
-                    + "refused to copy it. Nothing was imported."
+                String(localized: "The file is larger than any real Login Data database, so Chord refused to copy it. Nothing was imported.")
             case .copyFailed:
-                "Chord could not make a private copy of the database. Nothing was "
-                    + "imported."
+                String(localized: "Chord could not make a private copy of the database. Nothing was imported.")
             case .invalidDatabase:
-                "The copy is not a readable SQLite database. Nothing was imported."
+                String(localized: "The copy is not a readable SQLite database. Nothing was imported.")
             case .schemaUnsupported:
-                "The file is SQLite, but it has no Chromium logins table. Nothing "
-                    + "was imported."
+                String(localized: "The file is SQLite, but it has no Chromium logins table. Nothing was imported.")
             }
         case .noLogins:
-            "The database is readable but holds no saved logins. Nothing was "
-                + "imported."
+            String(localized: "The database is readable but holds no saved logins. Nothing was imported.")
         case .vaultUnavailable:
-            "The vault could not be opened, so nothing was imported."
+            String(localized: "The vault could not be opened, so nothing was imported.")
         case .privateWindow:
-            "Private windows do not keep a Space, and imports write into the "
-                + "profile. Open a normal window and try again."
+            String(localized: "Private windows do not keep a Space, and imports write into the profile. Open a normal window and try again.")
         case .keyUnavailable(let reason):
-            reason.explanation + " Nothing was imported."
+            reason.explanation + " " + String(localized: "Nothing was imported.")
         }
     }
 }

@@ -136,7 +136,7 @@ extension AgentTools {
         case .failure(let error): return .failure(error)
         case .success(let found):
             guard store.agentActingSpaces.contains(where: { $0.id == found.0.spaceID }) else {
-                let name = store.spaces.first { $0.id == found.0.spaceID }?.name ?? "This Space"
+                let name = store.spaces.first { $0.id == found.0.spaceID }?.name ?? String(localized: "This Space")
                 return .failure(ToolError(
                     message: "\(name) is read-only for agents. The user can allow acting in Chord → Settings → Agents."
                 ))
@@ -227,7 +227,7 @@ extension AgentTools {
             reason: reason
         )
         guard await confirm(prompt, store) != .deny else {
-            store.noteAgentActivity("You denied the agent’s \(action) on \(prompt.host)")
+            store.noteAgentActivity(String(localized: "You denied the agent’s \(action) on \(prompt.host)"))
             return .error("The user did not allow this \(action) (\(reason)). Do not retry it unless they ask.")
         }
         // The yes may have taken a minute; the user may have revoked access.
@@ -249,7 +249,7 @@ extension AgentTools {
         let value = await perform(store, .listElements(limit: limit), pane: target.1)
         if let error = scriptError(value) { return error }
         guard let value else { return .error("The page did not answer.") }
-        store.noteAgentActivity("Agent looked at “\(Self.short(target.0.displayTitle))”")
+        store.noteAgentActivity(String(localized: "Agent looked at “\(Self.short(target.0.displayTitle))”"))
         var result = json(value)
         if case .text(let body) = result.content.first {
             result = .text(
@@ -278,9 +278,9 @@ extension AgentTools {
         Log.store.notice("agent click on \(element["host"]?.stringValue ?? "")")
         let value = await perform(store, .click(ref: ref), pane: target.1)
         if let error = scriptError(value) { return error }
-        store.noteAgentActivity(
-            "Agent clicked “\(Self.short(element["name"]?.stringValue ?? ref, 30))” on \(element["host"]?.stringValue ?? "the page")"
-        )
+        let clickedName = Self.short(element["name"]?.stringValue ?? ref, 30)
+        let clickedHost = element["host"]?.stringValue ?? String(localized: "the page")
+        store.noteAgentActivity(String(localized: "Agent clicked “\(clickedName)” on \(clickedHost)"))
         return .text("Clicked “\(element["name"]?.stringValue ?? ref)”. If it loads a page, call wait_for.")
     }
 
@@ -314,9 +314,12 @@ extension AgentTools {
 
         let value = await perform(store, .type(ref: ref, text: text, clear: clear, submit: submit), pane: target.1)
         if let error = scriptError(value) { return error }
+        let typedName = Self.short(element["name"]?.stringValue ?? ref, 30)
+        let typedHost = element["host"]?.stringValue ?? String(localized: "the page")
         store.noteAgentActivity(
-            "Agent typed into “\(Self.short(element["name"]?.stringValue ?? ref, 30))”"
-                + (submit ? " and submitted" : "") + " on \(element["host"]?.stringValue ?? "the page")"
+            submit
+                ? String(localized: "Agent typed into “\(typedName)” and submitted on \(typedHost)")
+                : String(localized: "Agent typed into “\(typedName)” on \(typedHost)")
         )
         let shown = value?["value"]?.stringValue.map { " The field now reads “\($0)”." } ?? ""
         return .text("Typed into “\(element["name"]?.stringValue ?? ref)”.\(shown)"
@@ -335,7 +338,7 @@ extension AgentTools {
             store, .scroll(ref: arguments["ref"]?.stringValue, pages: pages), pane: target.1
         )
         if let error = scriptError(value) { return error }
-        store.noteAgentActivity("Agent scrolled “\(Self.short(target.0.displayTitle))”")
+        store.noteAgentActivity(String(localized: "Agent scrolled “\(Self.short(target.0.displayTitle))”"))
         let y = value?["scroll_y"]?.intValue ?? 0
         let max = value?["max_scroll_y"]?.intValue ?? 0
         return .text("Scrolled. Position \(y) of \(max) px.")
@@ -404,7 +407,7 @@ extension AgentTools {
         // asked for it in the background wants it loaded anyway.
         if background { _ = store.engine.surface(for: pane, in: space) }
         Log.store.notice("agent opened a tab on \(url.host() ?? "")")
-        store.noteAgentActivity("Agent opened \(url.host() ?? url.absoluteString)")
+        store.noteAgentActivity(String(localized: "Agent opened \(url.host() ?? url.absoluteString)"))
         return .text("Opened tab \(tabID.uuidString) in \(space.name). Call wait_for before reading it.")
     }
 
@@ -424,7 +427,8 @@ extension AgentTools {
             case "reload": store.engine.reload(paneID: pane.id)
             default: return .error("action must be back, forward or reload.")
             }
-            store.noteAgentActivity("Agent pressed \(action == "reload" ? "reload" : action) in “\(Self.short(tab.displayTitle))”")
+            let pressedTitle = Self.short(tab.displayTitle)
+            store.noteAgentActivity(String(localized: "Agent pressed \(action) in “\(pressedTitle)”"))
             return .text("Done. Call wait_for.")
         }
         guard let url = Self.webURL(arguments["url"]?.stringValue) else {
@@ -439,7 +443,7 @@ extension AgentTools {
         }
         store.scheduleSave()
         Log.store.notice("agent navigated a tab to \(url.host() ?? "")")
-        store.noteAgentActivity("Agent went to \(url.host() ?? url.absoluteString)")
+        store.noteAgentActivity(String(localized: "Agent went to \(url.host() ?? url.absoluteString)"))
         return .text("Loading \(url.absoluteString). Call wait_for.")
     }
 
@@ -452,7 +456,7 @@ extension AgentTools {
         let window = store.windowShowing(tab.id) ?? window(for: tab.spaceID, store)
         if window.activeSpaceID != tab.spaceID { store.selectSpace(tab.spaceID, in: window) }
         store.select(tab.id, in: window)
-        store.noteAgentActivity("Agent switched to “\(Self.short(tab.displayTitle))”")
+        store.noteAgentActivity(String(localized: "Agent switched to “\(Self.short(tab.displayTitle))”"))
         return .text("Showing “\(tab.displayTitle)”.")
     }
 
@@ -464,7 +468,7 @@ extension AgentTools {
         }
         let window = store.windowShowing(tab.id) ?? window(for: tab.spaceID, store)
         store.closeTab(tab.id, in: window)
-        store.noteAgentActivity("Agent closed “\(Self.short(tab.displayTitle))”")
+        store.noteAgentActivity(String(localized: "Agent closed “\(Self.short(tab.displayTitle))”"))
         return .text("Closed “\(tab.displayTitle)”.")
     }
 }

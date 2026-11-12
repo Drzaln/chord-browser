@@ -278,7 +278,7 @@ struct ChordCommands: Commands {
             data = try Data(contentsOf: url)
         } catch {
             presentImportError(
-                "Could not read “\(url.lastPathComponent)”",
+                String(localized: "Could not read “\(url.lastPathComponent)”"),
                 detail: error.localizedDescription
             )
             return
@@ -287,27 +287,27 @@ struct ChordCommands: Commands {
         let plan = NetscapeBookmarkParser.parse(data)
         guard !plan.entries.isEmpty || !plan.folders.isEmpty else {
             presentImportError(
-                "No bookmarks found",
+                String(localized: "No bookmarks found"),
                 detail: plan.skippedCount == 0
-                    ? "Chord could not find any folders or http(s) bookmarks in that file."
-                    : "\(plan.skippedCount) entries were skipped. Is this a Netscape-format bookmarks export?"
+                    ? String(localized: "Chord could not find any folders or http(s) bookmarks in that file.")
+                    : String(localized: "\(plan.skippedCount) entries were skipped. Is this a Netscape-format bookmarks export?")
             )
             return
         }
 
-        let spaceName = store.activeSpace(in: window)?.name ?? "this Space"
+        let spaceName = store.activeSpace(in: window)?.name ?? String(localized: "this Space")
         let confirmation = NSAlert()
         confirmation.messageText = String(localized: "Import \(plan.entryCount) bookmarks?")
         var details = [
-            "Adds \(plan.entryCount) bookmarks to \(plan.folderCount) folders in “\(spaceName)”.",
-            "Root-level bookmarks become Pinned tabs; nested folders are flattened as “Parent / Child”.",
+            String(localized: "Adds \(plan.entryCount) bookmarks to \(plan.folderCount) folders in “\(spaceName)”."),
+            String(localized: "Root-level bookmarks become Pinned tabs; nested folders are flattened as “Parent / Child”."),
         ]
         if plan.skippedCount > 0 {
             details.append(String(localized: "\(plan.skippedCount) entries will be skipped."))
         }
         if plan.depthLimitReached {
             details.append(
-                "Folders deeper than \(NetscapeBookmarkParser.maximumFolderDepth) levels will be skipped."
+                String(localized: "Folders deeper than \(NetscapeBookmarkParser.maximumFolderDepth) levels will be skipped.")
             )
         }
         confirmation.informativeText = details.joined(separator: "\n")
@@ -358,8 +358,8 @@ struct ChordCommands: Commands {
 
         guard let file = Self.arcSidebarFile(startingAt: chosen) else {
             presentImportError(
-                "No Arc sidebar found",
-                detail: "Chord looks for StorableSidebar.json in the folder you choose. Pick Arc's data folder — usually ~/Library/Application Support/Arc — or the file itself."
+                String(localized: "No Arc sidebar found"),
+                detail: String(localized: "Chord looks for StorableSidebar.json in the folder you choose. Pick Arc's data folder — usually ~/Library/Application Support/Arc — or the file itself.")
             )
             return
         }
@@ -367,8 +367,8 @@ struct ChordCommands: Commands {
         let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         guard size <= 32 << 20 else {
             presentImportError(
-                "Arc's sidebar is too large",
-                detail: "StorableSidebar.json is larger than 32 MB, which is not a sidebar Chord can read safely."
+                String(localized: "Arc's sidebar is too large"),
+                detail: String(localized: "StorableSidebar.json is larger than 32 MB, which is not a sidebar Chord can read safely.")
             )
             return
         }
@@ -378,7 +378,7 @@ struct ChordCommands: Commands {
             data = try Data(contentsOf: file)
         } catch {
             presentImportError(
-                "Could not read “\(file.lastPathComponent)”",
+                String(localized: "Could not read “\(file.lastPathComponent)”"),
                 detail: error.localizedDescription
             )
             return
@@ -386,23 +386,23 @@ struct ChordCommands: Commands {
 
         guard let plan = ArcSidebarParser.parse(data) else {
             presentImportError(
-                "Not an Arc sidebar",
-                detail: "“\(file.lastPathComponent)” is not a readable Arc StorableSidebar.json. Nothing was imported."
+                String(localized: "Not an Arc sidebar"),
+                detail: String(localized: "“\(file.lastPathComponent)” is not a readable Arc StorableSidebar.json. Nothing was imported.")
             )
             return
         }
         guard !plan.spaces.isEmpty else {
             presentImportError(
-                "No Arc Spaces found",
-                detail: "The file is readable, but it holds no Spaces to import."
+                String(localized: "No Arc Spaces found"),
+                detail: String(localized: "The file is readable, but it holds no Spaces to import.")
             )
             return
         }
 
         let confirmation = NSAlert()
         confirmation.messageText = plan.spaceCount == 1
-            ? "Import 1 Arc Space?"
-            : "Import \(plan.spaceCount) Arc Spaces?"
+            ? String(localized: "Import 1 Arc Space?")
+            : String(localized: "Import \(plan.spaceCount) Arc Spaces?")
         confirmation.informativeText = importArcSummary(plan)
         confirmation.addButton(withTitle: String(localized: "Import"))
         confirmation.addButton(withTitle: String(localized: "Cancel"))
@@ -414,26 +414,22 @@ struct ChordCommands: Commands {
             return
         }
 
+        // "Label: count" rather than "3 pins": it needs no plural rule, so
+        // it reads correctly in every language the catalog has.
         var parts: [String] = []
         if result.pinsAdded > 0 {
-            parts.append("\(result.pinsAdded) pin\(result.pinsAdded == 1 ? "" : "s")")
+            parts.append(String(localized: "Pinned tabs: \(result.pinsAdded)"))
         }
         if result.favouritesAdded > 0 {
-            parts.append(
-                "\(result.favouritesAdded) favourite\(result.favouritesAdded == 1 ? "" : "s")"
-            )
+            parts.append(String(localized: "Favourites: \(result.favouritesAdded)"))
         }
         if result.spacesCreated > 0 {
-            parts.append(
-                "\(result.spacesCreated) space\(result.spacesCreated == 1 ? "" : "s")"
-            )
+            parts.append(String(localized: "Spaces: \(result.spacesCreated)"))
         }
         if parts.isEmpty {
-            parts.append(
-                "\(result.foldersCreated) folder\(result.foldersCreated == 1 ? "" : "s")"
-            )
+            parts.append(String(localized: "Folders: \(result.foldersCreated)"))
         }
-        toast("Imported " + parts.joined(separator: ", "), icon: "square.and.arrow.down")
+        toast(String(localized: "Imported") + " — " + parts.joined(separator: ", "), icon: "square.and.arrow.down")
     }
 
     /// The dry-run text: one line per Space with what it will contribute, then
@@ -442,51 +438,51 @@ struct ChordCommands: Commands {
         var lines: [String] = []
         let listed = plan.spaces.prefix(6)
         for space in listed {
-            var counts = ["\(space.pinned.count) pinned"]
+            var counts = [String(localized: "Pinned tabs: \(space.pinned.count)")]
             if !space.favourites.isEmpty {
-                counts.append("\(space.favourites.count) favourites")
+                counts.append(String(localized: "Favourites: \(space.favourites.count)"))
             }
             if !space.folders.isEmpty {
-                counts.append("\(space.folders.count) folders")
+                counts.append(String(localized: "Folders: \(space.folders.count)"))
             }
             lines.append("• \(space.name) — \(counts.joined(separator: ", "))")
         }
         if plan.spaces.count > listed.count {
-            lines.append("… and \(plan.spaces.count - listed.count) more")
+            lines.append(String(localized: "… and \(plan.spaces.count - listed.count) more"))
         }
 
         lines.append("")
         lines.append(
-            "\(plan.itemCount) page\(plan.itemCount == 1 ? "" : "s") in all. Spaces with the same name are reused, and only http(s) pages are imported. Passwords and cookies are never read."
+            String(localized: "Pages in all: \(plan.itemCount). Spaces with the same name are reused, and only http(s) pages are imported. Passwords and cookies are never read.")
         )
         if plan.flattenedFolderCount > 0 {
             lines.append(
-                "\(plan.flattenedFolderCount) nested folder\(plan.flattenedFolderCount == 1 ? " is" : "s are") flattened as “Parent / Child”."
+                String(localized: "Nested folders flattened as “Parent / Child”: \(plan.flattenedFolderCount).")
             )
         }
         if plan.mergedFolderCount > 0 {
             lines.append(
-                "\(plan.mergedFolderCount) same-named folder\(plan.mergedFolderCount == 1 ? " merges" : "s merge") into one."
+                String(localized: "Same-named folders merged into one: \(plan.mergedFolderCount).")
             )
         }
         if plan.skippedCount > 0 {
             lines.append(
-                "\(plan.skippedCount) item\(plan.skippedCount == 1 ? "" : "s") will be skipped (arc://, extensions, files, and broken URLs)."
+                String(localized: "Items that will be skipped (arc://, extensions, files, and broken URLs): \(plan.skippedCount).")
             )
         }
         if plan.credentialsStripped > 0 {
             lines.append(
-                "\(plan.credentialsStripped) URL\(plan.credentialsStripped == 1 ? " had" : "s had") embedded credentials removed."
+                String(localized: "URLs with embedded credentials removed: \(plan.credentialsStripped).")
             )
         }
         if plan.depthLimitReached {
             lines.append(
-                "Folders nested deeper than \(ArcSidebarParser.maximumFolderDepth) levels are skipped."
+                String(localized: "Folders nested deeper than \(ArcSidebarParser.maximumFolderDepth) levels are skipped.")
             )
         }
         if plan.itemLimitReached {
             lines.append(
-                "Arc's sidebar is larger than the import limit; later items are left behind."
+                String(localized: "Arc's sidebar is larger than the import limit; later items are left behind.")
             )
         }
         return lines.joined(separator: "\n")
@@ -533,8 +529,7 @@ struct ChordCommands: Commands {
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.prompt = String(localized: "Import")
-        panel.message =
-            "Choose a Chromium browser's “Login Data” file inside a profile folder — for example Google/Chrome/Default/Login Data."
+        panel.message = String(localized: "Choose a Chromium browser's “Login Data” file inside a profile folder — for example Google/Chrome/Default/Login Data.")
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         let scoped = url.startAccessingSecurityScopedResource()
@@ -569,8 +564,8 @@ struct ChordCommands: Commands {
 
             let confirmation = NSAlert()
             confirmation.messageText = preview.hasAnythingToWrite
-                ? "Import passwords from \(preview.source.browser.displayName)?"
-                : "Nothing to import from \(preview.source.browser.displayName)"
+                ? String(localized: "Import passwords from \(preview.source.browser.displayName)?")
+                : String(localized: "Nothing to import from \(preview.source.browser.displayName)")
             confirmation.informativeText = passwordImportSummary(preview)
             if preview.hasAnythingToWrite {
                 confirmation.addButton(withTitle: String(localized: "Import"))
@@ -580,19 +575,18 @@ struct ChordCommands: Commands {
                 let result = await store.applyPasswordImport(preview)
                 if result.failed > 0 {
                     toast(
-                        "Imported \(result.imported) login\(result.imported == 1 ? "" : "s"), \(result.failed) failed",
+                        String(localized: "Logins imported: \(result.imported), failed: \(result.failed)"),
                         icon: "exclamationmark.triangle"
                     )
                 } else if result.imported == 0 {
                     toast(String(localized: "Nothing new to import"), icon: "key.fill")
+                } else if result.importedUsernameOnly > 0 {
+                    toast(
+                        String(localized: "Logins imported: \(result.imported) (username only: \(result.importedUsernameOnly))"),
+                        icon: "key.fill"
+                    )
                 } else {
-                    var message =
-                        "Imported \(result.imported) login\(result.imported == 1 ? "" : "s")"
-                    if result.importedUsernameOnly > 0 {
-                        message +=
-                            " (\(result.importedUsernameOnly) username\(result.importedUsernameOnly == 1 ? "" : "s") only)"
-                    }
-                    toast(message, icon: "key.fill")
+                    toast(String(localized: "Logins imported: \(result.imported)"), icon: "key.fill")
                 }
             } else {
                 confirmation.addButton(withTitle: String(localized: "OK"))
@@ -607,8 +601,7 @@ struct ChordCommands: Commands {
     private func askWhichBrowserSavedThePasswords() -> ChromiumBrowser? {
         let alert = NSAlert()
         alert.messageText = String(localized: "Which browser saved these passwords?")
-        alert.informativeText =
-            "Chord reads the browser's Safe Storage key from your Keychain. This profile is outside the usual browser folder, so the browser cannot be told from the path."
+        alert.informativeText = String(localized: "Chord reads the browser's Safe Storage key from your Keychain. This profile is outside the usual browser folder, so the browser cannot be told from the path.")
         let choices = ChromiumBrowser.known
         let popup = NSPopUpButton(
             frame: NSRect(x: 0, y: 0, width: 260, height: 26), pullsDown: false
@@ -630,20 +623,20 @@ struct ChordCommands: Commands {
     /// class of row that will not be. No password and no ciphertext appears.
     private func passwordImportSummary(_ preview: ChromiumPasswordImportPreview) -> String {
         var lines = [
-            "\(preview.source.browser.displayName) — profile “\(preview.source.profileName)”",
+            String(localized: "\(preview.source.browser.displayName) — profile “\(preview.source.profileName)”"),
             "",
         ]
 
         lines.append(
-            "\(preview.importCount) login\(preview.importCount == 1 ? "" : "s") will be imported: \(preview.withSecretCount) with a password, \(preview.usernameOnlyCount) username-only."
+            String(localized: "Logins that will be imported: \(preview.importCount) (with a password: \(preview.withSecretCount), username only: \(preview.usernameOnlyCount)).")
         )
         if preview.alreadyPresentCount > 0 {
             lines.append(
-                "\(preview.alreadyPresentCount) already saved in Chord; existing passwords are never overwritten."
+                String(localized: "Already saved in Chord: \(preview.alreadyPresentCount). Existing passwords are never overwritten.")
             )
         }
         if preview.skippedCount > 0 {
-            lines.append("\(preview.skippedCount) row\(preview.skippedCount == 1 ? "" : "s") skipped:")
+            lines.append(String(localized: "Rows skipped: \(preview.skippedCount)"))
             for reason in ChromiumPasswordSkipReason.allCases
             where reason != .alreadyPresent {
                 let count = preview.skippedByReason[reason] ?? 0
@@ -653,7 +646,7 @@ struct ChordCommands: Commands {
         }
         if preview.undecryptableCount > 0 {
             lines.append(
-                "\(preview.undecryptableCount) could not be decrypted:"
+                String(localized: "Could not be decrypted: \(preview.undecryptableCount)")
             )
             for (reason, count) in preview.undecryptableByReason.sorted(by: {
                 $0.key.explanation < $1.key.explanation
@@ -672,13 +665,13 @@ struct ChordCommands: Commands {
                 lines.append("• \(host) — \(item.username)")
             }
             if sample.count > 6 {
-                lines.append("… and \(sample.count - 6) more")
+                lines.append(String(localized: "… and \(sample.count - 6) more"))
             }
         }
 
         lines.append("")
         lines.append(
-            "Only HTTPS logins with a username are kept; file:, extension:, and plain-HTTP entries are refused. The database was read from a private temporary copy, which has already been deleted. Nothing is written until you click Import."
+            String(localized: "Only HTTPS logins with a username are kept; file:, extension:, and plain-HTTP entries are refused. The database was read from a private temporary copy, which has already been deleted. Nothing is written until you click Import.")
         )
         return lines.joined(separator: "\n")
     }

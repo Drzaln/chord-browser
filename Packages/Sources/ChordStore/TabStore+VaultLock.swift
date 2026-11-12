@@ -78,7 +78,7 @@ extension TabStore {
 
         guard let authenticator, authenticator.isAvailable else { return .unavailable }
         do {
-            try await authenticator.authenticate(reason: "unlock your saved passwords")
+            try await authenticator.authenticate(reason: String(localized: "unlock your saved passwords"))
         } catch .unavailable {
             return .unavailable
         } catch {

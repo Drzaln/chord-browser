@@ -257,7 +257,7 @@ public struct AppEnvironment {
             guard let store else { return }
             let window = store.focusedWindow
             guard window.isSidebarCollapsed else { return }
-            window.showToast("Downloading \(item.filename)", icon: "arrow.down.circle")
+            window.showToast(String(localized: "Downloading \(item.filename)"), icon: "arrow.down.circle")
         }
 
         let bookmarks = BookmarksStore(

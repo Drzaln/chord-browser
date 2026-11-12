@@ -86,7 +86,7 @@ extension AgentTools {
             )
             switch await confirm(prompt, store) {
             case .deny:
-                store.noteAgentActivity("You denied the agent’s script on \(host)")
+                store.noteAgentActivity(String(localized: "You denied the agent’s script on \(host)"))
                 return .error("The user did not allow this script. Do not retry it unless they ask.")
             case .allowForSite:
                 store.agentScriptHosts.insert(host)
@@ -105,7 +105,8 @@ extension AgentTools {
         let outcome = await store.engine.agentEvaluate(
             script, in: pane.id, timeout: .milliseconds(Int(seconds * 1000))
         )
-        store.noteAgentActivity("Agent ran a script on \(host.isEmpty ? "the page" : host)")
+        let scriptHost = host.isEmpty ? String(localized: "the page") : host
+        store.noteAgentActivity(String(localized: "Agent ran a script on \(scriptHost)"))
 
         switch outcome {
         case .value(let json):

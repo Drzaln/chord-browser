@@ -22,6 +22,8 @@ import glob, json, os, re, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOG = os.path.join(ROOT, "ChordApp", "Localizable.xcstrings")
 SOURCES = ["Packages/Sources/ChordUI/**/*.swift", "Packages/Sources/ChordStore/**/*.swift",
+           "Packages/Sources/ChordCore/ChromiumPasswordImport.swift",
+           "Packages/Sources/ChordEngine/ErrorPage.swift",
            "ChordApp/*.swift"]
 LANG = "id"
 
@@ -34,7 +36,9 @@ IGNORE = {".sidebar", "v\\(version)", "example.com", "https://example.com",
           "https://example.com/", "https://…", "⌘F", "⌘O"}
 # Interpolations that are integers, so SwiftUI formats them as %lld. Everything
 # else is %@. Matched against the expression inside \( … ).
-INT_EXPR = re.compile(r"(?:\.count|Count|^count|^position|^minutes)$")
+INT_EXPR = re.compile(
+    r"(?:\.count|Count|Added|Created|Stripped|Depth|\.imported|\.failed|UsernameOnly"
+    r"|^count|^position|^minutes|\.count - \d+)$")
 
 OPENER = re.compile(
     r"(?:\b(?:%s)\(\s*|\.(?:%s)\(\s*|\.accessibilityAction\(named:\s*|String\(localized:\s*)"

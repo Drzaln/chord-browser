@@ -109,7 +109,7 @@ extension TabStore {
 
         for arcSpace in plan.spaces {
             let name = arcSpace.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            let spaceName = name.isEmpty ? "Arc Import" : name
+            let spaceName = name.isEmpty ? String(localized: "Arc Import") : name
             let spaceID: UUID
             if let existing = spaces.first(where: {
                 !$0.isPrivate

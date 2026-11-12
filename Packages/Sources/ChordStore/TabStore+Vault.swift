@@ -149,7 +149,7 @@ extension TabStore {
     public func revealCredential(_ id: UUID) async -> String? {
         guard let vault, let authenticator else { return nil }
         do {
-            try await authenticator.authenticate(reason: "reveal a saved password")
+            try await authenticator.authenticate(reason: String(localized: "reveal a saved password"))
         } catch {
             return nil
         }

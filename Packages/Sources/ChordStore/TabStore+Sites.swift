@@ -78,7 +78,7 @@ extension TabStore {
             panes: [Pane(url: url)], in: window, spaceID: spaceID, selecting: true
         )
         window.showToast(
-            "Opened in \(space.name)", icon: "arrow.turn.down.right",
+            String(localized: "Opened in \(space.name)"), icon: "arrow.turn.down.right",
             action: { [weak self, weak window] in
                 guard let self, let window else { return }
                 window.dismissToast()
@@ -100,7 +100,7 @@ extension TabStore {
                 panes: [Pane(url: url)], in: window, spaceID: spaceID, selecting: true
             )
             window.showToast(
-                "Opened in \(space.name)", icon: "arrow.turn.down.right",
+                String(localized: "Opened in \(space.name)"), icon: "arrow.turn.down.right",
                 action: { [weak self, weak window] in
                     guard let self, let window else { return }
                     window.dismissToast()
@@ -134,7 +134,7 @@ extension TabStore {
             panes: [Pane(url: url)], in: window, spaceID: spaceID, selecting: false
         )
         window.showToast(
-            "Opened in \(space.name)", icon: "arrow.turn.down.right",
+            String(localized: "Opened in \(space.name)"), icon: "arrow.turn.down.right",
             action: { [weak self, weak window] in
                 guard let self, let window else { return }
                 window.dismissToast()
@@ -211,13 +211,13 @@ extension TabStore {
     public func beginElementPick(forPattern pattern: String) {
         let window = focusedWindow
         guard let tab = selectedTab(in: window) else {
-            window.showToast("Open a page on \(pattern) first", icon: "exclamationmark.circle")
+            window.showToast(String(localized: "Open a page on \(pattern) first"), icon: "exclamationmark.circle")
             return
         }
         pendingPickPattern = pattern
         if !engine.beginPickingElement(paneID: tab.focusedPaneID) {
             pendingPickPattern = nil
-            window.showToast("Open a page on \(pattern) first", icon: "exclamationmark.circle")
+            window.showToast(String(localized: "Open a page on \(pattern) first"), icon: "exclamationmark.circle")
         }
     }
 
@@ -235,15 +235,15 @@ extension TabStore {
             || (normalisedHost?.hasSuffix("." + pattern) ?? false)
         guard isOnSite else {
             window.showToast(
-                "That element is not on \(pattern)", icon: "exclamationmark.circle"
+                String(localized: "That element is not on \(pattern)"), icon: "exclamationmark.circle"
             )
             return
         }
         guard addHiddenSelector(selector, to: pattern) else {
-            window.showToast("Could not use that element", icon: "exclamationmark.circle")
+            window.showToast(String(localized: "Could not use that element"), icon: "exclamationmark.circle")
             return
         }
-        window.showToast("Hidden \(selector)", icon: "eye.slash")
+        window.showToast(String(localized: "Hidden \(selector)"), icon: "eye.slash")
     }
 
     public func paneDidCancelSiteOverridePick(fromPane paneID: UUID) {

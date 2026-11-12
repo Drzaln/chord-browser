@@ -96,11 +96,11 @@ extension TabStore {
                 toSpaceID: target.spaceID,
                 destination: .splitInto(tabID: tabID),
                 fromSpaceName: spaces.first { $0.id == source.spaceID }?.name
-                    ?? "another Space",
+                    ?? String(localized: "another Space"),
                 toSpaceName: spaces.first { $0.id == target.spaceID }?.name
-                    ?? "this Space",
+                    ?? String(localized: "this Space"),
                 tabTitle: source.focusedPane.title.isEmpty
-                    ? (source.focusedPane.url.host() ?? "this tab")
+                    ? (source.focusedPane.url.host() ?? String(localized: "this tab"))
                     : source.focusedPane.title
             )
             return
