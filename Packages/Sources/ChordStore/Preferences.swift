@@ -24,6 +24,7 @@ enum Preferences {
     private static let littleChordPanelHeightKey = "prefs.littleArcPanelHeight"
     private static let swipeToCloseEnabledKey = "prefs.swipeToCloseEnabled"
     private static let suspendsBackgroundTabsKey = "prefs.suspendBackgroundTabs"
+    private static let suspendsWhileHiddenKey = "prefs.suspendWhileHidden"
     private static let developerModeKey = "prefs.developerMode"
     private static let pageZoomKey = "prefs.pageZoom"
     private static let routeRulesKey = "prefs.routeRules"
@@ -319,6 +320,20 @@ enum Preferences {
         developerMode enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
     ) {
         defaults.set(enabled, forKey: developerModeKey)
+    }
+
+    // MARK: - Suspend while hidden (c1k.16)
+
+    static func loadSuspendsWhileHidden(
+        _ defaults: any PreferenceStore = UserDefaults.standard
+    ) -> Bool {
+        defaults.object(forKey: suspendsWhileHiddenKey) as? Bool ?? false
+    }
+
+    static func save(
+        suspendsWhileHidden enabled: Bool, to defaults: any PreferenceStore = UserDefaults.standard
+    ) {
+        defaults.set(enabled, forKey: suspendsWhileHiddenKey)
     }
 
     // MARK: - First-run welcome

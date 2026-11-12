@@ -3271,6 +3271,16 @@
         }
       }
     },
+    "Suspend them only while Chord is hidden or minimized (experimental)": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tangguhkan hanya saat Chord disembunyikan atau diminimalkan (eksperimental)"
+          }
+        }
+      }
+    },
     "Swipe right closes a tab with no back history": {
       "localizations": {
         "id": {
@@ -3307,6 +3317,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tab ditutup"
+          }
+        }
+      }
+    },
+    "Tabs keep running while a Chord window is on screen, and stop when none is. Not measured yet: if the fans or battery get worse after you bring Chord back, turn it off.": {
+      "localizations": {
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab tetap berjalan selama ada jendela Chord di layar, dan berhenti saat tidak ada. Belum diukur: jika kipas atau baterai memburuk setelah Chord ditampilkan lagi, matikan."
           }
         }
       }

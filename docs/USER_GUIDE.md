@@ -250,6 +250,9 @@ native behaviour (the swipe just does nothing); toggle it off here any time.
   tab can keep the window drawing at the screen's rate, which costs more
   battery than suspending saves. Off, hidden tabs keep running, so a chat
   app's socket or a sync stays live.
+  A second, experimental checkbox, **Suspend them only while Chord is hidden
+  or minimized**, suspends tabs only when no Chord window is on screen and
+  wakes them when one comes back. It is off by default and not measured yet.
 - **Developer** — **Developer Mode** turns on the browser's development tools,
   off by default even in release builds. Enabling it shows an **Inspect Element**
   item in a page's right-click menu and a **Develop** menu with **Show Web

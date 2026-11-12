@@ -64,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// engine stops fetching favicons and pending state is flushed (6.3).
     func attachOcclusionObserver() {
         guard let store = launch.store else { return }
+        attachShowObserver()
 
         // A minimized window can go on reporting itself visible, and a
         // miniaturize doesn't always come with an occlusion change, so Chord
@@ -91,6 +92,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     store.setOccluded(!anyVisible)
                 }
             }
+        }
+    }
+
+    /// c1k.16: lift tab suspension *before* the app is back on screen, so
+    /// WebKit does not wake suspended pages into the display-link spin
+    /// (c1k.13). `willUnhide` is the only early signal; a minimized window
+    /// coming back has none and relies on the occlusion observer.
+    private var didAttachShowObserver = false
+
+    func attachShowObserver() {
+        guard let store = launch.store, !didAttachShowObserver else { return }
+        didAttachShowObserver = true
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willUnhideNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { store.prepareToShow() }
         }
     }
 

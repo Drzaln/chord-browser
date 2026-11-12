@@ -448,8 +448,38 @@ public final class TabStore {
         }
     }
 
+    /// Suspend parked tabs only while no window is on screen (c1k.16). Off by
+    /// default until the hidden/minimized numbers are measured on a Release
+    /// build (`scripts/perf-hidden.sh`): the risk is the display-link spin
+    /// coming back when the window does.
+    public var suspendsWhileHidden: Bool = Preferences.loadSuspendsWhileHidden() {
+        didSet {
+            Preferences.save(suspendsWhileHidden: suspendsWhileHidden, to: preferenceStore)
+            pushSuspendsBackgroundTabs()
+        }
+    }
+
+    /// Set between "the app is about to show" and the window reporting itself
+    /// visible, so suspension is lifted before WebKit wakes the pages.
+    @ObservationIgnored private var isAboutToShow = false
+
+    /// What the engine was last told, so a push that changes nothing is free.
+    @ObservationIgnored private var pushedSuspension: Bool?
+
+    /// The app is about to come back on screen (`NSApplication.willUnhide`).
+    public func prepareToShow() {
+        isAboutToShow = true
+        pushSuspendsBackgroundTabs()
+    }
+
     func pushSuspendsBackgroundTabs() {
-        engine.setSuspendsBackgroundTabs(suspendsBackgroundTabs)
+        let suspends = BackgroundTabPolicy.suspends(
+            always: suspendsBackgroundTabs, whileHidden: suspendsWhileHidden,
+            isOccluded: isOccluded, isAboutToShow: isAboutToShow
+        )
+        guard suspends != pushedSuspension else { return }
+        pushedSuspension = suspends
+        engine.setSuspendsBackgroundTabs(suspends)
     }
 
     /// Whether developer mode is on (non-spec: user-requested). When on, the
@@ -1868,6 +1898,9 @@ public final class TabStore {
     /// Approach zero CPU while the window is not visible (6.3).
     public func setOccluded(_ occluded: Bool) {
         isOccluded = occluded
+        // Visible again: the early "about to show" has done its job.
+        if !occluded { isAboutToShow = false }
+        pushSuspendsBackgroundTabs()
         if let engine = engine as? WebKitEngine {
             engine.setOccluded(occluded)
         }

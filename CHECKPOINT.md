@@ -5570,3 +5570,29 @@ Settings shortcuts. Every step is optional.
   offline game, Info.plist usage strings, Indonesian search keywords.
 - **Not seen:** the app has not been run in Indonesian, so wording in context
   and clipping are unchecked. The translations are mine and unreviewed.
+
+## Suspend tabs only while Chord is hidden (2026-11-12, bead `c1k.16`): coded, NOT measured, off by default
+
+The biggest gap to Safari is a hidden or minimized Chord: about 45 ms/s of CPU
+against 4, because tabs default to `.none` (never suspended) to avoid the
+display-link spin (`c1k.13`).
+
+- `BackgroundTabPolicy.suspends(always:whileHidden:isOccluded:isAboutToShow:)`
+  decides; `TabStore.pushSuspendsBackgroundTabs` sends the result to the
+  engine's existing `setSuspendsBackgroundTabs` only when it changes.
+  `setOccluded` re-evaluates it.
+- `NSApplication.willUnhide` calls `TabStore.prepareToShow()`, which lifts
+  suspension before the window is back, since a wake of a suspended page is
+  what starts the spin. A minimized window coming back has no early signal.
+- New preference `prefs.suspendWhileHidden`, **default off**, with a second
+  checkbox under Settings → General → Background Tabs (disabled while "always"
+  is on). Tests: `BackgroundTabPolicyTests` (6).
+- `scripts/perf-hidden.sh [seconds]`: five phases you drive (front, hidden,
+  front, minimized, front), sampling the window process and all WebKit
+  helpers with `top`, no sudo. Quit Safari first.
+
+**Why it is not the default:** the acceptance numbers (hidden/minimized CPU
+within ~2x of Safari, no spin after three hide/unhide and minimize/restore
+cycles) need about 75 minutes on a Release build with nobody using the Mac,
+twice. That has not been run. WebKit may also apply a policy change only at
+the next activity change, which would defeat the early lift.

@@ -2021,3 +2021,17 @@ Run one build in Indonesian without changing the system language:
 - [ ] Known to stay English for now (bead `gn0.12`): import dry-run summaries,
       some toasts, the error page and the offline game, macOS permission
       prompts.
+
+### Suspend only while hidden (c1k.16, experimental, off by default)
+
+- [ ] Settings → General → Background Tabs has a second checkbox, **Suspend
+      them only while Chord is hidden or minimized (experimental)**, off, and
+      greyed out when the first checkbox is on.
+- [ ] `scripts/perf-hidden.sh 900` on a Release build with the TABSET tabs,
+      once with it off and once on. With it on: hidden and minimized total CPU
+      falls well below the off run (aim: within ~2x of Safari's ~4 ms/s), and
+      in both "front after" phases the window process stays under ~30
+      wakeups/s. Hundreds there means the display-link spin: leave it off and
+      record that.
+- [ ] With it on, music in a background tab keeps playing through Cmd-H, and a
+      chat tab reconnects after Chord comes back.

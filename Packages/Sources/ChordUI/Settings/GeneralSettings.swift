@@ -608,6 +608,19 @@ struct GeneralSettings: View {
                 )
             )
             .toggleStyle(.checkbox)
+
+            Toggle(
+                "Suspend them only while Chord is hidden or minimized (experimental)",
+                isOn: Binding(
+                    get: { store.suspendsWhileHidden },
+                    set: { store.suspendsWhileHidden = $0 }
+                )
+            )
+            .toggleStyle(.checkbox)
+            .disabled(store.suspendsBackgroundTabs)
+            Text("Tabs keep running while a Chord window is on screen, and stop when none is. Not measured yet: if the fans or battery get worse after you bring Chord back, turn it off.")
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
