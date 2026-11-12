@@ -120,6 +120,7 @@ struct SettingsCatalogTests {
             ("password", "passwords.saved-passwords"),
             ("space", "agents.shared-spaces"),
             ("zoom", "note.page-zoom"),
+            ("import", "note.import"),
             ("download", "note.downloads"),
             ("notification", "privacy.site-permissions"),
             ("location", "privacy.site-permissions"),

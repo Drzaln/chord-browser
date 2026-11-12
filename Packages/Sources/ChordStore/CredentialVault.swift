@@ -59,6 +59,30 @@ public struct CredentialVault: Sendable {
         return stored
     }
 
+    /// Records a username with **no secret** — the state an import produces when
+    /// the source browser saved an account but no password (Chromium stores an
+    /// empty `password_value` for those).
+    ///
+    /// Deliberately not `save(secret: "")`: an empty Keychain item would be
+    /// offered for filling and fill an empty password. A metadata-only row is
+    /// visible in Settings and harmless, which is the same state an interrupted
+    /// save already leaves. The import writes this through the repository, so
+    /// there is still no second persistence path.
+    @discardableResult
+    public func saveUsernameOnly(
+        origin: String, username: String, spaceID: UUID? = nil, now: Date = Date()
+    ) async throws -> Credential {
+        try await repository.upsert(
+            Credential(
+                origin: origin,
+                username: username,
+                createdAt: now,
+                lastUsedAt: nil,
+                lastUsedSpaceID: spaceID
+            )
+        )
+    }
+
     /// The credentials offerable on a page, best candidate first. Metadata only —
     /// reading a secret is a separate, deliberate step.
     public func credentials(forOrigin origin: String, spaceID: UUID? = nil) async throws

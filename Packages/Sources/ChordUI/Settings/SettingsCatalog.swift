@@ -520,6 +520,17 @@ enum SettingsCatalog {
             shortcut: nil
         ),
         SettingsNote(
+            id: "note.import",
+            section: .general,
+            title: "Import from Another Browser",
+            blurb: "Use the File menu: Import Bookmarks… (an HTML export), Import from Arc…, and Import Passwords… (Chrome, Brave, Edge and other Chromium browsers).",
+            keywords: [
+                "import", "migrate", "bring over", "arc", "chrome", "brave", "edge",
+                "chromium", "bookmarks html", "export", "switch browser",
+            ],
+            shortcut: nil
+        ),
+        SettingsNote(
             id: "note.content-blocking",
             section: .privacy,
             title: "Content Blocking",

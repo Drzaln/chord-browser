@@ -538,6 +538,187 @@ struct ChordCommands: Commands {
         }
     }
 
+    /// File → Import Passwords…: pick a Chromium browser's `Login Data`,
+    /// decrypt with its Safe Storage key, show the per-browser/profile dry run,
+    /// then write through the existing vault.
+    ///
+    /// The picker is security-scoped for exactly the read. The importer copies
+    /// the database to a private temp directory, reads the copy, and deletes it
+    /// before returning; no secret is present in the preview, and Cancel never
+    /// reaches the write path.
+    @MainActor
+    private func importPasswords(into window: WindowState) {
+        guard let store else { return }
+
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.prompt = "Import"
+        panel.message =
+            "Choose a Chromium browser's “Login Data” file inside a profile "
+            + "folder — for example Google/Chrome/Default/Login Data."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let scoped = url.startAccessingSecurityScopedResource()
+        Task { @MainActor in
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+            // A profile in its usual place identifies its browser from the
+            // path. A copied or throwaway profile (`--user-data-dir=/tmp/...`)
+            // does not, and picking a Keychain service without knowing the
+            // browser would be a guess — ask instead.
+            let chosenBrowser: ChromiumBrowser?
+            if ChromiumBrowser.detect(loginDataAt: url) == nil {
+                guard let picked = askWhichBrowserSavedThePasswords() else { return }
+                chosenBrowser = picked
+            } else {
+                chosenBrowser = nil
+            }
+
+            let preview: ChromiumPasswordImportPreview
+            switch await store.previewPasswordImport(
+                from: url, in: window, browser: chosenBrowser
+            ) {
+            case .success(let value):
+                preview = value
+            case .failure(let error):
+                presentImportError(error.title, detail: error.message)
+                return
+            }
+            // Cancel leaves the derived key nowhere: the preview is dropped at
+            // the end of this scope, and `apply` invalidates it as well.
+            defer { preview.invalidate() }
+
+            let confirmation = NSAlert()
+            confirmation.messageText = preview.hasAnythingToWrite
+                ? "Import passwords from \(preview.source.browser.displayName)?"
+                : "Nothing to import from \(preview.source.browser.displayName)"
+            confirmation.informativeText = passwordImportSummary(preview)
+            if preview.hasAnythingToWrite {
+                confirmation.addButton(withTitle: "Import")
+                confirmation.addButton(withTitle: "Cancel")
+                guard confirmation.runModal() == .alertFirstButtonReturn else { return }
+
+                let result = await store.applyPasswordImport(preview)
+                if result.failed > 0 {
+                    toast(
+                        "Imported \(result.imported) login"
+                            + "\(result.imported == 1 ? "" : "s"), "
+                            + "\(result.failed) failed",
+                        icon: "exclamationmark.triangle"
+                    )
+                } else if result.imported == 0 {
+                    toast("Nothing new to import", icon: "key.fill")
+                } else {
+                    var message =
+                        "Imported \(result.imported) login"
+                        + "\(result.imported == 1 ? "" : "s")"
+                    if result.importedUsernameOnly > 0 {
+                        message +=
+                            " (\(result.importedUsernameOnly) username"
+                            + "\(result.importedUsernameOnly == 1 ? "" : "s") only)"
+                    }
+                    toast(message, icon: "key.fill")
+                }
+            } else {
+                confirmation.addButton(withTitle: "OK")
+                confirmation.runModal()
+            }
+        }
+    }
+
+    /// Asks which browser wrote a profile picked outside its usual folder.
+    /// The answer selects the Keychain service, so it is never inferred from a
+    /// folder name; Cancel imports nothing.
+    private func askWhichBrowserSavedThePasswords() -> ChromiumBrowser? {
+        let alert = NSAlert()
+        alert.messageText = "Which browser saved these passwords?"
+        alert.informativeText =
+            "Chord reads the browser's Safe Storage key from your Keychain. "
+            + "This profile is outside the usual browser folder, so the browser "
+            + "cannot be told from the path."
+        let choices = ChromiumBrowser.known
+        let popup = NSPopUpButton(
+            frame: NSRect(x: 0, y: 0, width: 260, height: 26), pullsDown: false
+        )
+        popup.addItems(withTitles: choices.map(\.displayName))
+        if let chrome = choices.firstIndex(where: { $0.id == "chrome" }) {
+            popup.selectItem(at: chrome)
+        }
+        alert.accessoryView = popup
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let index = popup.indexOfSelectedItem
+        guard choices.indices.contains(index) else { return nil }
+        return choices[index]
+    }
+
+    /// The dry-run text: what the file is, what will be written, and every
+    /// class of row that will not be. No password and no ciphertext appears.
+    private func passwordImportSummary(_ preview: ChromiumPasswordImportPreview) -> String {
+        var lines = [
+            "\(preview.source.browser.displayName) — profile "
+                + "“\(preview.source.profileName)”",
+            "",
+        ]
+
+        lines.append(
+            "\(preview.importCount) login\(preview.importCount == 1 ? "" : "s") "
+                + "will be imported: \(preview.withSecretCount) with a password, "
+                + "\(preview.usernameOnlyCount) username-only."
+        )
+        if preview.alreadyPresentCount > 0 {
+            lines.append(
+                "\(preview.alreadyPresentCount) already saved in Chord; existing "
+                    + "passwords are never overwritten."
+            )
+        }
+        if preview.skippedCount > 0 {
+            lines.append("\(preview.skippedCount) row\(preview.skippedCount == 1 ? "" : "s") skipped:")
+            for reason in ChromiumPasswordSkipReason.allCases
+            where reason != .alreadyPresent {
+                let count = preview.skippedByReason[reason] ?? 0
+                guard count > 0 else { continue }
+                lines.append("  • \(count) — \(reason.label)")
+            }
+        }
+        if preview.undecryptableCount > 0 {
+            lines.append(
+                "\(preview.undecryptableCount) could not be decrypted:"
+            )
+            for (reason, count) in preview.undecryptableByReason.sorted(by: {
+                $0.key.explanation < $1.key.explanation
+            }) {
+                lines.append("  • \(count) — \(reason.explanation)")
+            }
+        }
+
+        let sample = preview.items.filter {
+            $0.disposition == .importSecret || $0.disposition == .importUsernameOnly
+        }
+        if !sample.isEmpty {
+            lines.append("")
+            for item in sample.prefix(6) {
+                let host = URL(string: item.origin)?.host ?? item.origin
+                lines.append("• \(host) — \(item.username)")
+            }
+            if sample.count > 6 {
+                lines.append("… and \(sample.count - 6) more")
+            }
+        }
+
+        lines.append("")
+        lines.append(
+            "Only HTTPS logins with a username are kept; file:, extension:, and "
+                + "plain-HTTP entries are refused. The database was read from a "
+                + "private temporary copy, which has already been deleted. Nothing "
+                + "is written until you click Import."
+        )
+        return lines.joined(separator: "\n")
+    }
+
     var body: some Commands {
         // The standard app "Settings…" item — Cmd+, — opens the settings sheet
         // (clear browsing data + extensions) rather than a separate window, so
@@ -623,6 +804,16 @@ struct ChordCommands: Commands {
             Button("Import from Arc…") {
                 guard let windowState else { return }
                 importFromArc(into: windowState)
+            }
+            .disabled(windowState == nil || isPrivateWindowFocused)
+
+            // File → Import Passwords…: a Chromium browser's Login Data,
+            // decrypted with its Safe Storage key and written through the
+            // existing vault. Same dry-run-then-confirm shape as the other
+            // imports; disabled in a private window.
+            Button("Import Passwords…") {
+                guard let windowState else { return }
+                importPasswords(into: windowState)
             }
             .disabled(windowState == nil || isPrivateWindowFocused)
         }

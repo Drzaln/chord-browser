@@ -118,6 +118,13 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   folders become Chord folders (nested paths flatten to `Parent / Child`). A
   dry-run count per Space comes before anything is written. http(s) only;
   passwords and cookies are never read.
+- **Import passwords** — `File ▸ Import Passwords…` reads a Chromium browser's
+  `Login Data` file (Chrome, Chromium, Arc, Brave, Edge, Vivaldi, Opera, Dia,
+  Helium, Comet) from a private temporary copy, decrypts it with that browser's
+  Safe Storage Keychain key, and writes the logins through the existing vault.
+  A dry run counts imported / already present / skipped / undecryptable rows
+  before anything is written; Cancel writes nothing. HTTPS-only, exact-origin,
+  no overwrites, and no plaintext ever in the database or a log.
 - **Peek** — click a link inside a Favourite or Pinned tab and it opens in a
   floating preview instead of navigating the protected page away; promote with
   `⌘O` or dismiss with `Esc`.

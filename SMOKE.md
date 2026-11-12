@@ -1788,3 +1788,193 @@ one, and never with Arc running.
       nothing (no partial Space, pin, or favourite)
 - [ ] The menu item is disabled in a private window (`Cmd+Shift+N`)
 - [ ] The archive list is unchanged after an import
+
+## Import passwords from a Chromium browser (added 2026-10-25)
+
+Use a **throwaway Chrome profile**, never your main one. Create and use it with:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --user-data-dir=/tmp/chord-passwords-smoke
+```
+
+Sign in somewhere that offers to save a password (a throwaway account on a real
+site is fine), then quit Chrome so its `Login Data` is settled. The database is
+only read, never changed — but the Keychain prompt and the delete step are easier
+to reason about with a profile you can throw away.
+
+- [ ] `File ▸ Import Passwords…` opens a picker that accepts a file; choosing
+      `/tmp/chord-passwords-smoke/Default/Login Data` asks **"Which browser saved
+      these passwords?"** (the path is not a standard Chrome folder); choose
+      Google Chrome, and the dry run names Google Chrome / Default
+- [ ] macOS asks for access to **Chrome Safe Storage**; **Always Allow** lets the
+      import proceed, and **Deny** shows "Could not read the browser's encryption
+      key" and imports nothing
+- [ ] The dry-run alert names the browser and profile and shows counts for
+      imported / username-only / already present / skipped / undecryptable
+- [ ] **Cancel** leaves Settings → Passwords exactly as it was
+- [ ] Confirming shows a toast; the imported logins appear in Settings →
+      Passwords, and **Reveal** (after Touch ID) shows the exact saved password
+- [ ] The imported login fills on the exact HTTPS origin, and not on a
+      look-alike host, a subdomain, or plain HTTP
+- [ ] Importing the same file again reports those logins as already present and
+      does not overwrite a password changed in Chord since the first import
+- [ ] A profile containing a `file:`, `javascript:`, `chrome-extension:`, or
+      plain-`http` login has those rows absent from the vault, and the dry run
+      counts them as skipped
+- [ ] A login saved with a username and **no** password appears in Settings with
+      no password stored (no Keychain item is created)
+- [ ] A profile with a missing Safe Storage item is a clear error, not a partial
+      import; after any failure Settings is unchanged
+- [ ] The menu item is disabled in a private window (`Cmd+Shift+N`)
+- [ ] No temporary copy survives: `find "$TMPDIR" -maxdepth 1 -name
+      'chord-password-import-*'` prints nothing after both a successful and a
+      failed import
+- [ ] No path logs a password, key, or ciphertext: search Console for
+      `Chord`/`passwords` around the import and find only ordinary UI messages
+- [ ] Delete the throwaway profile when done:
+      `rm -rf /tmp/chord-passwords-smoke` (Chrome may recreate it if it is still
+      running)
+
+## Address at rest (added 2026-10-25)
+
+The sidebar row and the (hidden) window title show the registrable domain — the
+part a look-alike cannot register under — instead of the page title. The page
+title comes back under the pointer. Display only: history, sessions, and the
+command bar keep the real title.
+
+- [ ] A normal https page (`https://www.cloudflare.com/…`) shows `www.` dim and
+      `cloudflare.com` in ink; the row is not the page title at rest
+- [ ] Hovering that row crossfades to the real page title **in place** — the
+      favicon, row height, close button, and every row below it stay put
+- [ ] Moving the pointer away crossfades back to the address
+- [ ] The selected tab also shows its address at rest; selecting it does not
+      reveal the title (hover does)
+- [ ] Mission Control / the screen-share picker label the window
+      `Chord — cloudflare.com`, not the page title or the subdomain
+- [ ] `http://example.com` shows an open-lock "Not secure" marker (tooltip and
+      VoiceOver say "Not secure"); the same site over https does not
+- [ ] `https://example.com:8443` keeps `:8443`; `https://example.com:443` and
+      `http://example.com:80` do not show a port
+- [ ] `https://a.b.co.uk` shows `a.` dim and `b.co.uk` in ink (not `co.uk` in
+      ink); `https://user.github.io` is a site of its own
+- [ ] A punycode look-alike (`https://xn--80ak6aa92e.com`) still reads
+      `xn--80ak6aa92e.com`; it never renders as `аррӏе.com`
+- [ ] A legitimate IDN (`https://xn--wgv71a119e.jp`, 日本語.jp) renders in
+      Unicode; one with a Latin-confusable script stays punycode
+- [ ] An IP literal keeps its address (`https://127.0.0.1:8080` → `127.0.0.1`
+      and `:8080`), as does `localhost`
+- [ ] A `file://` tab shows its file name; `about:blank` and extension pages
+      still show their own title
+- [ ] Right-click → **Rename Tab…** and the custom name still shows at rest
+- [ ] Reduce Motion: the hover crossfade is near-instant and nothing moves
+## Sleeping tabs (added 2026-10-25)
+
+A tab left alone gives its page back while keeping its row, title, favicon,
+scroll position, and back/forward history. Design note:
+`docs/design/tab-sleep.md`. The automatic rule is 30 minutes; **Sleep Tab Now** in
+a row's right-click menu is there so this can be checked without waiting.
+
+- [ ] Open three pages in one Space, then right-click the second → **Sleep Tab
+      Now**: the row dims and shows a `zzz`, stays in place, and the tab is not
+      selected
+- [ ] Select it: the card shows the sleeping placeholder (thumbnail or favicon +
+      title) for a moment, then the page comes back **at the same URL, scrolled
+      where you left it**, with **Back** still working — not the site's home page
+- [ ] Scroll a page, sleep it, wake it: the scroll position is the same (this is
+      `interactionState`, not a reload)
+- [ ] Type a few words into a page's search box, leave it, right-click → **Sleep
+      Tab Now**: nothing happens (a page holding unsent text never sleeps)
+- [ ] Play audio in a background tab: it never sleeps, however long it is idle
+- [ ] The tab on screen can never be slept (the menu item is disabled); neither
+      can a favourite or Pinned tab
+- [ ] Private window: **Sleep Tab Now** is disabled, and a private tab is never
+      slept by the timer either
+- [ ] Quit and relaunch with a slept tab in the sidebar: it comes back slept
+      (`zzz`, still no page), and clicking it restores as above
+- [ ] Settings → General → **Put idle tabs to sleep** off: no new sleeps. Back
+      on: the next pass sleeps idle tabs again
+- [ ] The archive still works: a tab that was *never opened this session* is
+      archived normally after the archive window, while a tab that was opened
+      and slept is still in the sidebar
+
+### Memory, measured 2026-10-25
+
+Ten real pages through the E2E harness, before/after sleeping nine of them
+(`footprint -p` for the app and every WebKit XPC service):
+
+| State | Live views | WebKit processes | Total footprint |
+|---|---|---|---|
+| 10 tabs open | 10 | 12 | **172 MB** |
+| 9 asleep, 1 on screen | 1 | 3 | **54 MB** |
+| 8 asleep, 2 woken | 2 | 4 | **67 MB** |
+
+~13 MB per page for trivial local pages (no JS, no images); a real site costs
+more. Reproduce with the disabled suite:
+`swift test --package-path Packages --filter SleepFootprintMeasure` (delete the
+`.disabled` first, and check `ps -Ao comm | grep -i WebKit` shows nothing else
+using WebKit). In the app, `scripts/soak.sh`'s `total_mb` helper sums the same
+processes: open ten tabs, let them settle, sample, sleep nine by hand, sample
+again.
+## Chrome API shims — `chrome.offscreen` + `chrome.privacy` (899.18, added 2026-10-25)
+
+WebKit has no `chrome.offscreen` and no `chrome.privacy` (measured: `docs/notes/webkit-ext-api-probe.md`),
+so Chord prepends `chord-shim.js` to an installed extension and answers it over
+native messaging. Automated coverage: `ExtensionShimInjectionTests` (12),
+`ExtensionMessageRouterTests` (17), `ExtensionOffscreenTests` (7),
+`ExtensionShimLiveTests` (5). The rest needs a human and a real extension.
+
+Preparation — pick an MV3 password manager. Bitwarden's `.crx`/`.xpi` is the
+reference case (it is the extension that dies on `chrome.offscreen`).
+
+- [ ] Install it (**Settings → Extensions → Add Extension…**), then look inside
+      `~/Library/Application Support/Chord/Extensions/<slug>/`: `chord-shim.js`
+      is there, the worker's first line is `/* chord-shim:begin <fp> */`, and
+      `manifest.json` has `nativeMessaging` in `permissions`
+- [ ] `<slug>.chord-added` sits **beside** the folder (not inside it) and lists
+      `nativeMessaging` — that is what the UI must subtract when it shows what
+      the extension asked for
+- [ ] Install the **same** bundle twice, then check the worker file: exactly
+      **one** `chord-shim:begin` line, no stacked copy; `<slug>.chord-added` is
+      rewritten, not duplicated
+- [ ] Enable it, quit, relaunch: still enabled, still one shim block, and no
+      second hidden document (watch Memory/Activity Monitor: one extension
+      content process per Space, as before)
+
+The unlock/autofill path — the reason this ticket exists:
+
+- [ ] Enabling starts the worker: the popup opens (not "the menu had trouble
+      loading"), the vault asks for the master password
+- [ ] Unlock with the **master password** → the item list renders
+- [ ] On a real login page, the inline autofill menu appears and a click fills
+      both fields; submitting signs in
+- [ ] **No document window, tab, or sidebar item appears** at any point — the
+      offscreen document is invisible by construction
+- [ ] Lock the vault, unlock again, autofill again (the offscreen document's
+      close/recreate path is what this exercises)
+- [ ] Disabling the extension while its vault is unlocked leaves **no** running
+      hidden page (Activity Monitor: the extension's content process goes away
+      with the rest of the Space's extensions)
+- [ ] Uninstalling it removes the folder, `<slug>.chord-added`, and any offscreen
+      document
+
+Expected refusals (not bugs):
+
+- [ ] Bitwarden's **"unlock with Touch ID / desktop app"** fails: that is
+      `chrome.runtime.connectNative("com.8bit.bitwarden")`, and Chord only
+      answers the app id `chord`. The error should name the id it refused
+- [ ] An extension that reads `chrome.privacy.chord.contentBlockingEnabled`
+      gets `{value: true}`; any `set` is refused (`read_only`), and a read of a
+      standard Chrome pref (`chrome.privacy.network.…`) is `undefined` — Chord
+      does not invent settings it cannot change
+- [ ] An extension with no worker/content scripts is untouched by the install
+      (no `chord-shim.js` in its folder)
+
+Regression — extensions that were fine before must stay fine:
+
+- [ ] AdBlock and Enhancer for YouTube still install, enable, prompt for host
+      access, and show their toolbar buttons (the shim adds a permission; it
+      must not change what those extensions see)
+- [ ] A content script on a page still runs (the shim is prepended to it), and
+      `chrome.offscreen` stays **undefined** in the content-script world — it
+      cannot reach the app there

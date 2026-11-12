@@ -473,6 +473,117 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   `Folder`s named `Parent / Child` (same-named folders in one Space merge). A
   re-import adds nothing; a corrupt file returns no plan, so nothing is written.
   Disabled in private windows, and the archive is never touched.
+- **Chromium password import** (2026-10-25) — **File ▸ Import Passwords…**
+  reads a Chromium browser's `Login Data` (Chrome, Chromium, Chrome
+  Beta/Dev/Canary, Arc, Brave, Edge, Vivaldi, Opera, Opera GX, Dia, Helium,
+  Comet) and writes the logins through the existing `CredentialVault`. A profile
+  in its usual place identifies its browser from the path; a copied or
+  `--user-data-dir` profile prompts for the browser, because the Keychain
+  service is never inferred from an arbitrary folder name. The
+  source database is **never opened in place**: `ChromiumLoginDatabaseReader`
+  copies it and its `-wal`/`-shm`/`-journal` siblings into a new `0700` temp
+  directory, creates the copy `0600`, and removes the directory in a `defer`
+  on success and on every thrown error. The browser's Safe Storage key is read
+  from the Keychain as **raw text**, then stretched exactly as Chromium does:
+  PBKDF2-HMAC-SHA1, salt `saltysalt`, 1003 iterations, 16 bytes; rows are
+  AES-128-CBC with a sixteen-space IV and a `v10`/`v11` prefix. A 32-byte
+  origin-binding prefix on the plaintext is stripped only when it verifies
+  against the row's signon realm. `v20`/`v21` (app-bound encryption) and `v12`
+  are refused by name; a wrapped key is reported, never guessed at. The dry-run
+  alert names the browser/profile and counts imported / username-only / already
+  present / skipped / undecryptable rows before anything is written; Cancel
+  writes nothing. Origins go through `CredentialOrigin.strict` — HTTPS only,
+  exact scheme+host+port — so `file:`, `javascript:`, `chrome-extension:`,
+  Android realms, embedded `user:pass@` addresses, and plain-HTTP rows are
+  refused and counted (HTTPS-only is deliberate: the vault would never fill an
+  HTTP origin). Empty usernames and Chromium's blacklist rows are skipped; a
+  row with an empty password records the username with **no Keychain item**;
+  an existing `(origin, username)` is never overwritten. No plaintext is logged,
+  no ciphertext reaches the UI, no schema changed, and the menu item is disabled
+  in private windows (the store refuses one too). Tests build synthetic
+  Chromium databases and cover v10/v11, the wrong key, malformed ciphertext,
+  empty passwords, duplicates, refused schemes, temp-copy lifetime, and
+  redaction.
+- **Sleeping tabs** (2026-10-25) — a tab left alone gives its page back while
+  keeping its place: the sidebar row, title, favicon, placement, back/forward
+  history and scroll position stay, the `WKWebView` and its content process go
+  (`v16_tab_sleep`, `Tab.isSleeping`). **Sleeping is not closing**: the ephemeral
+  sweep (§4.3) *archives* a tab, this keeps it. The pure `TabSleepPolicy`
+  (ChordCore) sleeps a tab after **30 minutes** idle, or **2 hours** once the
+  user has woken it before, and never touches: the tab on screen in any window
+  (a split is one tab, so both panes stay), favourites, Pinned tabs, private
+  tabs, a page playing audio (the §4.3 audio state, not a second probe), a page
+  holding unsent text (`TypedTextProbe`), or a tab with a download in flight.
+  Teardown is `WebEngine.evict` and revive is the ordinary
+  `interactionState` → `resolveInteractionState` → `surface` restore of ADR 010,
+  so no new WebKit path exists. Waking comes from a click, the command bar,
+  history, an extension, or the `surface` safety net (which covers the paths that
+  set a selection directly); a slept tab shows its last thumbnail or its
+  favicon-and-title card, never a blank one. Persisted, so a slept tab comes back
+  slept after a relaunch. **One idle timer**: the sweep pass sleeps first, and a
+  tab that is asleep is not archived — sleeping takes precedence over closing,
+  and an opened tab is never swept into the archive again, while a tab never
+  opened still is. Settings → General turns it off (`prefs.sleepingTabsEnabled`,
+  on by default). Non-spec, user-requested; design note in
+  `docs/design/tab-sleep.md`.
+- **Reader mode** (2026-10-25) — `Cmd+Shift+R`, View ▸ Reader Mode, or the
+  reader toolbar's close button turns the focused pane's article into a reading
+  view and back. **The page is never navigated, reloaded or scrolled**: the live
+  `WKWebView` stays mounted underneath and Reader is a Chord-owned overlay, so
+  leaving restores the page at the scroll position it already held. Extraction
+  is one evaluation in the app's isolated content world
+  (`ChordEngine/ReaderMode.swift`, `.defaultClient`, main frame only): it walks
+  the block-level DOM, drops hidden nodes, `nav`/`aside`/`footer`/`form` and
+  password controls, resolves images through `currentSrc` (so `srcset` and
+  lazy-loading show the picture the page showed), records iframe sources and
+  drawn heights, and returns **structured data — never HTML**: title, site,
+  byline, text blocks, image URLs with captions, iframe URLs. `ReaderExtraction`
+  (ChordCore, pure) scores candidate containers by prose length minus a 0.9
+  link-text penalty, with a block-count bonus and semantic bonuses for
+  `<article>`/`<main>`/`role=main` (and a `<body>` penalty); it requires **500
+  characters of non-link prose** (a link farm has none) and assembles the
+  article. `ReaderMarkup` (ChordCore) escapes every text value and allows only
+  `http(s)` image/iframe URLs; the reader document carries a restrictive CSP and
+  its `WKWebView` has JavaScript disabled and a non-persistent data store, so no
+  page script runs in the view. Light/dark follows the window. **Always open**
+  stores a host rule (registrable domain from the toolbar, any host from
+  Settings → Sites → Reader) and the next load of that site auto-opens the
+  reader through the existing `paneDidLoad` delegate callback — a page with no
+  article simply stays as itself, silently. Shortcut is free: `Cmd+R` remains
+  Reload. Tests: `ReaderExtractionTests` over four HTML fixtures (news, blog,
+  docs, link farm), `ReaderMarkupTests`, `ReaderSiteTests` and
+  `ReaderStoreTests`. Non-spec, user-requested.
+- **Site-search chips** (2026-10-25) — typing a site prefix in the command bar
+  leads with **Search <site>**: `red swiftui` offers "Search Reddit for
+  “swiftui”", Return opens that site's results, and Tab puts the site in the
+  field as a **chip** while the words stay the query. Backspace on an empty
+  query removes the chip and restores the plain bar. The built-in list lives in
+  `SiteRegistry` — one table that also serves `@site`, `!engine`, and the
+  starter keyword shortcuts, so those paths cannot disagree — and covers at
+  least Google, YouTube, Reddit, Wikipedia, GitHub, Stack Overflow, Amazon,
+  X/Twitter, Hacker News, npm, DuckDuckGo, Bing, and Brave. **Precedence:** an
+  explicit keyword (user-typed token → template) wins over a chip row; a chip
+  row wins over the leading open tabs and the URL/search fallback, except that
+  a bare site name still switches to an already-open tab for that site; a
+  bare host-like token (`reddit.com`) still navigates; `@`/`!`/`?` prefixes keep
+  their existing meaning. The fallback row is never removed, only displaced
+  from the top slot. Once a chip is in the field, it outranks a keyword: the
+  words belong to the site, and the web-search fallback is suppressed.
+  **OpenSearch discovery** is lazy and offline-safe: after a **home page**
+  load only (https, path `/` or empty, non-private tab, setting on), the app
+  asks the page — in the isolated world, never a user script — for a
+  `<link rel="search">`; an unknown site's descriptor is read from the **same
+  registrable domain only**, over https, with an ephemeral cookie-free session,
+  a 64 KB cap, a 10-second timeout, and same-site redirects only. The
+  description's own `ShortName` is ignored (the site is named by its host), the
+  template must be https, same-site, and contain exactly one `%s`, and the
+  result is cached as a preference, capped at 40. A cached site is never fetched
+  again; a host is asked about at most once per app session; nothing is fetched
+  before a visit, nothing is prefetched, typing never touches the network, and
+  a failure is silent. Settings → General turns the whole feature off (both
+  chips and discovery) and can forget learned sites. Matching and expansion are
+  pure (`ChordCore/SiteSearch.swift`); tests are `SiteSearchTests` and
+  `SiteSearchStoreTests`. Non-spec, user-requested.
 - **Per-tab mute**, and **Peek** (a link clicked in a Favourite/Pinned tab opens
   in a floating, promotable panel instead of navigating the protected page away).
 - **Site permissions** — camera, microphone, location, and notifications asked

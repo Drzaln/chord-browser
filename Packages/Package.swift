@@ -141,7 +141,10 @@ let package = Package(
         ),
         .testTarget(
             name: "ChordPersistenceTests",
-            dependencies: ["ChordPersistence", "ChordTestSupport"],
+            dependencies: [
+                "ChordPersistence", "ChordTestSupport",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ],
             swiftSettings: strict
         ),
         .testTarget(
@@ -171,7 +174,10 @@ let package = Package(
         ),
         .testTarget(
             name: "ChordStoreTests",
-            dependencies: ["ChordStore", "ChordSecrets", "ChordMCP", "ChordTestSupport"],
+            dependencies: [
+                "ChordStore", "ChordSecrets", "ChordMCP", "ChordTestSupport", "ChordPersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ],
             swiftSettings: strict
         ),
         .testTarget(

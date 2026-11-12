@@ -5469,3 +5469,33 @@ The sidebar has no keyboard focus navigation at all; filed as `gn0.11`.
 Tests: `SettingsCatalogTests` updated (46 ChordUI tests pass). **Not driven in
 the app**: the jump-and-highlight, the key routing and the pane layouts are
 unseen. SMOKE "Find a setting" is the list.
+
+## Browser import restored (2026-11-12, bead `gn0.4`)
+
+Three commits re-applied from their `feat/*` branches, one each, all in the
+**File** menu and all disabled in a private window:
+
+- **Import Bookmarks…** (`836155e`, 899.11): a Netscape-format HTML export
+  becomes Pinned tabs and folders in the active Space, after a dry-run count.
+  `ChordCore/BookmarkImport.swift`, `TabStore+BookmarkImport.swift`.
+- **Import from Arc…** (`dce4999`, 899.12): Arc's `StorableSidebar.json` becomes
+  Spaces, Pinned tabs and favourites; matched by name and URL, so a second
+  import adds nothing. `ChordCore/ArcImport.swift`, `TabStore+ArcImport.swift`.
+- **Import Passwords…** (`b250516`, 899.15): a Chromium browser's `Login Data`,
+  decrypted with its Safe Storage key and written through `CredentialVault`
+  only. `ChromiumPasswordImport` (Core and Store), `ChromiumLoginDatabaseReader`
+  (Persistence), `ChromiumPasswordDecryptor` (Secrets),
+  `CredentialVault.saveUsernameOnly`.
+
+The code applied cleanly; only `ChordApp.swift` (menu and panels), `Package.swift`
+and docs needed hand-merging. Re-checked 2026-11-12: none of the password
+import files logs anything, and secrets reach storage only through the vault.
+Settings search answers "import" with a note pointing at the File menu.
+
+Tests that came across and pass: `BookmarkImportTests`,
+`BookmarkImportStoreTests`, `ArcImportTests`, `ArcImportStoreTests`,
+`ChromiumPasswordImportTests` (Core and Store),
+`ChromiumLoginDatabaseReaderTests`, `ChromiumPasswordDecryptorTests`.
+**Not run in the app with real export files.** The password import asks the
+Keychain for the other browser's Safe Storage key, which shows a system
+prompt; that path is untested here.

@@ -364,6 +364,32 @@ the account, and when it was last used. **Reveal** shows a password after Touch 
 (or your Mac's password); **the trash** deletes it, from the Keychain too. Sites
 you told "Never" are listed at the bottom with an **Ask Again** button.
 
+**Importing from another browser.** **File → Import Passwords…** brings logins
+over from a Chromium-family browser: Chrome, Chromium, Chrome Beta/Dev/Canary,
+Arc, Brave, Edge, Vivaldi, Opera, Opera GX, Dia, Helium, and Comet. Choose that
+browser's **Login Data** file — inside its profile folder, usually
+`~/Library/Application Support/Google/Chrome/Default/Login Data`. If the profile
+lives somewhere else (a copied or throwaway `--user-data-dir` folder), Chord asks
+which browser wrote it, because that choice selects the Keychain key. macOS asks
+whether Chord may read the browser's **Safe Storage** key the first time; choose
+**Always Allow**. Chord then shows a dry run naming the browser and profile and
+counting what will be imported, what you already have, what is skipped, and what
+could not be decrypted. **Nothing is written until you click Import**, and Cancel
+writes nothing.
+
+What the import keeps: **HTTPS logins with a username**, matched by the same
+exact origin rule as the rest of the vault. It refuses and counts `file:`,
+extension, `javascript:`, Android, embedded-username/password, and plain-HTTP
+rows — the vault only fills HTTPS, so an HTTP login would be a credential you
+could never use. A login you already have is left alone, never overwritten. A row
+with a username but no saved password keeps the username with **no password
+stored**; you can fill it in later by signing in and saving normally.
+
+The other browser's database is read from a private temporary copy and the copy
+is deleted immediately; Chord never opens the live file. A browser that stores
+its key in a newer wrapped format (Chrome's app-bound encryption) is refused with
+a clear message instead of guessed at. Import is disabled in private windows.
+
 **What it will not do:**
 
 - **Fill on a look-alike site.** A saved password is offered only on an *exact*
