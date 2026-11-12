@@ -406,9 +406,21 @@ struct ChordCommands: Commands {
         // Find-in-page (M6). Cmd+G / Cmd+Shift+G are the platform's, and they
         // work whether or not the field has focus — which is the point: you
         // find, click into the page, then keep stepping through matches.
+        //
+        // While Settings is up, Cmd+F means "find a setting": the sheet takes
+        // the key for its own search field instead of opening find-in-page
+        // behind it (899.7).
         CommandGroup(after: .textEditing) {
-            Button("Find…") { withFocusedWindow { $0.showFindBar(in: $1) } }
-                .keyboardShortcut("f", modifiers: .command)
+            Button("Find…") {
+                withFocusedWindow { store, window in
+                    if window.isSettingsPresented {
+                        window.focusSettingsSearch()
+                    } else {
+                        store.showFindBar(in: window)
+                    }
+                }
+            }
+            .keyboardShortcut("f", modifiers: .command)
 
             Button("Find Next") { withFocusedWindow { $0.findNext(in: $1) } }
                 .keyboardShortcut("g", modifiers: .command)

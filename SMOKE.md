@@ -399,6 +399,19 @@ screenshot was blocked by a macOS screen-recording permission dialog, which was
 **not** actioned — it's a system prompt; the tab is the same `SettingsView` and
 its service actions are unit-tested.)
 
+### Find a setting (restored 2026-11-12, gn0.5; not walked yet)
+- [ ] `Cmd+,` then `Cmd+F` puts the cursor in **Search settings**, and find-in-page
+      does not open behind the sheet. Type `archive` → **Archive Inactive Tabs**
+      ranks first; Return opens **General**, scrolls to that row and marks it
+      for a moment.
+- [ ] `mcp` opens **Agents**; `bookmark` opens **Bookmarks**; `routing` opens
+      **Sites**; `suspend` lands on **Background Tabs**.
+- [ ] `dark` shows the **Appearance** note tagged **Not a setting**; `qqq`
+      names the query and **Clear Search** restores the panes.
+- [ ] Esc clears the search first, and closes the sheet when the field is empty.
+- [ ] The eight section tabs still fit without clipping, and every pane looks
+      as it did (rows, dividers, spacing).
+
 ### Privacy & Data
 - [x] `Cmd+,` opens the settings sheet
 - [x] Privacy & Data shows cache / cookies / storage / history toggles

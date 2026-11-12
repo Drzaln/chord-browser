@@ -23,10 +23,11 @@ struct SitesSettings: View {
     @State private var expandedPatterns: Set<String> = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            routingSection
-            Divider()
-            overridesSection
+        SettingsRows(section: .sites) { (row: SitesRow) in
+            switch row {
+            case .routingRules: routingSection
+            case .siteOverrides: overridesSection
+            }
         }
         .onAppear {
             if newRuleSpaceID == nil { newRuleSpaceID = store.visibleSpaces.first?.id }
@@ -38,7 +39,7 @@ struct SitesSettings: View {
     @ViewBuilder
     private var routingSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Routing Rules").font(.system(size: 13, weight: .semibold))
+            Text(SitesRow.routingRules.title).font(.system(size: 13, weight: .semibold))
             Text(
                 "Send a site's links to the Space it belongs in. A rule covers the "
                     + "domain and its subdomains. It is a default: splitting a pane, "
@@ -172,7 +173,7 @@ struct SitesSettings: View {
     @ViewBuilder
     private var overridesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Site Overrides").font(.system(size: 13, weight: .semibold))
+            Text(SitesRow.siteOverrides.title).font(.system(size: 13, weight: .semibold))
             Text(
                 "Change how a site looks: your own CSS, a script, or elements hidden "
                     + "for good. Covers the domain and its subdomains. Changes apply "

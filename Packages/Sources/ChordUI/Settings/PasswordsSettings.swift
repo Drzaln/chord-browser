@@ -20,28 +20,17 @@ struct PasswordsSettings: View {
     @State private var pendingDelete: Credential?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            lockSection
-
-            Divider().padding(.vertical, 4)
-
-            Text("Saved Passwords")
-                .font(.system(size: 13, weight: .semibold))
-
-            if credentials.isEmpty {
-                Text("No passwords saved yet. Chord offers to save one when you sign in.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            } else {
-                credentialList
+        SettingsRows(
+            section: .passwords,
+            spacing: 16,
+            dividerPadding: 4,
+            hiding: neverSaved.isEmpty ? [.neverSaved] : []
+        ) { (row: PasswordsRow) in
+            switch row {
+            case .vaultLock: lockSection
+            case .savedPasswords: savedPasswordsSection
+            case .neverSaved: neverSavedList
             }
-
-            if !neverSaved.isEmpty {
-                Divider().padding(.vertical, 4)
-                neverSavedList
-            }
-
-            Spacer(minLength: 0)
         }
         .task {
             store.refreshVaultLock()
@@ -65,6 +54,20 @@ struct PasswordsSettings: View {
             Button("Cancel", role: .cancel) { pendingDelete = nil }
         } message: {
             Text("This removes the password from the Keychain. It cannot be undone.")
+        }
+    }
+
+    @ViewBuilder
+    private var savedPasswordsSection: some View {
+        Text(PasswordsRow.savedPasswords.title)
+            .font(.system(size: 13, weight: .semibold))
+
+        if credentials.isEmpty {
+            Text("No passwords saved yet. Chord offers to save one when you sign in.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        } else {
+            credentialList
         }
     }
 
@@ -168,7 +171,7 @@ struct PasswordsSettings: View {
 
     private var neverSavedList: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Never Saved")
+            Text(PasswordsRow.neverSaved.title)
                 .font(.system(size: 13, weight: .semibold))
             Text("Chord does not offer to save passwords on these sites.")
                 .font(.system(size: 11))

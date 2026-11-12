@@ -5447,3 +5447,25 @@ Pinned rows get them through `TabRowView`; favourite tiles (`PinnedGrid`)
 offer Remove from Favourites, mute and Close Tab. Nothing visible changed.
 Tests: `TabRowAccessibilityTests` (5). Not tried with VoiceOver in the app.
 The sidebar has no keyboard focus navigation at all; filed as `gn0.11`.
+
+## Settings search restored (2026-11-12, bead `gn0.5`)
+
+`dd6d4ec` ("find a setting by name", 899.7) re-applied from
+`feat/settings-search` onto today's Settings. New files as they were:
+`SettingsCatalog.swift`, `SettingsRows.swift`, `SettingsSearch.swift`,
+`SettingsCatalogTests`. Changed for `main` as it is now:
+
+- `SettingsSection` gained **Bookmarks** and **Agents**; the open section still
+  lives on `WindowState.settingsSection` (by title), and the measured picker
+  width is kept so eight tabs do not clip.
+- Rows dropped with their features: keyword shortcuts, sleeping tabs, reader
+  sites. Rows added: Default Browser, Background Tabs, Bookmarks, and four
+  Agents rows. Extension keywords cover pinning and private windows.
+- `GeneralSettings`, `AgentsSettings` and `BookmarksSettings` now draw through
+  `SettingsRows` like the other panes.
+- `Cmd+F` with Settings open goes to the search field (menu route plus a local
+  key monitor).
+
+Tests: `SettingsCatalogTests` updated (46 ChordUI tests pass). **Not driven in
+the app**: the jump-and-highlight, the key routing and the pane layouts are
+unseen. SMOKE "Find a setting" is the list.

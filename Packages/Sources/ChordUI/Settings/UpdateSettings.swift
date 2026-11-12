@@ -30,6 +30,16 @@ struct UpdateSettings: View {
     }
 
     var body: some View {
+        SettingsRows(section: .updates, spacing: 16) { (row: UpdatesRow) in
+            switch row {
+            case .updates: updatesSection
+            }
+        }
+        .task { await checkIfNeeded() }
+    }
+
+    @ViewBuilder
+    private var updatesSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
 
@@ -65,14 +75,13 @@ struct UpdateSettings: View {
 
             Spacer(minLength: 0)
         }
-        .task { await checkIfNeeded() }
     }
 
     // MARK: - Rows
 
     private var header: some View {
         HStack {
-            Text("Updates").font(.system(size: 13, weight: .semibold))
+            Text(UpdatesRow.updates.title).font(.system(size: 13, weight: .semibold))
             Spacer()
             Text(verbatim: "Installed \(controller.currentVersion)")
                 .font(.system(size: 11))

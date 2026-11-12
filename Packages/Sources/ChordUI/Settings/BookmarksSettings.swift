@@ -19,6 +19,15 @@ struct BookmarksSettings: View {
     }
 
     var body: some View {
+        SettingsRows(section: .bookmarks) { (row: BookmarksRow) in
+            switch row {
+            case .bookmarks: bookmarksSection
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var bookmarksSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Bookmarks").font(.system(size: 13, weight: .semibold))

@@ -197,6 +197,20 @@ public final class WindowState {
     /// selection here means the user returns to Extensions, not General.
     public var settingsSection = "General"
 
+    /// A nudge from the Find… menu: `Cmd+F` means "find a setting" while the
+    /// sheet is up, not find-in-page behind it. The sheet watches this and puts
+    /// the cursor in its search field.
+    ///
+    /// A counter, not a flag, so pressing `Cmd+F` again refocuses the field
+    /// after a click moved focus elsewhere. Ephemeral and not persisted.
+    public private(set) var settingsSearchFocusCount = 0
+
+    /// Asks the open settings sheet to focus its search field. See
+    /// `settingsSearchFocusCount`.
+    public func focusSettingsSearch() {
+        settingsSearchFocusCount &+= 1
+    }
+
     /// Whether the History window is showing. Kept here for the same reason.
     public var isHistoryPresented = false
 

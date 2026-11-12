@@ -29,14 +29,13 @@ struct AgentsSettings: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            accessSection
-            Divider()
-            spacesSection
-            Divider()
-            scriptsSection
-            Divider()
-            connectSection
+        SettingsRows(section: .agents) { (row: AgentsRow) in
+            switch row {
+            case .localAgents: accessSection
+            case .sharedSpaces: spacesSection
+            case .javascript: scriptsSection
+            case .connect: connectSection
+            }
         }
     }
 

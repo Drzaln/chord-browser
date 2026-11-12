@@ -54,28 +54,25 @@ struct GeneralSettings: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            defaultBrowserSection
-            Divider()
-            searchEngineSection
-            Divider()
-            newTabSection
-            Divider()
-            userAgentSection
-            Divider()
-            referrerSection
-            Divider()
-            hibernationSection
-            Divider()
-            gestureSection
-            Divider()
-            backgroundTabsSection
-            Divider()
-            developerSection
-            // No trailing `Spacer` here. Inside the sheet's `ScrollView` a
-            // greedy spacer absorbs the overflow instead of letting it scroll,
-            // so the section below the fold — the per-site UA rules — was
-            // rendered and simply unreachable.
+        // The row list comes from `GeneralRow.allCases` (see `SettingsRows`),
+        // not from this switch's order: search indexes exactly what is drawn.
+        //
+        // No trailing `Spacer` here. Inside the sheet's `ScrollView` a greedy
+        // spacer absorbs the overflow instead of letting it scroll, so the
+        // section below the fold — the per-site UA rules — was rendered and
+        // simply unreachable.
+        SettingsRows(section: .general) { (row: GeneralRow) in
+            switch row {
+            case .defaultBrowser: defaultBrowserSection
+            case .searchEngine: searchEngineSection
+            case .newTab: newTabSection
+            case .userAgent: userAgentSection
+            case .referrer: referrerSection
+            case .archiveInactiveTabs: hibernationSection
+            case .gestures: gestureSection
+            case .backgroundTabs: backgroundTabsSection
+            case .developerMode: developerSection
+            }
         }
         .onAppear(perform: syncFromStore)
         .onAppear { defaultBrowser.refresh() }

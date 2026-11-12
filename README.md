@@ -123,6 +123,8 @@ circle. Brand assets and colors are in [docs/branding/](docs/branding/BRANDING.m
   (Google, DuckDuckGo, Bing, Brave, or a custom `%s` template), what a new tab
   opens to (blank, the search engine's home, or a specific page), and how long
   before idle tabs are archived — all from **Settings → General**.
+- **Find a setting** — `Cmd+F` in Settings searches every row by name or
+  synonym (`archive`, `mcp`, `camera`, `dark`) and jumps to it.
 - **Default browser** — **Settings → General → Make Default** sets Chord as the
   Mac's default browser through the system prompt; local `.html` files open in a
   new tab.

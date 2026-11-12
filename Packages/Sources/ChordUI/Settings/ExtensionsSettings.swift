@@ -39,57 +39,10 @@ struct ExtensionsSettings: View {
     ].compactMap { $0 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            header
-
-            if extensions != nil {
-                HStack(spacing: 8) {
-                    TextField("Chrome Web Store link or extension id", text: $storeLink)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 12))
-                        .onSubmit { addFromStore() }
-                    Button(busyStore ? "Adding…" : "Add") {
-                        addFromStore()
-                    }
-                    .disabled(busyStore || Crx.id(in: storeLink) == nil)
-                }
+        SettingsRows(section: .extensions, spacing: 16) { (row: ExtensionsRow) in
+            switch row {
+            case .extensions: extensionsSection
             }
-
-            if extensions == nil {
-                Text("The extension subsystem is not available.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-            } else if installed.isEmpty {
-                Text("No extensions installed. Add a .crx or .xpi to get started.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(installed) { row(for: $0) }
-                }
-            }
-
-            if let errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.orange)
-            }
-
-            if let warningMessage {
-                Label(warningMessage, systemImage: "exclamationmark.shield.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.orange)
-            }
-
-            Text(
-                store.activeSpace(in: windowState).map {
-                    $0.isPrivate
-                        ? "In a private window, the switch lets an extension into private windows. Extensions stay out of them until you do."
-                        : "Enabling loads the extension into “\($0.name)”. Each Space enables extensions independently."
-                } ?? "Open a Space to enable extensions."
-            )
-            .font(.system(size: 11))
-            .foregroundStyle(.secondary)
-
-            Spacer(minLength: 0)
         }
         .task { refresh() }
         .fileImporter(
@@ -122,9 +75,65 @@ struct ExtensionsSettings: View {
         }
     }
 
+    @ViewBuilder
+    private var extensionsSection: some View {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+
+                if extensions != nil {
+                    HStack(spacing: 8) {
+                        TextField("Chrome Web Store link or extension id", text: $storeLink)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 12))
+                            .onSubmit { addFromStore() }
+                        Button(busyStore ? "Adding…" : "Add") {
+                            addFromStore()
+                        }
+                        .disabled(busyStore || Crx.id(in: storeLink) == nil)
+                    }
+                }
+
+                if extensions == nil {
+                    Text("The extension subsystem is not available.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                } else if installed.isEmpty {
+                    Text("No extensions installed. Add a .crx or .xpi to get started.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(installed) { row(for: $0) }
+                    }
+                }
+
+                if let errorMessage {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.orange)
+                }
+
+                if let warningMessage {
+                    Label(warningMessage, systemImage: "exclamationmark.shield.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.orange)
+                }
+
+                Text(
+                    store.activeSpace(in: windowState).map {
+                        $0.isPrivate
+                            ? "In a private window, the switch lets an extension into private windows. Extensions stay out of them until you do."
+                            : "Enabling loads the extension into “\($0.name)”. Each Space enables extensions independently."
+                    } ?? "Open a Space to enable extensions."
+                )
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+
+                Spacer(minLength: 0)
+        }
+    }
+
     private var header: some View {
         HStack {
-            Text("Extensions").font(.system(size: 13, weight: .semibold))
+            Text(ExtensionsRow.extensions.title).font(.system(size: 13, weight: .semibold))
             Spacer()
             Button {
                 errorMessage = nil

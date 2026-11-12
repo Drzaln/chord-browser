@@ -640,6 +640,18 @@ each carries its own ADR or CHECKPOINT section for the reasoning.
   extensions installed before pinning existed start pinned, later installs
   unpinned. The … panel holds a floating sidebar open, like the Downloads
   popover.
+- **Find a setting** (899.7, built 2026-10-25, restored 2026-11-12 as gn0.5;
+  non-spec: user-requested) — the Settings sheet is searchable. `Cmd+F`
+  focuses the field while the sheet is up (the Find… menu routes the key there
+  instead of opening find-in-page behind it). One catalog
+  (`ChordUI/Settings/SettingsCatalog.swift`) names every row's section, title,
+  blurb and keywords, and all eight panes draw their rows from the same row
+  enums through `SettingsRows`, so a row cannot be on a page and missing from
+  search. Matching folds case, diacritics and width; ranking is title prefix,
+  title contains, keyword, blurb, section, with every query word required.
+  Find-only notes answer lookalikes that are not settings (appearance, page
+  zoom, private windows, downloads, content blocking). Tests:
+  `SettingsCatalogTests`.
 - **Error page and link destinations** (2026-11-10; non-spec: user-requested) —
   a load that fails before the site shows anything gets a page from a private
   `chord-error://` scheme (`ErrorPage`) while the app still reports the pane at

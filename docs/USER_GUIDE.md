@@ -118,7 +118,7 @@ Space_.
 
 | Shortcut      | Action                                                       |
 | ------------- | ------------------------------------------------------------ |
-| `Cmd+F`       | Show the find bar                                            |
+| `Cmd+F`       | Show the find bar (in Settings: find a setting)              |
 | `Cmd+G`       | Find next                                                    |
 | `Cmd+Shift+G` | Find previous                                                |
 | `Cmd+P`       | Print the focused pane                                       |
@@ -685,6 +685,17 @@ timing — described [above](#general-settings)), **Sites** (see
 [Passwords](#passwords)), **Privacy & Data**, **Extensions**, **Bookmarks**,
 **Agents** (see [Agents](#agents-mcp)), and **Updates** (see
 [Updates](#updates)).
+
+### Finding a setting
+
+Press `Cmd+F` while Settings is open (or click the **Search settings** field)
+and type what you remember. Case and accents do not matter: `archive` finds
+**Archive Inactive Tabs**, `mcp` finds **Local Agents**, `dark` explains that
+appearance follows your Mac, and `camera` opens the site-permission list.
+Return or a click opens the matching section and marks the row for a moment.
+Results tagged **Not a setting** are notes, not controls: they say where the
+real control lives. If nothing matches, the empty state names your words and
+offers **Clear Search**. `Esc` clears the search, then closes Settings.
 
 ### Privacy & Data — clear browsing data
 

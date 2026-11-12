@@ -36,56 +36,12 @@ struct PrivacyDataSettings: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Clear Browsing Data")
-                .font(.system(size: 13, weight: .semibold))
-
-            VStack(alignment: .leading, spacing: 10) {
-                dataToggle($clearCache, "Cached files and images",
-                    "Frees disk space. Does not sign you out.")
-                dataToggle($clearCookies, "Cookies and other site data",
-                    "Signs you out of most websites, in every Space.")
-                dataToggle($clearSiteStorage, "Local & session storage",
-                    "localStorage, IndexedDB, and service workers.")
-                dataToggle($clearHistory, "Browsing history",
-                    "The list of pages you have visited.")
+        SettingsRows(section: .privacy, spacing: 16, dividerPadding: 4) { (row: PrivacyRow) in
+            switch row {
+            case .clearBrowsingData: clearBrowsingDataSection
+            case .sitePermissions: sitePermissionsSection
+            case .cookiesForSite: cookieSection
             }
-
-            HStack(spacing: 12) {
-                Button(role: .destructive) {
-                    confirming = true
-                } label: {
-                    if working {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Text("Clear Data")
-                    }
-                }
-                .disabled(selection.isEmpty || working)
-
-                if let lastCleared {
-                    Label(lastCleared, systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .transition(.opacity)
-                }
-            }
-
-            Text(
-                "Website data is cleared for every Space. This cannot be undone."
-            )
-            .font(.system(size: 11))
-            .foregroundStyle(.secondary)
-
-            Divider().padding(.vertical, 4)
-
-            sitePermissionsSection
-
-            Divider().padding(.vertical, 4)
-
-            cookieSection
-
-            Spacer(minLength: 0)
         }
         .task { await store.refreshSitePermissions() }
         .task { await primeCookies() }
@@ -99,6 +55,49 @@ struct PrivacyDataSettings: View {
         } message: {
             Text("This permanently removes the selected data across every Space.")
         }
+    }
+
+    @ViewBuilder
+    private var clearBrowsingDataSection: some View {
+        Text(PrivacyRow.clearBrowsingData.title)
+            .font(.system(size: 13, weight: .semibold))
+
+        VStack(alignment: .leading, spacing: 10) {
+            dataToggle($clearCache, "Cached files and images",
+                "Frees disk space. Does not sign you out.")
+            dataToggle($clearCookies, "Cookies and other site data",
+                "Signs you out of most websites, in every Space.")
+            dataToggle($clearSiteStorage, "Local & session storage",
+                "localStorage, IndexedDB, and service workers.")
+            dataToggle($clearHistory, "Browsing history",
+                "The list of pages you have visited.")
+        }
+
+        HStack(spacing: 12) {
+            Button(role: .destructive) {
+                confirming = true
+            } label: {
+                if working {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text("Clear Data")
+                }
+            }
+            .disabled(selection.isEmpty || working)
+
+            if let lastCleared {
+                Label(lastCleared, systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .transition(.opacity)
+            }
+        }
+
+        Text(
+            "Website data is cleared for every Space. This cannot be undone."
+        )
+        .font(.system(size: 11))
+        .foregroundStyle(.secondary)
     }
 
     // MARK: - Camera & microphone site permissions
@@ -140,7 +139,7 @@ struct PrivacyDataSettings: View {
 
     @ViewBuilder
     private var sitePermissionsSection: some View {
-        Text("Site Permissions")
+        Text(PrivacyRow.sitePermissions.title)
             .font(.system(size: 13, weight: .semibold))
 
         if siteRows.isEmpty {
@@ -190,7 +189,7 @@ struct PrivacyDataSettings: View {
     /// you made, this shows the state a site actually stored.
     @ViewBuilder
     private var cookieSection: some View {
-        Text("Cookies for a Site")
+        Text(PrivacyRow.cookiesForSite.title)
             .font(.system(size: 13, weight: .semibold))
         Text(
             "Look at, and clear, the cookies the current Space holds for one site. "
