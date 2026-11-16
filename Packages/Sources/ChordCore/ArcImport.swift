@@ -426,6 +426,13 @@ public enum ArcSidebarParser {
         var itemLimitReached = false
         private var visited = 0
 
+        /// Written out: with a `private` stored property the memberwise
+        /// initializer is itself `private` to this type on the release
+        /// runner's Swift (Xcode 26), though Xcode 27 lets it through.
+        init(items: [String: [String: Any]]) {
+            self.items = items
+        }
+
         mutating func collect(
             under id: String,
             space: String,

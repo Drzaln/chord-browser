@@ -47,7 +47,10 @@ final class PaneUIDelegate: NSObject {
     }
 
     nonisolated override func forwardingTarget(for selector: Selector!) -> Any? {
-        MainActor.assumeIsolated { coordinator }
+        // Typed before it widens to `Any?`: the release runner's Swift wants
+        // what leaves `assumeIsolated` to be Sendable.
+        let target: NavigationCoordinator = MainActor.assumeIsolated { coordinator }
+        return target
     }
 }
 
