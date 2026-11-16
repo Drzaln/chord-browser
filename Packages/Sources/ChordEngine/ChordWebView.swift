@@ -17,6 +17,8 @@ import WebKit
 /// point the page's asynchronously-posted href has arrived.
 @MainActor
 final class ChordWebView: WKWebView {
+    /// Kept here because `uiDelegate` is weak.
+    var paneUIDelegate: PaneUIDelegate?
     /// The URL of the most recently right-clicked link, resolved at click time.
     var contextLinkURL: (() -> URL?)?
     /// The URL of the most recently right-clicked image, resolved at click time.

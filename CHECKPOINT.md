@@ -5648,3 +5648,25 @@ baseline), in bursts; Bitwarden's worker no longer relaunches. 17 launches had
 no Chord log line near them, so `perf web-view <kind>` is now logged at every
 place Chord creates a web view. The controlled front/hidden/minimized run is
 not done.
+
+### Screen sharing offers windows again (2026-11-16, 2nz)
+
+Since `599c848` (desktopCapture port) a website's "Present" in Google Meet
+offered entire screens only. Cause: `NavigationCoordinator` gained
+`_webView:requestDisplayCapturePermissionForOrigin:…` and answered `1` for
+websites, read at the time as "the Mac picker". It is
+`WKDisplayCapturePermissionDecisionScreenPrompt`: screens only (`2` is windows
+only, `0` deny). WebKit shows the full picker (`UserChoose`) only when the UI
+delegate does **not** respond to the selector, and it asks `respondsToSelector:`
+on every request (UIDelegate.mm, `decidePolicyForUserMediaPermissionRequest`).
+
+Fix: each pane's `uiDelegate` is now a `PaneUIDelegate`, which forwards
+everything to the coordinator but responds to that selector only while the
+pane shows a `chrome-extension:`/`webkit-extension:` page. Websites get the
+full picker; an extension page in a tab is still refused unless Chord's own
+capture call is in flight. `PaneUIDelegateTests` (3) covers it.
+
+**Verified live** by the user on 2026-11-16: Meet's Present offers windows
+again in the rebuilt app. Extension popups, panels and
+offscreen pages still answer `1`/`0` themselves, so an extension recording
+through them is still screens only; untouched here.

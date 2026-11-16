@@ -538,10 +538,9 @@ extension NavigationCoordinator: WKUIDelegate {
     /// `device.camera`/`device.microphone` entitlements and the `NS*UsageDescription`
     /// strings in Info.plist); denying it there denies the site.
     ///
-    /// Screen sharing (`getDisplayMedia`) is deliberately absent: `WKMediaCaptureType`
-    /// has only camera and microphone, and public WKWebView exposes no display-
-    /// capture permission hook, so "Present now" in Meet cannot be supported
-    /// through the public SDK (verified against WKUIDelegate.h). Not faked here.
+    /// Screen sharing (`getDisplayMedia`) does not come through here:
+    /// `WKMediaCaptureType` has only camera and microphone. A website's share
+    /// goes straight to the Mac's screen and window picker (`PaneUIDelegate`).
     func webView(
         _ webView: WKWebView,
         requestMediaCapturePermissionFor origin: WKSecurityOrigin,
@@ -571,10 +570,13 @@ extension NavigationCoordinator: WKUIDelegate {
     }
 
     /// WebKit's display-capture question (SPI, as in the popup and panel
-    /// delegates). A website keeps WebKit's own answer — the Mac's picker — so
-    /// ordinary screen sharing is unchanged. An extension's page is answered
-    /// only while Chord's own `getDisplayMedia` call is in flight; an extension
-    /// cannot raise the picker on its own.
+    /// delegates), asked only for an extension's page: `PaneUIDelegate` hides
+    /// this method from WebKit for a website, which is what gets the site the
+    /// Mac's full picker. The answers are 0 deny, 1 screens only, 2 windows
+    /// only; none means "let the user choose", so a website must never be
+    /// answered here. An extension's page is answered only while Chord's own
+    /// `getDisplayMedia` call is in flight; it cannot raise the picker on its
+    /// own.
     @objc(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:)
     func displayCapture(
         _ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
@@ -582,7 +584,7 @@ extension NavigationCoordinator: WKUIDelegate {
     ) {
         let scheme = origin.`protocol`.lowercased()
         guard scheme == "chrome-extension" || scheme == "webkit-extension" else {
-            decisionHandler(1)
+            decisionHandler(0)
             return
         }
         decisionHandler(engine?.displayDecision(for: webView) ?? 0)

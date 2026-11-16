@@ -652,7 +652,13 @@ public final class WebKitEngine: WebEngine {
         // retroactive push.
         webView.pageZoom = pageZoomFactor
         webView.navigationDelegate = coordinator
-        webView.uiDelegate = coordinator
+        // Not the coordinator itself: it must not answer display capture for
+        // a website, or the Mac's picker loses its windows (PaneUIDelegate).
+        if let coordinator {
+            let uiDelegate = PaneUIDelegate(coordinator: coordinator, webView: webView)
+            webView.paneUIDelegate = uiDelegate
+            webView.uiDelegate = uiDelegate
+        }
         // The native form-submission callback (`_WKInputDelegate`, macOS 26.4+),
         // set through the ObjC runtime because the SDK ships no declaration — the
         // same SPI-by-selector approach as the geolocation delegate. It is what
