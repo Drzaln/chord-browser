@@ -1835,6 +1835,46 @@ public final class WebKitEngine: WebEngine {
 
     private static var notedPhases: Set<String> = []
 
+    /// `first-commit`, plus how much of the wait for it was the site's (42j).
+    ///
+    /// The startup gate judges launch at first commit, and the first page is
+    /// whichever tab the session restores: a signed-in page that takes 500 ms
+    /// to answer failed a release that had not changed. So the page is asked,
+    /// once, how long it spent on the network before its first byte, and that
+    /// is logged as `perf first-network-wait <ms>` for the gate to take off.
+    /// Nothing is logged for a page that cannot say (no navigation entry).
+    static func noteFirstCommit(in webView: WKWebView) {
+        guard !notedPhases.contains("first-commit") else { return }
+        notePhaseOnce("first-commit")
+        webView.evaluateJavaScript(networkWaitScript, in: nil, in: .defaultClient) { result in
+            guard case .success(let value) = result,
+                  let wait = (value as? NSNumber)?.intValue, wait >= 0
+            else { return }
+            Log.engine.notice("perf first-network-wait \(wait)")
+        }
+    }
+
+    /// Milliseconds the first page provably spent on the network: the DNS
+    /// lookup, the connection with its TLS handshake, and the wait between
+    /// sending the request and the first byte back.
+    ///
+    /// Deliberately not "fetch start to first byte". That span also holds
+    /// whatever kept the request from going out (the network process coming
+    /// up, content rules loading), which is the launch's own cost and has to
+    /// stay in the number the gate judges. `-1` when the page has no
+    /// navigation timing to read.
+    static let networkWaitScript = """
+        (() => {
+            const entry = performance.getEntriesByType("navigation")[0];
+            if (!entry || !(entry.responseStart > 0)) { return -1; }
+            const span = (start, end) => (end > start ? end - start : 0);
+            return Math.round(
+                span(entry.domainLookupStart, entry.domainLookupEnd)
+                + span(entry.connectStart, entry.connectEnd)
+                + span(entry.requestStart, entry.responseStart));
+        })()
+        """
+
     /// Whether any pane has finished a load since launch; see `noteFirstPaint`.
     private static var hasPainted = false
 

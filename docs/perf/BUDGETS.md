@@ -14,7 +14,7 @@ fails names this file.
 | `setInterval` in the extension shim | 0 | the shim runs in every extension page and worker | `ShimPerfBudgetTests.noIntervals` |
 | Live intervals 2 s after a plain page loads | 0 | | `PerfBudgetTests.liveIntervals` |
 | …on YouTube | 1 | the ad check's 2 s backup (c1k.5) | same |
-| Startup, launch to first commit | 800 ms | §6.1's ceiling; measured 453–690 ms on 2026-11-10 | `scripts/startup-gate.sh` (every `release.sh`) |
+| Startup, launch to first commit, less the first page's network wait | 800 ms | §6.1's ceiling; measured 281 ms on 2026-11-17 (880 ms first commit, 599 ms of it the site) | `scripts/startup-gate.sh` (every `release.sh`) |
 | Startup, Chord's own work (launch to first-load-start) | 400 ms | §6.1's aim; measured about 270 ms | same |
 
 The reviewed intervals: YouTube's ad check runs four times a second only
@@ -39,10 +39,25 @@ with nobody opting in; `CHORD_SKIP_STARTUP=1` skips it.
 does not run it, because it quits and relaunches the running Chord (and puts
 it back after).
 
+Amended 2026-11-17 (42j): first commit is judged **less the first page's
+network wait**. The first page is whichever tab the session restores, so the
+number moved with the site: the same 1.27.1 build measured 448 to 651 ms on
+2026-11-16 and 841 to 1,117 ms a day later, when the restored tab was a
+signed-in page whose server takes about half a second to answer, and a
+release with no startup change failed the gate. At first commit Chord now
+asks that page for its navigation timing and logs
+`perf first-network-wait <ms>`: DNS lookup, connection and TLS, and request
+sent to first byte. The gate takes that off first commit before comparing it
+with 800 ms. Time before the lookup starts (the network process coming up,
+content rules loading) is not taken off: that is the launch's own cost. When
+fewer than three runs report a wait (a page with no navigation timing), the
+whole first commit is judged, as before.
+
 Do not browse while it runs. A launch into a blank window (no selected tab)
 loads no page; that run is not counted, and fewer than three counted runs
 reports "not measured" and passes with a warning.
 
 Each run also prints where the time went, in ms since launch: `env-ready`,
 `restore-start`, `restore-done`, `first-view`, `first-load-start`,
-`first-commit`, `extensions-start`, `first-paint`.
+`first-commit`, `extensions-start`, `first-paint`, and after them the medians,
+including `network-wait` and `commit-less-network`.

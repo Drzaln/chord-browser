@@ -5448,6 +5448,24 @@ which is the site's time: 559 to 6,748 ms on one build).
 - Not done: no code was made faster; the budget is met where it is now read.
   Extensions still start at ~1.65 s, which can be before a slow page finishes.
 
+## Startup gate no longer depends on the restored tab (2026-11-17, bead `42j`)
+
+Release 1.27.2 stopped at the startup gate: first commit 946 ms against 800.
+Not a regression. The installed 1.27.1 measured 915 ms the same way, having
+measured 448–651 ms the day before; own work was about 270 ms throughout. The
+tab restored at launch was a signed-in github.com page that takes about 600 ms
+to answer.
+
+- `WebKitEngine.noteFirstCommit(in:)` logs `perf first-network-wait <ms>` once
+  per launch: the first page's DNS + connect + request-to-first-byte, read from
+  its navigation timing (`networkWaitScript`, tested in
+  `StartupNetworkWaitTests`). Time before the lookup starts is left in.
+- `scripts/perf-baseline.sh startup` prints the wait per run and two more
+  medians; `scripts/startup-gate.sh` judges first commit less that wait, and
+  falls back to the whole first commit when fewer than three runs report one.
+- Measured after: first commit 880 ms, 599 ms of it the site, 281 ms judged.
+- Details in `docs/perf/BUDGETS.md` ("Amended 2026-11-17").
+
 ## VoiceOver actions on tab rows (2026-11-12, bead `gn0.9`)
 
 The row's close button exists only on hover (Arc's behaviour, kept on the

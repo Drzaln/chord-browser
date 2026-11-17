@@ -62,7 +62,7 @@ extension NavigationCoordinator: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        WebKitEngine.notePhaseOnce("first-commit")
+        WebKitEngine.noteFirstCommit(in: webView)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

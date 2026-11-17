@@ -69,7 +69,10 @@ cmd_startup() {
     # The budget mark is first-commit (c1k.17, decided 2026-11-12): the first
     # bytes of the first page on screen. `own` is Chord's part alone, up to
     # first-load-start; `paint` is the page finishing, which is the site's.
-    local commits=() owns=() paints=()
+    # `wait` is what the first page spent on the network before its first byte
+    # (42j), and `net` is first commit with that taken off: the launch as it
+    # would be measured against a page that answers at once.
+    local commits=() owns=() paints=() waits=() nets=()
     # Put back whichever Chord the user had open (the runs quit it).
     local previous=""
     local pid; pid=$(pgrep -x Chord | head -1 || true)
@@ -89,15 +92,22 @@ cmd_startup() {
             $3=="first-load-start" && l && !o {o=$1}
             $3=="first-commit" && l && !c {c=$1}
             $3=="first-paint" && l && !p {p=$1}
-            END {print (c ? c-l : "-"), (o ? o-l : "-"), (p ? p-l : "-")}')
-        local commit own paint
-        read -r commit own paint <<< "$marks"
+            $3=="first-network-wait" && l && w=="" {w=$4}
+            END {print (c ? c-l : "-"), (o ? o-l : "-"), (p ? p-l : "-"), (w!="" ? w : "-")}')
+        local commit own paint wait
+        read -r commit own paint wait <<< "$marks"
         if [[ "$commit" == "-" ]]; then
             # No page was loaded: the session came back with a blank window
             # (no selected tab). That is not a slow launch, so it is not counted.
             echo "run $run: no first-commit logged (blank window?), not counted"
         else
-            echo "run $run: $commit ms to first commit"
+            if [[ "$wait" != "-" ]]; then
+                echo "run $run: $commit ms to first commit, $wait ms of it waiting on the site"
+                waits+=("$wait")
+                nets+=("$((commit - wait))")
+            else
+                echo "run $run: $commit ms to first commit"
+            fi
             commits+=("$commit")
             [[ "$own" != "-" ]] && owns+=("$own")
             [[ "$paint" != "-" ]] && paints+=("$paint")
@@ -119,6 +129,9 @@ cmd_startup() {
     printf '%s\n' "${commits[@]+"${commits[@]}"}" | median | sed 's/^/startup median ms: /'
     printf '%s\n' "${owns[@]+"${owns[@]}"}" | median | sed 's/^/startup own-work median ms: /'
     printf '%s\n' "${paints[@]+"${paints[@]}"}" | median | sed 's/^/startup page-finish median ms: /'
+    echo "startup network-wait runs: ${#waits[@]}"
+    printf '%s\n' "${waits[@]+"${waits[@]}"}" | median | sed 's/^/startup network-wait median ms: /'
+    printf '%s\n' "${nets[@]+"${nets[@]}"}" | median | sed 's/^/startup commit-less-network median ms: /'
 }
 
 cmd_switch() {
