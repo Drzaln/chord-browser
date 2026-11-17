@@ -10,6 +10,11 @@ echo "==> Checking for macOS 27 SDK-only API names"
 # ci.yml is the full check, this one runs before the push.
 python3 scripts/check-sdk-availability.py
 
+echo "==> Feature guard"
+# ADR 028: a test that exists may not be deleted, emptied or disabled on the
+# way to a new feature. Runs early: it takes half a second and needs no build.
+python3 scripts/feature-guard.py check
+
 echo "==> Building packages"
 swift build --package-path Packages -Xswiftc -warnings-as-errors
 

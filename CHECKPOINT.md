@@ -683,6 +683,14 @@ describes.
 Builds all packages, runs all tests, builds the app. Warnings are errors.
 Manual checks live in [SMOKE.md](SMOKE.md).
 
+It starts with the **feature guard** (ADR 028, 2026-11-17):
+`scripts/feature-guard.py check` fails when a test listed in
+`scripts/feature-guard.lock.json` is deleted, disabled or left with fewer
+assertions, so a new feature cannot remove an old one by removing its test.
+After adding tests run `scripts/feature-guard.py update`; a deliberate removal
+needs `retire <test-id> --reason "..."`. The rules for agents are in
+[AGENTS.md](AGENTS.md) under "Feature guard".
+
 The app ships **unsandboxed** (direct/notarized, not the Mac App Store); runtime
 data lives at `~/Library/Application Support/Chord/` (with cookies/sessions in
 `~/Library/WebKit` and preferences in `~/Library/Preferences/com.rizal.chord.plist`).

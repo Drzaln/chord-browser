@@ -61,7 +61,7 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 ## Build & Test
 
 ```bash
-# The full local gate: SDK check, packages (warnings are errors), every test
+# The full local gate: SDK check, feature guard, packages (warnings are errors), every test
 # target serially, then the app build. Must be green before a push or release.
 ./scripts/prepush.sh
 
@@ -81,6 +81,29 @@ Opt-in gates: `CHORD_REAL_EXTENSIONS=1` (real Chrome extension matrix) and
 always runs). Releases go through
 `./scripts/release.sh <version> [build]`; the procedure is in
 [AGENTS.md](AGENTS.md) under "Push to GitHub / release".
+
+## Feature guard: old features stay
+
+A new feature must not cost an old one. Every test in `Packages/Tests` is
+listed, with its assertion count, in `scripts/feature-guard.lock.json`, and
+`scripts/feature-guard.py check` (first step of prepush, and in CI) fails when
+a listed test is deleted, renamed away, commented out, disabled, or left with
+fewer assertions (ADR 028).
+
+- **Before changing a feature**, find the tests around it and run them:
+  `scripts/feature-guard.py list <word>`, then
+  `swift test --package-path Packages --no-parallel --filter '<Suite>'`.
+- **An old test fails after your change:** the change broke the old behaviour.
+  Fix the code. Do not edit the test to match, unless the user asked for that
+  behaviour to change.
+- **You added or strengthened tests:** run `scripts/feature-guard.py update`
+  and commit the lock with the change. A new feature without a test is not
+  guarded, so it gets one.
+- **The guard reports removed / weakened / disabled:** restore the test. Only
+  when the user asked for that behaviour to go, run
+  `scripts/feature-guard.py retire "<test-id>" --reason "<what went, who asked>"`
+  and say so in the handoff. Never hand-edit the lock, and never retire a test
+  because it was in the way.
 
 ## Architecture Overview
 

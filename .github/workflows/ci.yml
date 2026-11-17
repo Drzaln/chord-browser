@@ -27,6 +27,11 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
+      - name: Feature guard
+        # ADR 028: no existing test removed, emptied or disabled without a
+        # recorded reason. The same check prepush runs.
+        run: python3 scripts/feature-guard.py check
+
       - name: Select Xcode
         run: |
           set -euo pipefail

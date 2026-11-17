@@ -17,8 +17,9 @@ Run this whenever you pick up the project after time away:
 # 1. SDK check + build all packages + run all tests + build the app (warnings = errors)
 ./scripts/prepush.sh
 
-# 2. Verify test count hasn't regressed (expect 1036+, 2026-11-01)
-swift test --package-path Packages 2>&1 | grep "Test run with"
+# 2. Verify no test was removed, emptied or disabled (ADR 028; also prepush's
+#    second step). `update` after adding tests; `retire` needs a reason.
+./scripts/feature-guard.py check
 
 # 3. Check current schema version (should be v15)
 sqlite3 ~/Library/Application\ Support/Chord/chord.sqlite \
