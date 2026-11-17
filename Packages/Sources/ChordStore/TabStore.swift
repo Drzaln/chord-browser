@@ -638,6 +638,12 @@ public final class TabStore {
     /// history recording survive the title and `isLoading` arriving in separate
     /// snapshots. See `recordVisitIfSettled`.
     @ObservationIgnored var pendingHistoryURL: [UUID: URL] = [:]
+
+    /// The title and favicon a Little Chord panel's page has reported, by pane.
+    /// A pane in no tab has no model to write them to, so they wait here for
+    /// `promoteLittleChord`, which hands the live page to a tab without the
+    /// reload that would otherwise re-report them.
+    @ObservationIgnored var littleChordPages: [UUID: (title: String, favicon: Data?)] = [:]
     @ObservationIgnored var runtimes: [UUID: PaneRuntime] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
@@ -1764,6 +1770,7 @@ public final class TabStore {
             engine.forget(paneID: paneID)
             runtimes[paneID] = nil
             pendingHistoryURL[paneID] = nil
+            littleChordPages[paneID] = nil
         }
         forgetStateResolution(forPanes: paneIDs)
     }
@@ -2038,7 +2045,12 @@ extension TabStore: WebEngineDelegate {
         // an unconditional write here would redraw the tab list on every tick.
         guard let tabID = tabID(owning: paneID),
               let index = tabs.firstIndex(where: { $0.id == tabID })
-        else { return }
+        else {
+            if !snapshot.title.isEmpty, littleChordPages[paneID] != nil {
+                littleChordPages[paneID]?.title = snapshot.title
+            }
+            return
+        }
 
         // Compared on a read first: any mutating call through `tabs[index]`
         // notifies every reader of `tabs` — the whole sidebar — even when the
@@ -2109,10 +2121,13 @@ extension TabStore: WebEngineDelegate {
     }
 
     public func paneDidLoadFavicon(_ paneID: UUID, data: Data?) {
-        guard let data,
-              let tabID = tabID(owning: paneID),
+        guard let data else { return }
+        guard let tabID = tabID(owning: paneID),
               let index = tabs.firstIndex(where: { $0.id == tabID })
-        else { return }
+        else {
+            if littleChordPages[paneID] != nil { littleChordPages[paneID]?.favicon = data }
+            return
+        }
 
         var didChange = false
         tabs[index].updatePane(paneID) { pane in

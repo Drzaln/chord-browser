@@ -813,9 +813,13 @@ and the bar would otherwise crawl upward as you type.
   coordinates and accumulated deltas both make it run away from the cursor.
 - **Little Chord's page is an ordinary `Pane` that is in no `Tab`** — invisible to
   the sidebar, the sweep, and persistence. It uses the active Space's data
-  store, so a link arrives already logged in. Promotion reads the _current_ URL,
-  not the one it opened with, then tears the panel's view down: nothing else
-  refers to that pane, so it would otherwise outlive the app.
+  store, so a link arrives already logged in. Promotion hands the pane itself, id
+  and all, to a new tab (`insertTab`, as a `window.open()` popup is hosted), so
+  the tab shows the view the panel had and the page does not reload; the title
+  and icon the page reported while in no tab wait in `littleChordPages`. A
+  view is bound to its Space's data store, so promoting into a window on a
+  different Space still discards it and loads the _current_ URL afresh. Esc
+  tears the view down: nothing else refers to that pane.
 
 ### How drag-to-split works
 

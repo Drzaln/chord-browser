@@ -77,8 +77,8 @@ struct LittleChordTests {
         #expect(engine.spaceForPane[pane.id] == clickSpace.id)
     }
 
-    @Test("Promoting makes a real tab and lets the panel's view go")
-    func promoteCreatesTab() async {
+    @Test("Promoting hands the panel's live page to the tab instead of reloading it")
+    func promoteKeepsTheLiveView() async {
         let (store, engine) = makeStore()
         await store.restore()
         let before = store.tabs.count
@@ -92,8 +92,49 @@ struct LittleChordTests {
         #expect(store.tabs.count == before + 1)
         #expect(store.selectedTabID == tabID)
         #expect(store.selectedTab?.focusedPane.url == link)
-        // The panel's own view is torn down: nothing refers to that pane now,
-        // so it would otherwise live as long as the app.
+        // The tab is the panel's pane, still on the view the panel was showing:
+        // a new pane would build a new view and load the page a second time.
+        #expect(store.selectedTab?.focusedPaneID == pane.id)
+        #expect(engine.hasLiveView(paneID: pane.id))
+        #expect(engine.createdPanes == [pane.id])
+    }
+
+    @Test("A promoted tab keeps the title and icon the page reported in the panel")
+    func promoteCarriesTitleAndFavicon() async {
+        let (store, engine) = makeStore()
+        await store.restore()
+
+        let pane = store.makeLittleChordPane(url: link)
+        _ = store.littleChordSurface(for: pane)
+        // Reported while the pane was in no tab; with no reload after promoting,
+        // the page will not report them again.
+        engine.emit(PaneSnapshot(url: link, title: "From another app", isLoading: false), for: pane.id)
+        let icon = Data([1, 2, 3])
+        engine.emitFavicon(icon, for: pane.id)
+
+        store.promoteLittleChord(pane)
+
+        #expect(store.selectedTab?.focusedPane.title == "From another app")
+        #expect(store.selectedTab?.focusedPane.faviconData == icon)
+    }
+
+    @Test("Promoting into a window on another Space builds a fresh view there")
+    func promoteAcrossSpacesRebuilds() async {
+        let (store, engine) = makeStore()
+        await store.restore()
+
+        let pane = store.makeLittleChordPane(url: link)
+        _ = store.littleChordSurface(for: pane)
+        // The window moves on to another Space while the panel is up. The
+        // panel's view is bound to the first Space's data store, so it must not
+        // follow the tab into this one.
+        let other = store.addSpace(name: "Work")
+        #expect(store.activeSpaceID == other.id)
+
+        store.promoteLittleChord(pane)
+
+        #expect(store.selectedTab?.spaceID == other.id)
+        #expect(store.selectedTab?.focusedPaneID != pane.id)
         #expect(!engine.hasLiveView(paneID: pane.id))
     }
 

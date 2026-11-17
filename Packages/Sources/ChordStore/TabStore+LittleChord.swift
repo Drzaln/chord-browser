@@ -19,6 +19,7 @@ extension TabStore {
         // Nothing is stored for it, so do not withhold its surface for a disk
         // read that can only come back empty.
         markInteractionStateResolved(pane.id)
+        littleChordPages[pane.id] = (title: "", favicon: nil)
         return pane
     }
 
@@ -41,20 +42,45 @@ extension TabStore {
 
     /// `Cmd+O` — promote the panel into a real tab in the active Space (4.6).
     ///
-    /// Takes the URL the panel has actually navigated to, not the one it opened
-    /// with: following a couple of links and then promoting should keep where
-    /// you got to.
+    /// The tab takes the panel's pane, id and all, so it surfaces the web view
+    /// the panel was showing: the page carries on where it was — scroll, form
+    /// contents, playback — instead of loading again. Same hand-over a
+    /// `window.open()` popup gets (`paneRequestedPopup`).
+    ///
+    /// Only within one Space, though. A view is bound to the data store of the
+    /// Space it was built in, so a panel promoted into a window showing a
+    /// different Space gets a fresh view there and the page does reload.
     @discardableResult
     public func promoteLittleChord(_ pane: Pane, in window: WindowState) -> UUID? {
+        // Where the panel has navigated to, not where it opened: following a
+        // couple of links and then promoting should keep where you got to.
         let url = runtime(for: pane.id).currentURL ?? pane.url
 
-        // The panel's own web view belongs to the panel. The new tab builds its
-        // own, in the same Space — cheaper than trying to re-parent a live view
-        // across two window hierarchies.
-        discardLittleChord(pane)
+        guard engine.hasLiveView(paneID: pane.id),
+              let spaceID = engine.spaceID(forPane: pane.id),
+              spaceID == activeSpace(in: window)?.id
+        else {
+            discardLittleChord(pane)
+            newTab(url: url, in: window)
+            return window.selectedTabID
+        }
 
-        newTab(url: url, in: window)
-        return window.selectedTabID
+        // The page reported its title and icon while it was in no tab, and it
+        // will not report them again without a load.
+        let page = littleChordPages.removeValue(forKey: pane.id)
+        let title = page?.title ?? ""
+        let adopted = Pane(id: pane.id, url: url, title: title, faviconData: page?.favicon)
+        let tabID = insertTab(panes: [adopted], in: window, selecting: true)
+
+        // Nor will it settle again, which is when a visit is recorded. A page
+        // still loading records itself the usual way once it finishes.
+        let isLoading = runtime(for: pane.id).isLoading
+        if isLoading || title.isEmpty {
+            pendingHistoryURL[pane.id] = url
+        } else {
+            recordVisit(url: url, title: title, spaceID: spaceID)
+        }
+        return tabID
     }
 
     /// Esc, or the panel closing. Tears the web view down: nothing else refers

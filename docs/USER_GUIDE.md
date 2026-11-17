@@ -529,7 +529,7 @@ normally. There is no app-side fix; it may change in a future macOS.
 Click any link inside a **Favourite** or **Pinned** tab and instead of moving the
 protected page away, the link opens in a small floating panel — already logged in
 to whatever that Space is logged in to. It's a glance: press **⌘O** to promote it
-into a real tab, or **Esc** to dismiss it. A link clicked in an ordinary
+into a real tab — the page carries on where it was, without reloading — or **Esc** to dismiss it. A link clicked in an ordinary
 (ephemeral) tab still navigates that tab as usual. (This is distinct from Little
 Chord, which opens an external link in a full floating window.)
 

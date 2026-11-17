@@ -675,6 +675,8 @@ cannot stage an AppKit drag session. Use `dm:` between `dd:` and `du:`.
 - [ ] Opening a second link replaces the first panel rather than stacking
 - [ ] The scale-and-fade entry reads well, and Reduce Motion skips it
 - [ ] Browsing inside the panel and _then_ promoting keeps where you got to
+- [ ] Promoting does not reload the page: scroll position, typed text and a
+      playing video carry over, and the tab has its title and icon at once
 
 ### Sites — routing rules & site overrides (2026-10-23)
 
