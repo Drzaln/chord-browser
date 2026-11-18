@@ -350,6 +350,50 @@ struct PinnedTests {
         #expect(!engine.hasLiveView(paneID: closed.focusedPaneID), "and no view is rebuilt")
     }
 
+    /// hcf, second report (2026-11-18): SwiftUI reused a pane card across a tab
+    /// swap, so the store was handed the **selected** tab together with the
+    /// previous tab's pane. The old gate checked only the tab, so the closed
+    /// favourite's pane passed and was rebuilt from saved state — the song
+    /// restarted from the beginning. The store must reject a pane that is not
+    /// actually part of the tab it names.
+    @Test("A stale pane cannot be rebuilt through the selected tab")
+    func stalePaneIsRejectedByTheSelectedTab() async throws {
+        let engine = FakeWebEngine()
+        let store = TabStore(
+            engine: engine,
+            repository: FakeTabRepository(stored: [
+                TabBuilder().url("https://music.example").pinned(order: 0).build(),
+            ]),
+            clock: FixedClock()
+        )
+        await store.restore()
+        let fav = try #require(store.pinnedTabs.first)
+        let loose = store.newTab(
+            url: URL(string: "https://social.example")!, in: store.primaryWindow
+        )
+        // Both tabs have shown a view this session, as in the live repro.
+        for id in [fav.id, loose] {
+            store.select(id)
+            let tab = try #require(store.tabs.first { $0.id == id })
+            _ = store.surface(for: tab.focusedPane, in: tab, shownIn: store.primaryWindow)
+        }
+
+        store.closeTab(fav.id)
+        #expect(store.selectedTabID == loose, "focus returns to the previous tab")
+
+        // The stale card's pair: the selected tab's identity, the closed
+        // favourite's pane. The pane no longer belongs to that tab.
+        let selected = try #require(store.tabs.first { $0.id == loose })
+        let surface = store.surface(
+            for: fav.focusedPane, in: selected, shownIn: store.primaryWindow
+        )
+        #expect(surface == nil, "a pane that is not part of the selected tab gets no surface")
+        #expect(
+            !engine.hasLiveView(paneID: fav.focusedPaneID),
+            "and the closed favourite's view is not rebuilt"
+        )
+    }
+
     @Test("Closing focused favourites follows Arc MRU and ends blank")
     func closingFocusedFavouriteGoesToPreviousActive() async {
         let store = await makeStore(stored: [

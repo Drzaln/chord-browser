@@ -1394,6 +1394,22 @@ public final class TabStore {
         let isReturningHome = tabs[index].placement.isBookmarked
         if !isReturningHome { captureInteractionState(forTab: tabID) }
 
+        // Move the selection off *before* the view goes. The selected-tab gate
+        // can then never pass for this tab while it has no live view — not even
+        // for a render triggered by the teardown itself, which is how a closed
+        // YouTube Music favourite got rebuilt and restarted its song (hcf, and
+        // its 2026-11-18 recurrence).
+        let wasSelected = window.selectedTabID == tabID
+        if wasSelected {
+            // The tab is unloaded but still listed, so it must not linger in
+            // the recency stack: otherwise a later close would hand focus back
+            // to a dead tile instead of the truly previous active tab (Arc MRU
+            // — the same purge the cross-window branch above and the removal
+            // path do).
+            window.selectionHistory.removeAll { $0 == tabID }
+            window.selectedTabID = nil
+        }
+
         for pane in tabs[index].panes {
             engine.evict(paneID: pane.id)
             runtimes[pane.id] = nil
@@ -1427,16 +1443,9 @@ public final class TabStore {
         }
 
         // Move the selection off the unloaded tab, but leave it in the sidebar.
-        if window.selectedTabID == tabID {
-            // The tab is unloaded but still listed, so it must not linger in the
-            // recency stack: otherwise a later close would hand focus back to a
-            // dead tile instead of the truly previous active tab (Arc MRU — the
-            // same purge the cross-window branch above and the removal path do).
-            window.selectionHistory.removeAll { $0 == tabID }
-            // Clear the selection before `select(_:)` so the unloaded tab is not
-            // re-recorded as the outgoing "previously active" tab and survives
-            // the purge it was just removed by.
-            window.selectedTabID = nil
+        // The selection was cleared before the teardown, so a render during it
+        // could not rebuild the page; only the landing spot is left to pick.
+        if wasSelected {
             // Arc hands focus to the previously active tab (Chrome/Firefox/Arc);
             // with the recency stack empty there is nothing worth focusing — a
             // section neighbour is a tile whose live view was just torn down —
@@ -1879,7 +1888,27 @@ public final class TabStore {
     /// re-attaches a view the pool still holds. Without this, closing a playing
     /// favourite evicted its view and the dying slot rebuilt it from the saved
     /// state, so the song restarted with no tab on screen (hcf).
+    ///
+    /// The *store* decides whether the pair is real, not the caller's copies.
+    /// A stale slot can hand us a pane that no longer belongs to the tab it
+    /// names — the pane of a closed split, or the pane the previous tab was
+    /// showing when SwiftUI reuses the card. The selected-tab test alone passed
+    /// such a pair whenever the named tab was the selected one, rebuilding an
+    /// evicted YouTube Music pane and restarting the song from the beginning
+    /// (the second report of hcf, 2026-11-18, log-confirmed: `evicted pane` and
+    /// `created web view for pane` back to back for the closed favourite).
     public func surface(for pane: Pane, in tab: Tab, shownIn window: WindowState) -> AnyWebSurface? {
+        guard let current = tabs.first(where: { $0.id == tab.id }),
+              current.panes.contains(where: { $0.id == pane.id })
+        else {
+            // A stale card: the pane left this tab (closed split), the tab is
+            // gone, or SwiftUI paired the selected tab with the previous tab's
+            // pane. Named in the log so a recurrence is traceable to its caller.
+            Log.store.debug(
+                "surface refused: pane \(pane.id) is not in tab \(tab.id)"
+            )
+            return nil
+        }
         guard window.selectedTabID == tab.id || hasLiveView(paneID: pane.id) else { return nil }
         return surface(for: pane, in: tab)
     }

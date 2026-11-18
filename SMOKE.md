@@ -45,6 +45,10 @@ distribution.
 - [x] Closing a favourite that is playing audio (YouTube Music) after visiting
       another tab stops it for good — the song does not restart with no tab
       on screen (hcf, 2026-11-03)
+- [x] Close that playing favourite, then open another tab (`Cmd+T`) or switch
+      Space: the song does **not** restart — the closed favourite is not
+      revived by the new tab's render (hcf recurrence, 2026-11-18; verified
+      in the Debug build)
 - [ ] Quit (`Cmd+Q`) with that blank window, relaunch: it comes back **still
       blank with the command bar offered**, not reviving a tab (Arc behaviour,
       2026-09-17)

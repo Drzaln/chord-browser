@@ -1002,6 +1002,7 @@
     "ChordStoreTests/PinnedTests.swift::pinningMovesBetweenSections": 5,
     "ChordStoreTests/PinnedTests.swift::returnToPinnedHomeNavigatesBack": 3,
     "ChordStoreTests/PinnedTests.swift::splitsPinnedFromTheRest": 3,
+    "ChordStoreTests/PinnedTests.swift::stalePaneIsRejectedByTheSelectedTab": 6,
     "ChordStoreTests/PinnedTests.swift::threeTiersPartitionTheSpace": 4,
     "ChordStoreTests/PinnedTests.swift::updatePinnedHomeUsesCurrentURL": 4,
     "ChordStoreTests/PreferencesTests.swift::blankNewTab": 1,

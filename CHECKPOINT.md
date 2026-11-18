@@ -5700,3 +5700,32 @@ capture call is in flight. `PaneUIDelegateTests` (3) covers it.
 again in the rebuilt app. Extension popups, panels and
 offscreen pages still answer `1`/`0` themselves, so an extension recording
 through them is still screens only; untouched here.
+
+## Closed favourite restarts its music when another tab is opened (2026-11-18, hcf recurrence, bead `1ha`)
+
+The 2026-11-03 hcf fix held for the slot that was selected when the close
+happened, but not for the next render. Repro on 1.27.2: play YouTube Music in
+the Personal favourite, `Cmd+W`, then open another tab / switch Space — the
+song plays again from the beginning.
+
+The log made it unambiguous: every close evicted pane `FF3BCC2F` and the same
+pane was created again immediately (`evicted pane … 2 live` → `perf web-view
+tab` → `created web view for pane FF3BCC2F … 3 live`), including while the
+new tab was selected. `TabStore.surface(for:in:shownIn:)` gated only on the
+**tab** being the window's selection; SwiftUI can hand a reused pane card the
+selected tab together with the previous tab's pane, so the old hcf guard
+passed and rebuilt the evicted favourite from saved state.
+
+Fix (`TabStore`):
+- `surface(for:in:shownIn:)` now verifies the pair against the model — the tab
+  still exists and actually contains the pane. A stale pane is refused and
+  logged (`surface refused: pane … is not in tab …`).
+- `unloadTab` clears the selection **before** tearing the view down, so a
+  render triggered by the teardown cannot pass the selected-tab gate either.
+  Landing spot and blank behaviour are unchanged.
+
+Tests: `PinnedTests.stalePaneIsRejectedByTheSelectedTab` (new) and the original
+`closedFavouriteIsNotRevivedByItsSlot`; Pinned/Space/MultiWindow/KeyboardTab/
+SplitView suites green, full prepush green (1,277). **Verified live** by the
+user on 2026-11-18 in the Debug build: play YTM, close it, open another tab or
+switch Space — no restart.
